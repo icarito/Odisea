@@ -1027,6 +1027,15 @@ $GODOT_HEAD_INCLUDE
 		}
 
 		function proceedWithBoot() {
+			// Repro/diagnostico: ?replay=<url> corre un input replay del juego por
+			// HTTP (mismo origen). SessionManager lo baja a user:// y lo reproduce
+			// por el camino de siempre (--replay-url).
+			var replayUrl = params.get('replay');
+			if (replayUrl) {
+				console.log("[ODiSEA] Replay mode detected:", replayUrl);
+				engineConfig.args = engineConfig.args || [];
+				engineConfig.args.push("--replay-url", replayUrl);
+			}
 			if (runbinUrl) {
 				console.log("[ODiSEA] Runbin mode detected:", runbinUrl);
 			loreEl.textContent = "Descargando captura de rendimiento...";

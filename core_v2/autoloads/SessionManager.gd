@@ -291,7 +291,7 @@ func _find_player():
 		# print("[SessionManager] _find_player: No se encontró al jugador.")
 		pass
 	player = null
-	
+
 func _is_player_candidate_valid(p) -> bool:
 	if not is_instance_valid(p):
 		return false
@@ -681,6 +681,14 @@ func _ready():
 			# En su lugar, nos conectamos a la señal 'tree_changed'.
 			# Se disparará cuando la escena principal se cargue, y entonces ejecutaremos el replay.
 			get_tree().connect("tree_changed", self , "_on_tree_changed_for_replay", [replay_path], CONNECT_ONESHOT)
+			return
+
+		if arg == "--replay-url" and i + 1 < args.size():
+			is_cli_mode = true
+			# Web: el replay llega por HTTP (mismo origen que el juego) porque no
+			# viaja dentro del pck. Descargamos a user:// y reusamos el camino
+			# de --replay sin cambios. En desktop funciona igual (HTTPRequest).
+			get_tree().connect("tree_changed", self , "_on_tree_changed_for_replay_url", [args[i + 1]], CONNECT_ONESHOT)
 			return
 		
 		if arg == "--run-script" and i + 1 < args.size():
@@ -1367,7 +1375,7 @@ func _connect_teleport_system():
 
 	# (Conexión de señales eliminada: ahora se realiza solo en _ready() de TeleportSystem)
 
-	
+
 	# Capturar el mouse solo si no estamos en un entorno de test.
 	# Hacemos la llamada de forma segura para evitar un error de compilación
 	# cuando GdUnit3 no está presente (ej. en una ejecución normal).
@@ -1430,6 +1438,98 @@ func _on_tree_changed_for_replay(replay_path: String, export_video = false):
 	if player:
 		player.is_replay_mode = true
 	load_and_play(replay_path)
+
+func _on_tree_changed_for_replay_url(replay_url: String):
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "idle_frame")
+
+	print("[SessionManager] _on_tree_changed_for_replay_url called! url=", replay_url)
+
+	var http := HTTPRequest.new()
+	http.timeout = 30
+	add_child(http)
+	var err := http.request(replay_url)
+	if err != OK:
+		printerr("[SessionManager] --replay-url: fallo al iniciar la descarga (", err, "): ", replay_url)
+		get_tree().quit(1)
+		return
+	var result: Array = yield(http, "request_completed")
+	http.queue_free()
+	if result[0] != HTTPRequest.RESULT_SUCCESS or result[1] != 200:
+		printerr("[SessionManager] --replay-url: descarga fallida result=", result[0], " http=", result[1], " url=", replay_url)
+		get_tree().quit(1)
+		return
+	var body: PoolByteArray = result[3]
+	var target := "user://odisea_replay_fetch.json"
+	var f := File.new()
+	if f.open(target, File.WRITE) != OK:
+		printerr("[SessionManager] --replay-url: no se pudo escribir ", target)
+		get_tree().quit(1)
+		return
+	f.store_buffer(body)
+	f.close()
+	print("[SessionManager] replay descargado: ", replay_url, " -> ", target, " (", body.size(), " bytes)")
+
+	# La descarga termina durante el boot: el Menu puede estar prefetching la escena
+	# del replay con load_interactive, y un load() concurrente falla con "already
+	# being loaded" dejando el buffer vacio. Esperamos (con tope) a que el recurso
+	# quede cacheado antes de arrancar.
+	var meta_scene := ""
+	var parsed := JSON.parse(body.get_string_from_utf8())
+	if typeof(parsed.result) == TYPE_DICTIONARY:
+		var meta: Dictionary = parsed.result.get("meta", {})
+		meta_scene = String(meta.get("scene", ""))
+		if meta_scene == "":
+			meta_scene = String(meta.get("scene_path", ""))
+	if meta_scene != "":
+		# El Menu arranca un preload interactivo de la escena del replay y un load()
+		# concurrente falla con "already being loaded" dejando el buffer vacio.
+		# Esperamos a que el preload de SceneManager termine y el recurso quede
+		# cacheado (tope ~5 min: en web la carga es lenta).
+		var scene_manager := get_node_or_null("/root/SceneManager")
+		var waited := 0
+		while waited < 18000:
+			var preloading := false
+			if scene_manager != null and scene_manager.has_method("is_scene_preloading"):
+				preloading = bool(scene_manager.is_scene_preloading(meta_scene))
+			var preloaded := false
+			if scene_manager != null and scene_manager.has_method("has_preloaded_scene"):
+				preloaded = bool(scene_manager.has_preloaded_scene(meta_scene))
+			if preloaded or ResourceLoader.has_cached(meta_scene):
+				break
+			if not preloading and waited > 600:
+				# El preload no esta en curso ni quedo cacheado: probamos igual.
+				break
+			yield (get_tree(), "physics_frame")
+			waited += 1
+		print("[SessionManager] --replay-url: escena del replay cache=", ResourceLoader.has_cached(meta_scene), " frames=", waited)
+
+	_find_player()
+	if player:
+		player.is_replay_mode = true
+	# Reintento paciente: si el prefetch sigue en curso, load_and_play falla sin
+	# player y el buffer queda vacio; esperamos y volvemos a intentar (en web el
+	# arranque entero puede tardar minutos).
+	for attempt in range(30):
+		var run_state = load_and_play(target)
+		if run_state is GDScriptFunctionState:
+			# El primer tramo asincrono de load_and_play sigue por su cuenta;
+			# solo nos interesa detectar el arranque via buffer.
+			pass
+		var started := false
+		for _i in range(600):
+			if _replay_input_buffer.size() > 0:
+				started = true
+				break
+			yield (get_tree(), "physics_frame")
+		if started:
+			print("[SessionManager] --replay-url: replay iniciado (intento ", attempt + 1, ")")
+			return
+		print("[SessionManager] --replay-url: buffer vacio tras intento ", attempt + 1, "; reintento")
+		for _i in range(60):
+			yield (get_tree(), "physics_frame")
+	printerr("[SessionManager] --replay-url: no se pudo iniciar el replay tras los reintentos")
+	get_tree().quit(1)
 
 func _on_tree_changed_for_script(script_path: String):
 	yield (get_tree(), "idle_frame")
