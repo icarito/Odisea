@@ -1,0 +1,32 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://shaders/floor_joints_aa.shader" type="Shader" id=1]
+
+; Piso de RingHub — juntas emisivas con AA por cobertura (capa fina sobre el piso).
+;
+; Reemplaza a RingHub_Floor_joints.tres en desktop (la eleccion por tier la hace
+; RingHubFloorMaterial.gd). Los colores reproducen el look del .tres clasico en
+; disco (ya bajado como primer escalon anti-moire): albedo (0.45, 0.52, 0.59) +
+; emision (0.03, 0.06, 0.08); ROUGHNESS 0.8 va fijo en el shader. El resto del
+; look nuevo vive en el alpha: coverage por fwidth de la posicion mundial (lineas
+; sub-pixel se atenuan: mata el moire) + distance fade.
+;
+; El alpha apaga TAMBIEN la emision (viaja dentro del mix): en DARK la junta lejana
+; se desvanece completa, sin brillos sueltos sobre el piso.
+;
+; En low-end este material NO se usa: en modo flat (UNSHADED=3) el gate aplanaria
+; el ShaderMaterial a un FlatFake con color de paleta (pierde el look) y en modo
+; unshaded (UNSHADED=2) quedaria sombreado en un mundo unshaded (apagado en DARK).
+; A/B con ODISEA_RINGHUB_FLOOR_VARIANT=desktop en el handheld: sirve para el
+; moire, pero las juntas quedan lit en un mundo unshaded (el gate no toca
+; ShaderMaterial en modo 2), no comparar brillo contra el flat.
+[resource]
+resource_name = "M_RingHubFloor_joints_aa"
+shader = ExtResource( 1 )
+shader_param/line_color = Color( 0.45, 0.52, 0.59, 1 )
+shader_param/emission_color = Color( 0.03, 0.06, 0.08, 1 )
+shader_param/line_opacity = 1.0
+shader_param/joint_width_m = 0.06
+shader_param/coverage_threshold_px = 4.0
+shader_param/fade_min_distance = 60.0
+shader_param/fade_max_distance = 120.0

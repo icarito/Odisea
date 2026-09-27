@@ -12,18 +12,25 @@
 ; La emision es DELIBERADAMENTE baja: en el camino plano el gate (GLES3VendorGate)
 ; convierte un SpatialMaterial emisivo a su FlatFake con glow = clamp(max(em)*4,
 ; 0.25, 1) y sin promediar textura (ver _flat_material, "tinte emisivo del bake").
-; Con max(em)=0.13 => glow 0.52. En flat el glow se atenua con world_light/glow_floor
+; Con max(em)=0.08 => glow 0.32. En flat el glow se atenua con world_light/glow_floor
 ; del estado: DARK (0.02/0.05) deja la junta tenue pero legible sobre el piso casi
 ; negro; LIT (0.9/0.35) la sostiene apenas por encima del piso, sin neon. En modo
 ; unshaded (ODISEA_UNSHADED=2) la emision se ignora pero el albedo se mantiene, asi
 ; que la linea sigue visible. El albedo es un gris-azul frio y CLARO respecto al
 ; piso: aun sin luz (unshaded) se lee la junta sobre el piso texturado, y en flat
 ; LIT/FlatFake queda por encima del color promedio del piso.
+;
+; Anti-moire (T10, ronda 5): a distancia o angulo rasante la linea de 6 cm queda
+; sub-pixel y la rasterizacion aliasa (moire). Bajar el contraste de la linea vs
+; el piso reduce el artefacto sin tocar geometria ni agregar shader: albedo bajado
+; de (0.52, 0.6, 0.68) a (0.45, 0.52, 0.59) y emision de max 0.13 a 0.08 (glow flat
+; 0.52 -> 0.32). Si el moire persiste, el siguiente escalon es el shader de juntas
+; con fwidth + distance fade (idea de Sebastian, doc sesion 2026-09-26 T10).
 [resource]
 resource_name = "M_RingHubFloor_joints"
-albedo_color = Color( 0.52, 0.6, 0.68, 1 )
+albedo_color = Color( 0.45, 0.52, 0.59, 1 )
 emission_enabled = true
-emission = Color( 0.05, 0.1, 0.13, 1 )
+emission = Color( 0.03, 0.06, 0.08, 1 )
 emission_energy = 1.0
 metallic = 0.0
 roughness = 0.8
