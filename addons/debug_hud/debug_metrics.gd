@@ -18,7 +18,7 @@ const MAX_LOGS := 2000
 const FRT_SERIES := ["gpu", "frt_frame", "frt_idle", "frt_phys", "frt_phys_sum",
 	"frt_steps", "frt_render", "frt_sync", "frt_other", "frt_fps"]
 
-const MB := 0.0009765625 # 1/1024/1024
+const MB := 1.0 / 1048576.0 # bytes -> MiB (antes 1/1024: mostraba KB rotulados MB)
 
 # [nombre, monitor, escala] (la escala deja el valor en la unidad que se grafica).
 var MONITORS := []
