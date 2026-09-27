@@ -10,8 +10,13 @@ Usar siempre el fork con Box3D:
 tools/godot            # wrapper: ejecuta lo que resuelve tools/godot_bin.sh
 ```
 
-`tools/godot_bin.sh` imprime la ruta del editor construido del fork (y lo reconstruye
-si el fork cambio). Nunca `godot3-bin`: es el 3.6.2 stock, sin Box3D (cae a Bullet en
+`tools/godot_bin.sh` imprime la ruta del binario del fork: por defecto el del release
+pinneado en `.github/box3d_release` (se baja una vez a `~/.cache/odisea-godot/<tag>/`).
+Para probar cambios de motor todavía sin release: `ODISEA_ENGINE=fork tools/godot ...`
+construye el editor del checkout local del fork (`scripts/build.sh editor`, en el árbol
+`../godot`, con caché de scons en `~/.cache/scons-godot3`) y lo reconstruye si el fork
+cambió. Para pasar Odisea a un motor nuevo: taggear `v*` en el fork (el CI publica los
+binarios) y actualizar `.github/box3d_release`. Nunca `godot3-bin`: es el 3.6.2 stock, sin Box3D (cae a Bullet en
 silencio), no exporta Android y borra settings de `project.godot`. Tampoco `godot`, que
 puede ser Godot 4. VSCode (`godotTools.editorPath.godot3`), el `GODOT` del Makefile y el
 hook pre-push ya apuntan a `tools/godot`.

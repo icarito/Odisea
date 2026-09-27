@@ -74,9 +74,13 @@ Consecuencias prácticas:
 - Usar `_nombre` para miembros de uso interno (no hay private/protected).
 
 > [!IMPORTANT] BINARIO DE GODOT
-> Todos los scripts del repo resuelven el binario vía `tools/godot_bin.sh`. Las herramientas
-> gráficas usan el último editor compilado del fork; `runtest.sh` pide el binario **headless
-> `platform=server` del release pinneado en `.github/box3d_release`**, exactamente el de CI.
+> Todos los scripts del repo resuelven el binario vía `tools/godot_bin.sh`. **Por defecto usa el
+> release del fork pinneado en `.github/box3d_release`** (editor si hay display, headless
+> `platform=server` si no; `runtest.sh` siempre headless), bajado a `~/.cache/odisea-godot/<tag>/`:
+> exactamente el de CI, y cambiar de rama en el fork no recompila nada. Motor sin publicar:
+> `ODISEA_ENGINE=fork` construye el editor del checkout local (lento la primera vez; con caché de
+> scons). Actualizar el motor = subir el tag en `.github/box3d_release`. Cómo funciona el fork
+> (parches, árboles del motor, caché): `docs/local-build-workflow.md` en `godot-box3d-3`.
 > El 3.6.2 upstream no los conoce y puede pisar `project.godot` al guardar: no usar nunca para tests,
 > imports ni edición. Override manual: `ODISEA_GODOT_BIN=...` (o `GODOT_BIN=...` en los scripts).
 > El comando `godot` puede apuntar a Godot 4 y causará errores de sintaxis (`yield` vs `await`).

@@ -28,7 +28,8 @@ All paths below are relative to the repo root (`src/`). The driver lives at
 ## Prerequisites
 
 ```bash
-# Always the Box3D fork: tools/godot runs what tools/godot_bin.sh resolves (and rebuilds).
+# Always the Box3D fork: tools/godot runs what tools/godot_bin.sh resolves (the pinned release;
+# ODISEA_ENGINE=fork builds the local fork checkout instead).
 # NEVER godot3-bin: stock 3.6.2, no Box3D, cannot export Android, strips project.godot settings.
 tools/godot --version   # expect: 3.6.4.rc.custom_build...
 ```
