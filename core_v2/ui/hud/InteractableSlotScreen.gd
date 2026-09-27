@@ -46,6 +46,19 @@ func screen_icon() -> Texture:
 func relevance(_context: Dictionary = {}) -> float:
 	return 0.0
 
+func signal_strength(context: Dictionary = {}) -> float:
+	if not is_valid():
+		return 0.0
+	if _target.has_method("get_hud_signal_strength"):
+		return float(_target.call("get_hud_signal_strength", context))
+	if context.has("player_position") and _target is Spatial:
+		var pos: Vector3 = context.get("player_position", Vector3.ZERO)
+		var max_dist: float = float(context.get("max_distance", 3.0))
+		if max_dist > 0.0:
+			var dist: float = (_target as Spatial).global_transform.origin.distance_to(pos)
+			return clamp(1.0 - (dist / max_dist), 0.0, 1.0)
+	return 1.0
+
 func allowed_actions() -> Array:
 	return ["interact"]
 
@@ -60,6 +73,7 @@ func widget_snapshot() -> Dictionary:
 		"active": _is_active(),
 		"focused": false,
 		"source": "interactable" if is_valid() else "offline",
+		"signal_strength": signal_strength(),
 	}
 
 func hud_gamepad_actions() -> Array:

@@ -14,6 +14,7 @@ var _context_showing := false
 var _context_last_text := ""
 var _context_last_title := ""
 var _context_last_description := ""
+var _context_last_signal_strength := 1.0
 var _manual_text := ""
 var _status_text := ""
 var _manual_expires_at := 0.0
@@ -182,10 +183,38 @@ func _update_context_widget(text: String, _visible_mode: String) -> void:
 			description = String(_interaction_source.interaction_description)
 		if "interaction_icon" in _interaction_source and _interaction_source.interaction_icon is Texture:
 			icon = _interaction_source.interaction_icon
+	var signal_strength: float = 1.0
+	var player = _find_player()
+	if is_instance_valid(_interaction_source):
+		if _interaction_source.has_method("get_hud_signal_strength"):
+			signal_strength = float(_interaction_source.call("get_hud_signal_strength", {}))
+		elif player != null and _interaction_source is Spatial:
+			var ppos: Vector3 = player.global_transform.origin
+			var spos: Vector3 = (_interaction_source as Spatial).global_transform.origin
+			var dist: float = spos.distance_to(ppos)
+			var max_dist: float = 3.0
+			if "interaction_distance" in _interaction_source:
+				max_dist = float(_interaction_source.get("interaction_distance"))
+			elif "max_interaction_distance" in _interaction_source:
+				max_dist = float(_interaction_source.get("max_interaction_distance"))
+			if max_dist > 0.0:
+				signal_strength = clamp(1.0 - (dist / max_dist), 0.0, 1.0)
+
 	if _context_showing and text == _context_last_text and title == _context_last_title \
-			and description == _context_last_description:
+			and description == _context_last_description \
+			and abs(signal_strength - _context_last_signal_strength) < 0.01:
 		return
-	var snapshot := {"title": title, "action": text, "description": description}
+
+	var snapshot := {
+		"title": title,
+		"action": text,
+		"description": description,
+		"signal_strength": signal_strength,
+	}
+	if signal_strength <= 0.0 and is_instance_valid(_interaction_source):
+		snapshot["out_of_range"] = true
+		snapshot["status"] = "FUERA_DE_RANGO"
+
 	if icon != null:
 		snapshot["icon"] = icon
 	if is_instance_valid(_interaction_source):
@@ -197,6 +226,7 @@ func _update_context_widget(text: String, _visible_mode: String) -> void:
 		_context_last_text = text
 		_context_last_title = title
 		_context_last_description = description
+		_context_last_signal_strength = signal_strength
 	else:
 		_context_showing = false
 

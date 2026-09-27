@@ -10,6 +10,7 @@ export(String) var hud_screen_id = ""
 export(String) var hud_screen_title = ""
 export(Texture) var hud_screen_icon = null
 export(float) var default_relevance = 0.0
+export(float) var default_signal_strength = 1.0
 export(Array, String) var allowed_actions_list = []
 
 signal state_changed()
@@ -72,6 +73,18 @@ func relevance(context: Dictionary = {}) -> float:
 		return float(parent.get_hud_relevance(context))
 	return default_relevance
 
+func signal_strength(context: Dictionary = {}) -> float:
+	var parent = get_parent()
+	if is_instance_valid(parent) and parent.has_method("get_hud_signal_strength"):
+		return float(parent.get_hud_signal_strength(context))
+	if context.has("player_position") and is_instance_valid(parent) and parent is Spatial:
+		var pos: Vector3 = context.get("player_position", Vector3.ZERO)
+		var max_dist: float = float(context.get("max_distance", 3.0))
+		if max_dist > 0.0:
+			var dist: float = (parent as Spatial).global_transform.origin.distance_to(pos)
+			return clamp(1.0 - (dist / max_dist), 0.0, 1.0)
+	return default_signal_strength
+
 # FD-304 §4: que hace cada boton de cara con esta pantalla abierta. Vacio (el default) = sin
 # cambio de comportamiento: el overlay cae a la navegacion por foco de la GUI que ya existe.
 # Cada entrada: { "button": "a"|"b"|"x"|"y", "op": String, "label": String,
@@ -115,7 +128,8 @@ func widget_snapshot() -> Dictionary:
 		"proto": 1,
 		"id": screen_id(),
 		"title": screen_title(),
-		"source": "online"
+		"source": "online",
+		"signal_strength": signal_strength()
 	}
 
 func notify_state_changed() -> void:

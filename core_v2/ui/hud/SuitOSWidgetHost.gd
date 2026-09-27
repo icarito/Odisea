@@ -524,21 +524,10 @@ func show_context(snapshot: Dictionary) -> bool:
 		get_widget_root().add_child(_context_widget)
 		_make_context_tappable(_context_widget)
 	_context_target = snapshot.get("interactable", null) if is_instance_valid(snapshot.get("interactable", null)) else null
-	var title = _context_widget.get_node_or_null("Row/VBox/Title")
-	if title is Label:
-		(title as Label).text = String(snapshot.get("title", ""))
-	var description = _context_widget.get_node_or_null("Row/VBox/Description")
-	if description is Label:
-		var dtext := String(snapshot.get("description", ""))
-		(description as Label).text = dtext
-		(description as Label).visible = not dtext.empty()
-	var icon = _context_widget.get_node_or_null("Row/Icon/Texture")
-	if icon is TextureRect:
-		var texture = snapshot.get("icon", null)
-		(icon as TextureRect).texture = texture if texture is Texture else null
-	var action = _context_widget.get_node_or_null("Row/VBox/Action")
-	if action is Label:
-		(action as Label).text = String(snapshot.get("action", ""))
+	if _context_widget.has_method("update_snapshot"):
+		_context_widget.update_snapshot(snapshot)
+	elif _context_widget.has_method("set_snapshot"):
+		_context_widget.set_snapshot(snapshot)
 	_place_context(_context_widget)
 	refresh_visibility()
 	return true
@@ -550,47 +539,10 @@ func clear_context() -> void:
 	refresh_visibility()
 
 func _build_context_widget() -> Control:
-	var panel := PanelContainer.new()
+	var panel = InteractableSlotWidgetScript.new()
 	panel.name = CONTEXT_WIDGET_NAME
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_stylebox_override("panel", _widget_panel_style())
-	var row := HBoxContainer.new()
-	row.name = "Row"
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_constant_override("separation", 8)
-	panel.add_child(row)
-	# Cuadrado del icono: 44x44 con marco. Si el prop no trae textura queda el marco vacio.
-	var icon_frame := Panel.new()
-	icon_frame.name = "Icon"
-	icon_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_frame.rect_min_size = CONTEXT_ICON_SIZE
-	icon_frame.add_stylebox_override("panel", _context_icon_style())
-	row.add_child(icon_frame)
-	var icon := TextureRect.new()
-	icon.name = "Texture"
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.expand = true
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.set_anchors_and_margins_preset(Control.PRESET_WIDE)
-	icon_frame.add_child(icon)
-	var box := VBoxContainer.new()
-	box.name = "VBox"
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(box)
-	var title := Label.new()
-	title.name = "Title"
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(title)
-	var description := Label.new()
-	description.name = "Description"
-	description.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	description.visible = false
-	box.add_child(description)
-	var action := Label.new()
-	action.name = "Action"
-	action.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(action)
 	return panel
 
 func _place_context(control: Control) -> void:
