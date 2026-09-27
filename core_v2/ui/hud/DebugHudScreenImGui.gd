@@ -10,6 +10,7 @@ extends ImGuiCanvas
 # tocarse; esta pantalla es local, como el overlay F1 (debug_hud_view.gd).
 
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
+const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 
 const DESIGN := Vector2(640.0, 460.0)
 const SERIES_LEN := 90 # ~45s a 2 Hz de resampleo (ver DebugMetrics), de sobra para ver tendencia
@@ -26,6 +27,7 @@ const CURVES := [
 
 var hud = null
 
+var title_font := -1
 var body_font := -1
 var small_font := -1
 
@@ -34,11 +36,15 @@ func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	set_update_hz(4.0) # metricas de sobra a menos de la mitad del framerate: no es un juego de reflejos
 	set_input_hz(15.0)
-	var ttf := "res://assets/fonts/Silkscreen-Regular.ttf"
-	body_font = add_font(ttf, 18.0)
-	small_font = add_font(ttf, 14.0)
-	if body_font >= 0:
-		set_default_font(body_font)
+	# "DIAGNOSTICO DE TRAJE" en Sixtyfour (rol titulo); resto (subtitulo, labels de
+	# curvas, tabla) a ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
+	var fonts := ImGuiOdiseaFonts.setup(self, 18.0, -1.0, 18.0)
+	title_font = fonts.title
+	body_font = fonts.body
+	small_font = ImGuiOdiseaFonts.add_body_size(self, 14.0)
+	set_default_font(body_font)
+	if small_font < 0:
+		small_font = body_font
 	connect("imgui_frame", self, "_on_imgui_frame")
 	connect("redrawn", self, "_on_redrawn")
 	request_redraw()
@@ -90,10 +96,10 @@ func _on_imgui_frame() -> void:
 
 func _header() -> void:
 	set_cursor_pos(Vector2(20, 14))
-	if body_font >= 0:
-		push_font(body_font)
+	if title_font >= 0:
+		push_font(title_font)
 	text_colored(OdiseaOSTheme.SUIT_ACCENT, "DIAGNÓSTICO DE TRAJE")
-	if body_font >= 0:
+	if title_font >= 0:
 		pop_font()
 	set_cursor_pos(Vector2(20, 38))
 	text_colored(OdiseaOSTheme.SUIT_DIM, "SISTEMAS")

@@ -25,10 +25,13 @@ const WARN := Color(1.0, 0.76, 0.32)
 # mano con _scale en cada imgui_frame.
 const DESIGN := Vector2(1024.0, 640.0)
 
+const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
+
 var screen_ui: Node = null
 
 var body_font := 0
 var big_font := 0
+var heading_font := 0
 var _time := 0.0
 var _scale := Vector2.ONE
 
@@ -42,13 +45,14 @@ func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS  # el pulso del ECG sigue vivo con el arbol pausado
 	set_update_hz(10.0)
 	set_input_hz(30.0)
-	var ttf := "res://assets/fonts/Silkscreen-Regular.ttf"
-	body_font = add_font(ttf, 20.0)
-	big_font = add_font(ttf, 56.0)
-	if body_font >= 0:
-		set_default_font(body_font)
-	if big_font < 0:
-		big_font = body_font
+	# Titulo Sixtyfour 36px (igual que CryoPodUI.HeadingFont); cuerpo/numeros a
+	# ProggyClean (default de ImGui) en el motor que lo soporte, Silkscreen si no -- ver
+	# ImGuiOdiseaFonts.gd. body=20 (rotulos), numbers=56 (BPM grande).
+	var fonts := ImGuiOdiseaFonts.setup(self, 20.0, 56.0, 36.0)
+	body_font = fonts.body
+	big_font = fonts.numbers
+	heading_font = fonts.title
+	set_default_font(body_font)
 	connect("imgui_frame", self, "_on_imgui_frame")
 	connect("redrawn", self, "_on_redrawn")
 	var vp = get_viewport()
@@ -158,30 +162,36 @@ func _on_imgui_frame() -> void:
 
 
 func _header() -> void:
+	# Titulo con HeadingFont (Sixtyfour 36px, igual que CryoPodUI.HeadingFont): una linea
+	# a 36px mide ~44px de alto, mas que los 28px de gap que tenia esta cabecera cuando
+	# todo iba en Silkscreen 20px -- las lineas de abajo (y _occupant()) se corrieron
+	# +20px para no solaparse (medido).
 	set_cursor_pos(_p(Vector2(28, 16)))
+	push_font(heading_font)
 	text_colored(_accent(), "CRIOCÁPSULA %02d · %s · %s · %s" % [
 		int(screen_ui.pod_number), String(screen_ui.occupant_name),
 		tr(String(screen_ui.occupant_role)), tr(String(screen_ui.occupant_status))])
-	set_cursor_pos(_p(Vector2(28, 44)))
+	pop_font()
+	set_cursor_pos(_p(Vector2(28, 60)))
 	text_colored(CYAN, "T+%d d · %s" % [int(screen_ui.hibernation_days), tr("HIBERNACIÓN NOMINAL")])
-	set_cursor_pos(_p(Vector2(28, 70)))
+	set_cursor_pos(_p(Vector2(28, 86)))
 	text_colored(DIM, "FD-307 · %s" % tr("TERMINAL MÉDICO"))
-	set_cursor_pos(_p(Vector2(28, 92)))
+	set_cursor_pos(_p(Vector2(28, 108)))
 	separator()
 
 
 func _occupant() -> void:
-	set_cursor_pos(_p(Vector2(28, 112)))
+	set_cursor_pos(_p(Vector2(28, 132)))
 	begin_child("##portrait", _p(Vector2(116, 146)))
 	set_cursor_pos(_p(Vector2(18, 62)))
 	text_colored(DIM, tr("SIN SEÑAL"))
 	end_child()
 
-	set_cursor_pos(_p(Vector2(164, 112)))
+	set_cursor_pos(_p(Vector2(164, 132)))
 	text_colored(_accent(), String(screen_ui.occupant_name))
-	set_cursor_pos(_p(Vector2(164, 138)))
+	set_cursor_pos(_p(Vector2(164, 158)))
 	text_colored(CYAN, tr(String(screen_ui.occupant_role)))
-	set_cursor_pos(_p(Vector2(164, 168)))
+	set_cursor_pos(_p(Vector2(164, 188)))
 	text_colored(OK if not bool(screen_ui.alarm) else WARN, tr(String(screen_ui.occupant_status)))
 
 

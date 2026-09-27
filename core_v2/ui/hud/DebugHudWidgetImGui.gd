@@ -8,18 +8,25 @@ extends ImGuiCanvas
 
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const HudViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
+const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 
 const PANEL_SIZE := Vector2(210.0, 72.0)
 
 var widget: Node = null # DebugHudWidget.gd
 
+var title_font := 0
+var body_font := 0
+
 
 func _ready() -> void:
 	set_update_hz(10.0)
 	set_input_hz(30.0)
-	var body_font := add_font("res://assets/fonts/Silkscreen-Regular.ttf", 14.0)
-	if body_font >= 0:
-		set_default_font(body_font)
+	# Igual criterio que FlashlightWidgetImGui: titulo ("SISTEMAS") en Sixtyfour, cuerpo
+	# a ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
+	var fonts := ImGuiOdiseaFonts.setup(self, 14.0, -1.0, 14.0)
+	title_font = fonts.title
+	body_font = fonts.body
+	set_default_font(body_font)
 	connect("imgui_frame", self, "_on_imgui_frame")
 	connect("redrawn", self, "_on_redrawn")
 	request_redraw()
@@ -59,7 +66,9 @@ func _on_imgui_frame() -> void:
 	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS | WINDOW_NO_BRING_TO_FRONT_ON_FOCUS
 	if begin("##debughud_widget", flags):
 		set_cursor_pos(Vector2(0, 0))
+		push_font(title_font)
 		text_colored(accent, "SISTEMAS")
+		pop_font()
 
 		if offline:
 			set_cursor_pos(Vector2(0, 18))

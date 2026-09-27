@@ -16,6 +16,7 @@ extends ImGuiCanvas
 # 1.0 (el default alto de la Criopod, 8.0, saturaba el rojo de STATE_ALARM aca).
 
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
+const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 
 const DESIGN := Vector2(480.0, 300.0)
 const BUTTON_POS := Vector2(22.0, 220.0)
@@ -23,6 +24,7 @@ const BUTTON_SIZE := Vector2(220.0, 46.0)
 
 var screen_ui: Node = null
 
+var title_font := -1
 var body_font := -1
 var big_font := -1
 var mid_font := -1
@@ -34,12 +36,14 @@ func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	set_update_hz(10.0)
 	set_input_hz(30.0)
-	var ttf := "res://assets/fonts/Silkscreen-Regular.ttf"
-	body_font = add_font(ttf, 20.0)
-	big_font = add_font(ttf, 36.0)
-	mid_font = add_font(ttf, 26.0)
-	if body_font >= 0:
-		set_default_font(body_font)
+	# "LINTERNA - CASCO" en Sixtyfour (rol titulo); cuerpo/estado grande/porcentaje a
+	# ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
+	var fonts := ImGuiOdiseaFonts.setup(self, 20.0, -1.0, 20.0)
+	title_font = fonts.title
+	body_font = fonts.body
+	big_font = ImGuiOdiseaFonts.add_body_size(self, 36.0)
+	mid_font = ImGuiOdiseaFonts.add_body_size(self, 26.0)
+	set_default_font(body_font)
 	if big_font < 0:
 		big_font = body_font
 	if mid_font < 0:
@@ -127,10 +131,10 @@ func _on_imgui_frame() -> void:
 		set_cursor_pos(Vector2(18, 16))
 		image(_white_tex, Vector2(12, 12), dot)
 		same_line(38.0)
-		if body_font >= 0:
-			push_font(body_font)
+		if title_font >= 0:
+			push_font(title_font)
 		text_colored(OdiseaOSTheme.SUIT_ACCENT, "LINTERNA - CASCO")
-		if body_font >= 0:
+		if title_font >= 0:
 			pop_font()
 		set_cursor_pos(Vector2(18, 40))
 		separator()

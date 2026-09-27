@@ -15,11 +15,14 @@ extends ImGuiCanvas
 
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const HudViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
+const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 
 const PANEL_SIZE := Vector2(210.0, 80.0)
 
 var widget: Node = null # FlashlightWidget.gd, fuente de snapshot()/toggle_action()
 
+var title_font := 0
+var body_font := 0
 var _white_tex: ImageTexture = null
 
 
@@ -41,9 +44,12 @@ static func _format_battery_bar(val: float, max_val: float) -> String:
 func _ready() -> void:
 	set_update_hz(10.0)
 	set_input_hz(30.0)
-	var body_font := add_font("res://assets/fonts/Silkscreen-Regular.ttf", 14.0)
-	if body_font >= 0:
-		set_default_font(body_font)
+	# Titulo ("Linterna") en Sixtyfour, igual escala que el resto del widget compacto;
+	# cuerpo (bateria/estado) a ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
+	var fonts := ImGuiOdiseaFonts.setup(self, 14.0, -1.0, 14.0)
+	title_font = fonts.title
+	body_font = fonts.body
+	set_default_font(body_font)
 	connect("imgui_frame", self, "_on_imgui_frame")
 	connect("redrawn", self, "_on_redrawn")
 	var image := Image.new()
@@ -113,7 +119,9 @@ func _on_imgui_frame() -> void:
 		# punto ocupa x en [0,8], asi que el offset tiene que superar 8 (medido en la
 		# pantalla de casco, mismo bug).
 		same_line(14.0)
+		push_font(title_font)
 		text_colored(OdiseaOSTheme.INK, title)
+		pop_font()
 
 		set_cursor_pos(Vector2(0, 18))
 		text_colored(meter_color, meter)
