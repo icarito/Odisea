@@ -5,7 +5,7 @@
 **Effort:** Medium
 **Created:** 2026-09-27
 **Parent:** FD-296 (OdiseaOS)
-**Relacionadas:** FD-310 (widget contextual de interactuables) · FD-312 (faltantes de la GUI) · FD-255 (maestro de sistemas) · FD-259 (energía auxiliar) · `feat/imgui-diegetic` (rama sin mergear)
+**Relacionadas:** FD-310 (widget contextual de interactuables) · FD-312 (faltantes de la GUI) · FD-255 (maestro de sistemas) · FD-259 (energía auxiliar) · FD-289 (canon del domo) · `feat/imgui-diegetic` (mergeada, PR #366)
 
 ---
 
@@ -19,11 +19,11 @@ infraestructura: se cuelga de OdiseaOS (FD-296) y extiende el widget contextual 
 
 Dos hechos que condicionan todo el reparto de tareas:
 
-1. **El render ImGui diegético ya existe, sin mergear.** La rama `feat/imgui-diegetic`
-   (~30 commits, `d6a5e151`) trae `ImGuiOdiseaTheme.gd` (tema cian monócromo), `ImGuiOdiseaFonts.gd`,
-   `CryoPodImGui.gd` (ECG de fósforo), `FlashlightScreenImGui.gd`, `DebugHud*ImGui` y el módulo
-   ImGui en el **engine v0.5.4-nightly2** (fork). El pin de `main` es v0.5.3 (sin módulo).
-   **No se rehace el render diegético**: primero se decide el destino de esa rama (ver D-1).
+1. **El render ImGui diegético ya está mergeado a `main`.** La rama `feat/imgui-diegetic`
+   (~30 commits) entró por PR #366 (merge `3f99f060`), trayendo `ImGuiOdiseaTheme.gd` (tema cian
+   monócromo), `ImGuiOdiseaFonts.gd`, `CryoPodImGui.gd` (ECG de fósforo), `FlashlightScreenImGui.gd`,
+   `DebugHud*ImGui` y el módulo ImGui en el engine. El pin de `main` ya es **v0.5.4-nightly2**
+   (`.github/box3d_release`). **No se rehace el render diegético**: ya está en `main` (D-1 resuelta).
 
 2. **ImPlot3D no está en el repo.** Hay ImPlot 2D usado (`ImPlot_*` en 8 `.gd` de la rama),
    pero **cero ocurrencias de ImPlot3D**. Si existe, vive en el fork del engine, no en el juego.
@@ -33,7 +33,29 @@ Dos hechos que condicionan todo el reparto de tareas:
    Pero su presencia es **binaria** (apuntando / no apuntando). Este FD le agrega la **degradación
    por distancia**.
 
+4. **⚠️ El merge de `imgui-diegetic` dejó rojos los Determinism Tests en `main`**
+   (run `36346428376`, headBranch `main`); el PR en su rama había pasado. Revisar si es flake o
+   regresión real antes de montar este FD encima.
+
 ---
+
+## Geografía del despertar (2026-09-27)
+
+Dónde vive el protocolo, según el consenso de diseño con Sebastián:
+
+- El fondo del **octágono** central de la torre (`ScaffoldHubTower`, 8 lados) es un **puerto de
+  plataformas on-demand**, no una puerta directa al hangar.
+- La **medbay** es la primera plataforma: emerge del pozo, se acopla al anillo, y Elías despierta
+  ahí — el tutorial de linterna y traje ocurre en ese espacio chico y controlado (bahía A).
+- **Escabullida = premio anticipado**: el elevador corre con respaldo (aux power, paso 1), así que
+  Elías baja con la plataforma **sin resolver el protocolo**; abajo ve el blast door rojo (exige las
+  4 redes, FD-289) y, junto a la esclusa, **ve el hangar** (cinta + cajas). Sabe por qué pelea.
+- El blast door central es la **esclusa al fondo del pozo**; el hangar (escena separada,
+  `PushableBoxV2` + `Conveyor`) queda **detrás** de esa esclusa.
+- **Dos energías**: aux (respaldo/batería, independiente) enciende luces y consolas primero; principal
+  (reactor) viene después de sellar el coolant. El intento de arrancar el reactor tras la aux es lo
+  que **revienta la costura** y revela la fuga (respeta FD-289: coolant antes que energía principal).
+- El **ducto** queda como **vía alternativa opcional** (backlog, no se construye en esta tanda).
 
 ## El modelo de tres ejes
 
@@ -150,7 +172,7 @@ siguen viniendo del snapshot.
 | `core_v2/systems/auxpower/` (AuxPowerBus, SealedDoorLock) | EXISTE | gate maestro del paso 1 |
 | `core_v2/systems/cryo/CoolantLeak.gd` + `props/pipe/PipeValve.gd` | EXISTE | paso 3 |
 | `core_v2/systems/atmosphere/PurgeDial.gd` | EXISTE | paso 5 |
-| rama `feat/imgui-diegetic` (ImGuiOdiseaTheme/Fonts, CryoPodImGui, FlashlightScreenImGui) | SIN mergear | render diegético; decidir destino primero (D-1) |
+| `feat/imgui-diegetic` (ImGuiOdiseaTheme/Fonts, CryoPodImGui, FlashlightScreenImGui) | MERGEADA (PR #366) | render diegético; pin del engine ya v0.5.4-nightly2 |
 | `core_v2/ui/hud/ProtocolOverlay.gd` | EXISTE (FD-312 P2-7) | ya soporta secuencias (`BtnClose`/`BtnNext`); pieza suelta |
 
 ---
@@ -159,7 +181,7 @@ siguen viniendo del snapshot.
 
 | # | Decisión | Por qué importa | Recomendación |
 |---|---|---|---|
-| D-1 | **Destino de `feat/imgui-diegetic`**: mergear, rebasear, o portar piezas sueltas. | Sin resolver esto, el reparto de tareas de render es ambiguo. | Mergear/rebasear a una rama de integración y hacer review por chunks; no rehacer. |
+| D-1 | ~~Destino de `feat/imgui-diegetic`~~ **RESUELTA**: mergeada a `main` (PR #366, `3f99f060`). | El render diegético queda libre para esta tanda. | ✅ Hecho — ver nota de determinism en §Contexto. |
 | D-2 | **ImPlot3D**: ¿existe en el fork del engine? | Si no, el "mapa 3D del domo" es un FD aparte. | Confirmar antes de prometerlo; mantenerlo fuera de esta tanda. |
 | D-3 | **Signo del eje de urgencia**: ¿quién lo eleva? | Define si la elevación es data o lógica. | Base en el prop + elevación por contexto; nunca por debajo de la base. |
 
@@ -170,7 +192,7 @@ siguen viniendo del snapshot.
 - ImPlot3D / mapa 3D del domo (F2, condicionado a D-2).
 - ImGui para pantallas de **consola de pared** (es otro canal, el diagnóstico de la nave, no el
   traje). Este FD es **solo el traje**.
-- Reescribir el render diegético de la rama `imgui-diegetic`.
+- Reescribir el render diegético (ya mergeado en PR #366).
 - i18n de los textos nuevos (se hereda del retrofit FD-303; los verbos viajan en es/EN y se
   traducen al dibujar).
 
@@ -195,7 +217,7 @@ siguen viniendo del snapshot.
 
 | # | Tarea | Ejecutor | Archivos | Aceptación | Depende de |
 |---|---|---|---|---|---|
-| 1 | Resolver D-1: integrar `imgui-diegetic` (review por chunks) | LOCAL/Sebastián | rama + engine pin | decisión de merge/rebase tomada | — |
+| 1 | ~~Resolver D-1~~ — `imgui-diegetic` ya mergeada a `main` (PR #366) | HECHO | — | render diegético disponible | — |
 | 2 | `SignalStrength` en `InteractableContextWidget` + contrato `signal_strength` en el snapshot | JULES | `InteractableContextWidget.gd`, `HUDableComponent.gd`, tests | flicker/fuera-de-rango legible; determinista | 1 |
 | 3 | Token de urgencia en `OdiseaOSTheme` (niveles `notice/urgent/alarm`) + contrato `urgency` | JULES | `OdiseaOSTheme.gd`, `HudWidget.gd`, tests | 4 niveles, ortogonales al color | — |
 | 4 | `ProtocolWidget` (checklist 6 pasos, 4 estados, un ACTIVO) + `ProtocolScreen` | JULES | `core_v2/ui/hud/ProtocolWidget.*`, `ProtocolScreen.*`, tests | secuencia correcta; verbo presente; determinista | 3 |
