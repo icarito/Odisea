@@ -17,6 +17,7 @@ extends ImGuiCanvas
 
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
+const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const DESIGN := Vector2(480.0, 300.0)
 const BUTTON_POS := Vector2(22.0, 220.0)
@@ -113,14 +114,7 @@ func _on_imgui_frame() -> void:
 	set_next_window_pos(Vector2.ZERO, true)
 	set_next_window_size(DESIGN, true)
 	push_style_var_vec2(STYLE_VAR_WINDOW_PADDING, Vector2.ZERO)
-	push_style_color(COL_WINDOW_BG, OdiseaOSTheme.SURFACE_PANEL)
-	push_style_color(COL_TEXT, OdiseaOSTheme.SUIT_ACCENT)
-	push_style_color(COL_BORDER, OdiseaOSTheme.SUIT_DIM)
-	push_style_color(COL_BUTTON, Color(0.06, 0.20, 0.26, 1.0))
-	push_style_color(COL_BUTTON_HOVERED, Color(0.10, 0.42, 0.52, 1.0))
-	push_style_color(COL_BUTTON_ACTIVE, Color(0.16, 0.56, 0.66, 1.0))
-	push_style_color(COL_PLOT_HISTOGRAM, state_color)
-	push_style_color(COL_SEPARATOR, OdiseaOSTheme.SUIT_DIM)
+	ImGuiOdiseaTheme.push_window(self, state_color)
 
 	if begin("##flashlight_screen", flags):
 		# Encabezado: punto de estado + titulo. same_line() mide el offset desde el
@@ -196,5 +190,5 @@ func _on_imgui_frame() -> void:
 			pop_font()
 	end()
 
-	pop_style_color(8)
+	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(1)

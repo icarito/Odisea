@@ -11,6 +11,7 @@ extends ImGuiCanvas
 
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
+const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const DESIGN := Vector2(640.0, 460.0)
 const SERIES_LEN := 90 # ~45s a 2 Hz de resampleo (ver DebugMetrics), de sobra para ver tendencia
@@ -76,13 +77,7 @@ func _on_imgui_frame() -> void:
 	set_next_window_pos(Vector2.ZERO, true)
 	set_next_window_size(DESIGN, true)
 	push_style_var_vec2(STYLE_VAR_WINDOW_PADDING, Vector2.ZERO)
-	push_style_color(COL_WINDOW_BG, OdiseaOSTheme.SURFACE_PANEL)
-	push_style_color(COL_TEXT, OdiseaOSTheme.SUIT_ACCENT)
-	push_style_color(COL_BORDER, OdiseaOSTheme.SUIT_DIM)
-	push_style_color(COL_TABLE_HEADER_BG, Color(0.06, 0.20, 0.26, 1.0))
-	push_style_color(COL_TABLE_BORDER_STRONG, OdiseaOSTheme.SUIT_DIM)
-	push_style_color(COL_TABLE_ROW_BG, Color(0.03, 0.08, 0.10, 1.0))
-	push_style_color(COL_SEPARATOR, OdiseaOSTheme.SUIT_DIM)
+	ImGuiOdiseaTheme.push_window(self, OdiseaOSTheme.SUIT_ACCENT)
 
 	if begin("##performance_screen", flags):
 		_header()
@@ -90,7 +85,7 @@ func _on_imgui_frame() -> void:
 		_summary_table()
 	end()
 
-	pop_style_color(7)
+	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(1)
 
 
@@ -158,18 +153,14 @@ func _curve_grid() -> void:
 		if y_max - y_min < 0.001:
 			y_max = y_min + 1.0
 		var pad: float = (y_max - y_min) * 0.15
-		implot_push_style_color(IMPLOT_COL_PLOT_BG, Color(0.03, 0.08, 0.10, 1.0))
-		implot_push_style_color(IMPLOT_COL_FRAME_BG, Color(0.03, 0.08, 0.10, 1.0))
-		implot_push_style_color(IMPLOT_COL_AXIS_GRID, OdiseaOSTheme.SURFACE_BORDER)
-		implot_push_style_color(IMPLOT_COL_AXIS_TEXT, OdiseaOSTheme.SUIT_DIM)
-		implot_push_style_color(IMPLOT_COL_LINE, accent)
+		ImGuiOdiseaTheme.push_plot(self, accent)
 		if implot_begin_plot("##" + series_name, Vector2(col_w, row_h - 20.0), plot_flags):
 			implot_setup_axes("", "", x_flags, y_flags)
 			implot_setup_axis_limits(IMPLOT_AXIS_X1, 0.0, max(float(series.size() - 1), 1.0), true)
 			implot_setup_axis_limits(IMPLOT_AXIS_Y1, y_min - pad, y_max + pad, true)
 			implot_plot_line(series_name, xs, ys)
 			implot_end_plot()
-		implot_pop_style_color(5)
+		ImGuiOdiseaTheme.pop_plot(self)
 
 
 func _summary_table() -> void:

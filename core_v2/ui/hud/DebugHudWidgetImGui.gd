@@ -9,6 +9,7 @@ extends ImGuiCanvas
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const HudViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
+const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const PANEL_SIZE := Vector2(210.0, 72.0)
 
@@ -58,10 +59,10 @@ func _on_imgui_frame() -> void:
 
 	set_next_window_pos(Vector2.ZERO, true)
 	set_next_window_size(PANEL_SIZE, true)
-	push_style_color(COL_WINDOW_BG, panel_bg)
-	push_style_color(COL_BORDER, OdiseaOSTheme.SURFACE_BORDER)
 	push_style_var_vec2(STYLE_VAR_WINDOW_PADDING, Vector2(6, 6))
 	push_style_var_vec2(STYLE_VAR_ITEM_SPACING, Vector2(6, 2))
+	ImGuiOdiseaTheme.push_window(self, accent)
+	push_style_color(COL_WINDOW_BG, panel_bg)  # alfa variable (B3a widget_alpha) pisa el WINDOW_BG del tema
 
 	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS | WINDOW_NO_BRING_TO_FRONT_ON_FOCUS
 	if begin("##debughud_widget", flags):
@@ -98,9 +99,7 @@ func _on_imgui_frame() -> void:
 				var pad: float = (y_max - y_min) * 0.15
 				var plot_flags := IMPLOT_FLAGS_NO_TITLE | IMPLOT_FLAGS_NO_LEGEND | IMPLOT_FLAGS_NO_MOUSE_TEXT | IMPLOT_FLAGS_NO_MENUS | IMPLOT_FLAGS_NO_BOX_SELECT | IMPLOT_FLAGS_NO_INPUTS
 				var axis_flags := IMPLOT_AXIS_NO_DECORATIONS | IMPLOT_AXIS_AUTOFIT
-				implot_push_style_color(IMPLOT_COL_PLOT_BG, panel_bg)
-				implot_push_style_color(IMPLOT_COL_FRAME_BG, panel_bg)
-				implot_push_style_color(IMPLOT_COL_LINE, accent)
+				ImGuiOdiseaTheme.push_plot(self, accent)
 				if implot_begin_plot("##fps_mini", Vector2(74, 46), plot_flags):
 					implot_setup_axes("", "", axis_flags, axis_flags)
 					# El AUTOFIT solo no alcanzo a ajustar el rango (medido: caja vacia sin
@@ -109,8 +108,9 @@ func _on_imgui_frame() -> void:
 					implot_setup_axis_limits(IMPLOT_AXIS_Y1, y_min - pad, y_max + pad, true)
 					implot_plot_line("fps", xs, ys)
 					implot_end_plot()
-				implot_pop_style_color(3)
+				ImGuiOdiseaTheme.pop_plot(self)
 	end()
 
+	pop_style_color(1)
+	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(2)
-	pop_style_color(2)

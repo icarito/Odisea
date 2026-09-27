@@ -16,6 +16,7 @@ extends ImGuiCanvas
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const HudViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
+const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const PANEL_SIZE := Vector2(210.0, 80.0)
 
@@ -106,10 +107,10 @@ func _on_imgui_frame() -> void:
 
 	set_next_window_pos(Vector2.ZERO, true)
 	set_next_window_size(PANEL_SIZE, true)
-	push_style_color(COL_WINDOW_BG, panel_bg)
-	push_style_color(COL_BORDER, OdiseaOSTheme.SURFACE_BORDER)
 	push_style_var_vec2(STYLE_VAR_WINDOW_PADDING, Vector2(6, 6))
 	push_style_var_vec2(STYLE_VAR_ITEM_SPACING, Vector2(6, 2))
+	ImGuiOdiseaTheme.push_window(self, OdiseaOSTheme.SUIT_ACCENT)
+	push_style_color(COL_WINDOW_BG, panel_bg)  # alfa variable (B3a widget_alpha) pisa el WINDOW_BG del tema
 
 	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS | WINDOW_NO_BRING_TO_FRONT_ON_FOCUS
 	if begin("##flashlight_widget", flags):
@@ -139,5 +140,6 @@ func _on_imgui_frame() -> void:
 			widget.toggle_action()
 	end()
 
+	pop_style_color(1)
+	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(2)
-	pop_style_color(2)

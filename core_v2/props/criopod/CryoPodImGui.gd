@@ -26,6 +26,15 @@ const WARN := Color(1.0, 0.76, 0.32)
 const DESIGN := Vector2(1024.0, 640.0)
 
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
+const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
+
+# Estilo diegetico del ECG (Paso 12b, monitor de fosforo): gateado a v0.5.4-nightly2
+# (ImGuiOdiseaTheme.supported() == has_method("implot_set_next_line_style")). Sin esa
+# API el trazo vuelve a implot_plot_line/implot_plot_scatter tal cual estaba (nightly1,
+# v0.5.3 via CryoPodUI._build_imgui_screen que ni instancia este nodo sin el modulo).
+const ECG_SEGMENTS := 32          # tramos de la polilinea (estela de fosforo + resplandor)
+const ECG_GAP_FRAC := 0.035       # hueco de borrado justo delante de la cabeza del barrido
+const ECG_BEAT_DECAY := 0.12      # segundos: caida del destello de latido (corazon + BPM)
 
 var screen_ui: Node = null
 
@@ -114,7 +123,20 @@ static func _ecg(p: float) -> float:
 
 
 func _accent() -> Color:
-	return WARN if (is_instance_valid(screen_ui) and bool(screen_ui.alarm)) else OK
+	# Tema monocromo cian (ImGuiOdiseaTheme, comun a las 5 piezas ImGui de Odisea): el
+	# acento nominal es CYAN (antes era OK/verde); WARN sigue siendo el acento calido de
+	# alarma para que nunca se pierda (Manual del Tripulante SS6).
+	return WARN if (is_instance_valid(screen_ui) and bool(screen_ui.alarm)) else CYAN
+
+
+# Fraccion 0..1 = intensidad del destello de latido (corazon + numero de BPM), calculada
+# sin estado propio a partir de _time y hz: decae exponencialmente desde el pico R
+# (p=0.22 en _ecg(), ver el tramo QRS arriba) con constante ECG_BEAT_DECAY. Funciona
+# igual de bien si el redibujado (10 Hz) cae justo en el pico o un poco despues.
+func _beat_pulse(hz: float) -> float:
+	var cycle := wrapf(_time * hz, 0.0, 1.0)
+	var since_peak_sec: float = wrapf(cycle - 0.22, 0.0, 1.0) / hz
+	return exp(-since_peak_sec / ECG_BEAT_DECAY)
 
 
 func _p(v: Vector2) -> Vector2:
@@ -135,18 +157,7 @@ func _on_imgui_frame() -> void:
 	set_next_window_size(vp_size, true)
 
 	push_style_var_vec2(STYLE_VAR_WINDOW_PADDING, Vector2.ZERO)
-	push_style_color(COL_WINDOW_BG, PANEL)
-	push_style_color(COL_CHILD_BG, Color(0.03, 0.08, 0.10, 1.0))
-	push_style_color(COL_TEXT, CYAN)
-	push_style_color(COL_BORDER, GRID)
-	push_style_color(COL_FRAME_BG, Color(0.02, 0.06, 0.08, 1.0))
-	push_style_color(COL_FRAME_BG_HOVERED, Color(0.10, 0.24, 0.30, 1.0))
-	push_style_color(COL_FRAME_BG_ACTIVE, Color(0.14, 0.32, 0.40, 1.0))
-	push_style_color(COL_BUTTON, Color(0.13, 0.30, 0.36, 1.0))
-	push_style_color(COL_BUTTON_HOVERED, Color(0.20, 0.44, 0.52, 1.0))
-	push_style_color(COL_BUTTON_ACTIVE, Color(0.26, 0.56, 0.66, 1.0))
-	push_style_color(COL_PLOT_HISTOGRAM, _accent())
-	push_style_color(COL_SEPARATOR, DIM)
+	ImGuiOdiseaTheme.push_window(self, _accent())
 
 	var open := begin("##criopod", flags)
 	if open:
@@ -157,7 +168,7 @@ func _on_imgui_frame() -> void:
 		_hatch()
 	end()
 
-	pop_style_color(12)
+	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(1)
 
 
@@ -228,13 +239,11 @@ func _bar(x: float, y: float, w: float, label: String, value: float, text: Strin
 func _ecg_monitor() -> void:
 	var bpm: float = max(float(screen_ui.bpm), 1.0)
 	var hz := bpm / 60.0
+	var accent := _accent()
+	var diegetic := ImGuiOdiseaTheme.supported(self)
 	set_cursor_pos(_p(Vector2(510, 112)))
 	var flags := IMPLOT_FLAGS_NO_TITLE | IMPLOT_FLAGS_NO_LEGEND | IMPLOT_FLAGS_NO_MOUSE_TEXT | IMPLOT_FLAGS_NO_MENUS | IMPLOT_FLAGS_NO_BOX_SELECT | IMPLOT_FLAGS_NO_INPUTS
-	implot_push_style_color(IMPLOT_COL_PLOT_BG, PANEL)
-	implot_push_style_color(IMPLOT_COL_FRAME_BG, PANEL)
-	implot_push_style_color(IMPLOT_COL_AXIS_GRID, GRID)
-	implot_push_style_color(IMPLOT_COL_AXIS_TEXT, DIM)
-	implot_push_style_color(IMPLOT_COL_LINE, _accent())
+	ImGuiOdiseaTheme.push_plot(self, accent)
 	if implot_begin_plot("##ecg", _p(Vector2(486, 320)), flags):
 		implot_setup_axes("", "", IMPLOT_AXIS_NO_TICK_LABELS, IMPLOT_AXIS_NO_TICK_LABELS)
 		implot_setup_axis_limits(IMPLOT_AXIS_X1, 0.0, 1.0, true)
@@ -244,24 +253,50 @@ func _ecg_monitor() -> void:
 		var ys := PoolRealArray()
 		xs.resize(n)
 		ys.resize(n)
-		var span := 2.5 / hz
+		# Periodo del barrido = el mismo "2.5 ciclos visibles" que ya estaba tuneado.
+		var sweep := 2.5 / hz
+		var head_frac := wrapf(_time / sweep, 0.0, 1.0)
+		var alphas := PoolRealArray()
+		alphas.resize(n)
 		for i in range(n):
 			var f := float(i) / float(n - 1)
-			var t: float = _time - span * (1.0 - f)
-			xs[i] = f
-			ys[i] = _ecg(wrapf(t * hz, 0.0, 1.0))
-		implot_plot_line("ecg", xs, ys)
-		var hx := PoolRealArray()
-		var hy := PoolRealArray()
-		hx.push_back(1.0)
-		hy.push_back(ys[n - 1])
-		implot_plot_scatter("head", hx, hy)
+			if diegetic:
+				# Barrido tipo monitor de hospital: la cabeza recorre x=[0,1) y vuelve a
+				# empezar. age=0 en la cabeza (recien escrito), age->1 en lo mas viejo
+				# (a punto de ser tapado por la cabeza): ahi va el hueco de borrado corto
+				# (ECG_GAP_FRAC) y, antes de eso, el desvanecido de fosforo (1-age).
+				var age := wrapf(head_frac - f, 0.0, 1.0)
+				var t_written: float = _time - age * sweep
+				xs[i] = f
+				ys[i] = _ecg(wrapf(t_written * hz, 0.0, 1.0))
+				alphas[i] = 0.0 if age > 1.0 - ECG_GAP_FRAC else clamp(1.0 - age, 0.0, 1.0)
+			else:
+				# Motor sin la API nueva: scroll continuo tal cual estaba (sin barrido/gap).
+				var t: float = _time - sweep * (1.0 - f)
+				xs[i] = f
+				ys[i] = _ecg(wrapf(t * hz, 0.0, 1.0))
+		if diegetic:
+			_ecg_draw_paper_grid()
+			_ecg_draw_diegetic(xs, ys, alphas, accent, n)
+			var head_val: float = _ecg(wrapf(_time * hz, 0.0, 1.0))
+			_ecg_draw_head(head_frac, head_val, accent, _beat_pulse(hz))
+		else:
+			implot_plot_line("ecg", xs, ys)
+			var hx := PoolRealArray()
+			var hy := PoolRealArray()
+			hx.push_back(1.0)
+			hy.push_back(ys[n - 1])
+			implot_plot_scatter("head", hx, hy)
 		implot_end_plot()
-	implot_pop_style_color(5)
+	ImGuiOdiseaTheme.pop_plot(self)
 
+	var pulse := _beat_pulse(hz) if diegetic else 0.0
+	# Destello por latido: brillo (no escala -- ImGuiCanvas no expone font-scale) sobre
+	# el numero de BPM, lerpeado sin llegar a blanco puro (queda "mas cian", no lavado).
+	var bpm_color := accent.linear_interpolate(Color(0.75, 1.0, 1.0), pulse * 0.35)
 	set_cursor_pos(_p(Vector2(510, 452)))
 	push_font(big_font)
-	text_colored(_accent(), "%d" % int(round(bpm)))
+	text_colored(bpm_color, "%d" % int(round(bpm)))
 	pop_font()
 	# same_line(10) media contra el ancho REAL del texto anterior (offset desde el borde de
 	# la ventana, no desde el cursor) puso "BPM" pegado al margen izquierdo, encima de la
@@ -271,6 +306,67 @@ func _ecg_monitor() -> void:
 	text_colored(CYAN, "BPM")
 	set_cursor_pos(_p(Vector2(510, 520)))
 	text_colored(CYAN, tr("HIBERNACIÓN NOMINAL") if not bool(screen_ui.alarm) else tr("ALERTA"))
+
+
+# Grilla mayor/menor como papel de ECG (mas oscuras las menores): 8 columnas (mayor cada
+# 4ta) x 4 filas (mayor cada 2da). Detras del trazo (se llama antes de _ecg_draw_diegetic).
+func _ecg_draw_paper_grid() -> void:
+	var pos := implot_get_plot_pos()
+	var size := implot_get_plot_size()
+	implot_push_plot_clip_rect()
+	var cols := 8
+	for c in range(1, cols):
+		var x := pos.x + size.x * float(c) / float(cols)
+		var major := c % 4 == 0
+		imgui_draw_line(Vector2(x, pos.y), Vector2(x, pos.y + size.y), Color(GRID.r, GRID.g, GRID.b, 0.5 if major else 0.2), 1.0)
+	var rows := 4
+	for r in range(1, rows):
+		var y := pos.y + size.y * float(r) / float(rows)
+		var major := r % 2 == 0
+		imgui_draw_line(Vector2(pos.x, y), Vector2(pos.x + size.x, y), Color(GRID.r, GRID.g, GRID.b, 0.5 if major else 0.2), 1.0)
+	implot_pop_plot_clip_rect()
+
+
+# Resplandor + estela de fosforo + relleno suave, en tramos (ECG_SEGMENTS) para que el
+# desvanecido de _ecg_monitor() se note sin un draw call por punto. Recorta al rect del
+# plot (implot_push/pop_plot_clip_rect) porque imgui_draw_* no auto-clipea como los
+# implot_plot_*. Todo detras de ImGuiOdiseaTheme.supported() -- no llega a nightly1/v0.5.3.
+func _ecg_draw_diegetic(xs: PoolRealArray, ys: PoolRealArray, alphas: PoolRealArray, accent: Color, n: int) -> void:
+	# Relleno suave bajo la curva: un solo shaded plano y bajo, no por tramo (mas simple,
+	# se nota igual bajo el trazo que si va encima).
+	implot_set_next_fill_style(accent, 0.10)
+	implot_plot_shaded("##ecg_fill", xs, ys, -0.5)
+
+	implot_push_plot_clip_rect()
+	var step := max(1, n / ECG_SEGMENTS)
+	var i := 0
+	while i < n - 1:
+		var j := min(i + step, n - 1)
+		var a := alphas[(i + j) / 2]
+		if a > 0.01:
+			var pts := PoolVector2Array()
+			for k in range(i, j + 1):
+				pts.push_back(implot_plot_to_pixels(xs[k], ys[k]))
+			# Resplandor: mismo trazo 2 veces, mas grueso y mas transparente que la linea
+			# principal debajo (HoloScreen.shader = luma->opacidad: oscuro/transparente es
+			# el vidrio, blanco satura -- por eso el glow baja alfa, no sube brillo).
+			imgui_draw_polyline(pts, Color(accent.r, accent.g, accent.b, accent.a * a * 0.12), 7.0)
+			imgui_draw_polyline(pts, Color(accent.r, accent.g, accent.b, accent.a * a * 0.28), 4.0)
+			imgui_draw_polyline(pts, Color(accent.r, accent.g, accent.b, accent.a * a), 2.0)
+		i = j
+	implot_pop_plot_clip_rect()
+
+
+# Cabeza brillante del barrido: circulo relleno + halo (2 circulos, el grande translucido)
+# en la posicion actual de la cabeza. `pulse` (0..1, ver _beat_pulse) tambien hace pulsar
+# esta cabeza en el pico R, ademas del corazon/BPM.
+func _ecg_draw_head(head_frac: float, head_val: float, accent: Color, pulse: float) -> void:
+	var center := implot_plot_to_pixels(head_frac, head_val)
+	var r := 3.5 + pulse * 2.0
+	implot_push_plot_clip_rect()
+	imgui_draw_circle_filled(center, r * 2.6, Color(accent.r, accent.g, accent.b, 0.18 + pulse * 0.12))
+	imgui_draw_circle_filled(center, r, Color(accent.r, accent.g, accent.b, 0.9))
+	implot_pop_plot_clip_rect()
 
 
 func _hatch() -> void:
