@@ -1401,9 +1401,23 @@ func test_tapping_the_button_inside_a_widget_does_not_open_its_screen():
 	yield(await_idle_frame(), "completed") # los contenedores del widget reparten tamaños en diferido
 	var widget: Control = _slot_widget(home, 0)
 	var host = home.widget_host
-	var toggle: Control = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
-	var xf: Transform2D = toggle.get_global_transform_with_canvas()
-	var on_button: Vector2 = xf.origin + toggle.rect_size * xf.get_scale() * 0.5
+	# El centro del boton del widget segun el modo de runtime: con modulo ImGui el
+	# canvas pinta su propio boton (FlashlightWidgetImGui.BUTTON_RECT via
+	# imgui_button_hit_rects()) y esconde el ToggleButton de Controls; sin modulo, el
+	# boton viejo de Controls es el que se toca. En los dos casos el punto debe caer
+	# dentro del boton visible.
+	var on_button: Vector2
+	var imgui_rects: Array = []
+	if widget.has_method("imgui_button_hit_rects"):
+		imgui_rects = widget.imgui_button_hit_rects()
+	if not imgui_rects.empty():
+		var r: Rect2 = imgui_rects[0]
+		var wxf: Transform2D = widget.get_global_transform_with_canvas()
+		on_button = wxf.origin + (r.position + r.size * 0.5) * wxf.get_scale()
+	else:
+		var toggle: Control = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
+		var xf: Transform2D = toggle.get_global_transform_with_canvas()
+		on_button = xf.origin + toggle.rect_size * xf.get_scale() * 0.5
 	home._client().ui_directives.clear()
 
 	# Toque sobre el toggle: en Godot 3 el ScreenTouch sigue subiendo hasta el widget.

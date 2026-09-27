@@ -27,6 +27,16 @@ static func perform(from: Node, screen_id: String, op: String, args: Dictionary 
 # toque es del boton y no del widget. Hace falta porque la GUI de Godot 3 corta la propagacion en
 # un control STOP solo para eventos de MOUSE: un ScreenTouch sobre el boton sigue hasta el widget.
 static func pointer_on_button(widget: Node, point: Vector2) -> bool:
+	# Widgets con canvas ImGui (p.ej. la Linterna): sus botones no son BaseButton del
+	# arbol (el Margin de Controls va escondido), declaran rects via
+	# imgui_button_hit_rects() en coordenadas locales del Control. Misma conversion que
+	# abajo: el rect dibujado con la escala del slot y la del contenedor.
+	if widget is Control and widget.has_method("imgui_button_hit_rects"):
+		var wxf: Transform2D = widget.get_global_transform_with_canvas()
+		for r in widget.imgui_button_hit_rects():
+			var rect: Rect2 = r
+			if Rect2(wxf.origin + rect.position * wxf.get_scale(), rect.size * wxf.get_scale()).has_point(point):
+				return true
 	for button in buttons_in(widget):
 		if not button.is_visible_in_tree() or button.disabled:
 			continue

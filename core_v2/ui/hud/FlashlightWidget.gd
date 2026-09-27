@@ -55,6 +55,23 @@ func snapshot() -> Dictionary:
 func toggle_action() -> void:
 	_perform("toggle")
 
+# Rects (en coordenadas locales de este Control) de los botones que pinta el canvas
+# ImGui: con el modulo disponible el Margin de Controls esta escondido, y sin estos
+# rects HudWidgetAction.pointer_on_button() no ve ningun boton -> un toque sobre
+# ENCENDER/APAGAR atribuiria el tap al widget y abriria su pantalla en vez de dejarlo
+# en el boton (regresion medida en test_tapping_the_button_inside_a_widget...).
+func imgui_button_hit_rects() -> Array:
+	if _imgui_widget == null or not is_instance_valid(_imgui_widget):
+		return []
+	if not _imgui_widget.has_method("button_hit_rects"):
+		return []
+	var origin: Vector2 = (_imgui_widget as Node2D).position
+	var rects: Array = []
+	for r in _imgui_widget.button_hit_rects():
+		var rect: Rect2 = r
+		rects.append(Rect2(origin + rect.position, rect.size))
+	return rects
+
 func default_title() -> String:
 	return tr("Linterna")
 

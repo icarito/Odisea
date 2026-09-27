@@ -20,6 +20,11 @@ const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const PANEL_SIZE := Vector2(210.0, 80.0)
 
+# Rect del boton ENCENDER/APAGAR en coordenadas de la ventana ImGui (la ventana va
+# anclada al origen del canvas): el host del HUD lo consulta via widget.imgui_button_hit_rects()
+# para atribuir el toque al boton y no abrir la pantalla (HudWidgetAction.pointer_on_button).
+const BUTTON_RECT := Rect2(112.0, 32.0, 74.0, 20.0)
+
 var widget: Node = null # FlashlightWidget.gd, fuente de snapshot()/toggle_action()
 
 var title_font := 0
@@ -134,12 +139,20 @@ func _on_imgui_frame() -> void:
 		if offline:
 			push_style_color(COL_BUTTON, Color(0.1, 0.1, 0.1, 1.0))
 			push_style_color(COL_TEXT, OdiseaOSTheme.STATE_OFFLINE)
-			button(button_label, Vector2(74, 20))
+			button(button_label, BUTTON_RECT.size)
 			pop_style_color(2)
-		elif button(button_label, Vector2(74, 20)):
+		elif button(button_label, BUTTON_RECT.size):
 			widget.toggle_action()
 	end()
 
 	pop_style_color(1)
 	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(2)
+
+
+# Rects de los botones ImGui en coordenadas locales del canvas (la ventana ImGui va
+# anclada al origen, ver BUTTON_RECT). FlashlightWidget.imgui_button_hit_rects() los
+# consulta re-ubicandolos en el arbol; aqui no hace falta escalar: el slot y el modo
+# ampliado escalan via la transformacion del Control padre, no del canvas.
+func button_hit_rects() -> Array:
+	return [BUTTON_RECT]
