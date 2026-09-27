@@ -10,14 +10,17 @@ snapshot** (no animación libre).
 
 ## Contexto verificado
 
-- `core_v2/ui/hud/InteractableContextWidget.*` — widget contextual (FD-310), ya mergeado.
+- El widget contextual **NO es `InteractableContextWidget`** (ese nombre solo existe en la doc vieja de FD-310). El real, ya mergeado (`11dd75f5`), es el slot `__context__` de `SuitOSWidgetHost.gd` (`CONTEXT_WIDGET_NAME = "SuitOS_Context"`, `CONTEXT_SLOT = "__context__"`), que monta `InteractableSlotWidget.gd` alimentado por `InteractableSlotScreen.gd`.
+- `core_v2/ui/hud/SuitOSWidgetHost.gd` — `show_context(snapshot)`, slot `__context__`, `_context_widget`.
+- `core_v2/ui/hud/InteractableSlotWidget.gd` — ficha (icono/nombre/descripción/verbo), `update_snapshot()`.
+- `core_v2/ui/hud/InteractableSlotScreen.gd` — envoltorio del interactuable en el slot.
 - `core_v2/components/HUDableComponent.gd` — expone `screen_id`, `relevance()`, `view_transition_origin()`.
 - `core_v2/ui/hud/HudWidget.gd` — `set_snapshot(dict)`, `is_offline()` (Manual §7/§8).
 - Determinismo (AGENTS §5.3): la señal es lectura, no estado libre.
 
 ## Cambios
 
-1. **`InteractableContextWidget.gd`**: degradación legible por distancia:
+1. **Slot `__context__`** (en `SuitOSWidgetHost` + `InteractableSlotWidget`/`InteractableSlotScreen`): degradación legible por distancia del slot de contexto:
    - en rango → sólido, 100 % interactuable;
    - frontera → fade-in suave;
    - lejano → flicker suave conforme decae la señal;
