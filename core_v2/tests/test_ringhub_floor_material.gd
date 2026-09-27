@@ -114,10 +114,28 @@ func test_floor_spawns_joint_overlay() -> void:
 	var joints = mi.get_node_or_null("FloorJoints")
 	assert_object(joints).is_not_null()
 	assert_bool(joints.mesh == JOINTS_MESH).is_true()
-	assert_bool(joints.material_override == JOINTS).is_true()
+	# El override lo decide el script por tier (32850e5d): desktop lleva el shader
+	# AA (joints_aa); LOW conserva el SpatialMaterial clasico porque el gate romperia
+	# el blend del fade. El assert sigue a resolve_joints_material() para no volver a
+	# quedarse corto cuando la decision de tier cambie de nuevo.
+	assert_object(joints.material_override).is_equal(mi.resolve_joints_material())
 	assert_bool(joints.cast_shadow == GeometryInstance.SHADOW_CASTING_SETTING_OFF).is_true()
 	assert_bool(joints.use_in_baked_light).is_false()
 	assert_bool(joints.mesh.surface_get_array_index_len(0) / 3 > 0).is_true()
+
+
+func test_joints_material_follows_the_tier_decision() -> void:
+	# Desktop = AA (el moire es rasterizacion de lineas sub-pixel: no lo arregla el
+	# piso), mobile/flat = SpatialMaterial clasico. Con el env forzado el decision
+	# no consulta el gate, asi que el par desktop/mobile queda verificado entero.
+	var prev := OS.get_environment(FORCE_ENV)
+	OS.set_environment(FORCE_ENV, "desktop")
+	var mi := _make_floor()
+	add_child(mi)
+	assert_str(mi.resolve_joints_material().resource_name).is_equal("M_RingHubFloor_joints_aa")
+	OS.set_environment(FORCE_ENV, "mobile")
+	assert_str(mi.resolve_joints_material().resource_name).is_equal("M_RingHubFloor_joints")
+	OS.set_environment(FORCE_ENV, prev)
 
 
 func test_flat_unshaded_keeps_joint_albedo() -> void:
