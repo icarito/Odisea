@@ -179,9 +179,10 @@ func _header() -> void:
 	# +20px para no solaparse (medido).
 	set_cursor_pos(_p(Vector2(28, 16)))
 	push_font(heading_font)
-	text_colored(_accent(), "CRIOCÁPSULA %02d · %s · %s · %s" % [
-		int(screen_ui.pod_number), String(screen_ui.occupant_name),
-		tr(String(screen_ui.occupant_role)), tr(String(screen_ui.occupant_status))])
+	# Sólo el rótulo, como CryoPodUI (draw_string(HeadingFont, ...) de "CRIOCÁPSULA %02d"):
+	# con ocupante/rol/estado en Sixtyfour 36px la línea no entraba y se cortaba. Esos
+	# datos ya están en _occupant().
+	text_colored(_accent(), tr("CRIOCÁPSULA %02d") % int(screen_ui.pod_number))
 	pop_font()
 	set_cursor_pos(_p(Vector2(28, 60)))
 	text_colored(CYAN, "T+%d d · %s" % [int(screen_ui.hibernation_days), tr("HIBERNACIÓN NOMINAL")])
