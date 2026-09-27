@@ -2258,7 +2258,13 @@ func _focused_criopod(overlay_holder: Array) -> Dictionary:
 	return {"pod": pod, "overlay": overlay}
 
 
+# Paso 12: con ImGuiCanvas disponible, CryoPodUI esconde su HatchButton a proposito (lo
+# dibuja CryoPodImGui) y un Control invisible no recibe el touch/click que este test
+# simula por hit-test de GUI clasico. No es una regresion: es el mismo reemplazo de
+# camino que test_cryo_pod_ui_viewport_click_opens_hatch en test_cryopod_terminal.gd.
 func test_a_raw_touch_operates_the_focused_holoterminal_screen() -> void:
+	if ClassDB.class_exists("ImGuiCanvas"):
+		return
 	# En touch no hay un mouse real detras: la pantalla del HUD no puede depender solo del mouse
 	# que el engine emula por cada toque (un control puede consumirlo). El toque crudo opera el
 	# boton de la holoterminal y el modo HUD no se cierra de costado.
@@ -2290,7 +2296,10 @@ func test_a_raw_touch_operates_the_focused_holoterminal_screen() -> void:
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
 
 
+# Paso 12: mismo reemplazo de camino que arriba (HatchButton invisible con ImGuiCanvas).
 func test_the_emulated_mouse_of_a_touch_does_not_fire_the_screen_twice() -> void:
+	if ClassDB.class_exists("ImGuiCanvas"):
+		return
 	# El engine emula un mouse por cada dedo (device -1): si ademas del toque crudo se reenvia el
 	# mouse, el boton de la pantalla recibiria el click dos veces.
 	var holder: Array = []

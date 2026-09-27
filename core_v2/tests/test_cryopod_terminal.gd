@@ -128,7 +128,13 @@ func test_cryo_pod_ui_button_opens_hatch() -> void:
 	_drop(pod)
 	yield (get_tree(), "idle_frame")
 
+# Este camino clickea el HatchButton clasico via el hit-test de Control del Viewport. Con
+# ImGuiCanvas disponible ese boton se esconde a proposito (CryoPodUI._build_imgui_screen:
+# lo dibuja ImGui, ver test_cryo_pod_imgui_hatch_action_opens_hatch mas abajo) y un Control
+# invisible no recibe click — no es una regresion, es el reemplazo intencional del camino.
 func test_cryo_pod_ui_viewport_click_opens_hatch() -> void:
+	if ClassDB.class_exists("ImGuiCanvas"):
+		return
 	var pod = _mount(CriopodScene)
 	yield (get_tree(), "idle_frame")
 	var hatch = pod.get_node("RotatingObjectV2")
@@ -320,4 +326,68 @@ func test_elias_pod_keeps_ringhub_slot_scale() -> void:
 	assert_bool(not top_hit.empty()).is_true()
 
 	_drop(pod)
+	yield (get_tree(), "idle_frame")
+
+# --- Paso 12: pantalla ImGui de la Criopod ----------------------------------------------
+# El release pinneado (v0.5.3) no trae ImGuiCanvas: estos casos verifican los DOS caminos
+# con el mismo test, sin gdunit skip (no disponible en esta suite). Correr con
+# ODISEA_GODOT_BIN apuntando al binario FRT+imgui para ejercitar la rama nueva; con el
+# binario pinneado corren igual y confirman el fallback.
+func test_cryo_pod_ui_uses_imgui_screen_when_available() -> void:
+	var pod = _mount(CriopodScene)
+	yield (get_tree(), "idle_frame")
+	var viewport = pod.get_node("RotatingObjectV2/CryoPodTerminal/Viewport")
+	var ui = viewport.get_node("CryoPodUI")
+	var imgui_canvas = viewport.get_node_or_null("CryoPodImGui")
+	var hatch_button: Button = ui.get_node("HatchButton")
+
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(imgui_canvas).override_failure_message(
+			"con ImGuiCanvas disponible el pod deberia montar CryoPodImGui").is_not_null()
+		assert_bool(bool(imgui_canvas.call("uses_shader_cursor"))).is_true()
+		assert_bool(hatch_button.visible).override_failure_message(
+			"el boton viejo deberia esconderse en modo ImGui (lo dibuja ImGui)").is_false()
+	else:
+		assert_object(imgui_canvas).override_failure_message(
+			"sin ImGuiCanvas no deberia existir CryoPodImGui: cae a la UI vieja").is_null()
+		assert_bool(hatch_button.visible).is_true()
+
+	_drop(pod)
+	yield (get_tree(), "idle_frame")
+
+# El boton de ImGui despacha la misma _on_hatch_pressed() que el HatchButton viejo
+# (misma HudWidgetAction.perform); esto ejercita ese camino sin simular clicks de ImGui.
+func test_cryo_pod_imgui_hatch_action_opens_hatch() -> void:
+	if not ClassDB.class_exists("ImGuiCanvas"):
+		return
+	var pod = _mount(CriopodScene)
+	yield (get_tree(), "idle_frame")
+	var hatch = pod.get_node("RotatingObjectV2")
+	var viewport = pod.get_node("RotatingObjectV2/CryoPodTerminal/Viewport")
+	var imgui_canvas = viewport.get_node("CryoPodImGui")
+
+	assert_bool(hatch.is_active).is_false()
+	imgui_canvas.screen_ui.call("_on_hatch_pressed")
+	assert_bool(hatch.is_active).override_failure_message(
+		"la accion de escotilla de CryoPodImGui no abrio la capsula").is_true()
+
+	_drop(pod)
+	yield (get_tree(), "idle_frame")
+
+# HoloTerminalV2 detecta el cursor por shader leyendo uses_shader_cursor() del contenido
+# del Viewport (CryoPodImGui) en su primer tick real, y lo pasa a la Viewport/input bridge.
+func test_terminal_detects_shader_cursor_from_imgui_content() -> void:
+	if not ClassDB.class_exists("ImGuiCanvas"):
+		return
+	var terminal = _mount(CryoPodTerminalScene)
+	yield (get_tree(), "idle_frame")
+	yield (get_tree(), "physics_frame")
+	yield (get_tree(), "physics_frame")
+
+	assert_bool(bool(terminal.shader_cursor)).override_failure_message(
+		"el terminal no detecto CryoPodImGui.uses_shader_cursor()").is_true()
+	var viewport = terminal.get_node("Viewport")
+	assert_bool(bool(viewport.call("uses_shader_cursor"))).is_true()
+
+	_drop(terminal)
 	yield (get_tree(), "idle_frame")
