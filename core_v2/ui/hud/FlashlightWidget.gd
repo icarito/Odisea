@@ -45,6 +45,10 @@ func _build_imgui_widget() -> void:
 	# El panel ImGui pinta su propio fondo (SURFACE_PANEL); el "panel" del tema detras
 	# duplicaba el borde/relleno.
 	add_stylebox_override("panel", StyleBoxEmpty.new())
+	# Bajar al tamano de diseno del panel: el size que dejo el primer layout con
+	# Controls visibles era mas alto y el host re-ubica el widget en el slot al
+	# escuchar resized (con el size viejo el fit del slot encogia el widget de mas).
+	rect_size = canvas.panel_size()
 	_imgui_widget = canvas
 
 # Snapshot leido por FlashlightWidgetImGui en cada imgui_frame.

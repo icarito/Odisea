@@ -36,6 +36,10 @@ func _build_imgui_widget() -> void:
 	if _margin != null:
 		_margin.visible = false
 	add_stylebox_override("panel", StyleBoxEmpty.new())
+	# Bajar al tamano de diseno del panel, igual que FlashlightWidget: el size que
+	# dejo el primer layout con Controls visibles era mas alto y el host re-ubica el
+	# widget al escuchar resized.
+	rect_size = canvas.panel_size()
 	_imgui_widget = canvas
 
 func snapshot() -> Dictionary:

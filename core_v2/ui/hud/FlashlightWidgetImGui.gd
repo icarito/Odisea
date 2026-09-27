@@ -156,3 +156,12 @@ func _on_imgui_frame() -> void:
 # ampliado escalan via la transformacion del Control padre, no del canvas.
 func button_hit_rects() -> Array:
 	return [BUTTON_RECT]
+
+
+# Tamano de diseno del panel (la ventana ImGui va anclada al origen del canvas): el
+# Control del widget baja a esto cuando el canvas reemplaza a los Controls, para que
+# el marco del slot abrace al panel dibujado en vez de quedarle grande (el size del
+# primer layout con Controls visibles era mas alto y el panel quedaba pegado arriba
+# a la izquierda de su marco, sin margen visible).
+func panel_size() -> Vector2:
+	return PANEL_SIZE

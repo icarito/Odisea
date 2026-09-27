@@ -114,3 +114,10 @@ func _on_imgui_frame() -> void:
 	pop_style_color(1)
 	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(2)
+
+
+# Tamano de diseno del panel (ventana ImGui anclada al origen del canvas), igual
+# criterio que FlashlightWidgetImGui.panel_size(): el Control del widget baja a esto
+# cuando el canvas reemplaza a los Controls y el marco del slot abraza al panel.
+func panel_size() -> Vector2:
+	return PANEL_SIZE
