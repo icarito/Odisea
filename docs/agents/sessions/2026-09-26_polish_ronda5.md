@@ -187,6 +187,24 @@ Nightly/Release/Dev (default nightly+release). Local (copia prod): ~300 ms / nig
 resumen `sessions` mantenida por _db_worker (coordinar con scripts/aggregate_and_prune_heartbeats.py
 del otro agente).
 
+### T10 — Moiré en el suelo iluminado de RingHub_Level (y a veces andamios)
+Reporte 2026-09-27. Opciones sugeridas por Sebastián (si la causa es una rejilla): AA con
+fwidth()/derivadas, distance fade, uniforms (color suelo/líneas, opacidad, grosor, escala, fade
+min/max). Requisito: algo barato o diferenciado para low-end flat.
+Causas ancladas (no es un shader de rejilla, es importación de texturas):
+- Suelo iluminado: lightmap `core_v2/levels/FloorMesh.png` (281², energía LIT 6x) con mipmaps=false
+  (los 246 lightmaps de core_v2/levels igual). + Rusty Metal Grid ×4 sin anisotropic.
+- Andamios: `textures/trenchbroom/steel_grate_platform.png` (deck alpha-scissor, tiling denso,
+  SteelGratePlatform.gd:445/667/670) sin mipmaps ni filter; steel_grate.png (baranda) sin aniso.
+- prop_dither_occlusion descartado (no se aplica a piso ni andamio).
+- Fix: mipmaps (+aniso) en esos .import; filter=false del trenchbroom se preserva (nearest-mipmap).
+  Android anisotropic_filter_level=1 → costo nulo en móvil; mobile floor no usa normal/rough/ao.
+- Residual posible: FloorJoints (líneas de 6 cm como geometría) → si titila, shader de juntas con
+  fwidth + distance fade (idea de Sebastián) con variante flat.
+Antes: anclaje de causa
+(Explore) — candidatos: textura sin mipmaps/aniso, aliasing especular (normal map alta frecuencia),
+dither screen-space de prop_dither_occlusion en andamios, linterna per-pixel (5916b5f8).
+
 ## Estado
 - Mapeo y health check: hechos.
 - T1+T2 HECHO y commiteado: 12f29935 (juego), b3092697 (central), 8691ea09 (dashboard),
