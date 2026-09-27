@@ -55,7 +55,7 @@ const PLOT_AXIS_GRID := Color(0.0, 0.50, 0.50, 0.35)
 const PLOT_AXIS_TEXT := TEXT_DISABLED
 
 # Cuantos push_style_color/push_style_var hace push_window(), para el pop simetrico.
-const WINDOW_COLOR_COUNT := 29
+const WINDOW_COLOR_COUNT := 31  # debe coincidir con los push de push_window (lo verifica un assert)
 const WINDOW_VAR_COUNT := 2  # WINDOW_ROUNDING, FRAME_ROUNDING (gist: ambos 3px)
 
 # `imgui_draw_*`, `implot_*` con IMPLOT_STYLE_VAR_* y `add_font_default` llegan juntos en
@@ -101,6 +101,9 @@ static func push_window(canvas, accent: Color) -> void:
 	canvas.push_style_color(canvas.COL_TEXT_SELECTED_BG, TEXT_SELECTED_BG)
 	canvas.push_style_var_float(canvas.STYLE_VAR_WINDOW_ROUNDING, 3.0)
 	canvas.push_style_var_float(canvas.STYLE_VAR_FRAME_ROUNDING, 3.0)
+	# Un pop con otro conteo deja colores empujados en la ventana implicita "Debug##Default"
+	# y Dear ImGui muestra "Missing PopStyleColor()" dentro de la pantalla del juego.
+	assert(WINDOW_COLOR_COUNT == 31)
 
 
 static func pop_window(canvas) -> void:
