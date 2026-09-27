@@ -24,6 +24,12 @@ class_name DebugHudScreen
 const SERIES_LEN := 20
 const RESAMPLE_INTERVAL := 0.5 # 2 Hz: de sobra para un numero que un humano lee
 const WidgetScene := preload("res://core_v2/ui/hud/DebugHudWidget.tscn")
+# Vista propia de "Rendimiento" (Paso "Rendimiento diegetico"): curvas ImPlot de
+# FPS/frame time/draw calls/vertices/memoria/nodos, leidas EN VIVO de `hud`
+# (DebugHudScreenView.gd guarda la referencia al autoload) -- no del widget_snapshot()
+# chico de abajo, que sigue acotado a <2 KB/2 Hz para el telefono sin tocarse.
+const ScreenViewScene := preload("res://core_v2/ui/hud/DebugHudScreenView.tscn")
+const VIEW_SIZE := Vector2(640.0, 460.0)
 
 var hud = null # DebugHud (autoload), inyectado por quien instancia esta pantalla
 var _accum := 0.0
@@ -34,6 +40,16 @@ func _init() -> void:
 	hud_screen_title = "Rendimiento"
 	hud_widget_scene = WidgetScene
 	default_relevance = 0.05 # baja: es una pantalla de diagnostico, no de gameplay
+
+
+func view_scene() -> PackedScene:
+	if ClassDB.class_exists("ImGuiCanvas"):
+		return ScreenViewScene
+	return null
+
+
+func view_size() -> Vector2:
+	return VIEW_SIZE
 
 
 var _registered := false

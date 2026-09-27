@@ -7,6 +7,7 @@ extends GdUnitTestSuite
 
 const DebugMetricsScript = preload("res://addons/debug_hud/debug_metrics.gd")
 const GateScript = preload("res://core_v2/autoloads/GLES3VendorGate.gd")
+const DebugHudWidgetScene = preload("res://core_v2/ui/hud/DebugHudWidget.tscn")
 
 const ENV_OVERRIDE := "ODISEA_DEBUG_HUD_LOCAL"
 
@@ -154,3 +155,47 @@ func test_debug_hud_screen_registers_and_snapshots() -> void:
 	remove_child(fake_player)
 	fake_player.free()
 	screen._sync_registration()
+
+
+# --- Paso "Rendimiento diegetico" ------------------------------------------------
+
+# La pantalla propia (view_scene) solo existe con el modulo ImGui; sin el, sigue sin vista
+# propia como antes de este paso (widget ampliado, sin regresion).
+func test_debug_hud_screen_view_gated_by_imgui() -> void:
+	var hud = get_node_or_null("/root/DebugHud")
+	assert_object(hud).is_not_null()
+	var screen = hud.get_node_or_null("DebugHudScreen")
+	assert_object(screen).is_not_null()
+
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(screen.view_scene()).override_failure_message(
+			"con ImGuiCanvas disponible DebugHudScreen deberia declarar su vista propia").is_not_null()
+	else:
+		assert_object(screen.view_scene()).override_failure_message(
+			"sin ImGuiCanvas no deberia haber vista propia: cae al widget ampliado").is_null()
+	assert_vector2(screen.view_size()).is_equal(Vector2(640.0, 460.0))
+
+
+# El widget de slot monta DebugHudWidgetImGui solo si el modulo esta disponible, y esconde
+# los Label viejos para no duplicar; el widget_snapshot que llega al telefono no cambia.
+func test_debug_hud_widget_imgui_child_gated_by_module() -> void:
+	var widget = DebugHudWidgetScene.instance()
+	add_child(widget)
+	auto_free(widget)
+	yield(get_tree(), "idle_frame")
+
+	var imgui_child = widget.get_node_or_null("DebugHudWidgetImGui")
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(imgui_child).override_failure_message(
+			"con ImGuiCanvas disponible el widget deberia montar DebugHudWidgetImGui").is_not_null()
+		var margin = widget.get_node_or_null("Margin")
+		assert_bool(margin.visible).override_failure_message(
+			"los Label viejos deberian esconderse en modo ImGui").is_false()
+	else:
+		assert_object(imgui_child).override_failure_message(
+			"sin ImGuiCanvas no deberia existir DebugHudWidgetImGui: cae a los Label").is_null()
+
+	widget.update_snapshot({"fps": 58.0, "frame_ms": 17.2, "draw_calls": 120.0,
+		"vertices": 4000.0, "memory_mb": 210.0, "nodes": 640.0, "source": "online",
+		"fps_series": [58.0, 59.0, 60.0]})
+	assert_float(float(widget.snapshot().get("fps", 0.0))).is_equal(58.0)
