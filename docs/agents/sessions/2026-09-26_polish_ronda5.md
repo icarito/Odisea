@@ -205,6 +205,18 @@ Antes: anclaje de causa
 (Explore) — candidatos: textura sin mipmaps/aniso, aliasing especular (normal map alta frecuencia),
 dither screen-space de prop_dither_occlusion en andamios, linterna per-pixel (5916b5f8).
 
+### T10 — HECHO: 00fe68f4 (mipmaps/aniso en imports), 32850e5d (juntas: floor_joints_aa.shader,
+AA por cobertura fwidth + distance fade, solo desktop; LOW conserva el SpatialMaterial porque el gate
+no preserva fade/blend). Sebastián lo vio y aprobó. Pendiente opcional: lightmaps sin mipmaps de
+pisos superiores (CombinedMesh*, 512 px) y escalera espiral (Visual_*).
+
+### T11 — Pod del Pilot sin textura/lightmap — e2690fd4
+Criopod_Vert (RingHub_Level.tscn:1026) usaba DisplayCase_2_mat (vertex color, sin textura) vs los
+decorativos con RingHub_Criopod_shell.material → material_override con el shell. El tscn lo dejaba en
+el origen y RingHubWakeup lo mueve al slot 37 (forced_slot, ~12 m y 65°): lightmap horneado fuera de
+lugar (y posible sombra fantasma en el centro del hub). Transform fijado a la pose final.
+**Pendiente: rehornear RingHub_Level (skill dome-bake / editor).**
+
 ## Estado
 - Mapeo y health check: hechos.
 - T1+T2 HECHO y commiteado: 12f29935 (juego), b3092697 (central), 8691ea09 (dashboard),
