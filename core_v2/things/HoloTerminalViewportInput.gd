@@ -3,6 +3,12 @@ extends Viewport
 export(float) var cursor_sensitivity := 1.0
 export(Texture) var cursor_texture = preload("res://assets/cursor_none.svg")
 export(Vector2) var cursor_hotspot := Vector2(7, 10)
+# Paso 12: el contenido (CryoPodImGui, etc.) puede optar por un cursor dibujado en
+# HoloScreen.shader (cursor_uv), a la tasa del juego, en vez del Sprite de aca adentro de
+# la textura del Viewport (que con contenido a baja Hz salta). Con esto en true el Sprite
+# de cursor de este Viewport no se dibuja nunca: HoloTerminalV2 lee _cursor_position con
+# get_cursor_position() y la vuelca al shader.
+var shader_cursor := false
 
 var _ui_mode_active := false
 var _cursor_position := Vector2.ZERO
@@ -20,6 +26,19 @@ var _hud_relative_cursor := false
 var _surface_hover := true
 # Ultimo evento de teclado inyectado, por id de instancia.
 var _last_key_event_id := 0
+
+# Paso 12: ImGuiCanvas no es un Control, asi que el pipeline normal de GUI de este
+# Viewport (input()) no lo alcanza — la demo de gdtk lo resuelve reenviando el MISMO
+# InputEvent directo con `_input()`. CryoPodImGui.gd (u otro contenido ImGui) se registra
+# aca en su _ready(); sin registro nada cambia (el reenvio es opcional).
+var _imgui_forward_target: Node = null
+
+func set_imgui_forward_target(node: Node) -> void:
+	_imgui_forward_target = node
+
+func _forward_to_imgui(evt: InputEvent) -> void:
+	if _imgui_forward_target != null and is_instance_valid(_imgui_forward_target):
+		_imgui_forward_target.call("_input", evt)
 
 func _ready() -> void:
 	_cursor_position = get_visible_rect().size * 0.5
@@ -63,6 +82,7 @@ func process_surface_motion(uv: Vector2) -> void:
 	evt.global_position = _cursor_position
 	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_forward_to_imgui(evt)
 	_update_cursor_visual()
 
 func process_surface_click(uv: Vector2, button_index: int, pressed: bool, is_doubleclick: bool) -> void:
@@ -82,10 +102,26 @@ func process_surface_click(uv: Vector2, button_index: int, pressed: bool, is_dou
 		_mouse_button_mask &= ~bit
 	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_forward_to_imgui(evt)
 	_update_cursor_visual()
 
 func forces_relative_cursor() -> bool:
 	return _hud_relative_cursor
+
+func uses_shader_cursor() -> bool:
+	return shader_cursor
+
+func set_uses_shader_cursor(enabled: bool) -> void:
+	shader_cursor = enabled
+	_update_cursor_visual()
+
+# Posicion actual del cursor en pixeles de este Viewport (mismo espacio que
+# get_visible_rect().size), para que HoloTerminalV2 la convierta a UV del shader.
+func get_cursor_position() -> Vector2:
+	return _cursor_position
+
+func has_surface_hover() -> bool:
+	return _surface_hover
 
 func set_use_system_mouse(enabled: bool) -> void:
 	if _hud_relative_cursor:
@@ -113,6 +149,7 @@ func process_mouse_motion(relative: Vector2) -> void:
 	evt.relative = relative * cursor_sensitivity
 	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_forward_to_imgui(evt)
 	_update_cursor_visual()
 
 func process_mouse_click(button_index: int = BUTTON_LEFT, pressed: bool = true, is_doubleclick: bool = false) -> void:
@@ -134,6 +171,7 @@ func process_mouse_click(button_index: int = BUTTON_LEFT, pressed: bool = true, 
 		_mouse_button_mask &= ~bit
 	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_forward_to_imgui(evt)
 	_update_cursor_visual()
 
 func process_system_mouse_motion(position: Vector2, global_position: Vector2, relative: Vector2, root_size: Vector2) -> void:
@@ -150,6 +188,7 @@ func process_system_mouse_motion(position: Vector2, global_position: Vector2, re
 	evt.relative = relative
 	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_forward_to_imgui(evt)
 	_update_cursor_visual()
 
 func process_system_mouse_button(button_index: int, pressed: bool, is_doubleclick: bool, position: Vector2, global_position: Vector2, root_size: Vector2) -> void:
@@ -173,6 +212,7 @@ func process_system_mouse_button(button_index: int, pressed: bool, is_doubleclic
 		_mouse_button_mask &= ~bit
 	evt.button_mask = _mouse_button_mask
 	input(evt)
+	_forward_to_imgui(evt)
 	_update_cursor_visual()
 
 func process_key_event(event: InputEventKey) -> void:
@@ -259,7 +299,9 @@ func _ensure_cursor_visual() -> void:
 func _update_cursor_visual() -> void:
 	if not _cursor_visual or not is_instance_valid(_cursor_visual):
 		return
-	_cursor_visual.visible = _ui_mode_active and not _use_system_mouse and _surface_hover
+	# Con cursor por shader el cursor viejo (Sprite dentro de la textura) nunca se dibuja:
+	# lo pinta HoloScreen.shader desde cursor_uv, a la tasa del juego.
+	_cursor_visual.visible = _ui_mode_active and not _use_system_mouse and _surface_hover and not shader_cursor
 	_cursor_visual.position = _cursor_position
 
 func _map_root_to_viewport(pos: Vector2, root_size: Vector2) -> Vector2:
