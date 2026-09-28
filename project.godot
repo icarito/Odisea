@@ -1734,6 +1734,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/PropEmitterArea.gd"
 }, {
+"base": "HUDableComponent",
+"class": "ProtocolScreen",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/ProtocolScreen.gd"
+}, {
+"base": "Control",
+"class": "ProtocolScreenView",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/ProtocolScreenView.gd"
+}, {
 "base": "BaseZoneV2",
 "class": "ProximityTriggerV2",
 "language": "GDScript",
@@ -2795,6 +2805,8 @@ _global_script_class_icons={
 "PropBaseV2": "",
 "PropDestroyerArea": "",
 "PropEmitterArea": "",
+"ProtocolScreen": "",
+"ProtocolScreenView": "",
 "ProximityTriggerV2": "",
 "PurgeDial": "",
 "PurgeTuner": "",
