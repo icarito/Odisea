@@ -2237,7 +2237,10 @@ func _process_interaction(input: InputDataV2):
 		_best_interaction_target_cached = best_target
 		_crouch_ledge_target_cached = crouch_ledge_target
 		_crouch_ladder_target_cached = crouch_ladder_target
-		_interaction_null_scan_cooldown = 0 if best_target != null else 3
+		# Sin target, saltear scans: 3 llamadas fuera de LOW (cada tick). En LOW ya se llama
+		# cada `stride` ticks y el handheld corre la fisica a 20 Hz: con 3 el aviso tardaba
+		# 8 ticks = 0.4 s en aparecer; con 1 son 4 ticks = 0.2 s.
+		_interaction_null_scan_cooldown = 0 if best_target != null else (1 if scan_stride > 1 else 3)
 
 	var best_target = _best_interaction_target_cached
 	var crouch_ledge_target = _crouch_ledge_target_cached

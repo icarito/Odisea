@@ -44,6 +44,8 @@ var _pairing_dialog: Node = null
 # emparejamiento y el offload, asi que ya no se omite; pero no queremos pagar el
 # broadcast cada 2 s en un SoC lento, asi que se anuncia con menos frecuencia.
 const LOW_TIER_BROADCAST_INTERVAL := 4.0
+# Ver update_offload_roles: true cuando RemoteSimHost cargue el nivel del handheld.
+const RENDER_SLAVE_OFFLOAD_READY := false
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
@@ -156,7 +158,12 @@ func update_offload_roles() -> void:
 		enable_low_tier_offload()
 	var has_paired: bool = (server != null and server.has_paired_client())
 
-	if is_low_host and has_paired:
+	# ponytail: el paso a render-esclavo queda apagado hasta que el sim host cargue y
+	# simule el nivel del handheld (sim_hello con scene_path: hoy RemoteSimHost solo
+	# captura lo que el control tenga abierto, RemoteControlHome, sin jugador ni audio).
+	# Promovido asi, el handheld cedia la interaccion a una autoridad vacia y el aviso
+	# tardaba o no llegaba. El host en LOW sigue: el control remoto se empareja como mando.
+	if is_low_host and has_paired and RENDER_SLAVE_OFFLOAD_READY:
 		if not is_render_slave_active:
 			_start_render_slave_role()
 	else:
