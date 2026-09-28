@@ -41,9 +41,6 @@ func _build_imgui_widget() -> void:
 	# widget al escuchar resized.
 	rect_size = canvas.panel_size()
 	set_meta("hud_slot_centered", true)
-	# SuitOSWidgetHost.gd: mismo motivo que FlashlightWidget._build_imgui_widget -- el host
-	# necesita sondear el puntero para este widget en vez de esperar gui_input.
-	set_meta("hud_uses_imgui_pointer_poll", true)
 	_imgui_widget = canvas
 
 func snapshot() -> Dictionary:

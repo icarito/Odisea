@@ -21,6 +21,11 @@ const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const PANEL_SIZE := Vector2(210.0, 80.0)
 
+# ImGuiWindowFlags_NoMouseInputs (1 << 9): el modulo no la bindea como constante
+# (ver ImGuiCanvas::_bind_methods, solo bindea WINDOW_NO_*), pero begin() acepta el
+# entero crudo igual. Ver nota junto al flags de _on_imgui_frame.
+const NO_MOUSE_INPUTS := 1 << 9
+
 # Bloque util: 186x52 dentro del panel. No nace en (0,0), que lo deja visualmente
 # pegado a la esquina aunque el PanelContainer este bien centrado en su slot.
 const CONTENT_OFFSET := Vector2(12.0, 13.0)
@@ -113,7 +118,15 @@ func _on_imgui_frame() -> void:
 	ImGuiOdiseaTheme.push_window(self, OdiseaOSTheme.SUIT_ACCENT)
 	push_style_color(COL_WINDOW_BG, panel_bg)  # alfa variable (B3a widget_alpha) pisa el WINDOW_BG del tema
 
-	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS | WINDOW_NO_BRING_TO_FRONT_ON_FOCUS
+	# NO_MOUSE_INPUTS (ImGuiWindowFlags_NoMouseInputs, no bindeada por el modulo): esta
+	# ventana no debe reclamar el mouse. Sin ella, io.WantCaptureMouse se pone true apenas
+	# el puntero pasa por encima y ImGuiCanvas._input() marca el evento manejado ANTES que
+	# el _input()/gui_input de SuitOSWidgetHost (es hijo, mas profundo en el arbol), y el
+	# arrastre del widget de slot nunca llega (T12). El widget de slot es solo lectura (sin
+	# boton), asi que no pierde nada: la pantalla completa (FlashlightScreenImGui) sigue sin
+	# este flag y sigue interactiva.
+	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS \
+		| WINDOW_NO_BRING_TO_FRONT_ON_FOCUS | NO_MOUSE_INPUTS
 	if begin("##flashlight_widget", flags):
 		set_cursor_pos(CONTENT_OFFSET)
 		image(_white_tex, Vector2(8, 8), dot)

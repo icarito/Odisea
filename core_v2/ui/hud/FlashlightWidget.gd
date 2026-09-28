@@ -50,10 +50,6 @@ func _build_imgui_widget() -> void:
 	# escuchar resized (con el size viejo el fit del slot encogia el widget de mas).
 	rect_size = canvas.panel_size()
 	set_meta("hud_slot_centered", true)
-	# SuitOSWidgetHost.gd: el arrastre de este widget no puede depender de que le
-	# llegue el evento (ImGuiCanvas lo atrapa antes, ver SuitOSWidgetHost._poll_imgui_pointer);
-	# esta marca le dice al host que sondee el puntero en vez de esperar gui_input.
-	set_meta("hud_uses_imgui_pointer_poll", true)
 	_imgui_widget = canvas
 
 # Snapshot leido por FlashlightWidgetImGui en cada imgui_frame.

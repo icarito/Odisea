@@ -453,57 +453,28 @@ func test_imgui_widget_is_centered_in_its_slot() -> void:
 	widget.free()
 
 
-# T12: la linterna/sistemas (ImGuiCanvas) no se dejaban arrastrar -- ImGuiCanvas._input()
-# marca el evento manejado en cuanto el puntero esta sobre su ventana y ese _input corre
-# ANTES que el de este host (hijo, mas profundo: el grupo "_input" va en orden inverso y
-# corta en el primer nodo que marca handled), asi que ni el press ni el motion del
-# arrastre llegan a gui_input/_input(). El respaldo es _poll_imgui_pointer(), que lee el
-# puntero via Input (no bloqueado por la cadena de eventos) para los widgets marcados con
-# hud_uses_imgui_pointer_poll. Se prueba con el Input real (parse_input_event actualiza el
-# estado igual aunque el despacho a nodos no llegue en headless) + warp_mouse, no con la
-# cadena de gui_input que ya se sabe rota para estos widgets.
-func test_imgui_widget_is_marked_for_pointer_polling() -> void:
+# T12/limpieza: la linterna/sistemas (ImGuiCanvas) no se dejaban arrastrar porque
+# ImGuiCanvas._input() marcaba el evento manejado en cuanto el puntero pasaba sobre su
+# ventana (io.WantCaptureMouse), y ese _input corre ANTES que el de este host (hijo, mas
+# profundo: el grupo "_input" corta en el primer nodo que marca handled). El fix real vive
+# en la ventana ImGui del widget de slot (FlashlightWidgetImGui/DebugHudWidgetImGui:
+# flag NO_MOUSE_INPUTS en su begin()), no en este host: con ese flag ImGui nunca reclama
+# el mouse ahi y el drag llega por la cadena normal de gui_input, igual que cualquier otro
+# widget. Sin el modulo (headless sin ImGui) el widget nunca arma el canvas y este test se
+# salta -- no hay nada de ImGui que probar.
+func test_imgui_widget_drags_through_the_normal_gui_input_chain() -> void:
+	if not ClassDB.class_exists("ImGuiCanvas"):
+		return
 	var screen = auto_free(HUDableComponentScript.new())
-	screen.hud_screen_id = "test:imgui_poll"
+	screen.hud_screen_id = "test:imgui_drag"
 	screen.hud_widget_scene = preload("res://core_v2/ui/hud/FlashlightWidget.tscn")
 	add_child(screen)
-	SuitOS.pin_to_slot(0, "test:imgui_poll")
+	SuitOS.pin_to_slot(0, "test:imgui_drag")
 	var widget: Control = _widget_host.get_widget_root().get_node("SuitOS_Widget_slot_1")
 	yield(await_idle_frame(), "completed") # deja correr el call_deferred(_build_imgui_widget)
 	yield(await_idle_frame(), "completed")
-	assert_bool(widget.has_meta("hud_uses_imgui_pointer_poll")).is_true()
 	assert_bool(widget.get_node("FlashlightWidgetImGui") != null).is_true()
-	# Un widget de Controls puro no necesita el respaldo: su gui_input llega normal.
-	var plain: Control = auto_free(load("res://core_v2/ui/hud/SystemStatusWidget.tscn").instance())
-	assert_bool(plain.has_meta("hud_uses_imgui_pointer_poll")).is_false()
-
-
-func test_imgui_widget_drags_via_pointer_poll_when_gui_input_never_arrives() -> void:
-	var screen = auto_free(HUDableComponentScript.new())
-	screen.hud_screen_id = "test:imgui_poll_drag"
-	screen.hud_widget_scene = preload("res://core_v2/ui/hud/FlashlightWidget.tscn")
-	add_child(screen)
-	SuitOS.pin_to_slot(0, "test:imgui_poll_drag")
-	var widget: Control = _widget_host.get_widget_root().get_node("SuitOS_Widget_slot_1")
-	yield(await_idle_frame(), "completed")
-	yield(await_idle_frame(), "completed")
-	# _poll_imgui_pointer(pos, pressed) fuerza el puntero a mano: en headless
-	# (--no-window) Input.parse_input_event() nunca llega a aplicarse (queda en el
-	# buffer de use_accumulated_input para siempre -- Main::iteration solo lo vacia con
-	# use_input_buffering, apagado por defecto), asi que no sirve para simular el mouse
-	# real/virtual en un test. En juego, _poll_imgui_pointer() sin argumentos lee el
-	# Input real cada _process (ver SuitOSWidgetHost._process).
-	var from: Vector2 = widget.get_global_rect().position + Vector2(10, 10)
-	_widget_host._poll_imgui_pointer(from, true)
-	assert_object(_widget_host._pressed_control).is_equal(widget)
-	assert_bool(_widget_host._dragging).is_false()
-	_widget_host._press_msec = OS.get_ticks_msec() - 500 # pasado el hold
-	var to: Vector2 = from + Vector2(60, 40)
-	_widget_host._poll_imgui_pointer(to, true)
-	assert_bool(_widget_host._dragging).is_true()
-	_widget_host._poll_imgui_pointer(to, false)
-	assert_bool(_widget_host._dragging).is_false()
-	assert_object(_widget_host._pressed_control).is_null()
+	_drag_widget(widget, "slot_1", widget.get_global_rect().position + Vector2(70, 50))
 	SuitOS.clear_slots()
 
 

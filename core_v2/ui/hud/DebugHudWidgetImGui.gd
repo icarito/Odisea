@@ -12,6 +12,10 @@ const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const PANEL_SIZE := Vector2(210.0, 72.0)
+
+# ImGuiWindowFlags_NoMouseInputs (1 << 9): no bindeada como constante por el modulo
+# (ver FlashlightWidgetImGui.NO_MOUSE_INPUTS), pero begin() acepta el entero crudo.
+const NO_MOUSE_INPUTS := 1 << 9
 # El panel tiene 186x64 de contenido: dejarlo en (0,0) lo hacia verse pegado al borde
 # aunque el Control padre ya estuviera centrado dentro de su slot.
 const CONTENT_OFFSET := Vector2(12.0, 4.0)
@@ -67,7 +71,12 @@ func _on_imgui_frame() -> void:
 	ImGuiOdiseaTheme.push_window(self, accent)
 	push_style_color(COL_WINDOW_BG, panel_bg)  # alfa variable (B3a widget_alpha) pisa el WINDOW_BG del tema
 
-	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS | WINDOW_NO_BRING_TO_FRONT_ON_FOCUS
+	# NO_MOUSE_INPUTS: este widget de slot es solo lectura (T12); sin el flag,
+	# io.WantCaptureMouse marca el evento manejado antes de que le llegue a
+	# SuitOSWidgetHost y el arrastre del widget no funciona. Ver la nota en
+	# FlashlightWidgetImGui._on_imgui_frame.
+	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS \
+		| WINDOW_NO_BRING_TO_FRONT_ON_FOCUS | NO_MOUSE_INPUTS
 	if begin("##debughud_widget", flags):
 		set_cursor_pos(CONTENT_OFFSET)
 		push_font(title_font)

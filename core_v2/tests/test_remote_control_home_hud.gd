@@ -1427,7 +1427,7 @@ func test_tapping_the_button_inside_a_widget_does_not_open_its_screen():
 	# Con modulo ImGui la cara del widget de la linterna ya no tiene boton on/off (T12,
 	# ab7a1dcc): un toque sobre el widget abre su pantalla, asi que no hay boton que probar.
 	# El caso sigue vigente para el camino de Controls (sin modulo), que conserva el toggle.
-	if widget.has_meta("hud_uses_imgui_pointer_poll"):
+	if ClassDB.class_exists("ImGuiCanvas"):
 		return
 	# El centro del boton del widget segun el modo de runtime: con modulo ImGui el
 	# canvas pinta su propio boton (FlashlightWidgetImGui.BUTTON_RECT via
