@@ -1,6 +1,6 @@
 # FD-319: Ejes del traje — señal por distancia, urgencia ortogonal y protocolo de arranque
 
-**Status:** Design
+**Status:** In Progress (tareas 2-4 despachadas 2026-09-27)
 **Priority:** High
 **Effort:** Medium
 **Created:** 2026-09-27
@@ -166,14 +166,14 @@ siguen viniendo del snapshot.
 |---|---|---|
 | `core_v2/ui/hud/HudWidget.gd` + `OdiseaOSTheme.gd` | EXISTE | base + tokens de color (no duplicar) |
 | `core_v2/ui/hud/SuitOSWidgetHost.gd` + `HudSlots.gd` | EXISTE | 4 slots, arrastre, `show_context/clear_context` (FD-310) |
-| `core_v2/ui/hud/InteractableContextWidget.*` | EXISTE (FD-310) | widget contextual a extender con `signal_strength` |
+| widget contextual FD-310 | EXISTE dentro de `SuitOSWidgetHost.gd` (`show_context`/`clear_context`); **no hay** archivo `InteractableContextWidget.*` | punto de extensión de `signal_strength` |
 | `core_v2/components/HUDableComponent.gd` | EXISTE | `screen_id`, `relevance()`, `view_transition_origin()` |
 | `core_v2/ui/hud/SystemStatusWidget.gd` | EXISTE | diagnóstico pasivo (NO se duplica; rol distinto del checklist) |
 | `core_v2/systems/auxpower/` (AuxPowerBus, SealedDoorLock) | EXISTE | gate maestro del paso 1 |
 | `core_v2/systems/cryo/CoolantLeak.gd` + `props/pipe/PipeValve.gd` | EXISTE | paso 3 |
 | `core_v2/systems/atmosphere/PurgeDial.gd` | EXISTE | paso 5 |
 | `feat/imgui-diegetic` (ImGuiOdiseaTheme/Fonts, CryoPodImGui, FlashlightScreenImGui) | MERGEADA (PR #366) | render diegético; pin del engine ya v0.5.4-nightly2 |
-| `core_v2/ui/hud/ProtocolOverlay.gd` | EXISTE (FD-312 P2-7) | ya soporta secuencias (`BtnClose`/`BtnNext`); pieza suelta |
+| `core_v2/ui/overlays/ProtocolOverlay.gd` + autoload `core_v2/autoloads/ProtocolManager.gd` | EXISTE (FD-312 P2-7) | overlays de protocolo con secuencias (`BtnClose`/`BtnNext`); revisar antes de duplicar |
 
 ---
 
@@ -244,6 +244,16 @@ paralelo; 5 consume 4. Ninguna tarea toca `project.godot` ni escenas de nivel en
    en `alarm`.
 
 ---
+
+## Decisiones tomadas (2026-09-27, Sebastián aceptó las recomendaciones)
+
+- **Q-1 / D-3**: urgencia = base declarada por el prop (`default_urgency`) + elevación automática por
+  contexto; nunca por debajo de la base, máximo un nivel por tick de evaluación.
+- **Q-2**: `ProtocolWidget` en slot fijo del HUD mientras dure el protocolo; el HUD lo reabsorbe al
+  terminar el paso 6.
+- **Q-3**: paso 2 = mantener E en la consola central (respiro, sin minijuego).
+- Ejecutores (modo despachador de /polish, en vez de Jules): T2 Kilo DeepSeek 4.1, T3 Kilo DeepSeek
+  4.1 (Sonnet con cuota agotada), T4 Kilo GLM 5.3 tras T3; T5 queda para la próxima tanda.
 
 ## Open Questions
 
