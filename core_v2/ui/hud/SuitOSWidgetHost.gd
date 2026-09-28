@@ -17,7 +17,6 @@ const ZoomRulerScript = preload("res://core_v2/ui/hud/ZoomRuler.gd")
 const InteractableSlotScreenScript = preload("res://core_v2/ui/hud/InteractableSlotScreen.gd")
 const InteractableSlotWidgetScript = preload("res://core_v2/ui/hud/InteractableSlotWidget.gd")
 const Haptics = preload("res://core_v2/ui/Haptics.gd")
-const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 
 # Cada slot tiene su lugar FIJO (HudSlots.slot_position): 1 y 2 arriba a la izquierda, 3 y 4
 # arriba a la derecha. Ninguno se corre cuando otro esta vacio.
@@ -59,12 +58,6 @@ const CONTEXT_WIDGET_NAME := "SuitOS_Context"
 const CONTEXT_ICON_SIZE := Vector2(44, 44)
 # Slot logico del widget del pie: comparte el arrastre de los widgets de slot sin ser uno.
 const CONTEXT_SLOT := "__context__"
-# FD-319: eje de senal (presencia por distancia). El estado sale de signal_strength (0..1) del
-# snapshot o, si no viene, de la distancia al prop fuente; nunca del reloj ni del azar. El
-# parpadeo de la frontera es solo presentacion, interpolada desde esa lectura.
-const SIGNAL_IN_RANGE := "in_range"
-const SIGNAL_BORDERLINE := "borderline"
-const SIGNAL_OUT_OF_RANGE := "out_of_range"
 # B4: en gameplay, sin actividad durante la misma inactividad que usa MobileUI, los widgets
 # (contexto + slots) se apagan MUY lento y vuelven con la proxima actividad. Solo cosmetico:
 # no toca estado de gameplay ni entra al replay.
@@ -73,22 +66,6 @@ const IDLE_FADE_IN_SECONDS := 0.25
 # Velocidad minima del jugador para contar movimiento (m/s).
 const IDLE_MOVE_EPSILON := 0.05
 const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
-
-# FD-319: umbrales del eje de senal, en metros desde el prop fuente. Hasta signal_full_distance la
-# senal es solida; de ahi a signal_lost_distance decrece y el widget entra en frontera (fade-in +
-# parpadeo suave); mas alla se marca fuera de rango antes de irse. Son exports para calibrar por
-# nivel o por tipo de prop.
-export(float) var signal_full_distance: float = 4.0
-export(float) var signal_lost_distance: float = 12.0
-# Sobre signal_strength (0..1): >= signal_solid_threshold es solido; < signal_lost_threshold es
-# fuera de rango; en el medio, frontera.
-export(float) var signal_solid_threshold: float = 0.66
-export(float) var signal_lost_threshold: float = 0.15
-# Presentacion: alpha del estado fuera de rango, rapidez del fade de entrada y parpadeo de frontera.
-export(float) var out_of_range_alpha: float = 0.35
-export(float) var signal_fade_seconds: float = 0.25
-export(float) var borderline_flicker_depth: float = 0.45
-export(float) var borderline_flicker_hz: float = 3.5
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 var _press_msec: int = 0
@@ -125,14 +102,6 @@ var _hold_progress: float = 0.0
 # FD-310: widget de contexto (interactuable en rango) y el slot libre que ocupa.
 var _context_widget: Control = null
 var _context_target: Node = null
-# FD-319: lectura de senal del widget de contexto (data) y su presentacion (alpha y fase de
-# parpadeo). _context_signal_declared: el snapshot trae signal_strength y no hay que derivarla.
-var _context_signal_strength: float = 1.0
-var _context_signal_state: String = SIGNAL_IN_RANGE
-var _context_signal_declared: bool = false
-var _context_signal_alpha: float = 1.0
-var _context_flicker_phase: float = 0.0
-var _context_signal_visual_state: String = ""
 # B4: inactividad acumulada (segundos) y alpha actual del fade del root de widgets.
 var _idle_seconds: float = 0.0
 var _idle_alpha: float = 1.0
@@ -355,7 +324,6 @@ func _activity_detected() -> bool:
 
 func _process(delta: float) -> void:
 	_tick_idle_fade(delta)
-	_tick_context_signal(delta)
 	_poll_imgui_pointer()
 
 func _tick_idle_fade(delta: float) -> void:
@@ -552,8 +520,7 @@ func show_context(snapshot: Dictionary) -> bool:
 	if not is_instance_valid(get_widget_root()):
 		return false
 	_note_activity()
-	var fresh: bool = not is_instance_valid(_context_widget)
-	if fresh:
+	if not is_instance_valid(_context_widget):
 		_context_widget = _build_context_widget()
 		get_widget_root().add_child(_context_widget)
 		_make_context_tappable(_context_widget)
@@ -573,7 +540,6 @@ func show_context(snapshot: Dictionary) -> bool:
 	var action = _context_widget.get_node_or_null("Row/VBox/Action")
 	if action is Label:
 		(action as Label).text = String(snapshot.get("action", ""))
-	_apply_context_signal(snapshot, fresh)
 	_place_context(_context_widget)
 	refresh_visibility()
 	return true
@@ -582,122 +548,7 @@ func clear_context() -> void:
 	if is_instance_valid(_context_widget):
 		_context_widget.queue_free()
 	_context_widget = null
-	# La proxima aparicion arranca limpia; la fase cosmetica del parpadeo es descartable.
-	_context_signal_strength = 1.0
-	_context_signal_state = SIGNAL_IN_RANGE
-	_context_signal_declared = false
-	_context_signal_alpha = 1.0
-	_context_signal_visual_state = ""
 	refresh_visibility()
-
-# --- FD-319: eje de senal por distancia ---
-
-# Resuelve la senal del snapshot (data) o, si no viene, la deriva de la distancia al prop fuente.
-# Si el widget es nuevo y la senal no es solida, arranca en alpha 0: la frontera entra suavizada.
-func _apply_context_signal(snapshot: Dictionary, fresh: bool) -> void:
-	var declared = snapshot.get("signal_strength", null)
-	if typeof(declared) == TYPE_REAL or typeof(declared) == TYPE_INT:
-		_context_signal_declared = true
-		_context_signal_strength = clamp(float(declared), 0.0, 1.0)
-	else:
-		_context_signal_declared = false
-		_context_signal_strength = _signal_strength_for_distance(_context_signal_distance())
-	_context_signal_state = _signal_state_for(_context_signal_strength)
-	if fresh:
-		_context_signal_alpha = 1.0 if _context_signal_state == SIGNAL_IN_RANGE else 0.0
-		_context_flicker_phase = 0.0
-	_set_context_signal_visual()
-
-# Curva lineal: plena hasta signal_full_distance, 0 a partir de signal_lost_distance. Distancia
-# negativa = no hay fuente a quien medir, asi que la senal es plena.
-func _signal_strength_for_distance(distance: float) -> float:
-	if distance < 0.0 or distance <= signal_full_distance:
-		return 1.0
-	if distance >= signal_lost_distance:
-		return 0.0
-	return 1.0 - (distance - signal_full_distance) / max(signal_lost_distance - signal_full_distance, 0.001)
-
-func _signal_state_for(strength: float) -> String:
-	if strength < signal_lost_threshold:
-		return SIGNAL_OUT_OF_RANGE
-	if strength < signal_solid_threshold:
-		return SIGNAL_BORDERLINE
-	return SIGNAL_IN_RANGE
-
-# Distancia al prop fuente, o -1 si no hay a quien medir (sin fuente, senal plena).
-func _context_signal_distance() -> float:
-	if not is_instance_valid(_context_target) or not (_context_target is Spatial):
-		return -1.0
-	var player = _signal_player()
-	if not is_instance_valid(player) or not (player is Spatial):
-		return -1.0
-	var source: Vector3 = (_context_target as Spatial).global_transform.origin
-	var viewer: Vector3 = (player as Spatial).global_transform.origin
-	return source.distance_to(viewer)
-
-# El jugador sale de SessionManager (fuente canonica y determinista) y, si no, del grupo "player".
-func _signal_player() -> Node:
-	var session = get_node_or_null("/root/SessionManager")
-	if session != null and is_instance_valid(session.player) and session.player is Spatial:
-		return session.player
-	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0 and players[0] is Spatial:
-		return players[0]
-	return null
-
-# Presentacion del eje de senal: la lectura decide el estado; el alpha y la fase del parpadeo solo
-# lo dibujan. No consulta reloj ni azar, asi que el estado no cambia al animar.
-func _tick_context_signal(delta: float) -> void:
-	if not is_instance_valid(_context_widget) or _context_grabbing:
-		return
-	if not _context_signal_declared:
-		_context_signal_strength = _signal_strength_for_distance(_context_signal_distance())
-	_context_signal_state = _signal_state_for(_context_signal_strength)
-	var envelope_target: float = out_of_range_alpha if _context_signal_state == SIGNAL_OUT_OF_RANGE else 1.0
-	var step: float = delta / max(signal_fade_seconds, 0.001)
-	if envelope_target > _context_signal_alpha:
-		_context_signal_alpha = min(envelope_target, _context_signal_alpha + step)
-	else:
-		_context_signal_alpha = max(envelope_target, _context_signal_alpha - step)
-	_context_flicker_phase = fmod(_context_flicker_phase + delta * borderline_flicker_hz, 1.0)
-	var flicker: float = 1.0
-	if _context_signal_state == SIGNAL_BORDERLINE:
-		var span: float = max(signal_solid_threshold - signal_lost_threshold, 0.001)
-		var normalized: float = clamp((_context_signal_strength - signal_lost_threshold) / span, 0.0, 1.0)
-		var wave: float = 0.5 + 0.5 * sin(_context_flicker_phase * TAU)
-		flicker = 1.0 - borderline_flicker_depth * (1.0 - normalized) * wave
-	_set_context_signal_visual()
-	var color: Color = _context_widget.modulate
-	color.a = clamp(_context_signal_alpha * flicker, 0.0, 1.0)
-	_context_widget.modulate = color
-
-# El estilo solo se rehace cuando cambia el estado, no cuadro a cuadro.
-func _set_context_signal_visual() -> void:
-	if _context_signal_state == _context_signal_visual_state:
-		return
-	_context_signal_visual_state = _context_signal_state
-	if _context_widget is PanelContainer:
-		(_context_widget as PanelContainer).add_stylebox_override("panel", _context_signal_style(_context_signal_state))
-
-# FUERA_DE_RANGO no es offline ni alarma (Manual §7): baja el fondo y vira el borde al cian tenue
-# del traje (OdiseaOSTheme.SUIT_DIM). La frontera usa el mismo borde con el fondo pleno.
-func _context_signal_style(state: String) -> StyleBoxFlat:
-	var style := _widget_panel_style()
-	if state == SIGNAL_OUT_OF_RANGE:
-		style.border_color = OdiseaOSTheme.SUIT_DIM
-		var bg: Color = style.bg_color
-		bg.a = bg.a * 0.6
-		style.bg_color = bg
-	elif state == SIGNAL_BORDERLINE:
-		style.border_color = OdiseaOSTheme.SUIT_DIM
-	return style
-
-# Lectura publica para tests y para el terminal auxiliar: la senal y su estado son data.
-func context_signal_strength() -> float:
-	return _context_signal_strength
-
-func context_signal_state() -> String:
-	return _context_signal_state
 
 func _build_context_widget() -> Control:
 	var panel := PanelContainer.new()

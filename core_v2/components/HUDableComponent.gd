@@ -72,15 +72,6 @@ func relevance(context: Dictionary = {}) -> float:
 		return float(parent.get_hud_relevance(context))
 	return default_relevance
 
-# FD-319: eje de senal (presencia por distancia). Va de 0 (fuera de alcance) a 1 (fuente a la
-# vista). El prop lo declara con get_hud_signal_strength(context); sin declaracion la senal es
-# plena. Es data del snapshot: el widget la pinta, no la anima para decidir su estado.
-func signal_strength(context: Dictionary = {}) -> float:
-	var parent = get_parent()
-	if is_instance_valid(parent) and parent.has_method("get_hud_signal_strength"):
-		return clamp(float(parent.get_hud_signal_strength(context)), 0.0, 1.0)
-	return 1.0
-
 # FD-304 §4: que hace cada boton de cara con esta pantalla abierta. Vacio (el default) = sin
 # cambio de comportamiento: el overlay cae a la navegacion por foco de la GUI que ya existe.
 # Cada entrada: { "button": "a"|"b"|"x"|"y", "op": String, "label": String,
@@ -118,18 +109,13 @@ func widget_snapshot() -> Dictionary:
 				snap["proto"] = 1
 			if not snap.has("id"):
 				snap["id"] = screen_id()
-			# FD-319: el eje de senal viaja en la lectura, como el resto. Si el prop no lo
-			# declara, es plena: sin fuente a la vista no hay distancia que degradar.
-			if not snap.has("signal_strength"):
-				snap["signal_strength"] = signal_strength({})
 			return snap
 
 	return {
 		"proto": 1,
 		"id": screen_id(),
 		"title": screen_title(),
-		"source": "online",
-		"signal_strength": signal_strength()
+		"source": "online"
 	}
 
 func notify_state_changed() -> void:
