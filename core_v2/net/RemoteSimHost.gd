@@ -21,6 +21,14 @@ var _tracked_group: String = "replay_sync"
 var _input_queue: Array = []
 # Tracked latest input state from handheld client
 var _client_input_state: Dictionary = {}
+# Que accion del InputMap quedo "apretada" por el ultimo estado del cliente, para soltarla
+# cuando deje de estar en el payload (si no, un boton se queda pegado si el cliente se cae
+# sin avisar). eje -> {pos, neg}: axes del sim_input mapean a un par de acciones direccionales.
+const _CLIENT_AXIS_ACTIONS := {
+	"move_x": {"pos": "move_right", "neg": "move_left"},
+	"move_y": {"pos": "move_backward", "neg": "move_forward"}
+}
+var _client_actions_pressed: Dictionary = {}
 
 func _ready() -> void:
 	set_physics_process(false)
@@ -39,6 +47,7 @@ func stop_simulation() -> void:
 	active = false
 	set_physics_process(false)
 	_udp.close()
+	_release_client_input()
 
 func _physics_process(_delta: float) -> void:
 	if not active:
@@ -106,6 +115,38 @@ func _process_input_queue_for_tick(tick: int) -> void:
 func _apply_sim_input_entry(entry: Dictionary) -> void:
 	if String(entry.get("source", "")) == "client":
 		_client_input_state = entry
+		# Sin esto el input del render-esclavo (p.ej. los botones del Anbernic) quedaba
+		# encolado y nunca llegaba a moverle el player a la autoridad: caminaba solo,
+		# no en la sim, así que jamás se acercaba a un interactuable (FD-316).
+		_apply_client_input_to_engine(entry)
+
+# El sim_input del cliente entra como si fuera hardware local del control remoto: las
+# mismas acciones del InputMap que lee _sample_and_queue_local_input().
+func _apply_client_input_to_engine(entry: Dictionary) -> void:
+	var axes: Dictionary = entry.get("axes", {})
+	var buttons: Dictionary = entry.get("buttons", {})
+	var wanted: Dictionary = {}
+	for axis_name in _CLIENT_AXIS_ACTIONS:
+		var v := float(axes.get(axis_name, 0.0))
+		var actions: Dictionary = _CLIENT_AXIS_ACTIONS[axis_name]
+		if v > 0.1:
+			wanted[actions["pos"]] = v
+		elif v < -0.1:
+			wanted[actions["neg"]] = -v
+	for action_name in buttons:
+		if InputMap.has_action(action_name) and bool(buttons[action_name]):
+			wanted[action_name] = 1.0
+	for action_name in wanted:
+		Input.action_press(action_name, wanted[action_name])
+	for action_name in _client_actions_pressed:
+		if not wanted.has(action_name):
+			Input.action_release(action_name)
+	_client_actions_pressed = wanted
+
+func _release_client_input() -> void:
+	for action_name in _client_actions_pressed:
+		Input.action_release(action_name)
+	_client_actions_pressed = {}
 
 func capture_snapshot() -> Dictionary:
 	var tree = get_tree()

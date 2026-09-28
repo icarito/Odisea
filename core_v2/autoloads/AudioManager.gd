@@ -27,6 +27,9 @@ var _zone_playback_positions := {}
 var _headless_audio_muted := false
 var _focus_audio_muted := false
 var _level_audio_muted := false
+# FD-316: render-esclavo (host low-end en offload) muteado; el audio real sale del
+# control remoto, que sigue corriendo la simulacion y su propia escena con sonido.
+var _render_slave_audio_muted := false
 var _cinematic_listener: Listener = null
 var _cinematic_listener_engaged := false
 var _mobile_web_audio_guard_enabled := false
@@ -229,11 +232,20 @@ func set_level_audio_muted(muted: bool) -> void:
 func is_level_audio_muted() -> bool:
 	return _level_audio_muted
 
+# FD-316: lo llama RemoteSimClient al entrar/salir del rol render-esclavo. El control
+# remoto (autoridad) es quien simula y quien debe sonar; este device solo renderiza.
+func set_render_slave_audio_muted(muted: bool) -> void:
+	if _render_slave_audio_muted == muted:
+		return
+	_render_slave_audio_muted = muted
+	_apply_master_audio_mute_state()
+
 func _apply_master_audio_mute_state() -> void:
 	var master_idx = AudioServer.get_bus_index("Master")
 	if master_idx < 0:
 		master_idx = 0
-	AudioServer.set_bus_mute(master_idx, _headless_audio_muted or _focus_audio_muted or _level_audio_muted)
+	AudioServer.set_bus_mute(master_idx, _headless_audio_muted or _focus_audio_muted \
+		or _level_audio_muted or _render_slave_audio_muted)
 
 func _find_mixing_desk():
 	var root = get_tree().get_root()

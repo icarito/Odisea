@@ -173,3 +173,43 @@ func test_sim_host_input_queue_ordering_and_parallel_sources():
 	host._process_input_queue_for_tick(10)
 	assert_int(host._input_queue.size()).is_equal(0)
 	assert_float(host._client_input_state["axes"]["move_x"]).is_equal(0.5)
+
+
+# FD-316: el input del cliente (render-esclavo) llegaba a la autoridad pero se quedaba
+# encolado en _client_input_state sin aplicarse a ninguna accion del InputMap: el
+# personaje nunca se movia en la simulacion y por eso jamas se acercaba a un interactuable.
+func test_sim_host_applies_client_input_to_engine():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var press = RemoteProtocolScript.create_sim_input({"move_x": 1.0}, {"interact": true}, 1)
+	host.receive_sim_input(press, "client")
+	host._process_input_queue_for_tick(1)
+
+	assert_bool(Input.is_action_pressed("move_right")).is_true()
+	assert_bool(Input.is_action_pressed("interact")).is_true()
+
+	# El proximo estado del cliente ya no tiene esas acciones: se sueltan, no quedan pegadas.
+	var release = RemoteProtocolScript.create_sim_input({"move_x": 0.0}, {"interact": false}, 2)
+	host.receive_sim_input(release, "client")
+	host._process_input_queue_for_tick(2)
+
+	assert_bool(Input.is_action_pressed("move_right")).is_false()
+	assert_bool(Input.is_action_pressed("interact")).is_false()
+
+	host.stop_simulation()
+
+
+# FD-316: entrar/salir del rol render-esclavo debe mutear/restaurar el bus Master; el
+# audio real lo pone el control remoto (autoridad), no el host low-end.
+func test_render_slave_mutes_and_restores_audio():
+	var audio = get_node("/root/AudioManager")
+
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	client.start_render_slave(0)
+	assert_bool(audio._render_slave_audio_muted).is_true()
+
+	client.stop_render_slave()
+	assert_bool(audio._render_slave_audio_muted).is_false()

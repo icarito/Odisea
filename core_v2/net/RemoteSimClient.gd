@@ -44,6 +44,8 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_disable_local_physics()
 	# FD-316: la interaccion la resuelve la autoridad; el host no escanea.
 	_set_player_interaction_authoritative(true)
+	# El que suena es el control remoto (el que simula); este host solo renderiza.
+	_set_local_audio_muted(true)
 
 	set_process(true)
 	return true
@@ -55,6 +57,12 @@ func stop_render_slave() -> void:
 		_udp.close()
 	_restore_local_physics()
 	_set_player_interaction_authoritative(false)
+	_set_local_audio_muted(false)
+
+func _set_local_audio_muted(muted: bool) -> void:
+	var audio = get_node_or_null("/root/AudioManager")
+	if audio != null and audio.has_method("set_render_slave_audio_muted"):
+		audio.set_render_slave_audio_muted(muted)
 
 func _get_player() -> Node:
 	var session = get_node_or_null("/root/SessionManager")
