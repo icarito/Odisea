@@ -142,6 +142,34 @@ while IFS= read -r image_path; do
 	echo "[dome_lightmap_post] PASS. tint=${TINT} colorize=${colorize}% brightness=${brightness}% blur=${BLUR} contrast=${CONTRAST}x${CONTRAST_MIDPOINT}% -> ${image_path}"
 done < "${PATHS_FILE}"
 
+# FD-284/T10: fuerza flags/mipmaps=true en los lightmaps de superficies grandes
+# vistas en angulo rasante (piso, CombinedMesh de los pisos del hub, escalera
+# espiral). Godot escribe el .import de un lightmap recien horneado con
+# mipmaps=false por default; sin este paso el moire vuelve en cada rehorneado
+# (paso a mano documentado en 00fe68f4/ef1dd62b, ahora automatico). Corre sobre
+# TODOS los paths del .lmbake, no solo los recien tintados: el .import puede
+# seguir en false aunque el PNG no haya cambiado de contenido.
+# Excluidos a proposito: Criopod_*/Pod_Criopods*, Glass*, DomeMesh, Shell (son
+# atlas de muchas islas UV chicas por MeshInstance; un mip alto puede sangrar
+# entre islas). Ver docs/agents/dome_source_mapping.md, seccion RingHub.
+while IFS= read -r image_path; do
+	base="$(basename "${image_path}")"
+	case "${base}" in
+		FloorMesh.png|CombinedMesh*.png|Visual_*.png) ;;
+		*) continue ;;
+	esac
+	import_path="${image_path}.import"
+	[ -f "${import_path}" ] || continue
+	if grep -q '^flags/mipmaps=false' "${import_path}"; then
+		sed -i 's/^flags\/mipmaps=false/flags\/mipmaps=true/' "${import_path}"
+		stex_base="$(sed -n 's#.*"res://\.import/\(.*\)\.stex".*#\1#p' "${import_path}" | head -1)"
+		if [ -n "${stex_base}" ]; then
+			rm -f ".import/${stex_base}.md5"
+		fi
+		echo "[dome_lightmap_post] flags/mipmaps=true -> ${import_path}"
+	fi
+done < "${PATHS_FILE}"
+
 # Cambiar un numero del look y ver que "no pasa nada" es el error mas facil de cometer
 # con este script: el sello conserva las imagenes salvo que se le diga explicitamente
 # que se esta retocando. Antes salia en silencio con codigo 0.

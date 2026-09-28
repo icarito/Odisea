@@ -252,3 +252,15 @@ Lightmap: `tools/bake_ringhub_lightmap.gd` hornea `RingHub.lmbake` con
 (`ODISEA_BAKE_LM_HINT_BIG`), no 2048: 2048 reservaba cientos de MB y volteaba la
 máquina de desarrollo. El bake fuerza `ODISEA_CRIOPOD_RING_INSTANCED=1` porque
 Godot 3 no hornea MultiMesh.
+
+`make bake-lightmap-postprocess` (invocado por el bake vía
+`_run_postprocess()` en ambos EditorScript) fuerza `flags/mipmaps=true` en los
+`.import` de las superficies grandes vistas en ángulo rasante: `FloorMesh.png`
+(Dome_Intro), `CombinedMesh*.png`/`CombinedMesh_Third_*.png` (pisos del hub) y
+`Visual_*.png` (escalones de la escalera espiral). Sin esto Godot reescribe el
+`.import` con `mipmaps=false` (default) en cada rebake y el moiré a distancia
+vuelve (ver 00fe68f4/ef1dd62b, que lo repuso a mano una sola vez; ahora es
+parte del script en `tools/postprocess_dome_intro_lightmap.sh`). Quedan
+excluidos a propósito `Criopod_*`/`Pod_Criopods*`, `Glass*`, `DomeMesh.png` y
+`Shell.png`: son atlas de muchas islas UV chicas por `MeshInstance`, donde un
+mip alto puede sangrar entre islas vecinas.
