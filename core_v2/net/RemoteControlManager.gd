@@ -149,6 +149,11 @@ func enable_low_tier_offload() -> void:
 
 func update_offload_roles() -> void:
 	var is_low_host: bool = _is_low_tier()
+	# El tier LOW puede resolverse recien al entrar a un nivel, despues de _ready: sin
+	# esto el handheld quedaba como desktop y start_host_services lo vetaba (LOW sin
+	# allow_low_tier_offload), asi que el offload nunca arrancaba.
+	if is_low_host and not allow_low_tier_offload and remote_control_enabled:
+		enable_low_tier_offload()
 	var has_paired: bool = (server != null and server.has_paired_client())
 
 	if is_low_host and has_paired:

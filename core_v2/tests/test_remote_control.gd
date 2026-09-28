@@ -629,3 +629,23 @@ func test_low_tier_only_hosts_for_offload():
 	assert_object(manager.discovery).is_not_null()
 	if gate:
 		gate.force_gate = prev_gate
+
+# El tier LOW puede resolverse recien al entrar a un nivel: si el manager arranco como
+# desktop, el primer update_offload_roles con el gate ya en LOW tiene que habilitar el
+# offload (antes solo se evaluaba en _ready y el handheld nunca lo levantaba).
+func test_low_tier_resolved_after_ready_enables_offload():
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null:
+		return
+	var prev_gate = gate.force_gate
+	gate.force_gate = false
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+	assert_bool(manager.allow_low_tier_offload).is_false()
+	gate.force_gate = true
+	manager.update_offload_roles()
+	assert_bool(manager.allow_low_tier_offload).is_true()
+	assert_object(manager.announcer).is_not_null()
+	assert_object(manager.server).is_not_null()
+	assert_bool(manager.is_host_active).is_false()
+	gate.force_gate = prev_gate
