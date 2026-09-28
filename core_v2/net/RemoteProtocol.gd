@@ -249,12 +249,20 @@ static func create_pong() -> Dictionary:
 
 # FD-316 Remote Simulation (Offload invertido) protocol helpers
 
-static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: String = "") -> Dictionary:
+# FD-316: sim_hello lleva TODO lo que la autoridad necesita para levantar el mismo
+# nivel que tiene abierto el render-esclavo: escena, tick, token, la semilla de la
+# corrida (determinismo: nunca se sortea en el sim host) y el estado del jugador
+# (spawn directo + snapshot completo del controlador, el mismo que viaja entre
+# escenas via SessionManager.capture_scene_transition_state).
+static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: String = "", spawn: Dictionary = {}, run_seed: int = 0, checkpoint: Dictionary = {}) -> Dictionary:
 	return {
 		"type": "sim_hello",
 		"scene": scene_path,
 		"sim_fps": sim_fps,
-		"token": token
+		"token": token,
+		"spawn": spawn,
+		"run_seed": run_seed,
+		"checkpoint": checkpoint
 	}
 
 static func create_sim_config(tick_rate: int = 60, interp_buffer_ticks: int = 1, token: String = "") -> Dictionary:

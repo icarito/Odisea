@@ -165,6 +165,51 @@ ni lo consume. Por eso la promoción a render-esclavo está apagada
    simulación local desde el último snapshot (sin teletransporte).
 5. Recién entonces `RENDER_SLAVE_OFFLOAD_READY = true`.
 
+### Decisión de implementación (paso 2, 2026-09-28)
+
+**Elegido: nivel en un `Viewport` hijo del `RemoteSimHost` con
+`render_target_update_mode = UPDATE_DISABLED`, compartiendo el mundo principal (sin
+`own_world`), con `audio_listener_enable_3d = true` y rutas de snapshot relativas al
+nivel simulado.** La UI del control (`RemoteControlHome`) sigue siendo `current_scene`
+en el teléfono.
+
+Evidencia que descarta cambiar `current_scene` (Option B del contrato):
+
+- `RemoteControlHome` es la `current_scene` del control y la monta `change_scene()`
+  (`core_v2/ui/Menu.gd:248`, `core_v2/ui/RemoteControlMenu.gd:217`). Ahí vive el
+  gamepad del sim host: `_send_touch_actions` lee las acciones del Input local y las
+  reenvía, y `HudSlotGamepadV2`/`RemoteHudBackend` montan el HUD encima. Cambiar de
+  escena la liberaría (el sim host se quedaría sin su propio mando); re-parentarla a
+  un CanvasLayer es cirugía de UI fuera de alcance.
+- `RemoteControlManager._sync_host_for_scene` decide hostear según
+  `current_scene.filename`: con el nivel como `current_scene`, el teléfono levantaría
+  announcer/server y se anunciaría como host mientras es cliente del handheld
+  (topología invertida rota, y el off-limits prohíbe tocar ese flujo).
+- `SessionManager._find_player()` corre cada tick de física y pisa `player = null`
+  cuando el jugador no está bajo `current_scene` (`_is_player_candidate_valid`).
+  Confirmado: los autoloads asumen `current_scene`. Con el viewport oculto el sim
+  host no pelea contra el autoload: `RemoteSimHost` mantiene sus propias referencias
+  (`_sim_level`, `_sim_player`) y el spawn lo resuelve el mismo camino que un F6
+  (`SceneManager._ensure_player_in_current_scene`, sin modificar el autoload).
+- `RemoteControlManager.update_offload_roles` solo promueve en escena de gameplay;
+  con `current_scene` intacto ese chequeo y el de pausa (`PauseManager`) siguen
+  comportándose igual en el teléfono.
+
+Por qué compartir mundo en vez de `own_world`: un segundo `World` crearía un segundo
+espacio de física cuyo stepping no es verificable desde GDScript (la propia sonda
+`split_load_frame` de `SceneManager` apaga el `PhysicsServer` global para afectar a
+todo). `UPDATE_DISABLED` ya cuesta cero GPU y en el viewport raíz del control no hay
+cámara 3D (`Camera.current` es por-viewport), así que nada dibuja el mundo compartido.
+El audio posicional sale del listener propio del viewport; la BGM del nivel entra por
+`AudioManager` normal (el contrato pide que el control suene).
+
+Consecuencias aceptadas: el nivel del sim host no pasa por `SceneManager.goto_scene`
+(su spawn/estado lo aplica `RemoteSimHost` desde `sim_hello`: `restore_snapshot` del
+controlador + `run_seed` fijado ANTES de instanciar); los scripts del nivel que lean
+`current_scene` dentro del viewport oculto resolverán a `RemoteControlHome`. La
+salida limpia es simétrica: `stop_simulation()` descarga el nivel, y el cliente del
+control detiene el sim host si la sesión WS se cae (`connection_lost`/`session_end`).
+
 ## Notas de implementación para Jules
 
 - Reusar el transporte existente de FD-294. Snapshots de sim por **UDP**

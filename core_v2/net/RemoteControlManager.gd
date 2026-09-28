@@ -44,8 +44,12 @@ var _pairing_dialog: Node = null
 # emparejamiento y el offload, asi que ya no se omite; pero no queremos pagar el
 # broadcast cada 2 s en un SoC lento, asi que se anuncia con menos frecuencia.
 const LOW_TIER_BROADCAST_INTERVAL := 4.0
-# Ver update_offload_roles: true cuando RemoteSimHost cargue el nivel del handheld.
-const RENDER_SLAVE_OFFLOAD_READY := false
+# FD-316: true cuando el ciclo completo de offload esta hecho y testado: handshake
+# (sim_hello con escena/semilla/spawn), carga del nivel en el sim host sin reemplazar
+# la UI del control, emision recien en sim_ready, engagement del esclavo con el
+# primer snapshot y salida limpia al desemparejar. Ver el FD, "Decision de
+# implementacion". La validacion en vivo (Anbernic + control) queda en el reporte.
+const RENDER_SLAVE_OFFLOAD_READY := true
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
@@ -83,6 +87,11 @@ func _ready():
 
 	if client != null:
 		client.connect("ui_directive_received", self, "_on_client_ui_directive")
+		# FD-316: el sim host simula el nivel de OTRO device. Si la sesion se cae o
+		# termina, la autoridad deja de simular enseguida (bateria del control): la
+		# re-promocion del handheld, al retomar la sesion, re-hace el handshake.
+		client.connect("connection_lost", self, "_stop_sim_host_if_active")
+		client.connect("session_ended", self, "_stop_sim_host_if_active")
 
 	if SuitOSRemoteBridge != null and not low_tier:
 		bridge = SuitOSRemoteBridge.new()
@@ -157,13 +166,12 @@ func update_offload_roles() -> void:
 	if is_low_host and not allow_low_tier_offload and remote_control_enabled:
 		enable_low_tier_offload()
 	var has_paired: bool = (server != null and server.has_paired_client())
+	var scene = get_tree().current_scene
+	var in_gameplay: bool = scene != null and _is_gameplay_scene(scene.filename)
 
-	# ponytail: el paso a render-esclavo queda apagado hasta que el sim host cargue y
-	# simule el nivel del handheld (sim_hello con scene_path: hoy RemoteSimHost solo
-	# captura lo que el control tenga abierto, RemoteControlHome, sin jugador ni audio).
-	# Promovido asi, el handheld cedia la interaccion a una autoridad vacia y el aviso
-	# tardaba o no llegaba. El host en LOW sigue: el control remoto se empareja como mando.
-	if is_low_host and has_paired and RENDER_SLAVE_OFFLOAD_READY:
+	# FD-316: la promocion a render-esclavo requiere nivel real abierto (no menu): el
+	# sim_hello describe ESTA escena y su jugador; sin jugador no hay nada que ceder.
+	if is_low_host and has_paired and RENDER_SLAVE_OFFLOAD_READY and in_gameplay:
 		if not is_render_slave_active:
 			_start_render_slave_role()
 	else:
@@ -176,9 +184,37 @@ func _start_render_slave_role() -> void:
 	# tomado en esta misma maquina, asi que el render-esclavo escucha en el siguiente.
 	var sim_port: int = (server.sensor_udp_port + 1) if server != null else 10445
 	if sim_client != null:
-		sim_client.start_render_slave(sim_port)
+		# El mismo puerto es el que escucha el sim host para el sim_input de este
+		# esclavo (RemoteSimHost._poll_udp_input): antes quedaba el default 10444 y
+		# el input del Anbernic no llegaba a la autoridad.
+		sim_client.start_render_slave(sim_port, "", sim_port)
 	if server != null:
 		server.send_ui_directive("start_sim_host", {"target_port": sim_port})
+		# FD-316 paso 1: el handshake con TODO el estado que la autoridad necesita:
+		# escena abierta, semilla de la corrida y spawn/checkpoint del jugador.
+		server.send_ui_directive("sim_hello", _build_sim_hello())
+
+# Lo que la autoridad levantara del lado del control. El snapshot del jugador es el
+# mismo mecanismo que entre escenas (SessionManager.capture_scene_transition_state):
+# restore_snapshot en el sim host lo deja en la posicion/velocidad/yaw exactos.
+func _build_sim_hello() -> Dictionary:
+	var scene = get_tree().current_scene
+	var scene_path: String = scene.filename if scene != null else ""
+	var session = get_node_or_null("/root/SessionManager")
+	var run_seed: int = int(session.run_seed) if session != null and "run_seed" in session else 0
+	var spawn := {}
+	var checkpoint := {}
+	if session != null and scene_path != "" and session.has_method("capture_scene_transition_state"):
+		var captured: Dictionary = session.capture_scene_transition_state()
+		if captured.has("player_snapshot"):
+			checkpoint["player_snapshot"] = captured["player_snapshot"]
+			var snapshot: Dictionary = captured["player_snapshot"]
+			if snapshot.has("position"):
+				spawn["position"] = snapshot["position"]
+			if snapshot.has("yaw"):
+				spawn["yaw"] = float(snapshot["yaw"])
+	var token: String = server._active_token if server != null else ""
+	return RemoteProtocol.create_sim_hello(scene_path, 60, token, spawn, run_seed, checkpoint)
 
 func _stop_render_slave_role() -> void:
 	is_render_slave_active = false
@@ -193,11 +229,25 @@ func _on_client_ui_directive(op: String, payload) -> void:
 		var target_ip = client._host_ip if client != null and client._host_ip != "" else "127.0.0.1"
 		is_sim_host_active = true
 		if sim_host != null:
+			# La simulacion queda activa PERO sin emitir: nada sale hasta que llegue
+			# el sim_hello con el nivel (RemoteSimHost.sim_ready).
 			sim_host.start_simulation(target_ip, port)
+	elif op == "sim_hello":
+		# FD-316 paso 2: el esclavo dice QUE nivel simular y desde donde.
+		if sim_host != null:
+			sim_host.load_sim_level(payload if payload is Dictionary else {})
 	elif op == "stop_sim_host":
 		is_sim_host_active = false
 		if sim_host != null:
 			sim_host.stop_simulation()
+
+# FD-316: sesion caida o cerrada mientras este device era la autoridad: nivel fuera.
+func _stop_sim_host_if_active() -> void:
+	if not is_sim_host_active:
+		return
+	is_sim_host_active = false
+	if sim_host != null:
+		sim_host.stop_simulation()
 
 # El control remoto muestra cuando la partida esta en pausa aca (menu de pausa, perdida
 # de foco, dialogo de emparejamiento). Solo se manda al cambiar, y de nuevo a cada

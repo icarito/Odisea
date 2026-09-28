@@ -14,6 +14,21 @@ func test_protocol_sim_messages_encode_decode():
 	assert_int(hello["sim_fps"]).is_equal(60)
 	assert_str(hello["token"]).is_equal("tok123")
 
+	# FD-316: sim_hello completo — spawn (posicion/yaw), semilla de la corrida y
+	# checkpoint del jugador sobreviven al viaje JSON (es el camino real por WS).
+	var full_hello = RemoteProtocolScript.create_sim_hello(
+		"res://core_v2/levels/interiors/Dome_Intro.tscn", 60, "tok316",
+		{"position": [1.5, 2.0, -3.5], "yaw": 1.25}, 123456,
+		{"player_snapshot": {"position": [1.5, 2.0, -3.5], "yaw": 1.25, "velocity": [0.0, 0.0, 0.0]}})
+	var wire = RemoteProtocolScript.decode_json(RemoteProtocolScript.encode_json(full_hello))
+	assert_str(wire["type"]).is_equal("sim_hello")
+	assert_str(wire["scene"]).is_equal("res://core_v2/levels/interiors/Dome_Intro.tscn")
+	assert_str(wire["token"]).is_equal("tok316")
+	assert_int(int(wire["run_seed"])).is_equal(123456)
+	assert_float(float(wire["spawn"]["position"][0])).is_equal_approx(1.5, 0.001)
+	assert_float(float(wire["spawn"]["yaw"])).is_equal_approx(1.25, 0.001)
+	assert_bool(wire["checkpoint"]["player_snapshot"].has("yaw")).is_true()
+
 	var config = RemoteProtocolScript.create_sim_config(60, 1, "tok123")
 	assert_str(config["type"]).is_equal("sim_config")
 	assert_int(config["tick_rate"]).is_equal(60)
@@ -62,6 +77,148 @@ func test_render_slave_disables_physics():
 
 	client.stop_render_slave()
 	assert_bool(client.is_render_slave).is_false()
+
+
+# FD-316 paso 3: promover SOLO abre el canal. Fisica, audio e interaccion siguen
+# locales hasta el primer snapshot valido: si el sim host nunca carga el nivel, el
+# handheld sigue jugando su partida sin teletransportes ni silencios en vano.
+func test_render_slave_does_not_engage_on_promotion():
+	var audio = get_node("/root/AudioManager")
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	client.start_render_slave(0)
+	assert_bool(client.is_render_slave).is_true()
+	assert_bool(client.is_engaged()).is_false()
+	assert_bool(audio._render_slave_audio_muted).is_false()
+	assert_bool(client._interaction_authority_applied).is_false()
+
+	# Un paquete sin tick no compromete el offload.
+	client.receive_snapshot({"type": "sim_snapshot", "garbage": true})
+	assert_bool(client.is_engaged()).is_false()
+	assert_bool(audio._render_slave_audio_muted).is_false()
+
+	# Salir sin haber recibido nada tampoco deja rastro.
+	client.stop_render_slave()
+	assert_bool(audio._render_slave_audio_muted).is_false()
+	assert_bool(client._interaction_authority_applied).is_false()
+
+
+# El primer snapshot valido compromete el offload: ahi si se apaga la fisica local
+# (engagement), se mutea el bus Master y la interaccion pasa a la autoridad.
+func test_render_slave_engages_on_first_valid_snapshot():
+	var audio = get_node("/root/AudioManager")
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	# Player de reemplazo para que la cesion de interaccion tenga a quien aplicarse
+	# (en la suite no hay jugador bajo current_scene). Se devuelve al salir.
+	var player = auto_free(PlayerScript.new())
+	var session = get_node("/root/SessionManager")
+	var prev_player = session.player
+	session.player = player
+
+	client.start_render_slave(0)
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(7, 100, {}, {"scene": "x"}, "t"))
+	assert_bool(client.is_engaged()).is_true()
+	assert_bool(audio._render_slave_audio_muted).is_true()
+	assert_bool(client._interaction_authority_applied).is_true()
+	assert_bool(player.is_remote_render_slave()).is_true()
+
+	client.stop_render_slave()
+	assert_bool(client.is_engaged()).is_false()
+	assert_bool(audio._render_slave_audio_muted).is_false()
+	assert_bool(client._interaction_authority_applied).is_false()
+	assert_bool(player.is_remote_render_slave()).is_false()
+	session.player = prev_player
+
+
+# FD-316 paso 2/3: el sim host solo emite cuando el nivel del esclavo esta cargado
+# (sim_hello aplicado -> sim_ready). Antes de eso no hay tick ni snapshot: capturar
+# RemoteControlHome era el bug original (promocion a autoridad vacia).
+var _emitted_snapshots: Array = []
+
+func _on_snapshot_generated(snapshot) -> void:
+	_emitted_snapshots.append(snapshot)
+
+func test_sim_host_does_not_emit_before_sim_ready():
+	_emitted_snapshots.clear()
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.connect("snapshot_generated", self, "_on_snapshot_generated")
+
+	host.start_simulation("127.0.0.1", 0)
+	assert_bool(host.active).is_true()
+	assert_bool(host.sim_ready).is_false()
+	# Ticks sin nivel: nada se emite, nada se captura.
+	host._physics_process(1.0 / 60.0)
+	host._physics_process(1.0 / 60.0)
+	assert_int(_emitted_snapshots.size()).is_equal(0)
+
+	# Llega el nivel (seam: escena ya instanciada, como dejaria load_sim_level):
+	# recien entonces el tick produce un snapshot.
+	assert_bool(host._attach_sim_level(_make_sim_level(), {})).is_true()
+	assert_bool(host.sim_ready).is_true()
+	host._physics_process(1.0 / 60.0)
+	assert_int(_emitted_snapshots.size()).is_equal(1)
+	assert_int(int(_emitted_snapshots[0]["tick"])).is_equal(1)
+
+	host.stop_simulation()
+	assert_bool(host.sim_ready).is_false()
+
+
+# FD-316: las entidades viajan con rutas relativas al nivel simulado (el esclavo las
+# resuelve contra SU current_scene), y la camara es la del nivel, no la del UI.
+func test_sim_host_snapshot_paths_relative_to_sim_level():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var level = _make_sim_level()
+	var pod: Spatial = auto_free(Spatial.new())
+	pod.name = "CoolantPod"
+	pod.add_to_group("replay_sync")
+	pod.translation = Vector3(4, 5, 6)
+	level.add_child(pod)
+	pod.owner = level
+
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	var snap = host.capture_snapshot()
+	assert_bool(snap["entities"].has("CoolantPod")).is_true()
+	var enc: Dictionary = snap["entities"]["CoolantPod"]["t"]
+	assert_float(enc["p"][0]).is_equal_approx(4.0, 0.001)
+	# El nivel (sin camara propia) no agrega cam_t: el esclavo conserva la suya.
+	assert_bool(snap["globals"].has("cam_t")).is_false()
+
+	host.stop_simulation()
+
+
+# Nivel de simulacion minimo para el sim host: raiz + jugador (sim_ready lo exige).
+func _make_sim_level() -> Spatial:
+	var level := Spatial.new()
+	level.name = "SimLevel"
+	var fake = auto_free(FakePlayer.new())
+	fake.name = "Player"
+	fake.add_to_group("player")
+	fake.add_to_group("replay_sync")
+	level.add_child(fake)
+	fake.owner = level
+	return level
+
+
+# sim_hello con escena inexistente (o con la simulacion inactiva) no deja el host
+# "listo": sin sim_ready no hay emision y el esclavo nunca se compromete.
+func test_load_sim_level_rejects_invalid_requests():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	# Sin start_simulation: nada hace.
+	assert_bool(host.load_sim_level({"scene": "res://core_v2/tests/test_remote_sim.gd", "run_seed": 1})).is_false()
+	assert_bool(host.sim_ready).is_false()
+
+	host.start_simulation("127.0.0.1", 0)
+	assert_bool(host.load_sim_level({"scene": "res://no_existe/NivelFantasma.tscn", "run_seed": 1})).is_false()
+	assert_bool(host.sim_ready).is_false()
+	assert_object(host._sim_level).is_null()
 
 func test_sim_host_captures_snapshot():
 	var host = auto_free(RemoteSimHostScript.new())
@@ -200,16 +357,6 @@ func test_sim_host_applies_client_input_to_engine():
 	host.stop_simulation()
 
 
-# FD-316: entrar/salir del rol render-esclavo debe mutear/restaurar el bus Master; el
-# audio real lo pone el control remoto (autoridad), no el host low-end.
-func test_render_slave_mutes_and_restores_audio():
-	var audio = get_node("/root/AudioManager")
-
-	var client = auto_free(RemoteSimClientScript.new())
-	add_child(client)
-
-	client.start_render_slave(0)
-	assert_bool(audio._render_slave_audio_muted).is_true()
-
-	client.stop_render_slave()
-	assert_bool(audio._render_slave_audio_muted).is_false()
+# FD-316: entrar/salir del rol render-esclavo YA NO muta al promover: el mute (y la
+# cesion de fisica/interaccion) ocurre con el primer snapshot valido — ver
+# test_render_slave_does_not_engage_on_promotion / test_render_slave_engages_on_first_valid_snapshot.

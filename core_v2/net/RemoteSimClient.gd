@@ -17,6 +17,11 @@ var _target_port: int = 10444
 var _buffer: Array = [] # Sorted list of snapshots by tick
 var _latest_applied_tick: int = -1
 var _physics_was_active: bool = true
+# FD-316: fisica apagada/audio muteado/interaccion cedida recien con el PRIMER
+# snapshot valido, no al promover. Promover solo abre el canal: mientras el sim host
+# no cargue el nivel (sim_hello -> sim_ready) no llega nada y el handheld sigue
+# jugando su simulacion local, sin teletransportes ni silencios en vano.
+var _engaged: bool = false
 # FD-316: el player puede no existir cuando arranca el rol (pairing en un menu o
 # justo antes de que SceneManager lo instancie). Si eso pasa, el flag de autoridad
 # nunca se aplica y el prompt no vuelve. Se reintenta hasta resolverlo.
@@ -37,27 +42,41 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 			return false
 
 	is_render_slave = true
+	_engaged = false
 	_buffer.clear()
 	_latest_applied_tick = -1
 
-	# Disable physics server or local physics stepping to free CPU
-	_disable_local_physics()
-	# FD-316: la interaccion la resuelve la autoridad; el host no escanea.
-	_set_player_interaction_authoritative(true)
-	# El que suena es el control remoto (el que simula); este host solo renderiza.
-	_set_local_audio_muted(true)
+	# El rol se abre solo para ESCUCHAR: fisica, audio e interaccion siguen locales
+	# hasta que llegue el primer snapshot valido (FD-316 paso 3).
 
 	set_process(true)
 	return true
 
 func stop_render_slave() -> void:
 	is_render_slave = false
+	_engaged = false
 	set_process(false)
 	if _listening_port > 0:
 		_udp.close()
 	_restore_local_physics()
 	_set_player_interaction_authoritative(false)
 	_set_local_audio_muted(false)
+
+# Primer snapshot valido de la autoridad: recien aca el esclavo deja de simular.
+func _engage_offload() -> void:
+	if _engaged:
+		return
+	_engaged = true
+	# Disable physics server or local physics stepping to free CPU
+	_disable_local_physics()
+	# FD-316: la interaccion la resuelve la autoridad; el host no escanea.
+	_set_player_interaction_authoritative(true)
+	# El que suena es el control remoto (el que simula); este host solo renderiza.
+	_set_local_audio_muted(true)
+	print("[RemoteSimClient] offload comprometido con el primer snapshot: fisica local apagada")
+
+func is_engaged() -> bool:
+	return _engaged
 
 func _set_local_audio_muted(muted: bool) -> void:
 	var audio = get_node_or_null("/root/AudioManager")
@@ -99,6 +118,10 @@ func _restore_local_physics() -> void:
 func receive_snapshot(snapshot: Dictionary) -> void:
 	if not snapshot.has("tick"):
 		return
+	# FD-316 paso 3: el primer snapshot valido compromete el offload. Antes de eso,
+	# cualquier paquete no se aplica a un host congelado por error.
+	if not _engaged:
+		_engage_offload()
 	var tick = int(snapshot["tick"])
 
 	# Ignore duplicate or old snapshots
@@ -129,7 +152,8 @@ func _process(_delta: float) -> void:
 
 	# El player pudo cambiar de escena (o no existir al arrancar el rol): reintentar
 	# hasta que la autoridad de interaccion quede aplicada en la instancia actual.
-	if not _interaction_authority_is_current():
+	# Solo cuando el offload esta comprometido: antes, la interaccion es local.
+	if _engaged and not _interaction_authority_is_current():
 		_set_player_interaction_authoritative(true)
 
 	if _buffer.size() < interp_buffer_ticks + 1:

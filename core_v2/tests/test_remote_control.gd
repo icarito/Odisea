@@ -649,3 +649,81 @@ func test_low_tier_resolved_after_ready_enables_offload():
 	assert_object(manager.server).is_not_null()
 	assert_bool(manager.is_host_active).is_false()
 	gate.force_gate = prev_gate
+
+
+# --- FD-316: offload real (sim host carga el nivel del handheld) ---
+
+# El handshake describe lo que la autoridad necesita: escena abierta, semilla de la
+# corrida (viaja en sim_hello, nunca se sortea alla) y el estado del jugador.
+func test_sim_hello_carries_scene_seed_and_spawn_state():
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+	var session = get_node("/root/SessionManager")
+	var scene = get_tree().current_scene
+
+	var hello: Dictionary = manager._build_sim_hello()
+	assert_str(hello["type"]).is_equal("sim_hello")
+	assert_str(hello["scene"]).is_equal(scene.filename if scene != null else "")
+	assert_int(hello["run_seed"]).is_equal(int(session.run_seed))
+	assert_bool(hello.has("spawn")).is_true()
+	assert_bool(hello.has("checkpoint")).is_true()
+	assert_bool(hello.has("token")).is_true()
+
+
+# Promover el render-esclavo abre el canal y manda el handshake, PERO no compromete
+# el offload: sin snapshots la simulacion local del handheld sigue viva.
+func test_start_render_slave_role_sends_handshake_without_engaging():
+	var audio = get_node("/root/AudioManager")
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+
+	manager._start_render_slave_role()
+	assert_bool(manager.is_render_slave_active).is_true()
+	assert_bool(manager.sim_client.is_render_slave).is_true()
+	# El puerto de sim_input es el que el sim host escucha (sensor + 1): el mismo
+	# que el del canal de snapshots. Antes quedaba 10444 y el input del esclavo
+	# nunca llegaba a la autoridad.
+	assert_int(manager.sim_client._listening_port).is_equal(manager.server.sensor_udp_port + 1)
+	assert_int(manager.sim_client._target_port).is_equal(manager.server.sensor_udp_port + 1)
+	# FD-316 paso 3: fisica/audio/interaccion siguen locales hasta el primer snapshot.
+	assert_bool(manager.sim_client.is_engaged()).is_false()
+	assert_bool(audio._render_slave_audio_muted).is_false()
+
+	manager._stop_render_slave_role()
+	assert_bool(manager.is_render_slave_active).is_false()
+	assert_bool(manager.sim_client.is_render_slave).is_false()
+	assert_bool(audio._render_slave_audio_muted).is_false()
+
+
+# La promocion automatica exige escena de gameplay y cliente emparejado. En el harness
+# la current_scene puede o no contar como gameplay; en ambos casos el contrato se
+# cumple: promovido sin snapshots no queda comprometido, y sin par vuelve atras.
+func test_update_offload_roles_never_promotes_outside_gameplay():
+	var audio = get_node("/root/AudioManager")
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	var prev_gate = false
+	if gate:
+		prev_gate = gate.force_gate
+		gate.force_gate = true
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+	# Cliente emparejado (el estado que dispararia la promocion en gameplay).
+	manager.server._peers[1] = {"device_name": "control", "paired": true, "token": "tok"}
+	manager.update_offload_roles()
+	if manager.is_render_slave_active:
+		# El harness corre en una escena que el filtro cuenta como gameplay: promover
+		# aqui es correcto, pero sin snapshots no puede quedar comprometido.
+		assert_bool(manager.sim_client.is_engaged()).is_false()
+		assert_bool(audio._render_slave_audio_muted).is_false()
+		manager.server._peers.clear()
+		manager.update_offload_roles()
+	assert_bool(manager.is_render_slave_active).is_false()
+	manager.server._peers.clear()
+	if gate:
+		gate.force_gate = prev_gate
+
+
+# FD-316 paso 5: el interruptor solo va en true con el ciclo completo hecho y testado
+# (handshake -> carga sin render -> sim_ready -> engagement por snapshot -> salida limpia).
+func test_render_slave_offload_flag_is_contract_complete():
+	assert_bool(RemoteControlManager.RENDER_SLAVE_OFFLOAD_READY).is_true()

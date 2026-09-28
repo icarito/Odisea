@@ -12,6 +12,18 @@ export var target_port: int = 10444
 export var sim_fps: int = 60
 export var active: bool = false
 
+# FD-316: la autoridad solo emite cuando el nivel pedido por el render-esclavo
+# (sim_hello) esta cargado y tiene jugador. Antes de eso capture_snapshot no tiene
+# nada que mostrar: el esclavo no debe recibir basura de RemoteControlHome.
+var sim_ready: bool = false
+# Nivel de simulacion: se instancia en un Viewport propio con UPDATE_DISABLED, SIN
+# own_world (comparte el mundo/fisica principal, ver FD-316 "Decision de
+# implementacion"). current_scene del control queda intacto: RemoteControlHome sigue
+# siendo la pantalla y el gamepad del sim host.
+var _sim_viewport: Viewport = null
+var _sim_level: Node = null
+var _sim_player: Node = null
+
 var _udp = PacketPeerUDP.new()
 var _current_tick: int = 0
 var _token: String = ""
@@ -38,6 +50,8 @@ func start_simulation(p_target_ip: String, p_target_port: int, p_token: String =
 	target_port = p_target_port
 	_token = p_token
 	_current_tick = 0
+	# Re-promocion sin stop limpio: nivel viejo fuera antes de escuchar de nuevo.
+	_unload_sim_level()
 	if target_port > 0:
 		_udp.listen(target_port)
 	active = true
@@ -48,9 +62,132 @@ func stop_simulation() -> void:
 	set_physics_process(false)
 	_udp.close()
 	_release_client_input()
+	_unload_sim_level()
+
+# --- FD-316: carga del nivel del handheld en el sim host (offload real) ---
+
+# Recibe el sim_hello del render-esclavo: carga su nivel sin reemplazar la UI del
+# control, aplica semilla y estado de spawn, y recien entonces habilita la emision.
+func load_sim_level(hello: Dictionary) -> bool:
+	if not active:
+		printerr("[RemoteSimHost] sim_hello ignorado: simulacion no activa")
+		return false
+	var scene_path := String(hello.get("scene", "")).strip_edges()
+	if scene_path == "" or not scene_path.begins_with("res://"):
+		printerr("[RemoteSimHost] sim_hello sin escena valida: '", scene_path, "'")
+		return false
+	if not ResourceLoader.exists(scene_path):
+		printerr("[RemoteSimHost] sim_hello: escena inexistente en este build: ", scene_path)
+		return false
+	var packed = load(scene_path)
+	if packed == null or not (packed is PackedScene):
+		printerr("[RemoteSimHost] sim_hello: el recurso no es PackedScene: ", scene_path)
+		return false
+	# Determinismo: la semilla viaja en sim_hello y se fija ANTES de instanciar, para
+	# que los sistemas del nivel (p.ej. RandomLeakSeeder) deriven lo mismo que en el
+	# esclavo. Nunca se sortea aca.
+	var session = get_node_or_null("/root/SessionManager")
+	var run_seed := int(hello.get("run_seed", 0))
+	if session != null and "run_seed" in session and run_seed != 0:
+		session.run_seed = run_seed
+		print("[RemoteSimHost] run_seed del esclavo aplicado: ", run_seed)
+	var level = packed.instance()
+	if level == null:
+		printerr("[RemoteSimHost] no se pudo instanciar ", scene_path)
+		return false
+	print("[RemoteSimHost] cargando nivel del handheld (sin render): ", scene_path)
+	return _attach_sim_level(level, hello)
+
+# Monta level_root como nivel de simulacion (seam de test: load_sim_level lo llama
+# con la escena ya instanciada). Devuelve true si quedo listo para emitir.
+func _attach_sim_level(level_root: Node, hello: Dictionary = {}) -> bool:
+	_unload_sim_level()
+	if level_root == null:
+		return false
+	var vp := Viewport.new()
+	vp.name = "SimViewport"
+	# Sin render y con listener propio: el nivel existe para simular y sonar, no para
+	# dibujar (ver FD-316 "Decision de implementacion" para por que comparte mundo).
+	vp.render_target_update_mode = Viewport.UPDATE_DISABLED
+	vp.audio_listener_enable_3d = true
+	add_child(vp)
+	vp.add_child(level_root)
+	_sim_viewport = vp
+	_sim_level = level_root
+	_sim_player = _ensure_sim_player()
+	_apply_spawn_state(hello)
+	# FD-316 paso 3: sim_ready = nivel listo Y con jugador. Sin jugador no hay nada
+	# que simular: no se emite y el esclavo nunca deja su simulacion local.
+	sim_ready = _sim_player != null
+	if not sim_ready:
+		printerr("[RemoteSimHost] nivel sin jugador: la simulacion queda en espera (no se emite)")
+	else:
+		print("[RemoteSimHost] sim_ready: nivel montado con jugador")
+	return sim_ready
+
+# El spawn lo resuelve el mismo camino que un F6: SceneManager busca SpawnPointV2 e
+# instancia Pilot_v2 si el nivel no lo trae incrustado (solo lectura: no tocamos el
+# autoload). Si no hay spawn point no hay jugador: queda sin sim_ready.
+func _ensure_sim_player() -> Node:
+	if _sim_level == null or not is_instance_valid(_sim_level):
+		return null
+	var existing = _find_player_under(_sim_level)
+	if existing != null:
+		return existing
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm != null and sm.has_method("_ensure_player_in_current_scene"):
+		sm._ensure_player_in_current_scene(_sim_level)
+		return _find_player_under(_sim_level)
+	return null
+
+func _find_player_under(root: Node) -> Node:
+	if root == null or not is_instance_valid(root):
+		return null
+	if root.is_in_group("player"):
+		return root
+	for pilot in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(pilot) and root.is_a_parent_of(pilot):
+			return pilot
+	return null
+
+# Estado de spawn del esclavo: snapshot completo del controlador si viajo (checkpoint,
+# mismo restore_snapshot que entre escenas), si no posicion+yaw directos.
+func _apply_spawn_state(hello: Dictionary) -> void:
+	if _sim_player == null or not is_instance_valid(_sim_player):
+		return
+	var checkpoint: Dictionary = hello.get("checkpoint", {}) if hello.get("checkpoint") is Dictionary else {}
+	var player_snapshot: Dictionary = checkpoint.get("player_snapshot", {}) if checkpoint.get("player_snapshot", {}) is Dictionary else {}
+	if not player_snapshot.empty() and _sim_player.has_method("restore_snapshot"):
+		_sim_player.call("restore_snapshot", player_snapshot)
+		return
+	var spawn: Dictionary = hello.get("spawn", {}) if hello.get("spawn") is Dictionary else {}
+	if not spawn.has("position"):
+		return
+	var pos_arr: Array = spawn["position"]
+	if pos_arr is Array and pos_arr.size() >= 3:
+		var t: Transform = _sim_player.global_transform
+		t.origin = Vector3(float(pos_arr[0]), float(pos_arr[1]), float(pos_arr[2]))
+		if spawn.has("yaw"):
+			t.basis = Basis(Vector3.UP, float(spawn["yaw"]))
+		if _sim_player.has_method("teleport_to"):
+			_sim_player.call("teleport_to", t)
+		elif _sim_player is Spatial:
+			(_sim_player as Spatial).global_transform = t
+
+func _unload_sim_level() -> void:
+	sim_ready = false
+	_sim_player = null
+	_sim_level = null
+	if _sim_viewport != null and is_instance_valid(_sim_viewport):
+		_sim_viewport.queue_free()
+	_sim_viewport = null
 
 func _physics_process(_delta: float) -> void:
 	if not active:
+		return
+	# Sin nivel del esclavo cargado (sim_hello pendiente) no hay tick ni emision:
+	# capture_snapshot sobre RemoteControlHome no sirve a nadie (FD-316 paso 3).
+	if not sim_ready:
 		return
 	_sample_and_queue_local_input()
 	_poll_udp_input()
@@ -153,7 +290,10 @@ func capture_snapshot() -> Dictionary:
 	if tree == null:
 		return {}
 
-	var scene = tree.current_scene
+	# FD-316: con nivel de simulacion montado, las rutas de entidades son relativas a
+	# EL (el esclavo las resuelve contra SU current_scene, que es el mismo nivel).
+	# Fallback legacy: lo que el host tenga como current_scene.
+	var scene: Node = _sim_level if _sim_level != null and is_instance_valid(_sim_level) else tree.current_scene
 	var scene_path = scene.filename if scene != null else ""
 
 	var entities: Dictionary = {}
@@ -168,6 +308,11 @@ func capture_snapshot() -> Dictionary:
 
 	for node in sync_nodes:
 		if is_instance_valid(node) and node is Spatial:
+			# Con nivel de simulacion, solo nodos de ese nivel viajan (el resto del
+			# arbol del control no existe en el esclavo).
+			if _sim_level != null and is_instance_valid(_sim_level) \
+					and not _sim_level.is_a_parent_of(node) and node != _sim_level:
+				continue
 			var path_str = String(scene.get_path_to(node)) if scene != null else String(node.get_path())
 			var state = {
 				"t": RemoteProtocol.encode_transform(node.global_transform),
@@ -192,8 +337,12 @@ func capture_snapshot() -> Dictionary:
 	# resuelve el interactuable y manda prompt+path en cada snapshot.
 	globals["interact"] = _capture_interaction_state()
 
-	# Capture viewport camera state
-	var camera = tree.root.get_viewport().get_camera()
+	# Capture camera state: la del nivel simulado (viewport oculto), no la del UI.
+	var camera: Camera = null
+	if _sim_viewport != null and is_instance_valid(_sim_viewport):
+		camera = _sim_viewport.get_camera()
+	if camera == null:
+		camera = tree.root.get_viewport().get_camera()
 	if camera != null and is_instance_valid(camera):
 		globals["cam_t"] = RemoteProtocol.encode_transform(camera.global_transform)
 		globals["cam_fov"] = camera.fov
@@ -201,12 +350,24 @@ func capture_snapshot() -> Dictionary:
 	return RemoteProtocol.create_sim_snapshot(_current_tick, OS.get_ticks_msec(), entities, globals, _token)
 
 func _capture_interaction_state() -> Dictionary:
-	var session = get_node_or_null("/root/SessionManager")
-	var player: Node = null
-	if session != null and "player" in session:
-		player = session.player
+	# Con nivel simulado, la interaccion se lee del jugador de ESE nivel: el
+	# SessionManager del control no lo encuentra (no esta bajo current_scene) y
+	# _find_player lo pisaria a null en cada tick.
+	var player: Node = _sim_player if _sim_player != null and is_instance_valid(_sim_player) else null
+	if player == null:
+		var session = get_node_or_null("/root/SessionManager")
+		if session != null and "player" in session:
+			player = session.player
 	if player != null and is_instance_valid(player) and player.has_method("get_interaction_state"):
-		return player.call("get_interaction_state")
+		var state: Dictionary = player.call("get_interaction_state")
+		# El path nace absoluto en el arbol del control; el esclavo lo resuelve
+		# contra su escena: recortar el prefijo del nivel simulado.
+		if _sim_level != null and is_instance_valid(_sim_level) and state.get("path", "") != "":
+			var prefix := String(_sim_level.get_path()) + "/"
+			var path := String(state["path"])
+			if path.begins_with(prefix):
+				state["path"] = path.substr(prefix.length())
+		return state
 	return {"prompt": "", "path": ""}
 
 func send_snapshot_udp(snapshot: Dictionary) -> void:
