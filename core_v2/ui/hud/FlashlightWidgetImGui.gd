@@ -3,8 +3,9 @@ extends ImGuiCanvas
 # FlashlightWidgetImGui.gd - Port a ImGui del widget compacto de la Linterna
 # (FlashlightWidget.gd/.tscn). Dibuja el MISMO contenido desde el mismo
 # widget.snapshot() (que FlashlightWidget._render()/_render_offline() ya llenan):
-# punto de estado + titulo, barra de bateria ASCII, estado + boton
-# ENCENDER/APAGAR/OFFLINE -> misma accion "toggle" (FlashlightWidget.toggle_action()).
+# punto de estado + titulo, barra de bateria ASCII. T12: sin el boton ENCENDER/APAGAR
+# ni el texto de estado -- el widget de slot es solo lectura; encender/apagar la
+# linterna vive en la pantalla completa (un tap sobre el widget la abre).
 #
 # El modo "pantalla completa" de la Linterna (HudViewMount._open_widget, sin
 # view_scene()) reescala este mismo widget con Control.rect_scale = WIDGET_ZOOM: este
@@ -23,11 +24,6 @@ const PANEL_SIZE := Vector2(210.0, 80.0)
 # Bloque util: 186x52 dentro del panel. No nace en (0,0), que lo deja visualmente
 # pegado a la esquina aunque el PanelContainer este bien centrado en su slot.
 const CONTENT_OFFSET := Vector2(12.0, 13.0)
-
-# Rect del boton ENCENDER/APAGAR en coordenadas de la ventana ImGui (la ventana va
-# anclada al origen del canvas): el host del HUD lo consulta via widget.imgui_button_hit_rects()
-# para atribuir el toque al boton y no abrir la pantalla (HudWidgetAction.pointer_on_button).
-const BUTTON_RECT := Rect2(124.0, 45.0, 74.0, 20.0)
 
 var widget: Node = null # FlashlightWidget.gd, fuente de snapshot()/toggle_action()
 
@@ -56,7 +52,7 @@ func _ready() -> void:
 	set_input_hz(30.0)
 	# Titulo ("Linterna") en Sixtyfour, igual escala que el resto del widget compacto;
 	# cuerpo (bateria/estado) a ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
-	var fonts := ImGuiOdiseaFonts.setup(self, 14.0, -1.0, 14.0)
+	var fonts := ImGuiOdiseaFonts.setup(self, ImGuiOdiseaFonts.WIDGET_FONT_PX, -1.0, ImGuiOdiseaFonts.WIDGET_FONT_PX)
 	title_font = fonts.title
 	body_font = fonts.body
 	set_default_font(body_font)
@@ -84,6 +80,11 @@ func _on_imgui_frame() -> void:
 	if not is_instance_valid(widget):
 		return
 	var snapshot: Dictionary = widget.snapshot()
+	# T12: el widget de slot no necesita el estado encendido/apagado (ni texto ni boton --
+	# eso vive en la pantalla completa, FlashlightScreenImGui, que un tap sobre el widget ya
+	# abre). "on"/"low" siguen viniendo en el snapshot: los sigue leyendo esa pantalla y el
+	# _render() de Controls (FlashlightWidget.gd, camino sin ImGui) para su punto/boton
+	# propios, y el punto de este widget los usa para el color (Manual §6).
 	var on := bool(snapshot.get("on", false))
 	var low := bool(snapshot.get("low", false))
 	var battery := float(snapshot.get("battery", 100.0))
@@ -94,15 +95,6 @@ func _on_imgui_frame() -> void:
 	var dot := OdiseaOSTheme.STATE_OFFLINE
 	if not offline:
 		dot = (OdiseaOSTheme.STATE_ALARM if low else OdiseaOSTheme.STATE_ACTIVE) if on else OdiseaOSTheme.STATE_OFFLINE
-
-	var status := "APAGADA"
-	var button_label := "ENCENDER"
-	if offline:
-		status = "OFFLINE"
-		button_label = "OFFLINE"
-	elif on:
-		status = "BAT. BAJA" if low else "ENCENDIDA"
-		button_label = "APAGAR"
 
 	var meter := "BAT: [----------]" if offline else _format_battery_bar(battery, battery_max)
 	var meter_color := OdiseaOSTheme.STATE_ALARM if (low and on and not offline) else OdiseaOSTheme.INK
@@ -135,31 +127,11 @@ func _on_imgui_frame() -> void:
 
 		set_cursor_pos(CONTENT_OFFSET + Vector2(0, 18))
 		text_colored(meter_color, meter)
-
-		set_cursor_pos(CONTENT_OFFSET + Vector2(0, 34))
-		text_colored(OdiseaOSTheme.INK if not offline else OdiseaOSTheme.STATE_OFFLINE, status)
-
-		set_cursor_pos(BUTTON_RECT.position)
-		if offline:
-			push_style_color(COL_BUTTON, Color(0.1, 0.1, 0.1, 1.0))
-			push_style_color(COL_TEXT, OdiseaOSTheme.STATE_OFFLINE)
-			button(button_label, BUTTON_RECT.size)
-			pop_style_color(2)
-		elif button(button_label, BUTTON_RECT.size):
-			widget.toggle_action()
 	end()
 
 	pop_style_color(1)
 	ImGuiOdiseaTheme.pop_window(self)
 	pop_style_var(2)
-
-
-# Rects de los botones ImGui en coordenadas locales del canvas (la ventana ImGui va
-# anclada al origen, ver BUTTON_RECT). FlashlightWidget.imgui_button_hit_rects() los
-# consulta re-ubicandolos en el arbol; aqui no hace falta escalar: el slot y el modo
-# ampliado escalan via la transformacion del Control padre, no del canvas.
-func button_hit_rects() -> Array:
-	return [BUTTON_RECT]
 
 
 # Tamano de diseno del panel (la ventana ImGui va anclada al origen del canvas): el

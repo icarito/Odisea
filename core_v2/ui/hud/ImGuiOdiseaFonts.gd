@@ -23,6 +23,18 @@ const SIXTYFOUR := "res://assets/Sixtyfour-Regular.ttf"
 const DUNGGEUNMO := "res://assets/fonts/DungGeunMo.ttf"
 const SILKSCREEN := "res://assets/fonts/Silkscreen-Regular.ttf"
 
+# T12: tamano UNICO para los widgets de slot (linterna, sistemas -- FlashlightWidgetImGui,
+# DebugHudWidgetImGui), distinto del de las pantallas grandes (esas siguen pasando su propio
+# body_px/title_px a setup(), no tocan esta constante). Antes 14.0 en los dos: a esa medida
+# ProggyClean (bitmap horneada a 13px, ver round_body_size) redondeaba PARA ABAJO a 13, mas
+# chico que lo pedido. 16.0 sigue redondeando a 13 en cuerpo/numeros (el proximo escalon
+# nitido es 26, el doble: no entra en el panel de 210x72/80 sin romper el layout de
+# FlashlightWidget/DebugHudWidget), pero el titulo (Sixtyfour, vectorial) si crece un poco y
+# el cuerpo se lee mas grande aunque pierda algo de la nitidez "pixel perfect" del bitmap --
+# tradeoff aceptado a proposito por legibilidad en el handheld. No cambia PANEL_SIZE: el
+# marco del slot y el ancho en el Anbernic (640x480) quedan igual.
+const WIDGET_FONT_PX := 16.0
+
 
 static func _is_korean() -> bool:
 	return TranslationServer.get_locale().begins_with("ko")

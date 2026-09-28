@@ -356,6 +356,7 @@ func _activity_detected() -> bool:
 func _process(delta: float) -> void:
 	_tick_idle_fade(delta)
 	_tick_context_signal(delta)
+	_poll_imgui_pointer()
 
 func _tick_idle_fade(delta: float) -> void:
 	if not _idle_fade_enabled():
@@ -1093,6 +1094,71 @@ func _end_context_drag(control: Control) -> void:
 		Haptics.tick()
 	if is_instance_valid(_context_widget):
 		_place_context(_context_widget)
+
+# T12: los widgets con cara ImGui (linterna, sistemas) no se dejaban arrastrar. Causa
+# confirmada leyendo el motor: ImGuiCanvas._input() marca el evento manejado apenas el
+# puntero esta sobre su ventana (io.WantCaptureMouse, imgui_canvas.cpp) y ese _input corre
+# ANTES que el de este host -- es hijo, mas profundo en el arbol, y el grupo "_input" de
+# Godot va en orden inverso y CORTA en el primer nodo que marca handled (ver
+# SceneTree::_call_input_pause, "if (input_handled) break"). Ni el press ni el motion del
+# arrastre llegan entonces a gui_input ni a este _input(): el boton ENCENDER/APAGAR sigue
+# andando porque ImGui lo resuelve solo (io.MouseDown propio, sin pasar por Godot), pero
+# nada mueve el widget de su slot.
+# No hay forma de arreglarlo tocando solo _ignore_mouse/_make_tappable (no es un tema de
+# mouse_filter): hace falta un camino que no dependa de la cadena de eventos. Se sondea
+# el puntero real (Input, no bloqueado por nada) para los widgets marcados por su propio
+# constructor ImGui (FlashlightWidget._build_imgui_widget, DebugHudWidget._build_imgui_widget)
+# con hud_uses_imgui_pointer_poll, y se reusa la MISMA logica de _on_widget_gui_input/_drive_drag.
+var _imgui_poll_pressed := false
+var _imgui_poll_slot := ""
+
+func _uses_imgui_pointer_poll(control: Control) -> bool:
+	return is_instance_valid(control) and control.has_meta("hud_uses_imgui_pointer_poll") \
+		and bool(control.get_meta("hud_uses_imgui_pointer_poll"))
+
+func _synthetic_pointer(pressed: bool, at: Vector2) -> InputEventScreenTouch:
+	var ev := InputEventScreenTouch.new()
+	ev.pressed = pressed
+	ev.position = at
+	return ev
+
+# p_pos/p_pressed: por defecto lee el puntero real (Input); los tests los fuerzan a mano
+# porque en headless (--no-window) Input.parse_input_event() nunca aplica -- queda en el
+# buffer de use_accumulated_input para siempre, ya que Main::iteration solo lo vacia con
+# use_input_buffering (Android/embedding), apagado por defecto.
+func _poll_imgui_pointer(p_pos = null, p_pressed = null) -> void:
+	var pos: Vector2
+	if p_pos != null:
+		pos = p_pos
+	else:
+		var viewport := get_viewport()
+		if viewport == null:
+			return
+		pos = viewport.get_mouse_position()
+	var pressed: bool = p_pressed if p_pressed != null else Input.is_mouse_button_pressed(BUTTON_LEFT)
+	if pressed and not _imgui_poll_pressed:
+		_imgui_poll_pressed = true
+		if is_instance_valid(_pressed_control):
+			return # un press por el camino normal ya reclamo el widget este frame
+		var hit: Array = _widget_hit(pos)
+		if hit.empty() or not _uses_imgui_pointer_poll(hit[0]):
+			return
+		_note_activity()
+		_last_pointer_position = pos
+		_imgui_poll_slot = hit[1]
+		_on_widget_gui_input(_synthetic_pointer(true, pos), hit[0], hit[1])
+		return
+	if not pressed and _imgui_poll_pressed:
+		_imgui_poll_pressed = false
+		if is_instance_valid(_pressed_control) and _uses_imgui_pointer_poll(_pressed_control):
+			_last_pointer_position = pos
+			_on_widget_gui_input(_synthetic_pointer(false, pos), _pressed_control, _imgui_poll_slot)
+		return
+	if pressed and is_instance_valid(_pressed_control) and _uses_imgui_pointer_poll(_pressed_control) \
+			and pos != _last_pointer_position:
+		_note_activity()
+		_last_pointer_position = pos
+		_drive_drag(_pressed_control)
 
 func _input(event: InputEvent) -> void:
 	# B4: cualquier input (mouse, dedo, tecla, joypad) cuenta como actividad y despierta los widgets.

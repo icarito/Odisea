@@ -27,7 +27,7 @@ func _ready() -> void:
 	set_input_hz(30.0)
 	# Igual criterio que FlashlightWidgetImGui: titulo ("SISTEMAS") en Sixtyfour, cuerpo
 	# a ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
-	var fonts := ImGuiOdiseaFonts.setup(self, 14.0, -1.0, 14.0)
+	var fonts := ImGuiOdiseaFonts.setup(self, ImGuiOdiseaFonts.WIDGET_FONT_PX, -1.0, ImGuiOdiseaFonts.WIDGET_FONT_PX)
 	title_font = fonts.title
 	body_font = fonts.body
 	set_default_font(body_font)

@@ -50,6 +50,10 @@ func _build_imgui_widget() -> void:
 	# escuchar resized (con el size viejo el fit del slot encogia el widget de mas).
 	rect_size = canvas.panel_size()
 	set_meta("hud_slot_centered", true)
+	# SuitOSWidgetHost.gd: el arrastre de este widget no puede depender de que le
+	# llegue el evento (ImGuiCanvas lo atrapa antes, ver SuitOSWidgetHost._poll_imgui_pointer);
+	# esta marca le dice al host que sondee el puntero en vez de esperar gui_input.
+	set_meta("hud_uses_imgui_pointer_poll", true)
 	_imgui_widget = canvas
 
 # Snapshot leido por FlashlightWidgetImGui en cada imgui_frame.
@@ -61,10 +65,10 @@ func toggle_action() -> void:
 	_perform("toggle")
 
 # Rects (en coordenadas locales de este Control) de los botones que pinta el canvas
-# ImGui: con el modulo disponible el Margin de Controls esta escondido, y sin estos
-# rects HudWidgetAction.pointer_on_button() no ve ningun boton -> un toque sobre
-# ENCENDER/APAGAR atribuiria el tap al widget y abriria su pantalla en vez de dejarlo
-# en el boton (regresion medida en test_tapping_the_button_inside_a_widget...).
+# ImGui, si tiene alguno (FlashlightWidgetImGui.gd ya no: T12 le saco el boton
+# ENCENDER/APAGAR, el widget de slot quedo de solo lectura). Generico por si algun otro
+# widget ImGui de slot agrega uno mas adelante: sin rects, HudWidgetAction.pointer_on_button()
+# no ve ningun boton y el tap se atribuye al widget entero (abre su pantalla).
 func imgui_button_hit_rects() -> Array:
 	if _imgui_widget == null or not is_instance_valid(_imgui_widget):
 		return []
