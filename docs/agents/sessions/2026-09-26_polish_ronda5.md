@@ -263,6 +263,24 @@ lugar (y posible sombra fantasma en el centro del hub). Transform fijado a la po
 - Linterna y Sistemas centran su bloque de contenido dentro de su panel ImGui, en vez de dibujarlo
   desde la esquina superior izquierda.
 
+### FD-319 T2-T4 — HECHO: ff098736 (T3 urgencia), 6bf20976 (T2 señal), 73ad7e71 (T4 checklist +
+ProtocolModel con API para T5), 82efb6f5 (registro class_name). T5 (cablear al grafo) pendiente.
+
+### T12 — Widgets ImGui no arrastrables — HECHO (parche)
+Causa en el motor: ImGuiCanvas::_input() hace set_input_as_handled() con WantCaptureMouse y corta el
+grupo _input antes que SuitOSWidgetHost. Parche: sondeo del puntero en el host para widgets con meta
+hud_uses_imgui_pointer_poll. **Pendiente limpio**: ventana ImGui del widget con NoInputs, o que el
+motor no consuma sin ítem ImGui bajo el puntero. Fuente widgets 16 px (ProggyClean bitmap redondea a 13
+en cuerpo; salto nítido real sería 26, no entra en 640x480).
+
+### T13 — Anbernic: interactuables pegados — HECHO 156a02b5
+Paridad _scan_tick vs get_physics_frames()%8 en LOW. Probar en device.
+
+### Pendientes transversales
+- El rebake de RingHub resetea FloorMesh.png.import a mipmaps=false (pasó en 976ea82f): hacer que
+  bake/postproceso fuerce mipmaps en ese lightmap.
+- Lightmaps sin mipmaps de pisos superiores/escalera (CombinedMesh*, Visual_*) si hay moiré.
+
 ## Estado
 - Mapeo y health check: hechos.
 - T1+T2 HECHO y commiteado: 12f29935 (juego), b3092697 (central), 8691ea09 (dashboard),
