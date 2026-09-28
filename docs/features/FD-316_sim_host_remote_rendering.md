@@ -128,6 +128,43 @@ alcanza en LAN).
    primero (física, serialización de snapshots, red). El resultado es un informe,
    no solo verde/rojo.
 
+## Estado real y reparto de roles (2026-09-28, Sebastián)
+
+**Qué hay en main** (`e3b6da8f`, `66bb2b6d`, `0d4d837c`, `53fc3c19`): emparejamiento y roles
+(`RemoteControlManager.update_offload_roles`), canal UDP de snapshots, interpolación en el
+render-esclavo (`RemoteSimClient`), interacción autoritativa, input del esclavo aplicado en la
+autoridad, mute del esclavo. **Falta la pieza central**: `RemoteSimHost.start_simulation()` no
+carga ningún nivel; captura lo que el control tenga abierto (`RemoteControlHome`, sin jugador). El
+mensaje `sim_hello` (`RemoteProtocol.create_sim_hello(scene_path, …)`) existe pero nadie lo manda
+ni lo consume. Por eso la promoción a render-esclavo está apagada
+(`RemoteControlManager.RENDER_SLAVE_OFFLOAD_READY = false`).
+
+**Reparto decidido:**
+
+| | Control remoto (sim host) | Handheld low-end (render-esclavo) |
+|---|---|---|
+| Nivel | cargado, **sin render** | cargado, solo como escena visual |
+| Física / lógica / interacción | **sí** (autoridad) | no (física apagada) |
+| Audio (música + SFX) | **sí**, se escucha en el control | no (bus Master muteado) |
+| Render | no (su pantalla sigue siendo la UI del control remoto) | sí, aplicando los snapshots |
+| Input | local del control + el del handheld por UDP | se envía a la autoridad |
+| HUD / widget de contexto | lo resuelve la autoridad; el bridge lo muestra en ambos | lo pinta desde el snapshot |
+
+**Lo que hay que construir:**
+1. Handshake: al promover, el esclavo manda `sim_hello` con escena, estado de spawn (posición,
+   yaw, checkpoint, `run_seed` de SessionManager) y config de tick.
+2. El sim host carga ese nivel **sin reemplazar** la UI del control (`RemoteControlHome` sigue
+   como pantalla). Decidir con evidencia: nivel en un `Viewport` propio con
+   `render_target_update_mode = UPDATE_DISABLED` + `own_world` (y listener 3D habilitado para
+   que suene el audio), vs. cambiar `current_scene` y mantener la UI en un CanvasLayer. Tener en
+   cuenta que `SessionManager.player`, `SceneManager` y los autoloads asumen `current_scene`.
+3. El sim host arranca a emitir snapshots **recién** cuando el nivel está listo y tiene jugador
+   (`sim_ready`); el esclavo apaga física y audio **al recibir el primer snapshot válido**, no al
+   promover.
+4. Salida limpia: al desemparejar, el sim host descarga el nivel y el esclavo retoma su
+   simulación local desde el último snapshot (sin teletransporte).
+5. Recién entonces `RENDER_SLAVE_OFFLOAD_READY = true`.
+
 ## Notas de implementación para Jules
 
 - Reusar el transporte existente de FD-294. Snapshots de sim por **UDP**
