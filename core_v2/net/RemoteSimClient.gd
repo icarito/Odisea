@@ -140,7 +140,10 @@ func _freeze_local_simulation() -> void:
 func _freeze_subtree(node: Node) -> void:
 	if node == self:
 		return
-	if node.is_physics_processing():
+	# HoloTerminalV2 (pantallas y HUD del traje) usa _physics_process para presentacion:
+	# transicion al HUD, cursor del shader, oclusion y anclaje a la camara activa.
+	# Congelarlo dejaba las pantallas rosadas y sueltas de la camara.
+	if node.is_physics_processing() and not (node is HoloTerminalV2):
 		node.set_physics_process(false)
 		_frozen_nodes.append(node)
 	for child in node.get_children():
@@ -203,21 +206,14 @@ func _process(_delta: float) -> void:
 	if _engaged and (_frozen_scene == null or not is_instance_valid(_frozen_scene) or _frozen_scene != get_tree().current_scene):
 		_freeze_local_simulation()
 
-	if _buffer.size() < interp_buffer_ticks + 1:
-		# Wait until buffer has enough ticks to interpolate
-		if not _buffer.empty():
-			_apply_snapshot(_buffer[0])
-		_send_local_input()
-		return
-
-	# Interpolate between snapshot[0] and snapshot[1]
-	var snap_a = _buffer[0]
-	var snap_b = _buffer[1]
-
-	# Apply snapshot B (or lerp if needed)
-	_apply_snapshot(snap_b)
-	_latest_applied_tick = int(snap_b["tick"])
-	_buffer.pop_front()
+	# Los snapshots llegan a 60 Hz y el handheld dibuja a ~15-25 fps: consumir uno por
+	# frame acumulaba hasta 30 de atraso (0.5 s) y luego pop_front descartaba a saltos
+	# (camara atrasada y a tirones). Se aplica siempre el mas reciente y se descarta lo viejo.
+	if not _buffer.empty():
+		var newest = _buffer[_buffer.size() - 1]
+		_apply_snapshot(newest)
+		_latest_applied_tick = int(newest["tick"])
+		_buffer.clear()
 	_send_local_input()
 
 func _send_local_input() -> void:
