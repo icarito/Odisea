@@ -6,7 +6,19 @@ LEVEL res://core_v2/tests/TestPush.tscn
 # Wait for physics to settle
 RIGHT 90
 LOOK +90
-SET $drift_threshold AS 0.03
+# Umbral propio, mas alto que el default global (0.01): con 4 cajas empujables
+# en contacto simultaneo, el PASS 1 (grabacion) de este OYS bifurca entre dos
+# posiciones de reposo estables para PushableBox, en la MISMA maquina y el mismo
+# commit (reproducido local 4 corridas aisladas: 2 asentaron en x=1.400088,
+# 1 en x=1.449226, delta=0.049138 == el "Drift demasiado alto" que se ve en CI).
+# No es diferencia de CPU entre runners de GH Actions ni un bug de codigo del
+# juego: es sensibilidad a condiciones iniciales del solver de contacto/friccion
+# de Box3D con varias cajas en contacto (ver el comentario FD-290 en
+# PushableBoxV2.gd: el reposo lo decide el motor, sin snap bajo Box3D). 0.06 deja
+# margen sobre el delta medido sin tapar una regresion real (la vieja de bucket C
+# en docs/archive/determinism_test_failures.md era 5.99, dos ordenes de magnitud
+# arriba). Memoria: project_determinism_push_clipping_flake.md
+SET $drift_threshold AS 0.06
 
 # Box is at 0.0, 1.0, -2.5 (2.5m ahead)
 # Just move to engage

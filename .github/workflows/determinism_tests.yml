@@ -155,6 +155,19 @@ jobs:
             --import-mode auto \
             --allow-smoke-retry 1
 
+      - name: Log runner CPU (para descartar/confirmar correlacion de hardware)
+        run: |
+          # test_push_clipping.oys da un drift bimodal (~0 o ~0.049) que se
+          # reprodujo tambien en corridas locales aisladas en la MISMA maquina
+          # (ver comentario en el .oys): es sensibilidad a condiciones
+          # iniciales del solver de contacto/friccion de Box3D con 4 cajas, no
+          # una diferencia de CPU entre runners. Este paso deja el modelo/flags
+          # en el log de todos modos, por si aparece una correlacion real con
+          # hardware que la muestra local no pudo ver.
+          lscpu | head -20
+          grep -m1 "model name" /proc/cpuinfo
+          grep -o -m1 -E "avx512[a-z]*|fma|avx2" /proc/cpuinfo | sort -u | tr '\n' ' '; echo
+
       - name: Run Determinism Tests
         env:
           GODOT_BIN: /usr/local/bin/godot

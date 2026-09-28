@@ -322,7 +322,7 @@
       {
         "command": "SET",
         "var": "$drift_threshold",
-        "value": "0.03"
+        "value": "0.06"
       }
     ],
     "93": [
@@ -496,13 +496,13 @@
       }
     },
     "scene_path": "res://core_v2/tests/TestPush.tscn",
-    "drift_threshold": 0.03
+    "drift_threshold": 0.06
   },
   "final_expected_state": {
     "position": [
       1.400088,
       0.106111,
-      1.700889
+      1.700888
     ],
     "velocity": [
       0,
@@ -539,6 +539,6 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$drift_threshold": 0.03
+    "$drift_threshold": 0.06
   }
 }
