@@ -102,6 +102,8 @@ var _hold_progress: float = 0.0
 # FD-310: widget de contexto (interactuable en rango) y el slot libre que ocupa.
 var _context_widget: Control = null
 var _context_target: Node = null
+# Escena con la que se evaluo la visibilidad por ultima vez (ver _process).
+var _visibility_scene_id := 0
 # B4: inactividad acumulada (segundos) y alpha actual del fade del root de widgets.
 var _idle_seconds: float = 0.0
 var _idle_alpha: float = 1.0
@@ -323,6 +325,18 @@ func _activity_detected() -> bool:
 	return false
 
 func _process(delta: float) -> void:
+	# refresh_visibility() solo se re-disparaba por señales (widget_changed, screens,
+	# hud_mode_changed...). SceneManager reasigna tree.current_scene y renderiza 1-2
+	# idle_frame antes de emitir "scene_ready" (ver _load_scene): en ese hueco el host
+	# vive con el "in_menu" de la escena vieja y un widget pinneado en gameplay se ve un
+	# cuadro de mas al entrar al Menu. Se recalcula apenas cambia current_scene: una
+	# comparacion por cuadro, no refresh_visibility() por cuadro (el tick de GDScript es
+	# el cuello en el handheld).
+	var scene = get_tree().current_scene
+	var scene_id: int = scene.get_instance_id() if scene != null else 0
+	if scene_id != _visibility_scene_id:
+		_visibility_scene_id = scene_id
+		refresh_visibility()
 	_tick_idle_fade(delta)
 
 func _tick_idle_fade(delta: float) -> void:
