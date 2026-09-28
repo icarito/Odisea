@@ -27,11 +27,15 @@ var _engaged: bool = false
 # nunca se aplica y el prompt no vuelve. Se reintenta hasta resolverlo.
 var _interaction_authority_applied: bool = false
 var _interaction_authority_player: Node = null
-# FD-316: con el offload comprometido el controlador local (y su CameraRig, que cuelga del
-# Pilot) no puede seguir simulando: apagar PhysicsServer no frena su _physics_process, que
-# seguia leyendo el input local y movia jugador/camara encima de cada snapshot ("doble
-# simulacion"). Se congela el _physics_process del player y se restaura al salir.
-var _frozen_player: Node = null
+# FD-316: con el offload comprometido el handheld no simula NADA: apagar PhysicsServer
+# frena los cuerpos del motor pero no los _physics_process de GDScript (controlador del
+# Pilot y su CameraRig, props, plataformas, ascensores...), que seguian corriendo con el
+# input local encima de cada snapshot ("doble simulacion") y gastando el CPU que el
+# offload tiene que liberar. Por convencion del proyecto la logica vive en
+# _physics_process y lo visual en _process: se congela el primero en todo el nivel y el
+# segundo sigue (animaciones, particulas). Se restauran exactamente los nodos congelados.
+var _frozen_nodes: Array = []
+var _frozen_scene: Node = null
 
 func _ready() -> void:
 	# Aplicar el snapshot DESPUES de cualquier otro _process del frame (camara incluida):
@@ -67,7 +71,7 @@ func stop_render_slave() -> void:
 	if _listening_port > 0:
 		_udp.close()
 	_restore_local_physics()
-	_thaw_local_player()
+	_thaw_local_simulation()
 	_set_player_interaction_authoritative(false)
 	_set_local_audio_muted(false)
 
@@ -78,7 +82,7 @@ func _engage_offload() -> void:
 	_engaged = true
 	# Disable physics server or local physics stepping to free CPU
 	_disable_local_physics()
-	_freeze_local_player()
+	_freeze_local_simulation()
 	# FD-316: la interaccion la resuelve la autoridad; el host no escanea.
 	_set_player_interaction_authoritative(true)
 	# El que suena es el control remoto (el que simula); este host solo renderiza.
@@ -119,19 +123,35 @@ func _apply_player_interaction(prompt: String, target_path: String) -> void:
 	if player != null and is_instance_valid(player) and player.has_method("apply_remote_interaction_state"):
 		player.call("apply_remote_interaction_state", prompt, target_path)
 
-func _freeze_local_player() -> void:
-	var player = _get_player()
-	if player == _frozen_player and is_instance_valid(player):
+func _freeze_local_simulation() -> void:
+	var scene = get_tree().current_scene if get_tree() != null else null
+	if scene == _frozen_scene and is_instance_valid(scene) and not _frozen_nodes.empty():
 		return
-	_thaw_local_player()
-	if player != null and is_instance_valid(player):
+	_thaw_local_simulation()
+	if scene != null and is_instance_valid(scene):
+		_frozen_scene = scene
+		_freeze_subtree(scene)
+	# El player puede no colgar de current_scene (SessionManager lo resuelve aparte).
+	var player = _get_player()
+	if player != null and is_instance_valid(player) and player.is_physics_processing():
 		player.set_physics_process(false)
-		_frozen_player = player
+		_frozen_nodes.append(player)
 
-func _thaw_local_player() -> void:
-	if _frozen_player != null and is_instance_valid(_frozen_player):
-		_frozen_player.set_physics_process(true)
-	_frozen_player = null
+func _freeze_subtree(node: Node) -> void:
+	if node == self:
+		return
+	if node.is_physics_processing():
+		node.set_physics_process(false)
+		_frozen_nodes.append(node)
+	for child in node.get_children():
+		_freeze_subtree(child)
+
+func _thaw_local_simulation() -> void:
+	for node in _frozen_nodes:
+		if is_instance_valid(node):
+			node.set_physics_process(true)
+	_frozen_nodes.clear()
+	_frozen_scene = null
 
 func _disable_local_physics() -> void:
 	PhysicsServer.set_active(false)
@@ -179,9 +199,9 @@ func _process(_delta: float) -> void:
 	# Solo cuando el offload esta comprometido: antes, la interaccion es local.
 	if _engaged and not _interaction_authority_is_current():
 		_set_player_interaction_authoritative(true)
-	# Mismo caso para el congelamiento: un player nuevo (cambio de escena) nace simulando.
-	if _engaged and (_frozen_player == null or not is_instance_valid(_frozen_player) or _frozen_player != _get_player()):
-		_freeze_local_player()
+	# Mismo caso para el congelamiento: una escena nueva (cambio de nivel) nace simulando.
+	if _engaged and (_frozen_scene == null or not is_instance_valid(_frozen_scene) or _frozen_scene != get_tree().current_scene):
+		_freeze_local_simulation()
 
 	if _buffer.size() < interp_buffer_ticks + 1:
 		# Wait until buffer has enough ticks to interpolate
