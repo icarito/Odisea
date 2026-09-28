@@ -409,7 +409,10 @@ func test_clicking_the_marked_slice_picks_it():
 	home.queue_free()
 
 
-func test_relative_mouse_aim_confirms_the_marked_slice_away_from_it():
+func test_desktop_click_on_the_hub_confirms_the_hub_not_the_previous_relative_aim():
+	# Con mouse de escritorio (radial que no vino de un slot) manda la posicion real del
+	# cursor: volver al hub y clickear confirma el hub, sin arrastrar el aim relativo
+	# anterior (c1220719, HudModeOverlay._input). Decision de Sebastian 2026-09-28.
 	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true
 	_tab_tap(home)
@@ -422,12 +425,10 @@ func test_relative_mouse_aim_confirms_the_marked_slice_away_from_it():
 	var hub: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
 	overlay._input(_motion(hub, Vector2(0.0, -80.0)))
 	_tick(home)
-	# El cursor del SO puede estar en el hub mientras el mouse relativo marco el sector de arriba.
 	overlay._input(_click(hub))
 	overlay._input(_release_click(hub))
 
-	assert_bool(home._radial_is_open()).is_false()
-	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+	assert_array(_screen_selects(home)).is_empty()
 	home.queue_free()
 
 func test_pick_while_holding_tab_keeps_the_screen_open_on_release():
