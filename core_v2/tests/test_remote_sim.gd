@@ -118,18 +118,22 @@ func test_render_slave_engages_on_first_valid_snapshot():
 	var prev_player = session.player
 	session.player = player
 
+	player.set_physics_process(true)
 	client.start_render_slave(0)
 	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(7, 100, {}, {"scene": "x"}, "t"))
 	assert_bool(client.is_engaged()).is_true()
 	assert_bool(audio._render_slave_audio_muted).is_true()
 	assert_bool(client._interaction_authority_applied).is_true()
 	assert_bool(player.is_remote_render_slave()).is_true()
+	# El controlador local (y su CameraRig) no simula encima de los snapshots.
+	assert_bool(player.is_physics_processing()).is_false()
 
 	client.stop_render_slave()
 	assert_bool(client.is_engaged()).is_false()
 	assert_bool(audio._render_slave_audio_muted).is_false()
 	assert_bool(client._interaction_authority_applied).is_false()
 	assert_bool(player.is_remote_render_slave()).is_false()
+	assert_bool(player.is_physics_processing()).is_true()
 	session.player = prev_player
 
 
