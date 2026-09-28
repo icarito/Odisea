@@ -216,6 +216,9 @@ var _scan_gate = null
 var _scan_tick := 0
 # Tier LOW: cooldown del re-escaneo de interaccion cuando no hay target cacheado.
 var _interaction_null_scan_cooldown := 0
+# Llamadas a _process_interaction: en LOW el re-scan con target cacheado se cuenta en
+# llamadas, no en frames de fisica (ver _process_interaction).
+var _interaction_scan_calls := 0
 var _rl_mode := false
 var _rl_fast_controller := false
 var _rl_skip_animator := false
@@ -2196,9 +2199,19 @@ func _process_interaction(input: InputDataV2):
 	if _interaction_null_scan_cooldown > 0:
 		_interaction_null_scan_cooldown -= 1
 	var has_cached_target := is_instance_valid(_best_interaction_target_cached)
-	var should_scan_interaction := Engine.get_physics_frames() % 8 == 0
+	# En LOW esta funcion corre cada `stride` ticks segun _scan_tick, que no comparte fase
+	# con get_physics_frames(): con paridad opuesta el `% 8` nunca caia en una llamada y un
+	# target cacheado no se soltaba mas (Anbernic, "no se des-detecta"). Ahi se cuenta en
+	# llamadas; fuera de LOW se conserva el frame de fisica exacto (replay/CI).
+	_interaction_scan_calls += 1
+	var scan_stride := _low_scan_stride()
+	var should_scan_interaction: bool
+	if scan_stride <= 1:
+		should_scan_interaction = Engine.get_physics_frames() % 8 == 0
+	else:
+		should_scan_interaction = _interaction_scan_calls % int(max(1, 8 / scan_stride)) == 0
 	if not should_scan_interaction and not has_cached_target:
-		should_scan_interaction = _low_scan_stride() <= 1 or _interaction_null_scan_cooldown <= 0
+		should_scan_interaction = scan_stride <= 1 or _interaction_null_scan_cooldown <= 0
 	if should_scan_interaction:
 		var bodies = _get_interaction_overlaps()
 		var best_target = null
