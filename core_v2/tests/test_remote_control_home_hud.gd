@@ -416,11 +416,15 @@ func test_relative_mouse_aim_confirms_the_marked_slice_away_from_it():
 	home._client().ui_directives.clear()
 
 	var overlay = home.hud_backend.get_overlay()
-	overlay._input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -80.0)))
+	# Centro real del selector, no VIEW_SIZE * 0.5: en CI el overlay mide 1066 de ancho (stretch
+	# "viewport"), y ese punto ya no es el hub (ver _top_slice).
+	var sel = overlay._selector
+	var hub: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
+	overlay._input(_motion(hub, Vector2(0.0, -80.0)))
 	_tick(home)
 	# El cursor del SO puede estar en el hub mientras el mouse relativo marco el sector de arriba.
-	overlay._input(_click(VIEW_SIZE * 0.5))
-	overlay._input(_release_click(VIEW_SIZE * 0.5))
+	overlay._input(_click(hub))
+	overlay._input(_release_click(hub))
 
 	assert_bool(home._radial_is_open()).is_false()
 	assert_array(_screen_selects(home)).is_equal(["screen_a"])
@@ -1419,6 +1423,11 @@ func test_tapping_the_button_inside_a_widget_does_not_open_its_screen():
 	yield(await_idle_frame(), "completed") # los contenedores del widget reparten tamaños en diferido
 	var widget: Control = _slot_widget(home, 0)
 	var host = home.widget_host
+	# Con modulo ImGui la cara del widget de la linterna ya no tiene boton on/off (T12,
+	# ab7a1dcc): un toque sobre el widget abre su pantalla, asi que no hay boton que probar.
+	# El caso sigue vigente para el camino de Controls (sin modulo), que conserva el toggle.
+	if widget.has_meta("hud_uses_imgui_pointer_poll"):
+		return
 	# El centro del boton del widget segun el modo de runtime: con modulo ImGui el
 	# canvas pinta su propio boton (FlashlightWidgetImGui.BUTTON_RECT via
 	# imgui_button_hit_rects()) y esconde el ToggleButton de Controls; sin modulo, el
