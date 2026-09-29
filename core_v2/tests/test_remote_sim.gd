@@ -9,6 +9,7 @@ const SimLogicFreezeScript = preload("res://core_v2/net/SimLogicFreeze.gd")
 const RemoteSimStatsScript = preload("res://core_v2/net/RemoteSimStats.gd")
 const PlayerScript = preload("res://core_v2/player/PlayerControllerV2.gd")
 const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManager.gd")
+const HangingDisplayScene = preload("res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn")
 
 func test_protocol_sim_messages_encode_decode():
 	var hello = RemoteProtocolScript.create_sim_hello("res://scenes/TestScene.tscn", 60, "tok123")
@@ -2425,6 +2426,31 @@ func test_render_slave_terminal_focus_does_not_change_camera():
 	camera.current = false
 	get_tree().root.remove_child(holder)
 	holder.free()
+
+
+# FD-316 (tarea R2): la Pantalla del HUD en el render-esclavo corre local. Con la camara
+# impuesta por el snapshot el terminal no entra en foco (guard K2), pero el HUD si le presta
+# el Viewport: al prestarlo su UI local (cursor del Viewport y navegacion por superficie) tiene
+# que quedar activa, o la pantalla se abre sin cursor para operarla. release_viewport() se la
+# devuelve al estado real del terminal.
+func test_render_slave_borrowed_hud_viewport_keeps_local_cursor_ui():
+	var display = auto_free(HangingDisplayScene.instance())
+	add_child(display)
+	display.set_active(true, true)
+	var hudable = display.get_node_or_null("HoloTerminalHUDable")
+	assert_object(hudable).is_not_null()
+
+	var viewport = hudable.borrow_viewport()
+	assert_object(viewport).is_not_null()
+	# La UI local esta activa aunque el terminal NO este en foco: la prendio el prestamo del HUD.
+	assert_bool(viewport.get("_ui_mode_active")).is_true()
+	assert_bool(viewport.get("_cursor_visual").visible).is_true()
+	var terminal = hudable._get_terminal()
+	assert_bool(terminal.is_focused()).is_false()
+
+	# Al soltar el Viewport vuelve al estado del terminal (sin foco = UI apagada).
+	hudable.release_viewport()
+	assert_bool(viewport.get("_ui_mode_active")).is_false()
 
 
 # FD-316 (tarea N): esclavo de prueba que captura las directivas que salen por el WS. El
