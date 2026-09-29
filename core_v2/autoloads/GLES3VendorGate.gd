@@ -92,6 +92,12 @@ var _env_keep_glow := false
 # y los nodos registrados (solo en tier LOW).
 var _lod_max_dist := DEFAULT_LOD_MAX_DIST
 var _lod_nodes: Array = []
+# FD-316 (tarea X): nodos que ESTE culler oculto por distancia. El culler nunca muestra algo
+# que otro sistema escondio: al registrar no toca `visible`, solo oculta lo que estaba visible
+# y fuera de rango, y restaura unicamente lo que el mismo oculto (marca presente). Un nodo
+# que la escena/streamer dejo oculto, o que otro sistema oculto mientras el culler lo tenia
+# visible, nunca se re-muestra desde aca.
+var _lod_hidden := {}
 # Los tools de horneado (tools/bake_*.gd) instancian la escena fuente y guardan
 # los materiales recolectados. Si el gate corre en tier LOW, _low_tier_material
 # muta esos recursos COMPARTIDOS en memoria y el bake los persiste sin
@@ -965,6 +971,8 @@ func _read_lod_max_dist() -> float:
 
 # FD-316 (tarea U): registra un trozo horneado del andamio para el culler de distancia.
 # Corre una vez por nodo que entra al arbol (hook node_added del gate), no por frame.
+# Tarea X: NO fuerza `visible`; si la escena o el streamer ya lo dejaron oculto, se respeta
+# (antes el registro lo encendia y subia los draw calls del device).
 func _register_scaffold_lod_node(node: GeometryInstance) -> void:
 	if _lod_max_dist <= 0.0:
 		return
@@ -973,7 +981,6 @@ func _register_scaffold_lod_node(node: GeometryInstance) -> void:
 	if _lod_nodes.has(node):
 		return
 	_lod_nodes.append(node)
-	node.visible = true
 	set_process(true)
 
 # Trozo del andamio: MeshInstance "Visual_NN" hijo DIRECTO de uno de los grupos. El
@@ -992,7 +999,8 @@ func _is_scaffold_group_mesh(node: Node) -> bool:
 
 # Culler por frame (solo con nodos registrados). Distancia de la camara activa al centro del
 # AABB de cada trozo, con histeresis: oculta por encima de umbral+his, muestra por debajo
-# del umbral. Sin camara (menu, transicion) se muestra todo para no dejar el andamio vacio.
+# del umbral. Sin camara (menu, transicion) se restaura solo lo que el culler habia ocultado,
+# para no dejar el andamio vacio sin re-mostrar lo que otro sistema escondio.
 func _update_scaffold_lod() -> void:
 	_prune_scaffold_lod_nodes()
 	if _lod_nodes.empty():
@@ -1002,7 +1010,9 @@ func _update_scaffold_lod() -> void:
 	var camera: Camera = viewport.get_camera() if viewport != null else null
 	if camera == null:
 		for node in _lod_nodes:
-			node.visible = true
+			if _lod_hidden.has(node):
+				node.visible = true
+				_lod_hidden.erase(node)
 		return
 	var cam_pos := camera.global_transform.origin
 	var show_dist := _lod_max_dist
@@ -1010,11 +1020,19 @@ func _update_scaffold_lod() -> void:
 	for node in _lod_nodes:
 		var center: Vector3 = node.global_transform.xform(_lod_local_center(node))
 		var d := cam_pos.distance_to(center)
-		if node.visible:
-			if d > hide_dist:
-				node.visible = false
-		elif d < show_dist:
-			node.visible = true
+		if _lod_hidden.has(node):
+			# Lo oculto el culler: si otro sistema lo volvio a mostrar, el estado ya no es
+			# nuestro (se suelta sin pelear); si sigue oculto y vuelve a rango, se restaura.
+			if node.visible:
+				_lod_hidden.erase(node)
+			elif d < show_dist:
+				node.visible = true
+				_lod_hidden.erase(node)
+		elif node.visible and d > hide_dist:
+			# Solo se oculta lo que estaba visible; lo que ya estaba oculto (escena,
+			# streamer u otro sistema) no se toca.
+			node.visible = false
+			_lod_hidden[node] = true
 
 # Centro del AABB local del trozo, en su espacio (get_transformed_aabb no incluye a los
 # ancestros; los grupos del andamio llevan rotacion). Se transforma con el global del nodo.
@@ -1030,6 +1048,7 @@ func _prune_scaffold_lod_nodes() -> void:
 		var node = _lod_nodes[i]
 		if node == null or not is_instance_valid(node):
 			_lod_nodes.remove(i)
+			_lod_hidden.erase(node)
 
 func _sync_manual_lightmap(gated: bool) -> void:
 	if gated and not _manual_lightmap_synced:

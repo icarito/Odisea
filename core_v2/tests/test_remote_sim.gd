@@ -3324,6 +3324,129 @@ func test_low_tier_culls_scaffold_mesh_by_distance():
 	cam.free()
 
 
+# FD-316 (tarea X): el culler NUNCA muestra algo que otro sistema oculto. Un "Visual_NN" que
+# la escena dejo oculto a proposito sigue oculto tras registrarse, fuera de rango y al volver
+# a rango: el culler solo OCULTA por distancia y restaura unicamente lo que el mismo oculto.
+# (Antes el registro forzaba visible=true y re-mostraba piezas ocultas: +40-100 draw calls.)
+func test_low_tier_culler_never_shows_scene_hidden_mesh():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._lod_max_dist = 10.0
+	gate._lod_nodes.clear()
+	gate._lod_hidden.clear()
+
+	var cam := Camera.new()
+	cam.name = "HiddenLodCam"
+	add_child(cam)
+	cam.current = true
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+
+	var level := Spatial.new()
+	level.name = "HiddenLodLevel"
+	var group := Spatial.new()
+	group.name = "Group_HubSpokes"
+	level.add_child(group)
+	var visible_mi := MeshInstance.new()
+	visible_mi.name = "Visual_00"
+	visible_mi.mesh = _make_test_mesh(4) # AABB centrada en x=1.5
+	group.add_child(visible_mi)
+	var hidden_mi := MeshInstance.new()
+	hidden_mi.name = "Visual_01"
+	hidden_mi.mesh = _make_test_mesh(4)
+	# La escena lo dejo oculto ANTES de que el culler lo registre.
+	hidden_mi.visible = false
+	group.add_child(hidden_mi)
+	add_child(level)
+
+	assert_bool(gate._lod_nodes.has(visible_mi)).is_true()
+	assert_bool(gate._lod_nodes.has(hidden_mi)).is_true()
+	# Registrarse no lo enciende.
+	assert_bool(hidden_mi.visible).is_false()
+
+	# En rango (la camara lo tiene cerca) el culler tampoco lo enciende.
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(hidden_mi.visible).is_false()
+
+	# Fuera de rango y de vuelta a rango: sigue oculto, nunca lo re-muestra.
+	cam.global_transform = Transform(Basis(), Vector3(100, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(hidden_mi.visible).is_false()
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(hidden_mi.visible).is_false()
+
+	# El trozo visible si entra al culler: se oculta fuera de rango y reaparece dentro.
+	cam.global_transform = Transform(Basis(), Vector3(100, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(visible_mi.visible).is_false()
+	assert_bool(gate._lod_hidden.has(visible_mi)).is_true()
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(visible_mi.visible).is_true()
+	assert_bool(gate._lod_hidden.has(visible_mi)).is_false()
+
+	cam.current = false
+	get_tree().root.remove_child(level)
+	level.free()
+	get_tree().root.remove_child(cam)
+	cam.free()
+
+
+# FD-316 (tarea X): si otro sistema oculta un trozo mientras el culler lo tenia visible, el
+# culler no se lo adjudica ni lo vuelve a mostrar al entrar en rango (solo restaura lo que el
+# mismo oculto). Asi el culler no pelea la visibilidad contra el streamer.
+func test_low_tier_culler_does_not_reshow_externally_hidden_mesh():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._lod_max_dist = 10.0
+	gate._lod_nodes.clear()
+	gate._lod_hidden.clear()
+
+	var cam := Camera.new()
+	cam.name = "ExternalHiddenLodCam"
+	add_child(cam)
+	cam.current = true
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+
+	var level := Spatial.new()
+	level.name = "ExternalHiddenLodLevel"
+	var group := Spatial.new()
+	group.name = "Group_SpiralStairs"
+	level.add_child(group)
+	var mi := MeshInstance.new()
+	mi.name = "Visual_00"
+	mi.mesh = _make_test_mesh(4)
+	group.add_child(mi)
+	add_child(level)
+
+	# En rango el culler lo deja visible sin adjudicarselo.
+	gate._update_scaffold_lod()
+	assert_bool(mi.visible).is_true()
+	assert_bool(gate._lod_hidden.has(mi)).is_false()
+
+	# Otro sistema lo oculta con el culler en rango: no se lo adjudica ni lo enciende.
+	mi.visible = false
+	gate._update_scaffold_lod()
+	assert_bool(mi.visible).is_false()
+	assert_bool(gate._lod_hidden.has(mi)).is_false()
+
+	# Fuera y de vuelta a rango: sigue oculto, no lo re-muestra.
+	cam.global_transform = Transform(Basis(), Vector3(100, 0, 0))
+	gate._update_scaffold_lod()
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(mi.visible).is_false()
+
+	cam.current = false
+	get_tree().root.remove_child(level)
+	level.free()
+	get_tree().root.remove_child(cam)
+	cam.free()
+
+
 # Fuera del tier LOW (desktop/CI/replay) el andamio no se registra ni se oculta: el gate no
 # toca geometria que en desktop se dibuja completa.
 func test_normal_tier_keeps_scaffold_lod_off():
