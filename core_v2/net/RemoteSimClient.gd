@@ -403,9 +403,24 @@ func _process(delta: float) -> void:
 		var player = _get_player()
 		if player != null and is_instance_valid(player) and player.has_method("step_remote_animator"):
 			player.call("step_remote_animator", delta)
+	_forward_discrete_actions()
 	_send_local_input()
 	_flush_client_stats()
 	_flush_profile(OS.get_ticks_msec())
+
+# FD-316 (tarea N): acciones discretas del InputMap que no viajan en el frame del sim_input
+# (move/jump/interact/sprint/crouch/camara). El flanco viaja por el WS confiable a la
+# autoridad, que lo aplica al jugador simulado; aca NO se ejecutan local (el estado vuelve en
+# el snapshot y tocar los dos lados peleaba con el replicado, el sintoma de la linterna).
+func _forward_discrete_actions() -> void:
+	for action in RemoteProtocol.SIM_DISCRETE_ACTIONS:
+		if InputMap.has_action(action) and Input.is_action_just_pressed(action):
+			_forward_discrete_action(action)
+
+func _forward_discrete_action(action: String) -> void:
+	var manager = get_node_or_null("/root/RemoteControlManager")
+	if manager != null and manager.has_method("forward_discrete_action"):
+		manager.call("forward_discrete_action", action)
 
 # FD-316 (tarea G): el tiempo de render avanza en ticks del host y se mantiene dentro del
 # par recibido: no se adelanta a lo que llego (nada de extrapolar) ni retrocede.

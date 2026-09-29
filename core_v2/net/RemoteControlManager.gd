@@ -320,6 +320,39 @@ func _stop_render_slave_role() -> void:
 # cuando la sesion termina). "" = no hay idioma remoto aplicado.
 var _remote_locale_applied := ""
 
+# --- FD-316 (tarea N): canal confiable esclavo(server) -> autoridad(client) ---
+# Las acciones discretas del render-esclavo (acciones de SuitOS/HUD y flancos del InputMap
+# fuera del set del sim_input) no pueden quedarse locales: la autoridad es la que simula y
+# decide la camara. Viajan por el WS existente reusando la forma de SuitOSRemoteBridge
+# ("remote_action"/"screen_select"); en la autoridad las recibe _on_client_ui_directive.
+# Devuelve true solo si el mensaje salio: el llamador no ejecuta nada local en ese caso.
+func send_render_slave_directive(op: String, payload) -> bool:
+	if not is_render_slave_active:
+		return false
+	if server == null or not is_instance_valid(server) or not server.has_method("send_ui_directive"):
+		return false
+	server.send_ui_directive(op, payload)
+	return true
+
+# Accion de SuitOS disparada en el esclavo (perform_action, select del drawer): la ejecuta la
+# autoridad sobre SU SuitOS, que tiene el nivel simulado. El resultado visual y la camara
+# vuelven por el snapshot.
+func forward_suitos_action(screen_id: String, op: String, args: Dictionary = {}) -> bool:
+	return send_render_slave_directive("remote_action", {
+		"screen_id": screen_id,
+		"op": op,
+		"args": args
+	})
+
+# Pantalla abierta/cerrada en el HUD del esclavo: la autoridad abre la misma en su nivel
+# simulado y le pide/suelta el foco, que es lo que mueve la camara cinematica.
+func forward_render_slave_screen_select(screen_id: String) -> bool:
+	return send_render_slave_directive("screen_select", {"id": screen_id})
+
+# Flanco de una accion discreta del InputMap (linterna y similares).
+func forward_discrete_action(action: String) -> bool:
+	return send_render_slave_directive("sim_action", {"action": action})
+
 func _on_client_ui_directive(op: String, payload) -> void:
 	if op == "start_sim_host":
 		var port = int(payload.get("target_port", 10444)) if payload is Dictionary else 10444
@@ -345,6 +378,60 @@ func _on_client_ui_directive(op: String, payload) -> void:
 		# logica del nivel sin descargarlo (mismo congelado que el stop blando).
 		var sim_paused: bool = bool(payload.get("paused", false)) if payload is Dictionary else false
 		_set_sim_host_paused(sim_paused)
+	elif op == "remote_action":
+		# FD-316 (tarea N): accion de SuitOS disparada en el render-esclavo. Se ejecuta
+		# sobre el SuitOS de la autoridad (el nivel simulado registra sus pantallas).
+		_apply_remote_suitos_action(payload)
+	elif op == "screen_select":
+		# FD-316 (tarea N): pantalla elegida en el HUD del esclavo: se abre tambien en el
+		# nivel simulado y se le pide el foco (la camara cinematica viaja en el snapshot).
+		_apply_remote_screen_select(payload)
+	elif op == "sim_action":
+		# FD-316 (tarea N): flanco de una accion discreta del InputMap (linterna).
+		var action := String(payload.get("action", "")) if payload is Dictionary else ""
+		if sim_host != null and action != "":
+			sim_host.apply_client_action(action)
+
+# La accion de SuitOS la resuelve la MISMA API que usa el juego local (perform_action). Como
+# la autoridad no es render-esclavo, ahi no se reenvia: se ejecuta de verdad.
+func _apply_remote_suitos_action(payload) -> void:
+	if not (payload is Dictionary):
+		return
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null:
+		return
+	var screen_id := String((payload as Dictionary).get("screen_id", ""))
+	var action_op := String((payload as Dictionary).get("op", ""))
+	var args: Dictionary = (payload as Dictionary).get("args", {}) \
+		if typeof((payload as Dictionary).get("args")) == TYPE_DICTIONARY else {}
+	if screen_id == "" or action_op == "" or not suit_os.has_screen(screen_id):
+		return
+	suit_os.perform_action(screen_id, action_op, args)
+
+# Abre/cierra la pantalla en el SuitOS de la autoridad y le pide/suelta el foco. El foco es lo
+# unico que mueve la camara; sin esto elegir la criocapsula en el drawer no hacia la
+# transicion cinematica en el esclavo.
+func _apply_remote_screen_select(payload) -> void:
+	if not (payload is Dictionary):
+		return
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null:
+		return
+	var screen_id := String((payload as Dictionary).get("id", ""))
+	var previous := String(suit_os.get_active_screen_id())
+	if screen_id != previous and previous != "":
+		var prev_screen = suit_os.get_screen(previous)
+		if prev_screen != null and prev_screen.has_method("exit_focus_mode"):
+			prev_screen.call("exit_focus_mode")
+	if screen_id == "":
+		suit_os.close_screen()
+		return
+	if not suit_os.has_screen(screen_id):
+		return
+	suit_os.open_screen(screen_id)
+	var screen = suit_os.get_screen(screen_id)
+	if screen != null and screen.has_method("enter_focus_mode"):
+		screen.call("enter_focus_mode")
 
 # FD-316 (review bug 5): pausa del esclavo. El sim host sigue emitiendo snapshots del
 # estado congelado (es lo que el esclavo pausado debe mostrar), pero su mundo no avanza

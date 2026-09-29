@@ -130,6 +130,13 @@ static func create_ui_screen_select(id: String) -> Dictionary:
 		"id": id
 	})
 
+# FD-316 (tarea N): acciones discretas del InputMap que NO viajan en el frame del sim_input
+# (move/jump/interact/sprint/crouch/camara). El esclavo manda el flanco just_pressed por el
+# WS confiable y la autoridad lo aplica al jugador simulado con el mismo efecto que su input
+# local. Lista corta a proposito: crece con cada accion discreta que no tenga campo propio
+# en InputDataV2.
+const SIM_DISCRETE_ACTIONS := ["toggle_flashlight"]
+
 static func create_input_message(input_type: String, payload: Dictionary, token: String = "") -> Dictionary:
 	# input_type: "event" (evento: tecla, boton o accion, ver encode_event), "mouse_delta"
 	# ({x, y} de un mouse capturado, acumulado por tick), "touch_camera" ({x, y, zoom} de

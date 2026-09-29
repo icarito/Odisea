@@ -19,6 +19,7 @@ const ViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
 const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
+const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManager.gd")
 const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
 const Haptics = preload("res://core_v2/ui/Haptics.gd")
 const EyeOpen = preload("res://core_v2/ui/remote_control/eye_open.svg")
@@ -1934,7 +1935,11 @@ func _focus_cursor_scale(screen: Object) -> Vector2:
 func _mount_focused_screen_if_ready() -> void:
 	if not is_instance_valid(_pending_focus_screen):
 		return
-	if is_instance_valid(_pending_focus_camera) and not _pending_focus_camera.current:
+	# FD-316 (tarea N): en el render-esclavo la camara la impone el snapshot, asi que el rig
+	# de foco local nunca se hace current y esperarlo dejaba la pantalla sin montar (el
+	# sintoma "la pantalla del HUD no se abre"). El visual del HUD es local: se monta igual.
+	if is_instance_valid(_pending_focus_camera) and not _pending_focus_camera.current \
+			and not RemoteControlManagerScript.render_slave_owns_camera():
 		return
 	var screen: Object = _pending_focus_screen
 	_pending_focus_screen = null

@@ -216,6 +216,11 @@ func is_battery_low() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_flashlight"):
+		# FD-316 (tarea N): en el render-esclavo la accion la decide la autoridad; el flanco
+		# viaja por el WS (RemoteSimClient) y el estado vuelve en el snapshot. Tocar local
+		# aca peleaba con el replicado (la linterna encendida se apagaba sola).
+		if _is_remote_render_slave():
+			return
 		toggle()
 		get_tree().set_input_as_handled()
 

@@ -584,6 +584,21 @@ func _expire_stale_client_input() -> void:
 		" ms sin paquetes validos): input del handheld a cero")
 	_release_client_input()
 
+# FD-316 (tarea N): accion discreta del render-esclavo que no viaja en el frame del sim_input
+# (la linterna y similares). Se aplica al jugador simulado con el MISMO efecto que su input
+# local (HelmetFlashlight._unhandled_input -> toggle), sin materializar acciones globales en
+# el Input del control.
+func apply_client_action(action: String) -> void:
+	if action == "":
+		return
+	var player = _get_authority_player()
+	if player == null or not is_instance_valid(player):
+		return
+	if action == "toggle_flashlight":
+		var flashlight = player.get_node_or_null(RemoteProtocol.FLASHLIGHT_PATH)
+		if flashlight != null and is_instance_valid(flashlight) and flashlight.has_method("toggle"):
+			flashlight.call("toggle")
+
 func capture_snapshot() -> Dictionary:
 	# Instrumentacion (tarea E): costo de armar el snapshot (Tarea E).
 	var started_us := OS.get_ticks_usec()

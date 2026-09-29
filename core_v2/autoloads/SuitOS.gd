@@ -359,6 +359,9 @@ func open_screen(id: String) -> bool:
 		return false
 	_active_screen_id = id
 	emit_signal("screen_opened", id)
+	# FD-316 (tarea N): el visual del HUD es local, pero la autoridad tiene que abrir la misma
+	# pantalla en su nivel simulado para pedir/soltar el foco de camara. Solo en offload.
+	_forward_screen_select(id)
 	return true
 
 func close_screen() -> void:
@@ -366,6 +369,14 @@ func close_screen() -> void:
 		var closed_id: String = _active_screen_id
 		_active_screen_id = ""
 		emit_signal("screen_closed", closed_id)
+		_forward_screen_select("")
+
+# El canal reenvia la eleccion del drawer/pantalla a la autoridad (render-esclavo). Fuera del
+# rol no hace nada: el manager descarta la directiva.
+func _forward_screen_select(id: String) -> void:
+	var manager = get_node_or_null("/root/RemoteControlManager")
+	if manager != null and manager.has_method("forward_render_slave_screen_select"):
+		manager.call("forward_render_slave_screen_select", id)
 
 func get_active_screen_id() -> String:
 	return _active_screen_id
@@ -432,6 +443,14 @@ func reevaluate_slots() -> void:
 			emit_signal("widget_changed", key, _slot_snapshots[key])
 
 func perform_action(screen_id: String, op: String, args: Dictionary = {}) -> Dictionary:
+	# FD-316 (tarea N): en offload este device es render-esclavo: no simula ni decide. La
+	# accion viaja por el WS a la autoridad (que tiene el nivel simulado) y alla se ejecuta
+	# sobre su SuitOS. Aca NO se corre local: el resultado (y la camara) vuelven por el snapshot.
+	var manager = get_node_or_null("/root/RemoteControlManager")
+	if manager != null and manager.has_method("forward_suitos_action") \
+			and bool(manager.call("forward_suitos_action", screen_id, op, args)):
+		return {"ok": true, "forwarded": true}
+
 	if not has_screen(screen_id):
 		return {"ok": false, "error": "Screen '%s' not registered" % screen_id}
 

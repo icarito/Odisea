@@ -521,6 +521,10 @@ class FakeWakeupActor extends Spatial:
 class FakeFlashlight extends Spatial:
 	var enabled := true
 	var battery := 42.0
+	var toggles := 0
+	func toggle() -> void:
+		toggles += 1
+		enabled = not enabled
 
 
 class FakeFlashPlayer extends Spatial:
@@ -2310,3 +2314,165 @@ func test_render_slave_terminal_focus_does_not_change_camera():
 	camera.current = false
 	get_tree().root.remove_child(holder)
 	holder.free()
+
+
+# FD-316 (tarea N): esclavo de prueba que captura las directivas que salen por el WS. El
+# server real las manda a sus peers emparejados; aca alcanza con registrar el mensaje.
+class DirectiveRecorder extends Node:
+	var directives: Array = []
+	func send_ui_directive(op: String, payload) -> void:
+		directives.append({"op": op, "payload": payload})
+	func has_paired_client() -> bool:
+		return false
+
+
+# Pantalla de SuitOS minima: registra si su perform_action se ejecuto local.
+class FakeSuitScreen extends Reference:
+	var calls: Array = []
+	func screen_id() -> String:
+		return "test:screen"
+	func allowed_actions() -> Array:
+		return ["toggle_hatch", "select"]
+	func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
+		calls.append({"op": op, "args": args})
+		return {"ok": true}
+
+
+# FD-316 (tarea N): el flanco de la linterna en el render-esclavo viaja por el canal
+# confiable y la autoridad lo aplica a su jugador simulado (mismo efecto que su input local,
+# sin tocar el Input global del control).
+func test_render_slave_flashlight_action_reaches_authority():
+	var rcm = get_node("/root/RemoteControlManager")
+	var prev_active: bool = rcm.is_render_slave_active
+	var prev_server = rcm.server
+	var prev_host_active: bool = rcm.is_host_active
+	var prev_processing: bool = rcm.is_processing()
+	var recorder = auto_free(DirectiveRecorder.new())
+	rcm.server = recorder
+	rcm.is_render_slave_active = true
+	rcm.is_host_active = false
+	rcm.set_process(false)
+
+	# Esclavo: el flanco sale por el WS con la op "sim_action".
+	rcm.sim_client._forward_discrete_action("toggle_flashlight")
+	assert_int(recorder.directives.size()).is_equal(1)
+	assert_str(String(recorder.directives[0]["op"])).is_equal("sim_action")
+	assert_str(String(recorder.directives[0]["payload"]["action"])).is_equal("toggle_flashlight")
+
+	# Autoridad: el mismo mensaje, recibido por la senal real del cliente, cambia el estado
+	# de la linterna del jugador simulado.
+	var level := Spatial.new()
+	level.name = "SimLevel"
+	var player = auto_free(FakeFlashPlayer.new())
+	player.name = "Pilot"
+	var flashlight = auto_free(FakeFlashlight.new())
+	flashlight.name = RemoteProtocolScript.FLASHLIGHT_PATH
+	flashlight.enabled = false
+	player.add_child(flashlight)
+	level.add_child(player)
+	auto_free(level)
+	rcm.sim_host._sim_player = player
+	rcm.client.emit_signal("ui_directive_received", recorder.directives[0]["op"], recorder.directives[0]["payload"])
+	assert_int(flashlight.toggles).is_equal(1)
+	assert_bool(flashlight.enabled).is_true()
+
+	rcm.sim_host._sim_player = null
+	rcm.server = prev_server
+	rcm.is_render_slave_active = prev_active
+	rcm.is_host_active = prev_host_active
+	rcm.set_process(prev_processing)
+
+
+# FD-316 (tarea N): una accion de SuitOS disparada en el esclavo en offload se reenvia a la
+# autoridad y NO se ejecuta local (el visual y la camara vuelven por el snapshot). La
+# autoridad la ejecuta sobre SU SuitOS con el nivel simulado.
+func test_render_slave_suitos_action_forwards_and_skips_local():
+	var rcm = get_node("/root/RemoteControlManager")
+	var suit_os = get_node("/root/SuitOS")
+	var prev_active: bool = rcm.is_render_slave_active
+	var prev_server = rcm.server
+	var prev_host_active: bool = rcm.is_host_active
+	var prev_processing: bool = rcm.is_processing()
+	var recorder = auto_free(DirectiveRecorder.new())
+	rcm.server = recorder
+	rcm.is_render_slave_active = true
+	rcm.is_host_active = false
+	rcm.set_process(false)
+
+	var screen = auto_free(FakeSuitScreen.new())
+	suit_os.register_screen(screen)
+
+	# Esclavo: se reenvia con la forma de SuitOSRemoteBridge y no corre local.
+	var result: Dictionary = suit_os.perform_action("test:screen", "toggle_hatch", {})
+	assert_bool(bool(result.get("forwarded", false))).is_true()
+	assert_int(screen.calls.size()).is_equal(0)
+	assert_int(recorder.directives.size()).is_equal(1)
+	assert_str(String(recorder.directives[0]["op"])).is_equal("remote_action")
+	assert_str(String(recorder.directives[0]["payload"]["screen_id"])).is_equal("test:screen")
+	assert_str(String(recorder.directives[0]["payload"]["op"])).is_equal("toggle_hatch")
+
+	# Autoridad (ya sin rol de render-esclavo): la directiva ejecuta la accion de verdad.
+	rcm.is_render_slave_active = false
+	rcm._on_client_ui_directive(String(recorder.directives[0]["op"]), recorder.directives[0]["payload"])
+	assert_int(screen.calls.size()).is_equal(1)
+	assert_str(String(screen.calls[0]["op"])).is_equal("toggle_hatch")
+
+	suit_os.unregister_screen(screen)
+	rcm.server = prev_server
+	rcm.is_render_slave_active = prev_active
+	rcm.is_host_active = prev_host_active
+	rcm.set_process(prev_processing)
+
+
+# Pantalla de SuitOS con foco: verifica que elegir una pantalla en el drawer del esclavo le
+# pide el foco a la autoridad. Es lo que mueve la camara cinematica (sintoma 2): el foco
+# local esta bloqueado por el guard de K2, asi que sin esto no pasaba nada.
+class FakeFocusScreen extends Reference:
+	var focused_calls := 0
+	var exited_calls := 0
+	func screen_id() -> String:
+		return "test:focus_screen"
+	func enter_focus_mode() -> void:
+		focused_calls += 1
+	func exit_focus_mode() -> void:
+		exited_calls += 1
+
+
+func test_render_slave_screen_select_reaches_authority_focus():
+	var rcm = get_node("/root/RemoteControlManager")
+	var suit_os = get_node("/root/SuitOS")
+	var prev_active: bool = rcm.is_render_slave_active
+	var prev_server = rcm.server
+	var prev_host_active: bool = rcm.is_host_active
+	var prev_processing: bool = rcm.is_processing()
+	var recorder = auto_free(DirectiveRecorder.new())
+	rcm.server = recorder
+	rcm.is_render_slave_active = true
+	rcm.is_host_active = false
+	rcm.set_process(false)
+
+	var screen = auto_free(FakeFocusScreen.new())
+	suit_os.register_screen(screen)
+
+	# Esclavo: abrir la pantalla en el HUD local reenvia la eleccion (y el visual es local).
+	assert_bool(suit_os.open_screen("test:focus_screen")).is_true()
+	assert_int(recorder.directives.size()).is_equal(1)
+	assert_str(String(recorder.directives[0]["op"])).is_equal("screen_select")
+	assert_str(String(recorder.directives[0]["payload"]["id"])).is_equal("test:focus_screen")
+
+	# Autoridad: la abre en su nivel simulado y le pide el foco.
+	rcm.is_render_slave_active = false
+	rcm._on_client_ui_directive("screen_select", recorder.directives[0]["payload"])
+	assert_int(screen.focused_calls).is_equal(1)
+	assert_str(String(suit_os.get_active_screen_id())).is_equal("test:focus_screen")
+
+	# Cerrar la pantalla suelta el foco.
+	rcm._on_client_ui_directive("screen_select", {"id": ""})
+	assert_int(screen.exited_calls).is_equal(1)
+	assert_str(String(suit_os.get_active_screen_id())).is_equal("")
+
+	suit_os.unregister_screen(screen)
+	rcm.server = prev_server
+	rcm.is_render_slave_active = prev_active
+	rcm.is_host_active = prev_host_active
+	rcm.set_process(prev_processing)
