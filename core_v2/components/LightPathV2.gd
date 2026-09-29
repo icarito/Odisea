@@ -116,6 +116,13 @@ export(bool) var fixture_force_lod_on_mobile := true
 # solo ve dos o tres; los demas aportan vertices que se reenvian por cada luz que los
 # alcanza. 0 = sin culling (comportamiento previo).
 export(float, 0.0, 120.0, 1.0) var fixture_cull_distance := 0.0
+# Malla ultra-low para los batches de fixtures prebaked en tier LOW (FD-316 tarea V).
+# Los domos llegan con su MultiMesh ya horneado y auto_build=false, asi que la ruta
+# adaptativa de fixture_lod_mesh (que exige high+lod) no corre y la malla horneada
+# (~1465 verts por aplique) se dibuja entera. En tier LOW se reemplaza la malla de
+# los batches por esta variante (<150 verts) en una COPIA del recurso: el .tres en
+# disco nunca se toca y fuera del tier LOW no cambia nada.
+export(Mesh) var fixture_low_tier_mesh
 export(float, 1.0, 120.0, 1.0) var fixture_full_detail_fps := 50.0
 export(float, 1.0, 30.0, 0.5) var fixture_full_detail_hold_seconds := 5.0
 export(float, 1.0, 120.0, 1.0) var fixture_lod_fallback_fps := 42.0
@@ -177,6 +184,7 @@ func _ready() -> void:
 		add_child(_activation_sound_player)
 	_cache_marker_heights()
 	_snap_pending = snap_to_surface
+	_apply_low_tier_fixture_mesh()
 	set_process(not _marker_heights.empty())
 
 func set_waypoint_source(value: NodePath) -> void:
@@ -627,6 +635,50 @@ func _drive_fixture_lod() -> void:
 			desired = fixture_lod_mesh if nearest_squared > threshold_squared else fixture_high_mesh
 		if batch.multimesh.mesh != desired:
 			batch.multimesh.mesh = desired
+
+# En tier LOW cambia la malla de los batches horneados por la variante ultra-low.
+# Los MultiMesh vienen como recursos .tres compartidos entre instancias y con los
+# otros domos, asi que se duplican (MultiMesh y malla) y solo se muta la copia. La
+# malla LOW nace con sus propios materiales; del mesh vigente solo se toma el
+# vidrio, porque RingHubLightState ya pudo duplicarlo y animarle la emision antes
+# de que este nodo termine de entrar al arbol.
+func _apply_low_tier_fixture_mesh() -> void:
+	if fixture_low_tier_mesh == null:
+		return
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null or not gate.has_method("is_low_tier") or not bool(gate.is_low_tier()):
+		return
+	for child in get_children():
+		if not child is MultiMeshInstance or not child.name.begins_with(fixture_batch_prefix):
+			continue
+		var batch := child as MultiMeshInstance
+		if batch.multimesh == null or batch.multimesh.mesh == null:
+			continue
+		var low := fixture_low_tier_mesh.duplicate() as Mesh
+		if low == null:
+			continue
+		var current: Mesh = batch.multimesh.mesh
+		var surfaces: int = min(low.get_surface_count(), current.get_surface_count())
+		for surface in range(surfaces):
+			if _is_glass_surface_material(low.surface_get_material(surface)) \
+					or _is_glass_surface_material(current.surface_get_material(surface)):
+				var glass = current.surface_get_material(surface)
+				if glass != null:
+					low.surface_set_material(surface, glass)
+		var copy := batch.multimesh.duplicate() as MultiMesh
+		if copy == null:
+			continue
+		copy.mesh = low
+		batch.multimesh = copy
+
+# Mismo criterio que RingHubLightState._prepare_fixture_emission: el vidrio se
+# reconoce por el nombre del material (no siempre se llama "glass" el nodo).
+func _is_glass_surface_material(material) -> bool:
+	if material == null or not ("resource_name" in material):
+		return false
+	var name_hint := str(material.get("resource_name")).to_lower()
+	return name_hint.find("glass") != -1 or name_hint.find("vidrio") != -1 \
+		or name_hint.find("cristal") != -1
 
 # ODISEA_FORCE_MOBILE_PROFILE=1 permite ejercitar la ruta movil desde desktop.
 func _is_mobile_profile() -> bool:

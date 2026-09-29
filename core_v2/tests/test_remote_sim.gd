@@ -12,6 +12,8 @@ const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManag
 const HangingDisplayScene = preload("res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn")
 # FD-316 (tarea U): palancas de culling/LOD medidas con la traza de replay de RingHub.
 const GateScript = preload("res://core_v2/autoloads/GLES3VendorGate.gd")
+# FD-316 (tarea V): LOD de los apliques de pared prebaked.
+const LightPathScript = preload("res://core_v2/components/LightPathV2.gd")
 
 func test_protocol_sim_messages_encode_decode():
 	var hello = RemoteProtocolScript.create_sim_hello("res://scenes/TestScene.tscn", 60, "tok123")
@@ -3297,3 +3299,80 @@ func test_env_overrides_scaffold_lod_distance():
 	assert_float(gate._read_lod_max_dist()).is_equal_approx(GateScript.DEFAULT_LOD_MAX_DIST, 0.001)
 
 	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, prev)
+
+
+# FD-316 (tarea V): los apliques de pared prebaked del domo (16 instancias de
+# ~1465 verts) se dibujan enteros en tier LOW porque el nodo llega con
+# auto_build=false y sin fixture_lod_mesh, asi que la ruta adaptativa no corre. En
+# tier LOW LightPathV2 cambia la malla de cada batch por la variante ultra-low en
+# una COPIA del MultiMesh: el .tres en disco conserva la malla de alta.
+func test_low_tier_swaps_baked_wall_fixture_mesh_in_copy():
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null:
+		return
+	var previous_force = gate.force_gate
+	gate.force_gate = true
+
+	var fixture_path := "res://core_v2/levels/interiors/RingHub_WallLightFixtures.tres"
+	var low_path := "res://core_v2/props/scifi_lights/IndustrialWallLampLODLow.mesh"
+	var shared: MultiMesh = load(fixture_path) as MultiMesh
+	var low_mesh: Mesh = load(low_path) as Mesh
+	assert_object(shared).is_not_null()
+	assert_object(low_mesh).is_not_null()
+	var high_mesh: Mesh = shared.mesh
+	var high_path := String(high_mesh.resource_path)
+
+	var batch := _make_baked_wall_fixture(shared, low_mesh, "WallLightsLowTier")
+
+	assert_bool(batch.multimesh != shared).is_true()
+	assert_bool(batch.multimesh.mesh != high_mesh).is_true()
+	assert_int(_count_mesh_vertices(batch.multimesh.mesh)).is_less_equal(150)
+	# El recurso compartido (y con el, el .tres en disco) sigue con la malla alta.
+	assert_str(String(shared.mesh.resource_path)).is_equal(high_path)
+	assert_str(String((load(low_path) as Mesh).resource_path)).is_equal(low_path)
+
+	gate.force_gate = previous_force
+
+
+# Fuera del tier LOW nada cambia: el batch conserva su MultiMesh original.
+func test_normal_tier_keeps_baked_wall_fixture_mesh():
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null or gate.is_low_tier():
+		return # runner forzado a LOW: la asercion de desktop no aplica
+	var previous_force = gate.force_gate
+	gate.force_gate = false
+
+	var fixture_path := "res://core_v2/levels/interiors/RingHub_WallLightFixtures.tres"
+	var low_path := "res://core_v2/props/scifi_lights/IndustrialWallLampLODLow.mesh"
+	var shared: MultiMesh = load(fixture_path) as MultiMesh
+	var low_mesh: Mesh = load(low_path) as Mesh
+
+	var batch := _make_baked_wall_fixture(shared, low_mesh, "WallLightsNormalTier")
+
+	assert_bool(batch.multimesh == shared).is_true()
+	assert_bool(batch.multimesh.mesh == shared.mesh).is_true()
+
+	gate.force_gate = previous_force
+
+
+# Arma un WallLights minimo con un solo batch horneado, como el de RingHub_Level.
+func _make_baked_wall_fixture(shared: MultiMesh, low_mesh: Mesh, node_name: String) -> MultiMeshInstance:
+	var lights = auto_free(Spatial.new())
+	lights.name = node_name
+	lights.set_script(LightPathScript)
+	lights.auto_build = false
+	lights.fixture_low_tier_mesh = low_mesh
+	var batch := MultiMeshInstance.new()
+	batch.name = "FixtureBatch_00"
+	batch.multimesh = shared
+	lights.add_child(batch)
+	add_child(lights)
+	return batch
+
+
+func _count_mesh_vertices(mesh: Mesh) -> int:
+	var total := 0
+	for surface in range(mesh.get_surface_count()):
+		var arrays: Array = mesh.surface_get_arrays(surface)
+		total += (arrays[Mesh.ARRAY_VERTEX] as PoolVector3Array).size()
+	return total
