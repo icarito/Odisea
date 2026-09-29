@@ -34,9 +34,10 @@ var _latest_applied_tick: int = -1
 # Parsear cada datagrama JSON del frame costaba los ~15 ms por frame medidos en device
 # (snap_hz 60, fps 10): los intermedios ya no hacen falta con interpolacion.
 const MAX_SNAPSHOTS_PER_FRAME := 2
-# Retardo fijo de interpolacion, en ticks del host. Con snapshots cada
-# `snapshot_every_n_ticks` (default 2 = 30 Hz), el reloj de render queda ~2 ticks atras.
-const INTERP_DELAY_TICKS := 2.0
+# Tarea L: retardo de interpolacion = UN intervalo de snapshot, en ticks del host. El host
+# manda su paso efectivo en globals.snap_step; con el piso de 30 Hz queda en ~2 ticks
+# (33 ms). El default (2) cubre snapshots legacy sin snap_step.
+var _interp_delay_ticks: float = 2.0
 # Tasa de ticks del host (Engine.iterations_per_second = 60): el reloj de render avanza
 # en ticks con delta * esta tasa.
 var _host_tick_rate: float = 60.0
@@ -92,11 +93,19 @@ var _sent_seq_order: Array = []
 var _stats_last_recv_tick: int = -1
 var _stats_last_recv_ms: int = 0
 
+# Tarea L: perfil opt-in por entorno (ODISEA_SLAVE_PROFILE=1). Cada PROFILE_WINDOW_MS se
+# recorre el arbol UNA vez (no por frame) y se agrupan por script los nodos con _process
+# activo: los que quedan corriendo en el esclavo aunque el nivel este congelado.
+const PROFILE_WINDOW_MS := 5000
+var _profile_enabled: bool = false
+var _profile_last_ms: int = 0
+
 func _ready() -> void:
 	# Aplicar el snapshot DESPUES de cualquier otro _process del frame (camara incluida):
 	# la autoridad manda sobre lo que quede corriendo en local.
 	process_priority = 1000
 	set_process(false)
+	_profile_enabled = OS.get_environment("ODISEA_SLAVE_PROFILE") == "1"
 
 func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_port: int = 10444, p_token: String = "") -> bool:
 	_listening_port = p_port
@@ -120,7 +129,10 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_to_tick = -1
 	_render_tick = -1.0
 	_has_new_snapshot = false
+	_interp_delay_ticks = 2.0
 	_host_tick_rate = float(Engine.iterations_per_second) if Engine.iterations_per_second > 0 else 60.0
+	# Tarea L: la primera impresion del perfil sale una ventana despues de arrancar el rol.
+	_profile_last_ms = OS.get_ticks_msec()
 	# Sesion nueva: el seq arranca de cero y no hay flancos latcheados de la anterior.
 	_seq = 0
 	_jump_latch = 0
@@ -294,6 +306,11 @@ func receive_snapshot(snapshot: Dictionary, p_packet_bytes: int = 0, p_expected_
 
 	# Tarea G: refrescar el par de interpolacion; los globals se aplican del mas nuevo en
 	# el proximo _process (una sola vez por snapshot).
+	# Tarea L: el retardo de interpolacion es UN intervalo, y el intervalo efectivo del
+	# host viaja en globals.snap_step (puede adaptarse entre snapshots).
+	var step_globals: Dictionary = snapshot.get("globals", {})
+	if step_globals is Dictionary and step_globals.has("snap_step"):
+		_interp_delay_ticks = float(max(1, int(step_globals["snap_step"])))
 	_update_interp_pair()
 	_has_new_snapshot = true
 
@@ -312,7 +329,7 @@ func _update_interp_pair() -> void:
 		return
 	if _render_tick > float(_to_tick):
 		_render_tick = float(_to_tick)
-	var target := float(_to_tick) - INTERP_DELAY_TICKS
+	var target := float(_to_tick) - _interp_delay_ticks
 	if _render_tick < target:
 		_render_tick = target
 
@@ -323,6 +340,14 @@ func _process(delta: float) -> void:
 	# Instrumentacion (tarea E): frames de la ventana y costo de _poll_udp + aplicar el
 	# estado del snapshot + interpolar, en el mismo tick de OS.get_ticks_usec.
 	_stats.tally("frame")
+	# Tarea L: muestreo por frame de los monitores del motor para promediarlos por ventana
+	# (get_monitor devuelve el ultimo valor, no un promedio). TIME_* vienen en segundos.
+	_stats.add("process_us", float(Performance.get_monitor(Performance.TIME_PROCESS)) * 1000000.0)
+	_stats.add("physics_us", float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000000.0)
+	_stats.add("draw_calls", float(Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)))
+	_stats.add("objects_in_frame", float(Performance.get_monitor(Performance.RENDER_OBJECTS_IN_FRAME)))
+	_stats.add("vertices_in_frame", float(Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME)))
+	_stats.add("node_count", float(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)))
 	var poll_started_us := OS.get_ticks_usec()
 	_poll_udp()
 	var poll_us := OS.get_ticks_usec() - poll_started_us
@@ -361,6 +386,7 @@ func _process(delta: float) -> void:
 			player.call("step_remote_animator", delta)
 	_send_local_input()
 	_flush_client_stats()
+	_flush_profile(OS.get_ticks_msec())
 
 # FD-316 (tarea G): el tiempo de render avanza en ticks del host y se mantiene dentro del
 # par recibido: no se adelanta a lo que llego (nada de extrapolar) ni retrocede.
@@ -753,6 +779,14 @@ func _flush_client_stats() -> void:
 	var elapsed_ms: int = _stats.elapsed_ms(now_ms)
 	var elapsed_s: float = max(float(elapsed_ms) / 1000.0, 0.001)
 	var frames: int = _stats.count("frame")
+	var frame_den: int = max(frames, 1)
+	# Tarea L: promedio por ventana del frame desglosado. render_ms_avg = frame - process
+	# - physics es lo que queda para el render/driver, lo unico que el motor no mide
+	# aparte (el objetivo de esta tarea es justamente ver donde se va el frame).
+	var process_ms_avg: float = (_stats.sum("process_us") / float(frame_den)) / 1000.0
+	var physics_ms_avg: float = (_stats.sum("physics_us") / float(frame_den)) / 1000.0
+	var frame_ms_avg: float = float(elapsed_ms) / float(frame_den)
+	var render_ms_avg: float = frame_ms_avg - process_ms_avg - physics_ms_avg
 	# Tarea G: snap_hz/snap_bytes miden el canal (todo lo recibido), no el parseo, que
 	# ahora esta acotado a 2 paquetes por frame.
 	var raw_snaps: int = _stats.count("raw_snap")
@@ -765,9 +799,17 @@ func _flush_client_stats() -> void:
 		"dropped_ticks": _stats.count("dropped_ticks"),
 		"apply_ms_avg": (_stats.sum("apply_us") / float(max(_stats.count("apply_count"), 1))) / 1000.0,
 		"interp_ms_avg": (_stats.sum("interp_us") / float(max(_stats.count("apply_count"), 1))) / 1000.0,
-		"frame_ms_avg": float(elapsed_ms) / float(max(frames, 1)),
+		"frame_ms_avg": frame_ms_avg,
 		"fps": float(frames) / elapsed_s,
-		"snap_bytes_avg": _stats.sum("raw_bytes") / float(max(raw_snaps, 1))
+		"snap_bytes_avg": _stats.sum("raw_bytes") / float(max(raw_snaps, 1)),
+		# Tarea L: contadores del motor promediados por ventana.
+		"process_ms_avg": process_ms_avg,
+		"physics_ms_avg": physics_ms_avg,
+		"render_ms_avg": render_ms_avg,
+		"draw_calls_avg": _stats.sum("draw_calls") / float(frame_den),
+		"objects_in_frame_avg": _stats.sum("objects_in_frame") / float(frame_den),
+		"vertices_in_frame_avg": _stats.sum("vertices_in_frame") / float(frame_den),
+		"node_count_avg": _stats.sum("node_count") / float(frame_den)
 	}
 	last_stats = stats
 	print("[RemoteSimClient] stats rtt_ms p50=", "%.1f" % stats["rtt_ms_p50"],
@@ -780,5 +822,57 @@ func _flush_client_stats() -> void:
 		" interp_ms_avg=", "%.3f" % stats["interp_ms_avg"],
 		" frame_ms_avg=", "%.1f" % stats["frame_ms_avg"],
 		" fps=", "%.1f" % stats["fps"],
-		" snap_bytes_avg=", "%.0f" % stats["snap_bytes_avg"])
+		" snap_bytes_avg=", "%.0f" % stats["snap_bytes_avg"],
+		" process_ms=", "%.2f" % stats["process_ms_avg"],
+		" physics_ms=", "%.2f" % stats["physics_ms_avg"],
+		" render_ms=", "%.2f" % stats["render_ms_avg"],
+		" draw_calls=", "%.0f" % stats["draw_calls_avg"],
+		" objects_in_frame=", "%.0f" % stats["objects_in_frame_avg"],
+		" vertices_in_frame=", "%.0f" % stats["vertices_in_frame_avg"],
+		" nodes=", "%.0f" % stats["node_count_avg"])
 	_stats.reset(now_ms)
+
+# Tarea L: perfil opt-in del esclavo. Recorre el arbol UNA vez por ventana (no por frame)
+# y agrupa por script los nodos con _process activo: con el nivel congelado, esos son los
+# que siguen gastando CPU en el handheld. Imprime el top 10 por cantidad de nodos.
+func _flush_profile(now_ms: int) -> void:
+	if not _profile_enabled:
+		return
+	if _profile_last_ms > 0 and now_ms - _profile_last_ms < PROFILE_WINDOW_MS:
+		return
+	_profile_last_ms = now_ms
+	var counts: Dictionary = _profile_script_counts()
+	var entries: Array = []
+	for script_path in counts:
+		entries.append({"script": script_path, "count": int(counts[script_path])})
+	entries.sort_custom(self, "_profile_sort_desc")
+	var top: int = int(min(entries.size(), 10))
+	print("[RemoteSimClient] profile _process activo: ", entries.size(),
+		" scripts, top ", top)
+	for i in range(top):
+		print("  ", entries[i]["count"], " nodos  ", entries[i]["script"])
+
+# Cuenta nodos con _process activo por script (path del recurso; los nodos sin script se
+# agrupan bajo un rotulo). Pasada iterativa: sin recursion ni allocs por frame.
+func _profile_script_counts() -> Dictionary:
+	var counts: Dictionary = {}
+	var tree = get_tree()
+	if tree == null:
+		return counts
+	var stack: Array = [tree.root]
+	while not stack.empty():
+		var node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		if node.is_processing():
+			var label := "<sin script>"
+			var scr = node.get_script()
+			if scr != null:
+				label = String(scr.resource_path) if String(scr.resource_path) != "" else "<script en memoria>"
+			counts[label] = int(counts.get(label, 0)) + 1
+		for child in node.get_children():
+			stack.append(child)
+	return counts
+
+func _profile_sort_desc(a, b) -> bool:
+	return int(a["count"]) > int(b["count"])

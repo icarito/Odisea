@@ -304,15 +304,17 @@ func test_sim_host_snapshot_rate_is_configurable():
 
 # FD-316 (tarea G): con adapt_snapshot_rate el host deriva el paso del fps del esclavo
 # (~1.4x su ritmo) y cae al valor configurado si no hay datos o el adaptativo esta off.
+# Tarea L: el paso nunca pasa del piso de 30 Hz (a 60 Hz de host, N<=2).
 func test_sim_host_adapts_snapshot_step_to_client_rate():
 	var host = auto_free(RemoteSimHostScript.new())
 	add_child(host)
 	host.snapshot_every_n_ticks = 2
 	host.adapt_snapshot_rate = true
 
-	# Esclavo a 10 fps => apunta a ~15 Hz => N=4.
+	# Esclavo a 10 fps: el adaptativo apuntaria a ~15 Hz, pero el piso de 30 Hz lo
+	# limita a N=2.
 	host._update_active_snap_step(10.0)
-	assert_int(host._active_snap_step).is_equal(4)
+	assert_int(host._active_snap_step).is_equal(2)
 	# Esclavo a 30 fps => ya alcanza 60 Hz => N=1.
 	host._update_active_snap_step(30.0)
 	assert_int(host._active_snap_step).is_equal(1)
@@ -324,6 +326,24 @@ func test_sim_host_adapts_snapshot_step_to_client_rate():
 	host.adapt_snapshot_rate = false
 	host._update_active_snap_step(10.0)
 	assert_int(host._active_snap_step).is_equal(2)
+
+
+# FD-316 (tarea L): piso de 30 Hz del ritmo adaptativo. Aunque el esclavo caiga a 5 fps,
+# el host no emite por debajo de 30 Hz (N <= host_hz/30); a mas fps del esclavo sube la
+# tasa, por encima del piso.
+func test_sim_host_adaptive_rate_has_30hz_floor():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.adapt_snapshot_rate = true
+	host.snapshot_every_n_ticks = 2
+
+	host._update_active_snap_step(5.0)
+	assert_int(host._active_snap_step).is_equal(2)
+	host._update_active_snap_step(1.5)
+	assert_int(host._active_snap_step).is_equal(2)
+	# Mas fps que el piso: 60 Hz de emision (N=1).
+	host._update_active_snap_step(30.0)
+	assert_int(host._active_snap_step).is_equal(1)
 
 
 # FD-316: las entidades viajan con rutas relativas al nivel simulado (el esclavo las
@@ -1763,6 +1783,76 @@ func test_render_slave_stats_flush_and_reset():
 	# Ventana nueva: contadores y muestras en cero.
 	assert_int(client._stats.count("frame")).is_equal(0)
 	assert_int(client._stats.sample_count("rtt_ms")).is_equal(0)
+
+	client.stop_render_slave()
+
+
+# FD-316 (tarea L): la linea de stats publica el desglose del frame: process/physics del
+# motor, draw calls, objetos/vertices en frame, nodos totales y el remanente de render
+# (frame - process - physics). Los promedios son de la ventana.
+func test_render_slave_stats_reports_frame_breakdown():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	client._stats.tally("frame")
+	client._stats.add("process_us", 10000.0) # 10 ms
+	client._stats.add("physics_us", 5000.0) # 5 ms
+	client._stats.add("draw_calls", 90.0)
+	client._stats.add("objects_in_frame", 200.0)
+	client._stats.add("vertices_in_frame", 12345.0)
+	client._stats.add("node_count", 400.0)
+	client._stats.window_start_ms = OS.get_ticks_msec() - RemoteSimStatsScript.WINDOW_MS - 1
+	client._flush_client_stats()
+
+	for key in ["process_ms_avg", "physics_ms_avg", "render_ms_avg", "draw_calls_avg",
+			"objects_in_frame_avg", "vertices_in_frame_avg", "node_count_avg"]:
+		assert_bool(client.last_stats.has(key)).is_true()
+	assert_float(float(client.last_stats["process_ms_avg"])).is_equal_approx(10.0, 0.001)
+	assert_float(float(client.last_stats["physics_ms_avg"])).is_equal_approx(5.0, 0.001)
+	assert_float(float(client.last_stats["draw_calls_avg"])).is_equal_approx(90.0, 0.001)
+	assert_float(float(client.last_stats["objects_in_frame_avg"])).is_equal_approx(200.0, 0.001)
+	assert_float(float(client.last_stats["vertices_in_frame_avg"])).is_equal_approx(12345.0, 0.001)
+	assert_float(float(client.last_stats["node_count_avg"])).is_equal_approx(400.0, 0.001)
+	# Remanente = frame_ms - process_ms - physics_ms.
+	var frame_ms: float = float(client.last_stats["frame_ms_avg"])
+	assert_float(float(client.last_stats["render_ms_avg"])).is_equal_approx(
+		frame_ms - 15.0, 0.001)
+
+	client.stop_render_slave()
+
+
+# FD-316 (tarea L): el perfil (opt-in por ODISEA_SLAVE_PROFILE) agrupa por script los
+# nodos con _process activo; el cliente mismo queda contado bajo su script.
+func test_render_slave_profile_groups_processing_nodes_by_script():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+	var holder: Spatial = auto_free(Spatial.new())
+	holder.name = "ProfileHolder"
+	holder.set_process(true)
+	client.add_child(holder)
+
+	var counts: Dictionary = client._profile_script_counts()
+	assert_bool(client.is_processing()).is_true()
+	assert_int(int(counts.get("res://core_v2/net/RemoteSimClient.gd", 0))).is_greater_equal(1)
+	# El nodo sin script tambien se agrupa (no se pierde en el perfil).
+	assert_int(int(counts.get("<sin script>", 0))).is_greater_equal(1)
+
+	client.stop_render_slave()
+
+
+# FD-316 (tarea L): el retardo de interpolacion es UN intervalo de snapshot, y el
+# intervalo efectivo viene en globals.snap_step (el host lo adapta por ventana).
+func test_render_slave_interp_delay_is_one_snapshot_interval():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(2, 0, {}, {"snap_step": 2}))
+	assert_float(client._interp_delay_ticks).is_equal_approx(2.0, 0.001)
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(3, 0, {}, {"snap_step": 1}))
+	assert_float(client._interp_delay_ticks).is_equal_approx(1.0, 0.001)
 
 	client.stop_render_slave()
 

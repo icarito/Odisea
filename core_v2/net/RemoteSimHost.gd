@@ -89,7 +89,10 @@ var _stats_last_input_ms: int = 0
 # FD-316 (tarea G): paso de emision efectivo (ticks entre snapshots). Arranca en el valor
 # configurado y, con adapt_snapshot_rate, se recalcula al cerrar cada ventana de stats.
 const SNAP_RATE_MIN_N := 1
-const SNAP_RATE_MAX_N := 12
+# Tarea L: piso de emision. El ritmo adaptativo no baja de 30 Hz: con el host a 60 Hz el
+# paso nunca supera 2. Debajo de eso el ack de input tarda mas de un intervalo y el RTT
+# p50 subia a 126-165 ms en device (medido 2026-09-29).
+const SNAP_RATE_MIN_HZ := 30.0
 const SNAP_RATE_HEADROOM := 1.4
 var _active_snap_step: int = 2
 
@@ -389,14 +392,20 @@ func _snapshot_due() -> bool:
 
 # Tarea G: deriva el paso del fps real del esclavo (su input llega ~1 vez por cuadro).
 # Apunta a ~1.4x ese fps para que nunca falte el proximo snapshot al interpolar; se
-# clampea y, sin datos, cae al valor configurado.
+# clampea y, sin datos o con el adaptativo apagado, cae al valor configurado.
+# Tarea L: el tope del paso sale del piso de 30 Hz (`host_hz / SNAP_RATE_MIN_HZ`): mas
+# espaciado que eso sube el RTT p50 por encima del objetivo de 90 ms.
 func _update_active_snap_step(input_hz: float) -> void:
-	if not adapt_snapshot_rate or input_hz <= 1.0:
+	if not adapt_snapshot_rate:
 		_active_snap_step = int(max(1, snapshot_every_n_ticks))
 		return
 	var host_hz: float = float(Engine.iterations_per_second) if Engine.iterations_per_second > 0 else 60.0
+	var max_step: int = int(max(SNAP_RATE_MIN_N, floor(host_hz / SNAP_RATE_MIN_HZ)))
+	if input_hz <= 1.0:
+		_active_snap_step = int(clamp(max(1, snapshot_every_n_ticks), SNAP_RATE_MIN_N, max_step))
+		return
 	var desired: int = int(round(host_hz / (input_hz * SNAP_RATE_HEADROOM)))
-	_active_snap_step = int(clamp(desired, SNAP_RATE_MIN_N, SNAP_RATE_MAX_N))
+	_active_snap_step = int(clamp(desired, SNAP_RATE_MIN_N, max_step))
 
 func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> void:
 	if source_id == "client":
