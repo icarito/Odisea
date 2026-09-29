@@ -2105,6 +2105,76 @@ func test_render_slave_profile_vertex_census_groups_by_first_level_child():
 	level.free()
 
 
+# FD-316 (tarea W): el censo de draw calls del perfil agrupa por la ruta de 2do nivel bajo
+# current_scene (no por nodo hoja), cuenta 1 draw por superficie de malla (MultiMesh: 1
+# aunque tenga N instancias) y solo suma geometria visible en el frustum de la camara.
+func test_render_slave_profile_draw_census_groups_by_second_level():
+	var level := Spatial.new()
+	level.name = "DrawCensusLevel"
+	var scaffold := Spatial.new()
+	scaffold.name = "ScaffoldStreamRoot"
+	var chunk := Spatial.new()
+	chunk.name = "Chunk_3"
+	level.add_child(scaffold)
+	scaffold.add_child(chunk)
+
+	# _make_test_mesh(N) tiene 1 superficie: 1 draw por MeshInstance.
+	var malla := _make_test_mesh(3)
+	var mi_a := MeshInstance.new()
+	mi_a.name = "MallaA"
+	mi_a.mesh = malla
+	mi_a.translation = Vector3(-2.0, 0.0, -5.0)
+	chunk.add_child(mi_a)
+	var mi_b := MeshInstance.new()
+	mi_b.name = "MallaB"
+	mi_b.mesh = malla
+	mi_b.translation = Vector3(-1.0, 0.0, -5.0)
+	chunk.add_child(mi_b)
+	# MultiMesh de 1 superficie: 1 draw aunque tenga 8 instancias.
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = malla
+	mm.instance_count = 8
+	var mmi := MultiMeshInstance.new()
+	mmi.name = "Batch"
+	mmi.multimesh = mm
+	mmi.translation = Vector3(0.0, 0.0, -6.0)
+	chunk.add_child(mmi)
+
+	# Detras de la camara (fuera de frustum) y oculta: no aportan.
+	var mi_behind := MeshInstance.new()
+	mi_behind.mesh = malla
+	mi_behind.translation = Vector3(0.0, 0.0, 5.0)
+	level.add_child(mi_behind)
+	var mi_hidden := MeshInstance.new()
+	mi_hidden.mesh = malla
+	mi_hidden.visible = false
+	mi_hidden.translation = Vector3(0.0, 0.0, -5.0)
+	level.add_child(mi_hidden)
+
+	var cam := Camera.new()
+	cam.name = "Cam"
+	level.add_child(cam)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+	cam.current = true
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	var entries: Array = client._profile_draw_census(cam)
+	assert_int(entries.size()).is_equal(1)
+	assert_str(String(entries[0]["group"])).is_equal("ScaffoldStreamRoot/Chunk_3")
+	assert_int(int(entries[0]["draws"])).is_equal(3)
+	assert_int(int(entries[0]["objects"])).is_equal(3)
+
+	get_tree().current_scene = previous_scene
+	cam.current = false
+	get_tree().root.remove_child(level)
+	level.free()
+
+
 # Malla de test con una superficie de N vertices (sin triangulos: alcanza para el censo).
 func _make_test_mesh(vertex_count: int) -> ArrayMesh:
 	var arrays := []

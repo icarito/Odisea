@@ -991,6 +991,21 @@ func _flush_profile(now_ms: int) -> void:
 	for i in range(abtop):
 		print("[RemoteSimClient] profile verts_ab rank: ", ab_entries[i]["verts"],
 			" ", ab_entries[i]["group"])
+	# Tarea W: censo de draw calls por grupo. En el driver Mali cada draw pesa ~0.2 ms,
+	# asi que con los vertices ya bajados hay que ver que GRUPOS explican los 140-201.
+	var draw_entries: Array = _profile_draw_census()
+	var dtop: int = int(min(draw_entries.size(), 12))
+	var total_draws := 0
+	var total_objects := 0
+	for e in draw_entries:
+		total_draws += int(e["draws"])
+		total_objects += int(e["objects"])
+	for i in range(dtop):
+		print("[RemoteSimClient] profile draws: ", draw_entries[i]["draws"],
+			" ", draw_entries[i]["objects"], " ", draw_entries[i]["group"])
+	print("[RemoteSimClient] profile draws: ", total_draws, " ", total_objects, " TOTAL")
+	# Tarea W: estado del culler de distancia de GLES3VendorGate (2d7b3d61).
+	_profile_culler_report()
 
 # Tarea M: suma los vertices VISIBLES de MeshInstance y MultiMeshInstance por hijo de
 # primer nivel de current_scene. El conteo de cada Mesh se cachea porque
@@ -1050,6 +1065,203 @@ func _mesh_vertex_count(mesh) -> int:
 	_mesh_vertex_cache[mesh] = total
 	return total
 
+# Tarea W: censo de draw calls por grupo. Estima 1 draw por superficie de malla (MultiMesh:
+# 1 por superficie aunque tenga N instancias; CSG: 1 por material) y suma solo geometria
+# visible en el arbol cuyo AABB global cae en el frustum de la camara activa: lo que no se
+# ve no se dibuja. Se agrupa por la ruta de 2do nivel bajo current_scene
+# (ScaffoldStreamRoot/Chunk_03, Hub/Floor_2). Una pasada por ventana de perfil, no por
+# frame. `cam_forzada` permite ejercitarlo desde tests sin camara activa.
+func _profile_draw_census(cam_forzada: Camera = null) -> Array:
+	var tree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return []
+	var cam: Camera = cam_forzada if cam_forzada != null else _profile_active_camera()
+	if cam == null or not is_instance_valid(cam):
+		return []
+	var scene = tree.current_scene
+	var totals: Dictionary = {}
+	var stack: Array = [scene]
+	while not stack.empty():
+		var node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		for child in node.get_children():
+			stack.append(child)
+		if not (node is GeometryInstance):
+			continue
+		var geo = node as GeometryInstance
+		if not geo.is_visible_in_tree():
+			continue
+		var draws: int = _geometry_draw_count(geo)
+		if draws <= 0:
+			continue
+		if not _aabb_in_camera_frustum(cam, _geometry_global_aabb(geo)):
+			continue
+		var group := _profile_group_path(scene, geo)
+		var acum = totals.get(group, null)
+		if acum == null:
+			acum = {"group": group, "draws": 0, "objects": 0}
+			totals[group] = acum
+		acum["draws"] = int(acum["draws"]) + draws
+		acum["objects"] = int(acum["objects"]) + 1
+	var entries: Array = []
+	for group_name in totals:
+		entries.append(totals[group_name])
+	entries.sort_custom(self, "_profile_draws_sort_desc")
+	return entries
+
+# Camara activa del render-esclavo: la del CinematicManager (rig/VCamera/transicion) y, si
+# no la resuelve, la del viewport que esta renderizando el nivel.
+func _profile_active_camera() -> Camera:
+	var cinematic = get_node_or_null("/root/CinematicManager")
+	if cinematic != null and cinematic.has_method("get_active_camera"):
+		var cam = cinematic.call("get_active_camera")
+		if cam != null and is_instance_valid(cam) and cam is Camera:
+			return cam as Camera
+	var vp = get_viewport()
+	return vp.get_camera() if vp != null else null
+
+# Draw calls estimados de una GeometryInstance. MeshInstance y MultiMeshInstance: una por
+# superficie de la malla (en MultiMesh las N instancias van en el mismo draw). CSG: una por
+# material distinto. Otro tipo de GeometryInstance no se cuenta.
+func _geometry_draw_count(geo: GeometryInstance) -> int:
+	if geo is MeshInstance:
+		var mi := geo as MeshInstance
+		if mi.mesh == null:
+			return 0
+		var surfaces: int = mi.mesh.get_surface_count()
+		if surfaces <= 0:
+			surfaces = mi.get_surface_material_count()
+		return surfaces
+	if geo is MultiMeshInstance:
+		var mm := (geo as MultiMeshInstance).multimesh
+		if mm == null or mm.mesh == null:
+			return 0
+		return int(max(1, mm.mesh.get_surface_count()))
+	if geo is CSGShape:
+		var mats: Dictionary = {}
+		_collect_csg_materials(geo, mats)
+		return int(max(1, mats.size()))
+	return 0
+
+# Materiales distintos de un subarbol CSG (cada uno es un draw). `material` es la unica
+# propiedad de material que expone CSGShape en Godot 3.
+func _collect_csg_materials(node: Node, mats: Dictionary) -> void:
+	if "material" in node:
+		var mat = node.get("material")
+		if mat != null:
+			mats[mat.get_instance_id()] = true
+	for child in node.get_children():
+		_collect_csg_materials(child, mats)
+
+# AABB global de una GeometryInstance. MeshInstance/MultiMeshInstance usan el AABB de su
+# malla; CSG, que no expone AABB, cae al origen global (test de punto en el frustum).
+func _geometry_global_aabb(geo: GeometryInstance) -> AABB:
+	var local := AABB(Vector3.ZERO, Vector3.ZERO)
+	if geo is MeshInstance:
+		var mesh = (geo as MeshInstance).mesh
+		if mesh == null:
+			return AABB(geo.global_transform.origin, Vector3.ZERO)
+		local = mesh.get_aabb()
+	elif geo is MultiMeshInstance:
+		var mm = (geo as MultiMeshInstance).multimesh
+		if mm == null:
+			return AABB(geo.global_transform.origin, Vector3.ZERO)
+		local = mm.get_aabb()
+	else:
+		return AABB(geo.global_transform.origin, Vector3.ZERO)
+	return _transform_aabb(local, geo.global_transform)
+
+# AABB global a partir del local y el transform del nodo (mismo patron que la traza del
+# replay: los nodos del nivel llevan rotacion y el AABB local no la incluye).
+func _transform_aabb(aabb: AABB, xform: Transform) -> AABB:
+	var corners := [
+		xform.xform(aabb.position),
+		xform.xform(aabb.position + Vector3(aabb.size.x, 0, 0)),
+		xform.xform(aabb.position + Vector3(0, aabb.size.y, 0)),
+		xform.xform(aabb.position + Vector3(0, 0, aabb.size.z)),
+		xform.xform(aabb.position + Vector3(aabb.size.x, aabb.size.y, 0)),
+		xform.xform(aabb.position + Vector3(aabb.size.x, 0, aabb.size.z)),
+		xform.xform(aabb.position + Vector3(0, aabb.size.y, aabb.size.z)),
+		xform.xform(aabb.position + aabb.size),
+	]
+	var result := AABB(corners[0], Vector3.ZERO)
+	for i in range(1, corners.size()):
+		result = result.expand(corners[i])
+	return result
+
+# Aproximacion de frustum: alcanza con que UNA esquina del AABB global caiga dentro del
+# cono. Se calcula con basis/fov/near/far propios porque esta build del motor no expone
+# Camera.is_position_in_frustum. Asume keep_aspect KEEP_HEIGHT (default).
+func _aabb_in_camera_frustum(cam: Camera, aabb_glob: AABB) -> bool:
+	var xform: Transform = cam.global_transform
+	var cam_origin: Vector3 = xform.origin
+	var adelante: Vector3 = -xform.basis.z
+	var derecha: Vector3 = xform.basis.x
+	var arriba: Vector3 = xform.basis.y
+	var tan_v: float = tan(deg2rad(cam.fov) * 0.5)
+	var aspecto := 1.0
+	var vp := get_viewport()
+	if vp != null and vp.size.y > 0:
+		aspecto = float(vp.size.x) / float(vp.size.y)
+	for i in range(8):
+		var esquina := aabb_glob.position
+		if i & 1:
+			esquina.x += aabb_glob.size.x
+		if i & 2:
+			esquina.y += aabb_glob.size.y
+		if i & 4:
+			esquina.z += aabb_glob.size.z
+		var v: Vector3 = esquina - cam_origin
+		var prof: float = v.dot(adelante)
+		if prof < cam.near or prof > cam.far:
+			continue
+		var mitad_alto: float = prof * tan_v
+		var mitad_ancho: float = mitad_alto * aspecto
+		if abs(v.dot(derecha)) <= mitad_ancho and abs(v.dot(arriba)) <= mitad_alto:
+			return true
+	return false
+
+# Grupo = los DOS primeros tramos de la ruta relativa a current_scene; un nodo de primer
+# nivel cae en su propio nombre.
+func _profile_group_path(scene: Node, node: Node) -> String:
+	var parts: Array = String(scene.get_path_to(node)).split("/")
+	if parts.size() >= 2:
+		return String(parts[0]) + "/" + String(parts[1])
+	return String(parts[0]) if parts.size() == 1 else "."
+
+# Tarea W: el culler de distancia de GLES3VendorGate (2d7b3d61) toca `visible` por trozo de
+# andamio. Se reporta cuantos nodos tiene visibles/ocultos y cuantas instancias hay por
+# grupo gestionado: un grupo partido en muchos MeshInstance son muchos draws candidatos.
+func _profile_culler_report() -> void:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null:
+		print("[RemoteSimClient] profile culler: sin GLES3VendorGate")
+		return
+	var nodes = gate.get("_lod_nodes")
+	if nodes == null or not (nodes is Array):
+		print("[RemoteSimClient] profile culler: sin nodos registrados")
+		return
+	var visibles := 0
+	var ocultos := 0
+	var por_grupo: Dictionary = {}
+	for node in nodes:
+		if node == null or not is_instance_valid(node):
+			continue
+		if node.visible:
+			visibles += 1
+		else:
+			ocultos += 1
+		var parent = node.get_parent()
+		var gname := String(parent.name) if parent != null else "?"
+		por_grupo[gname] = int(por_grupo.get(gname, 0)) + 1
+	var partes: Array = []
+	for gname in por_grupo:
+		partes.append(String(gname) + "=" + str(int(por_grupo[gname])))
+	partes.sort()
+	print("[RemoteSimClient] profile culler: visibles=", visibles, " ocultos=", ocultos,
+		" nodos=", visibles + ocultos, " grupos=", PoolStringArray(partes).join(","))
+
 # Cuenta nodos con _process activo por script (path del recurso; los nodos sin script se
 # agrupan bajo un rotulo). Pasada iterativa: sin recursion ni allocs por frame.
 # Tarea P: con physics=true cuenta los nodos con _physics_process activo (lo que sigue
@@ -1080,6 +1292,9 @@ func _profile_sort_desc(a, b) -> bool:
 
 func _profile_verts_sort_desc(a, b) -> bool:
 	return int(a["verts"]) > int(b["verts"])
+
+func _profile_draws_sort_desc(a, b) -> bool:
+	return int(a["draws"]) > int(b["draws"])
 
 # Tarea P: paso por frame del A/B de visibilidad (barato cuando el perfil esta apagado).
 # Fase 0: esperar la ventana y ocultar el proximo hijo de current_scene (baseline leido con
