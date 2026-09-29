@@ -126,6 +126,12 @@ func _pause_on_focus_loss() -> void:
 		return
 	if not _can_pause_in_current_scene() or _hud_mode_paused:
 		return
+	# FD-316: esta maquina es SIM HOST (autoridad de un render-esclavo): la simulacion
+	# alimenta a OTRO device en pantalla. Alternar de ventana (chat, terminal) no debe
+	# congelar la simulacion que el esclavo esta mostrando.
+	var rcm_sim = get_node_or_null("/root/RemoteControlManager")
+	if rcm_sim != null and "is_sim_host_active" in rcm_sim and rcm_sim.is_sim_host_active:
+		return
 	if _controlled_from_this_machine():
 		return
 	# La solicitud ya pauso el mundo; el menu encima solo taparia el aviso.

@@ -283,11 +283,15 @@ static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictio
 		"token": token
 	}
 
-static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied_tick: int, token: String = "") -> Dictionary:
+static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied_tick: int, token: String = "", camera: Dictionary = {}) -> Dictionary:
+	# FD-316: la camara (mouse/right stick) es lo unico del input que NO es una accion
+	# del InputMap, asi que viaja aparte: sin esto el render-esclavo no podia girar la
+	# camara de la autoridad (el look del control se perdia).
 	return {
 		"type": "sim_input",
 		"axes": axes,
 		"buttons": buttons,
+		"camera": camera,
 		"last_tick": last_applied_tick,
 		"token": token
 	}

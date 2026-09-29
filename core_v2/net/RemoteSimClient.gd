@@ -57,6 +57,7 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_engaged = false
 	_buffer.clear()
 	_latest_applied_tick = -1
+	_last_actor_states.clear()
 
 	# El rol se abre solo para ESCUCHAR: fisica, audio e interaccion siguen locales
 	# hasta que llegue el primer snapshot valido (FD-316 paso 3).
@@ -100,7 +101,17 @@ func _set_local_audio_muted(muted: bool) -> void:
 func _get_player() -> Node:
 	var session = get_node_or_null("/root/SessionManager")
 	if session != null and "player" in session:
-		return session.player
+		var p = session.player
+		if p != null and is_instance_valid(p):
+			return p
+	# FD-316: fallback al jugador del nivel del esclavo. SessionManager pisa player=null
+	# cuando el jugador no esta bajo current_scene; el rig/camara del snapshot tienen que
+	# aplicarse igual (ensayo local incluido).
+	var tree = get_tree()
+	if tree != null and tree.current_scene != null:
+		for p in tree.get_nodes_in_group("player"):
+			if is_instance_valid(p) and tree.current_scene.is_a_parent_of(p):
+				return p
 	return null
 
 func _set_player_interaction_authoritative(on: bool) -> void:
@@ -191,7 +202,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	while _buffer.size() > 30:
 		_buffer.pop_front()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not is_render_slave:
 		return
 
@@ -214,25 +225,65 @@ func _process(_delta: float) -> void:
 		_apply_snapshot(newest)
 		_latest_applied_tick = int(newest["tick"])
 		_buffer.clear()
+	# El _physics_process del Pilot esta congelado: el animator se alimenta aca con la
+	# velocidad de la autoridad que llego en el snapshot (si no, se queda en idle).
+	if _engaged:
+		var player = _get_player()
+		if player != null and is_instance_valid(player) and player.has_method("step_remote_animator"):
+			player.call("step_remote_animator", delta)
 	_send_local_input()
 
 func _send_local_input() -> void:
 	if _target_ip == "" or _target_port <= 0:
 		return
 
-	var axes = {
-		"move_x": Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-		"move_y": Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
-	}
-	var buttons = {
-		"jump": Input.is_action_pressed("jump"),
-		"interact": Input.is_action_pressed("interact")
-	}
+	# FD-316: el handheld manda SU frame ya procesado por el InputProvider local: el
+	# move_vec con curva/sensibilidad, el auto-sprint analogico (vive en el provider, por
+	# eso solo caminaba) y la camara (mouse, stick, D-pad con rampa, touch). La autoridad
+	# lo suma tal cual sobre SU frame local.
+	var axes := {"move_x": 0.0, "move_y": 0.0, "analog": false}
+	var buttons := {"jump": false, "interact": false, "sprint": false, "crouch": false}
+	var camera := {"x": 0.0, "y": 0.0, "touch_x": 0.0, "touch_y": 0.0, "zoom": 0.0}
+	var player := _get_player()
+	if player != null and is_instance_valid(player):
+		var provider = player.get("input_provider") if "input_provider" in player else null
+		if provider != null and provider.has_method("get_input"):
+			var frame = provider.call("get_input")
+			if frame != null:
+				axes["move_x"] = frame.move_vec.x
+				axes["move_y"] = frame.move_vec.y
+				axes["analog"] = frame.analog_move_active
+				buttons["jump"] = frame.jump
+				buttons["sprint"] = frame.sprint
+				buttons["crouch"] = frame.crouch
+				buttons["interact"] = frame.interact or frame.interact_held
+				camera["x"] = frame.mouse_delta.x
+				camera["y"] = frame.mouse_delta.y
+				camera["zoom"] = frame.zoom_delta
 
-	var sim_input = RemoteProtocol.create_sim_input(axes, buttons, _latest_applied_tick)
+	var sim_input = RemoteProtocol.create_sim_input(axes, buttons, _latest_applied_tick, "", camera)
 	var bytes = RemoteProtocol.encode_json(sim_input).to_utf8()
 	_udp.set_dest_address(_target_ip, _target_port)
 	_udp.put_packet(bytes)
+
+# FD-316: el control manda su look ("mouse_delta"/"touch_camera") a ESTE handheld. Como
+# render-esclavo no simula, no alcanza con aplicarlo a su player: se mete en el
+# InputProvider local para que lo procese igual que su propio hardware y salga en el
+# frame procesado que viaja a la autoridad (ver _send_local_input).
+func queue_camera_input(dx: float, dy: float, zoom: float = 0.0, is_touch: bool = false) -> void:
+	var player := _get_player()
+	if player == null or not is_instance_valid(player):
+		return
+	var provider = player.get("input_provider") if "input_provider" in player else null
+	if provider == null:
+		return
+	if is_touch:
+		if provider.has_method("add_touch_camera_drag"):
+			provider.call("add_touch_camera_drag", Vector2(dx, dy))
+		if provider.has_method("add_touch_camera_zoom"):
+			provider.call("add_touch_camera_zoom", zoom)
+	elif "mouse_delta_accum" in provider:
+		provider.mouse_delta_accum += Vector2(dx, dy)
 
 func _poll_udp() -> void:
 	if _listening_port <= 0:
@@ -275,13 +326,28 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 			if state.has("vel") and node.has_method("set_remote_anim_state"):
 				var v_arr = state["vel"]
 				if v_arr is Array and v_arr.size() >= 3:
-					node.call("set_remote_anim_state", Vector3(v_arr[0], v_arr[1], v_arr[2]), bool(state.get("g", false)))
+					var wish := Vector3.ZERO
+					var w_arr = state.get("wish", null)
+					if w_arr is Array and w_arr.size() >= 3:
+						wish = Vector3(w_arr[0], w_arr[1], w_arr[2])
+					node.call("set_remote_anim_state", Vector3(v_arr[0], v_arr[1], v_arr[2]), bool(state.get("g", false)), wish)
 
 	var globals: Dictionary = snapshot.get("globals", {})
 	# FD-316: interaccion resuelta por la autoridad (prompt + path del interactuable).
 	var inter = globals.get("interact", null)
 	if inter is Dictionary:
 		_apply_player_interaction(String(inter.get("prompt", "")), String(inter.get("path", "")))
+	# FD-316: estado logico de los actores (interactuables: switch de luces, valvulas,
+	# ascensores). Se aplica solo cuando CAMBIA, para no re-disparar restores cada tick.
+	var states = globals.get("states", null)
+	if states is Dictionary:
+		_apply_actor_states(states)
+	# FD-316: el rig completo y el largo del kinematic arm de la autoridad. Se aplica
+	# ANTES de cam_t para que el padre quede consistente antes de fijar la camara.
+	if globals.has("rig"):
+		_apply_player_rig(globals["rig"])
+	if globals.has("arm_len"):
+		_apply_arm_length(float(globals["arm_len"]))
 	if globals.has("cam_t"):
 		var camera = tree.root.get_viewport().get_camera()
 		if camera != null and is_instance_valid(camera):
@@ -290,3 +356,90 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 				camera.fov = float(globals["cam_fov"])
 
 	emit_signal("snapshot_applied", int(snapshot.get("tick", 0)))
+
+# Misma cadena que RemoteSimHost.RIG_CHAIN: el rig del Pilot se replica entero para que
+# el esclavo no se quede con la pose de spawn.
+const RIG_CHAIN := [
+	"CameraRig",
+	"CameraRig/Yaw",
+	"CameraRig/Yaw/Pitch",
+	"CameraRig/Yaw/Pitch/OTS_Offset",
+	"CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"
+]
+
+func _apply_player_rig(rig) -> void:
+	if not (rig is Array):
+		return
+	var player = _get_scene_player()
+	if player == null or not is_instance_valid(player):
+		return
+	var count: int = int(min(rig.size(), RIG_CHAIN.size()))
+	for i in range(count):
+		if rig[i] == null:
+			continue
+		var node = player.get_node_or_null(RIG_CHAIN[i])
+		if node != null and node is Spatial:
+			node.global_transform = RemoteProtocol.decode_transform(rig[i])
+
+func _apply_arm_length(length: float) -> void:
+	if length < 0.0:
+		return
+	var player = _get_scene_player()
+	if player == null or not is_instance_valid(player):
+		return
+	var arm = player.get_node_or_null(RIG_CHAIN[RIG_CHAIN.size() - 1])
+	if arm != null and "current_length" in arm:
+		arm.current_length = length
+
+# Restaura el estado logico de los actores replicados, solo si cambio desde la ultima
+# aplicacion (el host manda el estado actual de todos; aca se filtra por diferencia).
+var _last_actor_states: Dictionary = {}
+
+func _apply_actor_states(states: Dictionary) -> void:
+	var tree = get_tree()
+	var scene = tree.current_scene if tree != null else null
+	if scene == null:
+		return
+	for path_str in states:
+		var incoming = states[path_str]
+		var cached = _last_actor_states.get(path_str, null)
+		if cached != null and _states_equal(cached, incoming):
+			continue
+		var node = scene.get_node_or_null(NodePath(path_str))
+		if node == null:
+			node = get_node_or_null(NodePath(path_str))
+		if node != null and is_instance_valid(node) and node.has_method("restore_snapshot"):
+			node.call("restore_snapshot", incoming)
+			_last_actor_states[path_str] = incoming
+
+func _states_equal(a, b) -> bool:
+	if a is Dictionary and b is Dictionary:
+		if a.size() != b.size():
+			return false
+		for k in a:
+			if not b.has(k) or not _states_equal(a[k], b[k]):
+				return false
+		return true
+	if a is Array and b is Array:
+		if a.size() != b.size():
+			return false
+		for i in range(a.size()):
+			if not _states_equal(a[i], b[i]):
+				return false
+		return true
+	if a is float and b is float:
+		return is_equal_approx(a, b)
+	return a == b
+
+# El jugador del nivel del ESCLAVO: el mismo criterio que usa el loop de entidades
+# (paths relativos a current_scene). SessionManager.player puede apuntar a otra cosa
+# (pisa player=null fuera de current_scene), asi que el rig/camara del snapshot se
+# resuelven contra el nivel, no contra el autoload.
+func _get_scene_player() -> Node:
+	var tree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return null
+	for p in tree.get_nodes_in_group("player"):
+		if is_instance_valid(p) and tree.current_scene.is_a_parent_of(p):
+			return p
+	return null

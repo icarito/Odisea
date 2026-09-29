@@ -87,11 +87,15 @@ func _ready():
 
 	if client != null:
 		client.connect("ui_directive_received", self, "_on_client_ui_directive")
-		# FD-316: el sim host simula el nivel de OTRO device. Si la sesion se cae o
-		# termina, la autoridad deja de simular enseguida (bateria del control): la
-		# re-promocion del handheld, al retomar la sesion, re-hace el handshake.
-		client.connect("connection_lost", self, "_stop_sim_host_if_active")
+		# FD-316: el sim host simula el nivel de OTRO device. Si la SESION TERMINA,
+		# la autoridad deja de simular y descarga el nivel. Si la CONEXION SE CAE
+		# (p.ej. el control perdio foco y pauso), es transitorio: se conserva el nivel
+		# para reanudar sin recargarlo ni re-disparar la intro de despertar.
+		client.connect("connection_lost", self, "_soft_stop_sim_host_if_active")
 		client.connect("session_ended", self, "_stop_sim_host_if_active")
+		# FD-294: el idioma del control viaja al emparejar y al retomar la sesion.
+		client.connect("pair_result_received", self, "_on_client_pair_result")
+		client.connect("connection_restored", self, "_on_client_connection_restored")
 
 	if SuitOSRemoteBridge != null and not low_tier:
 		bridge = SuitOSRemoteBridge.new()
@@ -223,6 +227,10 @@ func _stop_render_slave_role() -> void:
 	if server != null:
 		server.send_ui_directive("stop_sim_host", {})
 
+# Locale propio del host, guardado al aplicar el idioma del control (para restaurarlo
+# cuando la sesion termina). "" = no hay idioma remoto aplicado.
+var _remote_locale_applied := ""
+
 func _on_client_ui_directive(op: String, payload) -> void:
 	if op == "start_sim_host":
 		var port = int(payload.get("target_port", 10444)) if payload is Dictionary else 10444
@@ -236,6 +244,11 @@ func _on_client_ui_directive(op: String, payload) -> void:
 		# FD-316 paso 2: el esclavo dice QUE nivel simular y desde donde.
 		if sim_host != null:
 			sim_host.load_sim_level(payload if payload is Dictionary else {})
+	elif op == "set_language":
+		# FD-294: el idioma del CONTROL manda en el host mientras dura la sesion (el HUD
+		# y los prompts del nivel se muestran en el idioma de quien juega). Al cerrar la
+		# sesion se restaura el locale propio del host.
+		_apply_control_language(payload if payload is Dictionary else {})
 	elif op == "stop_sim_host":
 		is_sim_host_active = false
 		if sim_host != null:
@@ -248,6 +261,16 @@ func _stop_sim_host_if_active() -> void:
 	is_sim_host_active = false
 	if sim_host != null:
 		sim_host.stop_simulation()
+
+# FD-316: la conexion se cayo pero puede volver (el control perdio foco y pauso). El
+# nivel se conserva: al retomar, load_sim_level lo reusa y no se recarga ni se repite
+# la intro (era el "vuelve a sonar la apertura del pod" al cambiar de ventana).
+func _soft_stop_sim_host_if_active() -> void:
+	if not is_sim_host_active:
+		return
+	is_sim_host_active = false
+	if sim_host != null:
+		sim_host.stop_simulation(true)
 
 # El control remoto muestra cuando la partida esta en pausa aca (menu de pausa, perdida
 # de foco, dialogo de emparejamiento). Solo se manda al cambiar, y de nuevo a cada
@@ -394,19 +417,29 @@ func _on_server_input_received(input_type: String, payload: Dictionary) -> void:
 		# tick sin foto soltaba todo (caia la velocidad) y el controlador sacaba flancos
 		# falsos del hueco (el crouch sostenido se alternaba solo).
 		"event":
-			_apply_remote_event(payload)
+			# FD-316 render-esclavo: el handheld no simula, y RemoteSimClient reenvia a la
+			# autoridad lo que quede en SU Input. Si ademas metieramos aca los eventos del
+			# control, la autoridad recibiria el mismo input DOS veces (local por su
+			# provider + eco por sim_input). El control lo lee la autoridad del lado suyo.
+			if not is_render_slave_active:
+				_apply_remote_event(payload)
 		"touch_camera":
 			# TouchCameraControls ya entrega unidades de camara: van por el mismo acumulador
 			# que usa el touch local, no por mouse_delta_accum (que invierte Y y aplica la
-			# sensibilidad del mouse).
-			if input_provider:
+			# sensibilidad del mouse). Como render-esclavo no simulamos: se reenvia a la
+			# autoridad o el giro de camara del control se pierde (FD-316).
+			if is_render_slave_active and sim_client != null:
+				sim_client.queue_camera_input(float(payload.get("x", 0.0)), float(payload.get("y", 0.0)), float(payload.get("zoom", 0.0)), true)
+			elif input_provider:
 				input_provider.add_touch_camera_drag(Vector2(float(payload.get("x", 0.0)), float(payload.get("y", 0.0))))
 				input_provider.add_touch_camera_zoom(float(payload.get("zoom", 0.0)))
 		"mouse_delta":
 			# El mouse del otro lado ya esta capturado; aca se suma directo al acumulador
 			# que llena PlayerControllerV2._input, que en un host tactil nunca ve el
 			# mouse como capturado y descartaria el movimiento.
-			if input_provider:
+			if is_render_slave_active and sim_client != null:
+				sim_client.queue_camera_input(float(payload.get("x", 0.0)), float(payload.get("y", 0.0)))
+			elif input_provider:
 				input_provider.mouse_delta_accum += Vector2(float(payload.get("x", 0.0)), float(payload.get("y", 0.0)))
 		"release_all":
 			_release_remote_inputs()
@@ -475,3 +508,40 @@ func _release_remote_inputs() -> void:
 
 func _on_server_client_disconnected(_device_name: String) -> void:
 	_release_remote_inputs()
+	# FD-294: la sesion termino; el host vuelve a su propio idioma.
+	if _remote_locale_applied != "":
+		TranslationServer.set_locale(_remote_locale_applied)
+		_remote_locale_applied = ""
+
+# Aplica el idioma efectivo del control al host. La primera vez guarda el locale propio
+# para restaurarlo al desemparejar.
+func _apply_control_language(payload: Dictionary) -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm == null or not "resolve_effective_language" in sm:
+		return
+	var locale := String(payload.get("locale", ""))
+	if locale == "" or not locale in sm.UI_LOCALES:
+		return
+	if _remote_locale_applied == "":
+		_remote_locale_applied = sm.resolve_effective_language()
+	if locale == _remote_locale_applied:
+		return
+	TranslationServer.set_locale(locale)
+	print("[RemoteControlManager] idioma del control aplicado al host: ", locale)
+
+# El control manda su idioma al emparejar y al retomar la sesion: el host muestra HUD y
+# prompts en el idioma de quien juega (tambien el render-esclavo en offload).
+func _send_language_to_host() -> void:
+	if client == null or not client._is_paired:
+		return
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm == null or not "resolve_effective_language" in sm:
+		return
+	client.send_ui_directive("set_language", {"locale": sm.resolve_effective_language()})
+
+func _on_client_pair_result(ok: bool, _reason) -> void:
+	if ok:
+		_send_language_to_host()
+
+func _on_client_connection_restored() -> void:
+	_send_language_to_host()

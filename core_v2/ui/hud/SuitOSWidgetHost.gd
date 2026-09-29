@@ -250,10 +250,15 @@ func refresh_visibility() -> void:
 	# Mientras se arrastra hacia un slot (tambien el widget de una pantalla abierta) se ven todos.
 	# En el menu principal no hay HUD aunque el registry tenga pantallas del nivel anterior: el host
 	# vive colgado de SuitOS (autoload) y si no se oculta aca queda dibujado sobre el menu.
-	var current_scene = get_tree().current_scene
+	# get_tree() puede ser null si el host ya salio del arbol (p.ej. al cerrar el control
+	# remoto y liberarse el HUD): sin guard, _process explota despues del free.
+	var tree = get_tree()
+	if tree == null:
+		return
+	var current_scene = tree.current_scene
 	var in_menu: bool = current_scene != null \
 		and String(current_scene.filename).find("Menu.tscn") != -1
-	var hidden: bool = in_menu or _cinematic_active or (get_tree().paused and not in_hud_mode) or touch_idle \
+	var hidden: bool = in_menu or _cinematic_active or (tree.paused and not in_hud_mode) or touch_idle \
 		or (screen_open and not _drop_targets_visible)
 	var has_screens: bool = suit_os != null and not suit_os.get_registered_screens().empty()
 	if not is_instance_valid(_widget_root):

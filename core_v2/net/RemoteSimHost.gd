@@ -23,6 +23,9 @@ var sim_ready: bool = false
 var _sim_viewport: Viewport = null
 var _sim_level: Node = null
 var _sim_player: Node = null
+# Escena del nivel montado (para reconocer una re-promocion del MISMO nivel sin
+# recargarlo; ver load_sim_level). El nombre del recurso del nivel instanciado.
+var _sim_scene_path: String = ""
 
 var _udp = PacketPeerUDP.new()
 var _current_tick: int = 0
@@ -31,37 +34,60 @@ var _tracked_group: String = "replay_sync"
 
 # Deterministic input queue: list of input entries ordered by target tick
 var _input_queue: Array = []
-# Tracked latest input state from handheld client
+# Ultimo estado de input del handheld (axes/buttons) y su look acumulado entre ticks.
+# FD-316: la autoridad fusiona el input del control (provider local) con el del
+# handheld en UN InputDataV2 por tick y lo inyecta con player.inject_input(). Antes se
+# materializaba como acciones globales del InputMap (Input.action_press), que ensuciaba
+# el input de la maquina del control y no admitia el look (no es una accion).
 var _client_input_state: Dictionary = {}
-# Que accion del InputMap quedo "apretada" por el ultimo estado del cliente, para soltarla
-# cuando deje de estar en el payload (si no, un boton se queda pegado si el cliente se cae
-# sin avisar). eje -> {pos, neg}: axes del sim_input mapean a un par de acciones direccionales.
-const _CLIENT_AXIS_ACTIONS := {
-	"move_x": {"pos": "move_right", "neg": "move_left"},
-	"move_y": {"pos": "move_backward", "neg": "move_forward"}
-}
-var _client_actions_pressed: Dictionary = {}
+var _client_camera: Dictionary = {}
+# Flanco del interact del handheld (para no re-dispararlo cada tick mientras se sostiene).
+var _client_interact_was_down := false
 
 func _ready() -> void:
 	set_physics_process(false)
+	# FD-316: el snapshot se captura DESPUES del step del Pilot (mismo tick): si corre
+	# antes, cam_t/rig/arm llegan un tick atrasados y el esclavo ve un angulo que no
+	# coincide con el movimiento que la autoridad acaba de simular (movimiento relativo a
+	# camara). Misma prioridad tardia que RemoteSimClient para aplicar.
+	process_priority = 1000
 
 func start_simulation(p_target_ip: String, p_target_port: int, p_token: String = "") -> void:
 	target_ip = p_target_ip
 	target_port = p_target_port
 	_token = p_token
-	_current_tick = 0
-	# Re-promocion sin stop limpio: nivel viejo fuera antes de escuchar de nuevo.
-	_unload_sim_level()
+	# FD-316: una re-promocion puede llegar tras una caida transitoria (el control
+	# perdio foco/pauso) con el nivel todavia montado: se conserva y sigue el tick.
+	# Resetear el tick a 0 lo dejaria por detras del ultimo aplicado en el esclavo, que
+	# descarta todo lo viejo, y el nivel recargado volveria a correr su intro (el pod
+	# sonaba de nuevo). Solo se descarta el nivel si NO esta listo.
+	var keep_level: bool = sim_ready and _sim_level != null and is_instance_valid(_sim_level)
+	if not keep_level:
+		_current_tick = 0
+		_unload_sim_level()
 	if target_port > 0:
-		_udp.listen(target_port)
+		_udp.close()
+		var err = _udp.listen(target_port)
+		# FD-316: el bind que falla es SILENCIOSO si no se chequea: el sim host deja de
+		# recibir sim_input del esclavo y el input del handheld muere sin mensaje alguno
+		# (visto en el E2E same-host: esclavo y host pelean el mismo puerto).
+		if err != OK:
+			printerr("[RemoteSimHost] ERROR: no se pudo escuchar UDP ", target_port,
+				" err=", err, " — el input del render-esclavo NO llegara")
 	active = true
 	set_physics_process(true)
 
-func stop_simulation() -> void:
+# keep_level: la sesion se cayo pero el nivel se conserva para reanudar sin recargar
+# (ver RemoteControlManager._soft_stop_sim_host_if_active). Un stop definitivo lo
+# descarga.
+func stop_simulation(keep_level: bool = false) -> void:
 	active = false
 	set_physics_process(false)
 	_udp.close()
 	_release_client_input()
+	if keep_level and sim_ready and _sim_level != null and is_instance_valid(_sim_level):
+		print("[RemoteSimHost] stop blando: nivel conservado para reanudar")
+		return
 	_unload_sim_level()
 
 # --- FD-316: carga del nivel del handheld en el sim host (offload real) ---
@@ -76,6 +102,12 @@ func load_sim_level(hello: Dictionary) -> bool:
 	if scene_path == "" or not scene_path.begins_with("res://"):
 		printerr("[RemoteSimHost] sim_hello sin escena valida: '", scene_path, "'")
 		return false
+	# FD-316: re-promocion sobre el MISMO nivel (p.ej. reconexion del control tras
+	# perder foco): recargarlo volvia a correr el _ready del nivel y con el la intro/
+	# cinematica de despertar (el pod se abria y sonaba otra vez). Si ya esta montado y
+	# listo se conserva: solo se re-sincroniza la pose del handheld.
+	if _reuse_sim_level_if_same(scene_path, hello):
+		return true
 	if not ResourceLoader.exists(scene_path):
 		printerr("[RemoteSimHost] sim_hello: escena inexistente en este build: ", scene_path)
 		return false
@@ -98,6 +130,17 @@ func load_sim_level(hello: Dictionary) -> bool:
 	print("[RemoteSimHost] cargando nivel del handheld (sin render): ", scene_path)
 	return _attach_sim_level(level, hello)
 
+# True si el nivel YA montado corresponde a esa escena y esta listo: no se recarga
+# (se conserva su estado) y solo se re-sincroniza el spawn del handheld.
+func _reuse_sim_level_if_same(scene_path: String, hello: Dictionary = {}) -> bool:
+	if not sim_ready or _sim_level == null or not is_instance_valid(_sim_level):
+		return false
+	if _sim_scene_path != scene_path:
+		return false
+	print("[RemoteSimHost] mismo nivel ya montado: se conserva (sin recargar)")
+	_apply_spawn_state(hello)
+	return true
+
 # Monta level_root como nivel de simulacion (seam de test: load_sim_level lo llama
 # con la escena ya instanciada). Devuelve true si quedo listo para emitir.
 func _attach_sim_level(level_root: Node, hello: Dictionary = {}) -> bool:
@@ -114,6 +157,9 @@ func _attach_sim_level(level_root: Node, hello: Dictionary = {}) -> bool:
 	vp.add_child(level_root)
 	_sim_viewport = vp
 	_sim_level = level_root
+	# Escena del nivel montado: con esto load_sim_level reconoce una re-promocion del
+	# mismo nivel y no lo recarga (ver _reuse_sim_level_if_same).
+	_sim_scene_path = String(hello.get("scene", level_root.filename))
 	_sim_player = _ensure_sim_player()
 	_apply_spawn_state(hello)
 	# FD-316 paso 3: sim_ready = nivel listo Y con jugador. Sin jugador no hay nada
@@ -178,6 +224,7 @@ func _unload_sim_level() -> void:
 	sim_ready = false
 	_sim_player = null
 	_sim_level = null
+	_sim_scene_path = ""
 	if _sim_viewport != null and is_instance_valid(_sim_viewport):
 		_sim_viewport.queue_free()
 	_sim_viewport = null
@@ -189,26 +236,14 @@ func _physics_process(_delta: float) -> void:
 	# capture_snapshot sobre RemoteControlHome no sirve a nadie (FD-316 paso 3).
 	if not sim_ready:
 		return
-	_sample_and_queue_local_input()
 	_poll_udp_input()
 	_current_tick += 1
 	_process_input_queue_for_tick(_current_tick)
+	_apply_authority_input_frame()
 	var snapshot = capture_snapshot()
 	emit_signal("snapshot_generated", snapshot)
 	if target_ip != "" and target_port > 0:
 		send_snapshot_udp(snapshot)
-
-func _sample_and_queue_local_input() -> void:
-	var axes = {
-		"move_x": Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-		"move_y": Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
-	}
-	var buttons = {
-		"jump": Input.is_action_pressed("jump"),
-		"interact": Input.is_action_pressed("interact")
-	}
-	var sim_input = RemoteProtocol.create_sim_input(axes, buttons, _current_tick + 1, _token)
-	receive_sim_input(sim_input, "remote_local")
 
 func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> void:
 	var target_tick = int(input_dict.get("last_tick", _current_tick))
@@ -219,7 +254,8 @@ func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> 
 		"tick": target_tick,
 		"source": source_id,
 		"axes": input_dict.get("axes", {}),
-		"buttons": input_dict.get("buttons", {})
+		"buttons": input_dict.get("buttons", {}),
+		"camera": input_dict.get("camera", {})
 	}
 
 	var inserted = false
@@ -250,40 +286,90 @@ func _process_input_queue_for_tick(tick: int) -> void:
 			idx += 1
 
 func _apply_sim_input_entry(entry: Dictionary) -> void:
-	if String(entry.get("source", "")) == "client":
-		_client_input_state = entry
-		# Sin esto el input del render-esclavo (p.ej. los botones del Anbernic) quedaba
-		# encolado y nunca llegaba a moverle el player a la autoridad: caminaba solo,
-		# no en la sim, así que jamás se acercaba a un interactuable (FD-316).
-		_apply_client_input_to_engine(entry)
+	if String(entry.get("source", "")) != "client":
+		return
+	# El estado del handheld se guarda (axes/buttons) y su look se acumula: recien al
+	# cerrar el tick se fusiona con el input del control y se inyecta como un InputDataV2.
+	_client_input_state = entry
+	_accumulate_client_camera(entry.get("camera", {}))
 
-# El sim_input del cliente entra como si fuera hardware local del control remoto: las
-# mismas acciones del InputMap que lee _sample_and_queue_local_input().
-func _apply_client_input_to_engine(entry: Dictionary) -> void:
-	var axes: Dictionary = entry.get("axes", {})
-	var buttons: Dictionary = entry.get("buttons", {})
-	var wanted: Dictionary = {}
-	for axis_name in _CLIENT_AXIS_ACTIONS:
-		var v := float(axes.get(axis_name, 0.0))
-		var actions: Dictionary = _CLIENT_AXIS_ACTIONS[axis_name]
-		if v > 0.1:
-			wanted[actions["pos"]] = v
-		elif v < -0.1:
-			wanted[actions["neg"]] = -v
-	for action_name in buttons:
-		if InputMap.has_action(action_name) and bool(buttons[action_name]):
-			wanted[action_name] = 1.0
-	for action_name in wanted:
-		Input.action_press(action_name, wanted[action_name])
-	for action_name in _client_actions_pressed:
-		if not wanted.has(action_name):
-			Input.action_release(action_name)
-	_client_actions_pressed = wanted
+# FD-316: el look de camara no es una accion del InputMap. El handheld lo manda en el
+# campo "camera" del sim_input; se acumula hasta el cierre del tick.
+func _accumulate_client_camera(camera) -> void:
+	if not (camera is Dictionary):
+		return
+	for key in ["x", "y", "touch_x", "touch_y", "zoom"]:
+		if camera.has(key):
+			_client_camera[key] = float(_client_camera.get(key, 0.0)) + float(camera[key])
+
+# FD-316: UN frame de input por tick para la autoridad. Fusiona el input local del
+# control (el InputProvider del player, que ya aplica curvas/sensibilidades y el gate de
+# puntero) con el del handheld (axes/buttons/look que llegaron por sim_input) y lo
+# inyecta con player.inject_input(). Es el lenguaje de input del Core: la autoridad
+# simula exactamente el frame, sin materializar acciones globales en la maquina del
+# control (Input.action_press ensuciaba su input y no admitia el look).
+func _apply_authority_input_frame() -> void:
+	var player = _get_authority_player()
+	if player == null or not is_instance_valid(player) or not player.has_method("inject_input"):
+		_client_camera = {}
+		return
+	var provider = _get_authority_input_provider()
+	var frame: InputDataV2 = null
+	if provider != null and provider.has_method("get_input"):
+		frame = provider.get_input()
+	if frame == null:
+		frame = InputDataV2.new()
+
+	# Handheld: SU frame ya procesado se suma sobre el frame local del control.
+	var axes: Dictionary = _client_input_state.get("axes", {})
+	frame.move_vec += Vector2(float(axes.get("move_x", 0.0)), float(axes.get("move_y", 0.0)))
+	if frame.move_vec.length() > 1.0:
+		frame.move_vec = frame.move_vec.normalized()
+	frame.analog_move_active = frame.analog_move_active or bool(axes.get("analog", false))
+	var buttons: Dictionary = _client_input_state.get("buttons", {})
+	if bool(buttons.get("jump", false)):
+		frame.jump = true
+	if bool(buttons.get("sprint", false)):
+		frame.sprint = true
+	if bool(buttons.get("crouch", false)):
+		frame.crouch = true
+	# interact es un flanco (just_pressed): mientras se sostiene, interact_held y un solo
+	# flanco al apretar (si no, se re-dispararia cada tick).
+	var interact_down := bool(buttons.get("interact", false))
+	frame.interact_held = frame.interact_held or interact_down
+	frame.interact = frame.interact or (interact_down and not _client_interact_was_down)
+	_client_interact_was_down = interact_down
+
+	# Look del handheld: ya viene PROCESADO por su InputProvider (mouse, stick, D-pad con
+	# ramp y touch), asi que se suma tal cual, sin volver a escalar ni invertir. El look
+	# del control ya esta en `frame` porque el provider de la autoridad lo proceso.
+	frame.mouse_delta += Vector2(float(_client_camera.get("x", 0.0)), float(_client_camera.get("y", 0.0)))
+	frame.zoom_delta += float(_client_camera.get("zoom", 0.0))
+	_client_camera = {}
+
+	player.inject_input(frame.to_dict())
+
+func _get_authority_player() -> Node:
+	if _sim_player != null and is_instance_valid(_sim_player):
+		return _sim_player
+	var session = get_node_or_null("/root/SessionManager")
+	if session != null and "player" in session:
+		return session.player
+	return null
+
+func _get_authority_input_provider():
+	var player = _get_authority_player()
+	if player == null or not is_instance_valid(player):
+		return null
+	if "input_provider" in player:
+		return player.input_provider
+	return null
 
 func _release_client_input() -> void:
-	for action_name in _client_actions_pressed:
-		Input.action_release(action_name)
-	_client_actions_pressed = {}
+	# Ya no se materializan acciones globales: el estado del handheld se suelta
+	# limpiando el frame (el proximo tick inyecta solo el input local del control).
+	_client_input_state = {}
+	_client_camera = {}
 
 func capture_snapshot() -> Dictionary:
 	var tree = get_tree()
@@ -297,14 +383,20 @@ func capture_snapshot() -> Dictionary:
 	var scene_path = scene.filename if scene != null else ""
 
 	var entities: Dictionary = {}
+	# Estado logico de los actores (get_snapshot) por path relativo al nivel simulado.
+	var actor_states: Dictionary = {}
 
-	# Track replay_sync nodes or Spatials in tree
+	# Track replay_sync nodes. El Pilot real NO esta en replay_sync (solo sus hijos
+	# ControllerManager/MultiTool lo estan), asi que el grupo nunca queda vacio y el
+	# fallback viejo al grupo "player" no disparaba: el transform/anim del jugador no
+	# viajaba y en el esclavo el mesh quedaba en el spawn mientras la camara seguia a
+	# la autoridad (se "perdia" al Player). Se agrega siempre el jugador del nivel
+	# simulado, ademas de los replay_sync.
 	var sync_nodes = tree.get_nodes_in_group(_tracked_group)
-	if sync_nodes.empty() and scene != null:
-		# Fallback: track player and root spatials if replay_sync empty
-		sync_nodes = []
-		var player = tree.get_nodes_in_group("player")
-		sync_nodes.append_array(player)
+	if scene != null:
+		for player_node in tree.get_nodes_in_group("player"):
+			if is_instance_valid(player_node) and not sync_nodes.has(player_node):
+				sync_nodes.append(player_node)
 
 	for node in sync_nodes:
 		if is_instance_valid(node) and node is Spatial:
@@ -327,6 +419,19 @@ func capture_snapshot() -> Dictionary:
 				if node_velocity is Vector3:
 					state["vel"] = [node_velocity.x, node_velocity.y, node_velocity.z]
 					state["g"] = bool(node.call("is_effectively_grounded")) if node.has_method("is_effectively_grounded") else false
+				# La direccion de caminar orienta el cuerpo en el esclavo (alla el input
+				# local esta congelado y el wish queda en cero).
+				if node.has_method("get_wish_direction"):
+					var wish = node.call("get_wish_direction")
+					if wish is Vector3:
+						state["wish"] = [wish.x, wish.y, wish.z]
+			else:
+				# FD-316: estado RICO del actor (get_snapshot), no solo el transform: los
+				# interactuables (p.ej. LightGroup del pedestal) se replican por su estado
+				# logico; sin esto el switch cambiaba en la autoridad y las luces del
+				# esclavo quedaban apagadas.
+				if node.has_method("get_snapshot"):
+					actor_states[path_str] = node.call("get_snapshot")
 			entities[path_str] = state
 
 	var globals: Dictionary = {
@@ -336,6 +441,16 @@ func capture_snapshot() -> Dictionary:
 	# simula fisica, asi que su Area de interaccion no se actualiza; la autoridad
 	# resuelve el interactuable y manda prompt+path en cada snapshot.
 	globals["interact"] = _capture_interaction_state()
+	# FD-316: estado logico de los interactuables (switch de luces, valvulas, ascensores).
+	if not actor_states.empty():
+		globals["states"] = actor_states
+
+	# FD-316: ademas de la camara final (cam_t), viaja el rig COMPLETO (CameraRig/Yaw/
+	# Pitch/OTS_Offset/SpringArm) y el largo del kinematic arm. Sin esto el esclavo se
+	# quedaba con el rig en la pose de spawn: la vista se forzaba por cam_t pero el resto
+	# del rig (arm, listener, efectos) divergia de la autoridad.
+	globals["rig"] = _capture_player_rig()
+	globals["arm_len"] = _capture_arm_length()
 
 	# Capture camera state: la del nivel simulado (viewport oculto), no la del UI.
 	var camera: Camera = null
@@ -348,6 +463,35 @@ func capture_snapshot() -> Dictionary:
 		globals["cam_fov"] = camera.fov
 
 	return RemoteProtocol.create_sim_snapshot(_current_tick, OS.get_ticks_msec(), entities, globals, _token)
+
+# Cadena del rig de camara relativa al Pilot: se replica entera para que el esclavo no
+# se quede con la pose de spawn (ver capture_snapshot).
+const RIG_CHAIN := [
+	"CameraRig",
+	"CameraRig/Yaw",
+	"CameraRig/Yaw/Pitch",
+	"CameraRig/Yaw/Pitch/OTS_Offset",
+	"CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"
+]
+
+func _capture_player_rig() -> Array:
+	var out: Array = []
+	var player = _get_authority_player()
+	if player == null or not is_instance_valid(player):
+		return out
+	for path in RIG_CHAIN:
+		var n = player.get_node_or_null(path)
+		out.append(RemoteProtocol.encode_transform(n.global_transform) if n is Spatial else null)
+	return out
+
+func _capture_arm_length() -> float:
+	var player = _get_authority_player()
+	if player == null or not is_instance_valid(player):
+		return -1.0
+	var arm = player.get_node_or_null(RIG_CHAIN[RIG_CHAIN.size() - 1])
+	if arm != null and "current_length" in arm:
+		return float(arm.current_length)
+	return -1.0
 
 func _capture_interaction_state() -> Dictionary:
 	# Con nivel simulado, la interaccion se lee del jugador de ESE nivel: el

@@ -277,6 +277,10 @@ var _remote_interaction_authoritative := false
 var _remote_anim_velocity := Vector3.ZERO
 var _remote_anim_grounded := false
 var _remote_anim_valid := false
+# FD-316: direccion de caminar de la autoridad. El render-esclavo no simula, asi que su
+# wish_direction queda en cero y el animator no orienta el cuerpo hacia donde se camina
+# (la direccion "se reseteaba"). Llega en cada snapshot.
+var _remote_wish_direction := Vector3.ZERO
 onready var interact_config = get_node_or_null("Logic/Interact")
 
 
@@ -1256,6 +1260,19 @@ func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) 
 	if camera_basis == null:
 		# Pass input magnitude to allow Latch release check
 		camera_basis = CinematicManager.get_movement_basis(input_vector.length())
+		# FD-316: en el sim host el nivel simulado vive en un Viewport oculto, asi que
+		# CinematicManager.get_active_camera() no encuentra camara y devuelve Basis.IDENTITY:
+		# el movimiento salia en ejes de MUNDO. La fuente de normal-play es la CAMARA
+		# (get_active_camera().basis), NO el rig: el rig carga camera_basis_prefix (180° en Y)
+		# y usar su basis espeja ambos ejes (W↔S, A↔D). Usar la camara propia del rig.
+		if CinematicManager.get_active_camera() == null and not CinematicManager.is_input_latched():
+			var sim_cam = _cached_cam
+			if sim_cam == null or not is_instance_valid(sim_cam):
+				sim_cam = _find_camera(camera_rig)
+			if sim_cam != null and is_instance_valid(sim_cam):
+				camera_basis = sim_cam.global_transform.basis
+			elif camera_rig != null and is_instance_valid(camera_rig):
+				camera_basis = camera_rig.global_transform.basis
 
 	var res = Vector3.ZERO
 	match mode:
@@ -2122,10 +2139,21 @@ func set_remote_interaction_authoritative(on: bool) -> void:
 
 # FD-316: el render-esclavo no simula, pero su animator necesita la velocidad y el
 # estado de piso reales para elegir idle/walk/run/aire. Llegan en cada snapshot.
-func set_remote_anim_state(p_velocity: Vector3, p_grounded: bool) -> void:
+func set_remote_anim_state(p_velocity: Vector3, p_grounded: bool, p_wish: Vector3 = Vector3.ZERO) -> void:
 	_remote_anim_velocity = p_velocity
 	_remote_anim_grounded = p_grounded
+	_remote_wish_direction = p_wish
 	_remote_anim_valid = true
+
+# FD-316: en render-esclavo el _physics_process queda congelado (no simula), asi que
+# nadie llama step_animator y el AnimationTree se quedaba en la pose de spawn aunque
+# la velocidad real llegara en cada snapshot. RemoteSimClient lo alimenta a mano con
+# esa velocidad (idle/walk/run/aire en el mesh del handheld).
+func step_remote_animator(dt: float) -> void:
+	if not _remote_interaction_authoritative:
+		return
+	if animator != null and animator.has_method("step_animator"):
+		animator.step_animator(dt, _remote_anim_velocity)
 
 func is_remote_render_slave() -> bool:
 	return _remote_interaction_authoritative
@@ -3521,6 +3549,9 @@ func set_external_source_is_static(is_static: bool) -> void:
 		movement_logic.set_external_source_is_static(is_static)
 
 func get_wish_direction() -> Vector3:
+	# FD-316: en render-esclavo la direccion real la manda la autoridad en el snapshot.
+	if _remote_anim_valid:
+		return _remote_wish_direction
 	return movement_logic.wish_direction
 
 func reconnect_input_provider():

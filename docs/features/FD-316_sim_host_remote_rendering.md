@@ -210,6 +210,111 @@ controlador + `run_seed` fijado ANTES de instanciar); los scripts del nivel que 
 salida limpia es simétrica: `stop_simulation()` descarga el nivel, y el cliente del
 control detiene el sim host si la sesión WS se cae (`connection_lost`/`session_end`).
 
+## Ensayo local por partes (2026-09-29, decisión de debugging)
+
+Debuggear el sim host headless y el render-esclavo **juntos en device** es inviable:
+dos procesos, dos hardware, y cada fix requiere rebuild+deploy. Plan: ensayar cada mitad
+por separado, localmente, y usar el banco in-process como contrato de coherencia.
+
+**Banco in-process** (`test_remote_sim.gd > test_local_rehearsal_pipeline_matches_authority`):
+host y esclavo en el mismo árbol. Verifica (1) que el input del control (acciones del
+`Input` real vía provider) y el del handheld (`sim_input`) terminen en **un** frame
+inyectado a la autoridad, y (2) que el esclavo reproduzca player + rig + `arm_len` +
+cámara exactamente lo que la autoridad capturó. Descubrió un bug real: el snapshot se
+aplicaba contra `SessionManager.player`, que el autoload pisa a null fuera de
+`current_scene` — ahora el rig/cámara se resuelven contra el nivel del esclavo
+(`RemoteSimClient._get_scene_player`), igual que el loop de entidades.
+
+**Ensayo con replay real** (`user://replay_1790487798.json`): el replay ya trae el
+lenguaje completo por tick:
+- `buffer[i].frame.input` → el `InputDataV2` de ese tick (entrada para la autoridad).
+- `buffer[i].snapshot` → posición/velocity/**yaw/pitch/base_spring_length_3d**/estados
+  (el estado esperado del player Y su rig de cámara, tick por tick).
+- `meta.world_start_state` + `meta.scene` → arranque; `final_expected_state` → oráculo.
+- `events` → OYS por tick (en esta grabación, la secuencia de despertar con
+  `open_pod_hatch`).
+
+Rehearsal A (autoridad, ya existe como base): el determinismo del Core con ese replay
+(`test_determinism_v2`) valida input → estado. Falta agregar: correrlo a través del
+pipeline del sim host (`_apply_authority_input_frame`) y comparar cada snapshot contra
+`buffer[i].snapshot` (posición/yaw/pitch/arm).
+
+Rehearsal B (esclavo): sintetizar snapshots desde `buffer[i].snapshot` (root + rig
+yaw/pitch + `base_spring_length_3d`) y verificar que el esclavo reproduzca rig/arm/
+cámara — sin device y sin simular.
+
+**Cuestión abierta de diseño** (la que motiva esto): hoy el esclavo recibe la cámara
+final forzada (`cam_t`) + el rig replicado. La meta declarada por Sebastián es que la
+vista salga del **input** también: si el frame de input es completo y determinista, el
+rig de cámara debería poder reconstruirse en el esclavo desde el input + el estado
+replicado, y `cam_t` quedar como verificación (o eliminarse). El replay es el oráculo
+para decidir si eso es posible sin simular el mundo.
+
+## Fixes de la prueba en campo (2026-09-28, Kilo)
+
+Reportes de Sebastián con el Anbernic como render-esclavo y el desktop como control:
+no se veía el mesh/animación del Player, y al cambiar de ventana en el desktop volvía a
+sonar la apertura del pod.
+
+1. **Player ausente del snapshot** (`RemoteSimHost.capture_snapshot`). El Pilot real no
+   pertenece a `replay_sync` (solo sus hijos `ControllerManager`/`MultiTool`), así que el
+   grupo nunca quedaba vacío y el fallback viejo al grupo `player` no disparaba: el
+   jugador no viajaba y su mesh quedaba en el spawn mientras la cámara seguía a la
+   autoridad. Ahora el/los jugadores del nivel simulado se agregan siempre a las
+   entidades, además de los `replay_sync`.
+2. **Animator congelado** (`PlayerControllerV2.step_remote_animator` +
+   `RemoteSimClient._process`). Con el `_physics_process` del Pilot congelado nadie
+   llamaba `step_animator`; el AnimationTree quedaba en la pose de spawn. El cliente lo
+   alimenta a mano con la velocidad que llega en el snapshot.
+3. **Recarga del nivel al perder foco** (`RemoteSimHost.start_simulation`/
+   `load_sim_level`/`stop_simulation`, `RemoteControlManager`). Una reconexión
+   transitoria (perder foco → pausa → reconectar) re-enviaba `start_sim_host` +
+   `sim_hello` y el nivel se recargaba: su `_ready` volvía a correr la intro de despertar
+   (el pod sonaba de nuevo). Ahora:
+   - `load_sim_level` es idempotente: si el mismo nivel ya está montado y listo, se
+     conserva y solo se re-sincroniza la pose del handheld.
+   - `start_simulation` conserva el nivel montado y no resetea el tick (si no, quedaría
+     por detrás del último aplicado y el esclavo descartaría todo).
+   - `connection_lost` hace stop **blando** (conserva el nivel); `session_ended` sigue
+     descargándolo.
+4. **Look de cámara y unificación del input** (`RemoteSimHost._apply_authority_input_frame`).
+   Antes la autoridad procesaba el input por dos caminos distintos: el control lo leía su
+   `InputProviderV2` y el handheld se materializaba como acciones globales con
+   `Input.action_press` (que ensuciaba el input de la máquina del control y no admitía el
+   look, porque no es una acción del `InputMap`). Ahora, una vez por tick, la autoridad arma
+   **un `InputDataV2`** con el input local del control (provider, ya con curvas/gate) +
+   `axes`/`buttons` del handheld + el look de ambos (`mouse_delta`/`zoom_delta`) y lo inyecta
+   con `player.inject_input()`. Se eliminó el `action_press` global.
+   Además, como render-esclavo ya no se aplican los `event` del control a su `Input`
+   (`RemoteControlManager._on_server_input_received`): eso se reenviaba por `sim_input` y
+   la autoridad lo recibía dos veces (local + eco).
+5. **La cámara del handheld la procesa su propio `InputProvider`** (`RemoteSimClient`).
+   Antes se mandaba el look en crudo, así que el **D-pad** (cámara digital del provider,
+   con rampa y curva) no llegaba nunca: no es una acción del `InputMap`. Ahora el
+   handheld llama `provider.get_input()` (una vez por frame, el player está congelado) y
+   manda el `mouse_delta`/`zoom_delta` ya procesado; la autoridad lo suma tal cual. El
+   touch que reenvía el control entra al mismo provider vía `add_touch_camera_drag`.
+6. **Rig completo en el snapshot** (`RemoteSimHost._capture_player_rig` /
+   `RemoteSimClient._apply_player_rig`). Además de `cam_t`, viaja la cadena
+   `CameraRig/Yaw/Pitch/OTS_Offset/SpringArm` y el `current_length` del kinematic arm:
+   sin eso el esclavo quedaba con el rig en la pose de spawn aunque la vista se forzara
+   por `cam_t`.
+
+> Se probó **suprimir** la intro de despertar en el nivel montado, pero el pod quedaba
+> cerrado: esa intro es el único camino que abre la escotilla. Revertido; la repetición
+> del sonido la evita la carga idempotente de arriba.
+
+Tests nuevos en `core_v2/tests/test_remote_sim.gd` (20 casos, 0 fallos): jugador fuera de
+`replay_sync` presente en el snapshot; `sim_hello` repetido con la misma escena no recarga;
+`step_remote_animator` sin animator no explota; el look del cliente viaja en el frame
+inyectado; el frame fusiona ejes/botones sin tocar el `Input` global. Correr:
+`./.venv/bin/pytest tests/test_odisea_runner.py -q -k "test_remote_sim or test_remote_control or interaction_prompt_clear"`.
+
+**Qué probar en device** (reiniciando el juego del desktop, que es el control): el mesh y
+la animación del Pilot se ven y siguen a la cámara; al cambiar de ventana en el desktop
+ya no vuelve a sonar la apertura del pod; girar la cámara (mouse del desktop o stick del
+Anbernic) mueve la vista.
+
 ## Notas de implementación para Jules
 
 - Reusar el transporte existente de FD-294. Snapshots de sim por **UDP**
