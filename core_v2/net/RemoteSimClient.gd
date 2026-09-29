@@ -28,8 +28,29 @@ var _seq: int = 0
 const FLANK_REPEAT_PACKETS := 3
 var _jump_latch: int = 0
 var _interact_latch: int = 0
-var _buffer: Array = [] # Sorted list of snapshots by tick
+var _buffer: Array = [] # Dos snapshots mas nuevos, ordenados por tick
 var _latest_applied_tick: int = -1
+# FD-316 (tarea G): el cliente solo parsea los 2 paquetes mas recientes del drenaje UDP.
+# Parsear cada datagrama JSON del frame costaba los ~15 ms por frame medidos en device
+# (snap_hz 60, fps 10): los intermedios ya no hacen falta con interpolacion.
+const MAX_SNAPSHOTS_PER_FRAME := 2
+# Retardo fijo de interpolacion, en ticks del host. Con snapshots cada
+# `snapshot_every_n_ticks` (default 2 = 30 Hz), el reloj de render queda ~2 ticks atras.
+const INTERP_DELAY_TICKS := 2.0
+# Tasa de ticks del host (Engine.iterations_per_second = 60): el reloj de render avanza
+# en ticks con delta * esta tasa.
+var _host_tick_rate: float = 60.0
+# Par de snapshots recibidos con su tick: from = anterior, to = mas nuevo. Sin siguiente
+# (o si el reloj de render se pasa) se sostiene el ultimo, sin extrapolar.
+var _snap_from: Dictionary = {}
+var _snap_to: Dictionary = {}
+var _from_tick: int = -1
+var _to_tick: int = -1
+# Tiempo de render en ticks del host (float): avanza por frame y se mantiene dentro de
+# [from_tick, to_tick].
+var _render_tick: float = -1.0
+# True cuando llego un snapshot nuevo y sus globals todavia no se aplicaron.
+var _has_new_snapshot: bool = false
 # FD-316 (review bug 8): estado del PhysicsServer ANTES de que el offload lo apagara. No
 # se re-prende incondicionalmente: otro sistema (p.ej. la sonda split_load_frame de
 # SceneManager) pudo haberlo apagado a proposito.
@@ -92,6 +113,14 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_engaged = false
 	_buffer.clear()
 	_latest_applied_tick = -1
+	# Tarea G: par de interpolacion y reloj de render en cero para la sesion nueva.
+	_snap_from = {}
+	_snap_to = {}
+	_from_tick = -1
+	_to_tick = -1
+	_render_tick = -1.0
+	_has_new_snapshot = false
+	_host_tick_rate = float(Engine.iterations_per_second) if Engine.iterations_per_second > 0 else 60.0
 	# Sesion nueva: el seq arranca de cero y no hay flancos latcheados de la anterior.
 	_seq = 0
 	_jump_latch = 0
@@ -113,6 +142,14 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 func stop_render_slave() -> void:
 	is_render_slave = false
 	_engaged = false
+	# Tarea G: sin par de snapshots ni reloj de render que sigan corriendo.
+	_buffer.clear()
+	_snap_from = {}
+	_snap_to = {}
+	_from_tick = -1
+	_to_tick = -1
+	_render_tick = -1.0
+	_has_new_snapshot = false
 	set_process(false)
 	if _listening_port > 0:
 		_udp.close()
@@ -220,7 +257,7 @@ func _read_physics_active() -> bool:
 		return PhysicsServer.is_active()
 	return true
 
-func receive_snapshot(snapshot: Dictionary, p_packet_bytes: int = 0) -> void:
+func receive_snapshot(snapshot: Dictionary, p_packet_bytes: int = 0, p_expected_packets: int = 1) -> void:
 	if not snapshot.has("tick"):
 		return
 	# FD-316 paso 3: el primer snapshot valido compromete el offload. Antes de eso,
@@ -232,6 +269,7 @@ func receive_snapshot(snapshot: Dictionary, p_packet_bytes: int = 0) -> void:
 	# Ignore duplicate or old snapshots
 	if tick <= _latest_applied_tick:
 		return
+	_latest_applied_tick = tick
 
 	# Insert snapshot in sorted order by tick
 	var inserted = false
@@ -245,20 +283,45 @@ func receive_snapshot(snapshot: Dictionary, p_packet_bytes: int = 0) -> void:
 	if not inserted:
 		_buffer.append(snapshot)
 
+	# FD-316 (tarea G): con interpolacion solo hacen falta los 2 mas nuevos; soltar el
+	# resto evita arrastrar snapshots que nadie va a aplicar.
+	while _buffer.size() > MAX_SNAPSHOTS_PER_FRAME:
+		_buffer.pop_front()
+
 	# Instrumentacion (tarea E): recien con el snapshot aceptado (duplicados fuera) se
 	# cierra el RTT del ack_seq y se miden tamano, gaps y ticks perdidos.
-	_stats_on_snapshot(tick, snapshot, p_packet_bytes)
+	_stats_on_snapshot(tick, snapshot, p_packet_bytes, p_expected_packets)
 
-	# Keep buffer bounded (e.g., max 30 snapshots)
-	while _buffer.size() > 30:
-		_buffer.pop_front()
+	# Tarea G: refrescar el par de interpolacion; los globals se aplican del mas nuevo en
+	# el proximo _process (una sola vez por snapshot).
+	_update_interp_pair()
+	_has_new_snapshot = true
+
+# FD-316 (tarea G): fija el par from/to con el que interpola el render. El reloj de render
+# no se adelanta a lo recibido y alcanza el retardo objetivo sin saltar hacia atras.
+func _update_interp_pair() -> void:
+	if _buffer.empty():
+		return
+	_snap_to = _buffer[_buffer.size() - 1]
+	_to_tick = int(_snap_to["tick"])
+	_snap_from = _buffer[_buffer.size() - 2] if _buffer.size() >= 2 else _snap_to
+	_from_tick = int(_snap_from["tick"])
+	if _render_tick < 0.0:
+		# Primer snapshot: se sostiene hasta que llegue el siguiente.
+		_render_tick = float(_to_tick)
+		return
+	if _render_tick > float(_to_tick):
+		_render_tick = float(_to_tick)
+	var target := float(_to_tick) - INTERP_DELAY_TICKS
+	if _render_tick < target:
+		_render_tick = target
 
 func _process(delta: float) -> void:
 	if not is_render_slave:
 		return
 
-	# Instrumentacion (tarea E): frames de la ventana y costo de _poll_udp +
-	# _apply_snapshot en el mismo tick de OS.get_ticks_usec.
+	# Instrumentacion (tarea E): frames de la ventana y costo de _poll_udp + aplicar el
+	# estado del snapshot + interpolar, en el mismo tick de OS.get_ticks_usec.
 	_stats.tally("frame")
 	var poll_started_us := OS.get_ticks_usec()
 	_poll_udp()
@@ -275,17 +338,21 @@ func _process(delta: float) -> void:
 	if _engaged and current_scene != null and not _freezer.frozen_root_is(current_scene):
 		_freeze_local_simulation()
 
-	# Los snapshots llegan a 60 Hz y el handheld dibuja a ~15-25 fps: consumir uno por
-	# frame acumulaba hasta 30 de atraso (0.5 s) y luego pop_front descartaba a saltos
-	# (camara atrasada y a tirones). Se aplica siempre el mas reciente y se descarta lo viejo.
-	if not _buffer.empty():
-		var apply_started_us := OS.get_ticks_usec()
-		var newest = _buffer[_buffer.size() - 1]
-		_apply_snapshot(newest)
-		_latest_applied_tick = int(newest["tick"])
-		_buffer.clear()
-		_stats.add("apply_us", float(poll_us + (OS.get_ticks_usec() - apply_started_us)))
-		_stats.tally("apply_count")
+	# FD-316 (tarea G): el estado NO interpolable (interaccion, estados logicos,
+	# velocidad/wish del animator, linterna) se aplica solo del snapshot mas nuevo, una
+	# vez por snapshot. Las transforms (entidades, rig, camara) se interpolan por frame.
+	var apply_started_us := OS.get_ticks_usec()
+	if _has_new_snapshot and not _snap_to.empty():
+		_has_new_snapshot = false
+		_apply_snapshot_globals(_snap_to)
+	if _engaged and _to_tick >= 0:
+		_host_tick_rate = float(Engine.iterations_per_second) if Engine.iterations_per_second > 0 else 60.0
+		_advance_render_clock(delta)
+		var interp_started_us := OS.get_ticks_usec()
+		_render_interpolated()
+		_stats.add("interp_us", float(OS.get_ticks_usec() - interp_started_us))
+	_stats.add("apply_us", float(poll_us + (OS.get_ticks_usec() - apply_started_us)))
+	_stats.tally("apply_count")
 	# El _physics_process del Pilot esta congelado: el animator se alimenta aca con la
 	# velocidad de la autoridad que llego en el snapshot (si no, se queda en idle).
 	if _engaged:
@@ -294,6 +361,17 @@ func _process(delta: float) -> void:
 			player.call("step_remote_animator", delta)
 	_send_local_input()
 	_flush_client_stats()
+
+# FD-316 (tarea G): el tiempo de render avanza en ticks del host y se mantiene dentro del
+# par recibido: no se adelanta a lo que llego (nada de extrapolar) ni retrocede.
+func _advance_render_clock(delta: float) -> void:
+	if _to_tick < 0:
+		return
+	_render_tick += delta * _host_tick_rate
+	if _render_tick > float(_to_tick):
+		_render_tick = float(_to_tick)
+	if _render_tick < float(_from_tick):
+		_render_tick = float(_from_tick)
 
 func _send_local_input() -> void:
 	if _target_ip == "" or _target_port <= 0:
@@ -388,16 +466,36 @@ func queue_camera_input(dx: float, dy: float, zoom: float = 0.0, is_touch: bool 
 func _poll_udp() -> void:
 	if _listening_port <= 0:
 		return
+	# FD-316 (tarea G): se drenan TODOS los datagramas del frame (para no acumular atraso en
+	# el socket), pero solo se parsean los MAX_SNAPSHOTS_PER_FRAME mas recientes. El JSON
+	# de los intermedios es lo que costaba los ~15 ms/frame en el Anbernic.
+	var batch: Array = []
+	var raw_total := 0
 	while _udp.get_available_packet_count() > 0:
 		var packet_ip = _udp.get_packet_ip()
 		var pkt = _udp.get_packet()
-		var pkt_str = pkt.get_string_from_utf8()
+		raw_total += 1
+		# Stats de canal con TODO lo que llega: snap_hz/snap_bytes miden la red, no el
+		# parseo (que ahora es acotado).
+		_stats.tally("raw_snap")
+		_stats.add("raw_bytes", float(pkt.size()))
+		batch.append({"ip": packet_ip, "pkt": pkt})
+		if batch.size() > MAX_SNAPSHOTS_PER_FRAME:
+			batch.pop_front()
+	if batch.empty():
+		return
+	# Los paquetes que el filtro descarto son un salto ESPERADO de tick, no perdida: el
+	# primero conservado avanzo skipped+1 paquetes respecto del ultimo del frame anterior.
+	var skipped: int = max(0, raw_total - batch.size())
+	for i in range(batch.size()):
+		var expected_packets: int = (skipped + 1) if i == 0 else 1
+		var pkt_str: String = batch[i]["pkt"].get_string_from_utf8()
 		var dict = RemoteProtocol.decode_json(pkt_str)
-		_handle_udp_packet(packet_ip, dict, pkt.size())
+		_handle_udp_packet(String(batch[i]["ip"]), dict, batch[i]["pkt"].size(), expected_packets)
 
 # FD-316: un snapshot sin el token de la sesion se descarta por completo: no se aplica
 # ni se adopta su IP de origen como destino (suplantacion del sim host, riesgo "Sin auth").
-func _handle_udp_packet(packet_ip: String, dict: Dictionary, packet_bytes: int = 0) -> void:
+func _handle_udp_packet(packet_ip: String, dict: Dictionary, packet_bytes: int = 0, expected_packets: int = 1) -> void:
 	if String(dict.get("type", "")) != "sim_snapshot":
 		return
 	if not _snapshot_token_ok(dict):
@@ -405,7 +503,7 @@ func _handle_udp_packet(packet_ip: String, dict: Dictionary, packet_bytes: int =
 		return
 	if packet_ip != "":
 		_target_ip = packet_ip
-	receive_snapshot(dict, packet_bytes)
+	receive_snapshot(dict, packet_bytes, expected_packets)
 
 # Sin token fijado (legacy/tests) se acepta cualquier snapshot.
 func _snapshot_token_ok(snapshot: Dictionary) -> bool:
@@ -413,26 +511,39 @@ func _snapshot_token_ok(snapshot: Dictionary) -> bool:
 		return true
 	return String(snapshot.get("token", "")) == _token
 
+# Resuelve una ruta de entidad contra la escena actual; si no esta ahi, contra el arbol
+# del cliente (compatibilidad con tests que no montan current_scene).
+func _resolve_path(scene, path_str: String) -> Node:
+	var node = scene.get_node_or_null(NodePath(path_str)) if scene != null else null
+	if node == null:
+		node = get_node_or_null(NodePath(path_str))
+	return node
+
+# Camino directo (tests, ensayo local): aplica estado logico + transforms de una vez, sin
+# pasar por el reloj de interpolacion.
 func _apply_snapshot(snapshot: Dictionary) -> void:
+	_apply_snapshot_globals(snapshot)
+	_apply_transform_pair(snapshot, snapshot, 0.0)
+	emit_signal("snapshot_applied", int(snapshot.get("tick", 0)))
+
+# FD-316 (tarea G): estado NO interpolable de un snapshot: visibilidad, luz, velocidad/
+# wish del animator, linterna, interaccion y estados logicos. Se aplica solo del mas nuevo.
+func _apply_snapshot_globals(snapshot: Dictionary) -> void:
 	var tree = get_tree()
 	if tree == null:
 		return
-
 	var scene = tree.current_scene
-	if scene == null:
-		return
 
 	var entities: Dictionary = snapshot.get("entities", {})
-	for path_str in entities:
-		var node = scene.get_node_or_null(NodePath(path_str))
-		if node == null:
-			node = get_node_or_null(NodePath(path_str))
-		if node != null and is_instance_valid(node) and node is Spatial:
-			var state: Dictionary = entities[path_str]
-			if state.has("t"):
-				var target_transform = RemoteProtocol.decode_transform(state["t"])
-				node.global_transform = target_transform
-			if state.has("v"):
+	if entities is Dictionary:
+		for path_str in entities:
+			var node = _resolve_path(scene, path_str)
+			if node == null or not is_instance_valid(node):
+				continue
+			var state = entities[path_str]
+			if not (state is Dictionary):
+				continue
+			if node is Spatial and state.has("v"):
 				node.visible = bool(state["v"])
 			if state.has("l_energy") and node is Light:
 				node.light_energy = float(state["l_energy"])
@@ -464,36 +575,89 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 	var states = globals.get("states", null)
 	if states is Dictionary:
 		_apply_actor_states(states)
-	# FD-316: el rig completo y el largo del kinematic arm de la autoridad. Se aplica
-	# ANTES de cam_t para que el padre quede consistente antes de fijar la camara.
-	if globals.has("rig"):
-		_apply_player_rig(globals["rig"])
 	if globals.has("arm_len"):
 		_apply_arm_length(float(globals["arm_len"]))
-	if globals.has("cam_t"):
+	if globals.has("cam_fov"):
 		var camera = tree.root.get_viewport().get_camera()
 		if camera != null and is_instance_valid(camera):
-			camera.global_transform = RemoteProtocol.decode_transform(globals["cam_t"])
-			if globals.has("cam_fov"):
-				camera.fov = float(globals["cam_fov"])
+			camera.fov = float(globals["cam_fov"])
 
-	emit_signal("snapshot_applied", int(snapshot.get("tick", 0)))
+# FD-316 (tarea G): interpola transforms de entidades, la cadena del rig y la camara
+# entre dos snapshots. alpha 0 => from, 1 => to; si from == to (sin siguiente) sostiene.
+func _apply_transform_pair(from_snap: Dictionary, to_snap: Dictionary, alpha: float) -> void:
+	var tree = get_tree()
+	if tree == null:
+		return
+	var scene = tree.current_scene
+
+	var to_entities: Dictionary = to_snap.get("entities", {})
+	var from_entities: Dictionary = from_snap.get("entities", {})
+	if to_entities is Dictionary:
+		for path_str in to_entities:
+			var to_state = to_entities[path_str]
+			if not (to_state is Dictionary) or not to_state.has("t"):
+				continue
+			var node = _resolve_path(scene, path_str)
+			if node == null or not is_instance_valid(node) or not (node is Spatial):
+				continue
+			var t_to = RemoteProtocol.decode_transform(to_state["t"])
+			var t_from = t_to
+			if from_entities is Dictionary and from_entities.has(path_str):
+				var from_state = from_entities[path_str]
+				if from_state is Dictionary and from_state.has("t"):
+					t_from = RemoteProtocol.decode_transform(from_state["t"])
+			node.global_transform = t_from.interpolate_with(t_to, alpha)
+
+	_apply_player_rig_interpolated(from_snap, to_snap, alpha)
+
+	var to_globals: Dictionary = to_snap.get("globals", {})
+	if to_globals is Dictionary and to_globals.has("cam_t"):
+		var camera = tree.root.get_viewport().get_camera()
+		if camera != null and is_instance_valid(camera):
+			var t_to2 = RemoteProtocol.decode_transform(to_globals["cam_t"])
+			var t_from2 = t_to2
+			var from_globals: Dictionary = from_snap.get("globals", {})
+			if from_globals is Dictionary and from_globals.has("cam_t"):
+				t_from2 = RemoteProtocol.decode_transform(from_globals["cam_t"])
+			camera.global_transform = t_from2.interpolate_with(t_to2, alpha)
+
+# Tiempo de render actual (ticks del host) dentro del par [from_tick, to_tick].
+func _interp_alpha() -> float:
+	var span := _to_tick - _from_tick
+	if span <= 0:
+		return 0.0
+	return clamp((_render_tick - float(_from_tick)) / float(span), 0.0, 1.0)
+
+# FD-316 (tarea G): interpola el par recibido en el tiempo de render actual.
+func _render_interpolated() -> void:
+	if _snap_to.empty():
+		return
+	_apply_transform_pair(_snap_from, _snap_to, _interp_alpha())
 
 # La cadena del rig la define RemoteProtocol.RIG_CHAIN (host y esclavo comparten una sola):
 # el rig del Pilot se replica entero para que el esclavo no se quede con la pose de spawn.
-func _apply_player_rig(rig) -> void:
-	if not (rig is Array):
+func _apply_player_rig_interpolated(from_snap: Dictionary, to_snap: Dictionary, alpha: float) -> void:
+	var to_globals: Dictionary = to_snap.get("globals", {})
+	var to_rig = to_globals.get("rig", null)
+	if not (to_rig is Array):
 		return
 	var player = _get_player()
 	if player == null or not is_instance_valid(player):
 		return
-	var count: int = int(min(rig.size(), RemoteProtocol.RIG_CHAIN.size()))
+	var from_globals: Dictionary = from_snap.get("globals", {})
+	var from_rig = from_globals.get("rig", null)
+	var count: int = int(min(to_rig.size(), RemoteProtocol.RIG_CHAIN.size()))
 	for i in range(count):
-		if rig[i] == null:
+		if to_rig[i] == null:
 			continue
 		var node = player.get_node_or_null(RemoteProtocol.RIG_CHAIN[i])
-		if node != null and node is Spatial:
-			node.global_transform = RemoteProtocol.decode_transform(rig[i])
+		if node == null or not (node is Spatial):
+			continue
+		var t_to = RemoteProtocol.decode_transform(to_rig[i])
+		var t_from = t_to
+		if from_rig is Array and i < from_rig.size() and from_rig[i] != null:
+			t_from = RemoteProtocol.decode_transform(from_rig[i])
+		node.global_transform = t_from.interpolate_with(t_to, alpha)
 
 func _apply_arm_length(length: float) -> void:
 	if length < 0.0:
@@ -558,16 +722,24 @@ func _record_sent_seq(seq: int) -> void:
 		_sent_seq_ms.erase(_sent_seq_order.pop_front())
 
 # Llamado por cada snapshot nuevo: cierra el RTT del ack_seq, mide el tamano del paquete,
-# el gap entre snapshots y los ticks saltados (perdida de datagramas).
-func _stats_on_snapshot(tick: int, snapshot: Dictionary, packet_bytes: int) -> void:
+# el gap entre snapshots y los ticks saltados (perdida de datagramas). `expected_packets`
+# es el avance de paquetes que YA se esperaba desde el snapshot anterior (los que el
+# filtro de 2 descarto, mas el intervalo `snap_step` del host): no cuenta como perdida.
+func _stats_on_snapshot(tick: int, snapshot: Dictionary, packet_bytes: int, expected_packets: int = 1) -> void:
 	_stats.tally("snap")
-	_stats.add("snap_bytes", float(packet_bytes))
 	var now_ms := OS.get_ticks_msec()
 	if _stats_last_recv_ms > 0:
 		_stats.observe_max("snap_gap_ms", float(now_ms - _stats_last_recv_ms))
 	_stats_last_recv_ms = now_ms
+	var globals: Dictionary = snapshot.get("globals", {})
+	var step: int = 1
+	if globals is Dictionary:
+		step = int(max(1, int(globals.get("snap_step", 1))))
 	if _stats_last_recv_tick >= 0 and tick > _stats_last_recv_tick:
-		_stats.tally("dropped_ticks", tick - _stats_last_recv_tick - 1)
+		var expected := expected_packets * step
+		var lost := tick - _stats_last_recv_tick - expected
+		if lost > 0:
+			_stats.tally("dropped_ticks", lost)
 	if tick > _stats_last_recv_tick:
 		_stats_last_recv_tick = tick
 	if snapshot.has("ack_seq"):
@@ -593,18 +765,21 @@ func _flush_client_stats() -> void:
 	var elapsed_ms: int = _stats.elapsed_ms(now_ms)
 	var elapsed_s: float = max(float(elapsed_ms) / 1000.0, 0.001)
 	var frames: int = _stats.count("frame")
-	var snaps: int = _stats.count("snap")
+	# Tarea G: snap_hz/snap_bytes miden el canal (todo lo recibido), no el parseo, que
+	# ahora esta acotado a 2 paquetes por frame.
+	var raw_snaps: int = _stats.count("raw_snap")
 	var stats := {
 		"rtt_ms_p50": _stats.percentile("rtt_ms", 0.5),
 		"rtt_ms_p95": _stats.percentile("rtt_ms", 0.95),
 		"rtt_ms_max": _stats.percentile("rtt_ms", 1.0),
-		"snap_hz": float(snaps) / elapsed_s,
+		"snap_hz": float(raw_snaps) / elapsed_s,
 		"snap_gap_ms_max": _stats.max_value("snap_gap_ms"),
 		"dropped_ticks": _stats.count("dropped_ticks"),
 		"apply_ms_avg": (_stats.sum("apply_us") / float(max(_stats.count("apply_count"), 1))) / 1000.0,
+		"interp_ms_avg": (_stats.sum("interp_us") / float(max(_stats.count("apply_count"), 1))) / 1000.0,
 		"frame_ms_avg": float(elapsed_ms) / float(max(frames, 1)),
 		"fps": float(frames) / elapsed_s,
-		"snap_bytes_avg": _stats.sum("snap_bytes") / float(max(snaps, 1))
+		"snap_bytes_avg": _stats.sum("raw_bytes") / float(max(raw_snaps, 1))
 	}
 	last_stats = stats
 	print("[RemoteSimClient] stats rtt_ms p50=", "%.1f" % stats["rtt_ms_p50"],
@@ -614,6 +789,7 @@ func _flush_client_stats() -> void:
 		" snap_gap_ms_max=", "%.1f" % stats["snap_gap_ms_max"],
 		" dropped_ticks=", stats["dropped_ticks"],
 		" apply_ms_avg=", "%.3f" % stats["apply_ms_avg"],
+		" interp_ms_avg=", "%.3f" % stats["interp_ms_avg"],
 		" frame_ms_avg=", "%.1f" % stats["frame_ms_avg"],
 		" fps=", "%.1f" % stats["fps"],
 		" snap_bytes_avg=", "%.0f" % stats["snap_bytes_avg"])

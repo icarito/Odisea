@@ -48,9 +48,9 @@ func test_protocol_transform_encode_decode():
 	assert_float(dec.origin.y).is_equal_approx(2.5, 0.001)
 	assert_float(dec.origin.z).is_equal_approx(-3.5, 0.001)
 
-# FD-316: el buffer solo ORDENA los snapshots por tick; la interpolacion no esta
-# implementada (el cliente aplica el mas nuevo). Este test cubre el ordenamiento.
-func test_render_slave_snapshot_buffer_sorts_by_tick():
+# FD-316 (tarea G): el cliente solo conserva los 2 snapshots mas nuevos (con interpolacion
+# el resto no hace falta) y descarta viejos/duplicados por tick.
+func test_render_slave_keeps_only_two_newest_snapshots():
 	var client = auto_free(RemoteSimClientScript.new())
 	add_child(client)
 
@@ -63,10 +63,113 @@ func test_render_slave_snapshot_buffer_sorts_by_tick():
 	client.receive_snapshot(snap1)
 	client.receive_snapshot(snap3)
 
-	assert_int(client._buffer.size()).is_equal(3)
-	assert_int(client._buffer[0]["tick"]).is_equal(1)
-	assert_int(client._buffer[1]["tick"]).is_equal(2)
-	assert_int(client._buffer[2]["tick"]).is_equal(3)
+	assert_int(client._buffer.size()).is_equal(2)
+	assert_int(client._buffer[0]["tick"]).is_equal(2)
+	assert_int(client._buffer[1]["tick"]).is_equal(3)
+	assert_int(client._latest_applied_tick).is_equal(3)
+
+	# Un duplicado del mas nuevo tampoco entra.
+	client.receive_snapshot(snap3)
+	assert_int(client._buffer.size()).is_equal(2)
+
+
+# FD-316 (tarea G): con dos snapshots, el render a mitad del intervalo da el transform
+# intermedio de la entidad y de la cadena del rig (Transform.interpolate_with).
+func test_render_slave_interpolates_transforms_between_snapshots():
+	var level_b := Spatial.new()
+	level_b.name = "SimLevelG"
+	var player_b = auto_free(FakePlayer.new())
+	player_b.name = "Pilot"
+	player_b.add_to_group("player")
+	var rig_b := Spatial.new()
+	rig_b.name = "CameraRig"
+	player_b.add_child(rig_b)
+	level_b.add_child(player_b)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level_b)
+	get_tree().current_scene = level_b
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	var t_a := Transform(Basis(), Vector3(0, 0, 0))
+	var t_b := Transform(Basis(), Vector3(10, 0, 0))
+	var rig_a := Transform(Basis(), Vector3(0, 2, 0))
+	var rig_b_t := Transform(Basis(), Vector3(0, 4, 0))
+	var snap_a = RemoteProtocolScript.create_sim_snapshot(1, 0, {
+		"Pilot": {"t": RemoteProtocolScript.encode_transform(t_a)}
+	}, {"rig": [RemoteProtocolScript.encode_transform(rig_a)]})
+	var snap_b = RemoteProtocolScript.create_sim_snapshot(2, 16, {
+		"Pilot": {"t": RemoteProtocolScript.encode_transform(t_b)}
+	}, {"rig": [RemoteProtocolScript.encode_transform(rig_b_t)]})
+
+	client.receive_snapshot(snap_a)
+	client.receive_snapshot(snap_b)
+	# Reloj de render en la mitad del intervalo: alpha 0.5.
+	client._render_tick = 1.5
+	client._render_interpolated()
+
+	assert_vector3(player_b.global_transform.origin).is_equal_approx(
+		Vector3(5, 0, 0), Vector3.ONE * 0.001)
+	assert_vector3(rig_b.global_transform.origin).is_equal_approx(
+		Vector3(0, 3, 0), Vector3.ONE * 0.001)
+
+	client.stop_render_slave()
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+
+
+# FD-316 (tarea G): sin el siguiente snapshot se sostiene el ultimo (sin extrapolar), aun
+# si el reloj de render se pasa del par recibido.
+func test_render_slave_holds_last_transform_without_next_snapshot():
+	var level_b := Spatial.new()
+	level_b.name = "SimLevelHold"
+	var player_b = auto_free(FakePlayer.new())
+	player_b.name = "Pilot"
+	player_b.add_to_group("player")
+	level_b.add_child(player_b)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level_b)
+	get_tree().current_scene = level_b
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	var t_a := Transform(Basis(), Vector3(2, 0, 0))
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(1, 0, {
+		"Pilot": {"t": RemoteProtocolScript.encode_transform(t_a)}
+	}, {}))
+
+	client._render_tick = 50.0
+	client._render_interpolated()
+	assert_vector3(player_b.global_transform.origin).is_equal_approx(
+		Vector3(2, 0, 0), Vector3.ONE * 0.001)
+
+	client.stop_render_slave()
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+
+
+# FD-316 (tarea G): con snapshots cada N ticks, el salto esperado (N-1 ticks) no cuenta
+# como perdida; un hueco real si.
+func test_render_slave_dropped_ticks_accounts_for_snap_step():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	# Primer snapshot: base (step 2, ticks 2/4/6...).
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(2, 0, {}, {"snap_step": 2}))
+	assert_int(client._stats.count("dropped_ticks")).is_equal(0)
+	# El siguiente esperado (tick 4) no suma perdida.
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(4, 0, {}, {"snap_step": 2}))
+	assert_int(client._stats.count("dropped_ticks")).is_equal(0)
+	# Hueco real: en vez del tick 6 llega el 10 -> 4 ticks perdidos.
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(10, 0, {}, {"snap_step": 2}))
+	assert_int(client._stats.count("dropped_ticks")).is_equal(4)
+
+	client.stop_render_slave()
 
 func test_render_slave_toggles_role_flag():
 	var client = auto_free(RemoteSimClientScript.new())
@@ -160,15 +263,43 @@ func test_sim_host_does_not_emit_before_sim_ready():
 	assert_int(_emitted_snapshots.size()).is_equal(0)
 
 	# Llega el nivel (seam: escena ya instanciada, como dejaria load_sim_level):
-	# recien entonces el tick produce un snapshot.
+	# recien entonces el tick produce un snapshot. Tarea G: con snapshot_every_n_ticks=2
+	# (default, 30 Hz) el tick impar no emite; el par si.
 	assert_bool(host._attach_sim_level(_make_sim_level(), {})).is_true()
 	assert_bool(host.sim_ready).is_true()
 	host._physics_process(1.0 / 60.0)
+	assert_int(_emitted_snapshots.size()).is_equal(0)
+	host._physics_process(1.0 / 60.0)
 	assert_int(_emitted_snapshots.size()).is_equal(1)
-	assert_int(int(_emitted_snapshots[0]["tick"])).is_equal(1)
+	assert_int(int(_emitted_snapshots[0]["tick"])).is_equal(2)
 
 	host.stop_simulation()
 	assert_bool(host.sim_ready).is_false()
+
+
+# FD-316 (tarea G): snapshot_every_n_ticks espacia la emision sin frenar la simulacion, y
+# snap_step viaja en globals para que el esclavo no cuente el salto esperado como perdida.
+func test_sim_host_snapshot_rate_is_configurable():
+	_emitted_snapshots.clear()
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.connect("snapshot_generated", self, "_on_snapshot_generated")
+	host.snapshot_every_n_ticks = 3
+	host.start_simulation("127.0.0.1", 0)
+	assert_bool(host._attach_sim_level(_make_sim_level(), {})).is_true()
+
+	# 6 ticks con emision cada 3: los snapshots salen en los ticks 3 y 6.
+	for _i in range(6):
+		host._physics_process(1.0 / 60.0)
+	assert_int(_emitted_snapshots.size()).is_equal(2)
+	assert_int(int(_emitted_snapshots[0]["tick"])).is_equal(3)
+	assert_int(int(_emitted_snapshots[1]["tick"])).is_equal(6)
+	assert_int(int(_emitted_snapshots[0]["globals"]["snap_step"])).is_equal(3)
+
+	# La simulacion no se frena: los ticks corrieron 6 aunque solo se emitieran 2.
+	assert_int(host._current_tick).is_equal(6)
+
+	host.stop_simulation()
 
 
 # FD-316: las entidades viajan con rutas relativas al nivel simulado (el esclavo las

@@ -12,6 +12,15 @@ var RemoteSimStats = load("res://core_v2/net/RemoteSimStats.gd")
 export var target_ip: String = ""
 export var target_port: int = 10444
 export var active: bool = false
+# FD-316 (tarea G): cada cuantos ticks se emite snapshot. Con la interpolacion del
+# render-esclavo, 2 (30 Hz) alcanza y baja el trafico y el parseo del handheld; la
+# simulacion sigue corriendo a 60 Hz (input y ticks intactos).
+export var snapshot_every_n_ticks: int = 2
+# FD-316 (tarea G): si esta activo, el host deriva el paso del ritmo real de frames del
+# esclavo (input_hz ≈ fps del render, medido en last_stats) y manda snapshots a ~1.4x ese
+# fps: lo bastante seguido para que cada cuadro pintado tenga par de interpolacion, sin
+# inundar a un device draw-bound. Sin datos del esclavo cae a snapshot_every_n_ticks.
+export var adapt_snapshot_rate: bool = true
 
 # FD-316: la autoridad solo emite cuando el nivel pedido por el render-esclavo
 # (sim_hello) esta cargado y tiene jugador. Antes de eso capture_snapshot no tiene
@@ -76,6 +85,13 @@ var last_stats: Dictionary = {}
 var _last_applied_client_seq: int = 0
 # Marca del ultimo sim_input del esclavo aceptado, para el gap maximo de input.
 var _stats_last_input_ms: int = 0
+
+# FD-316 (tarea G): paso de emision efectivo (ticks entre snapshots). Arranca en el valor
+# configurado y, con adapt_snapshot_rate, se recalcula al cerrar cada ventana de stats.
+const SNAP_RATE_MIN_N := 1
+const SNAP_RATE_MAX_N := 12
+const SNAP_RATE_HEADROOM := 1.4
+var _active_snap_step: int = 2
 
 func _ready() -> void:
 	set_physics_process(false)
@@ -327,11 +343,21 @@ func _physics_process(_delta: float) -> void:
 	_current_tick += 1
 	_process_input_queue_for_tick(_current_tick)
 	_apply_authority_input_frame()
-	var snapshot = capture_snapshot()
-	emit_signal("snapshot_generated", snapshot)
-	if target_ip != "" and target_port > 0:
-		send_snapshot_udp(snapshot)
+	# FD-316 (tarea G): la simulacion corre SIEMPRE a 60 Hz (input y ticks intactos); lo
+	# unico que se espacia es la emision del snapshot. Con la interpolacion del esclavo,
+	# mandarlo cada N ticks (default 2 = 30 Hz) no se nota y baja trafico y parseo.
+	if _snapshot_due():
+		var snapshot = capture_snapshot()
+		emit_signal("snapshot_generated", snapshot)
+		if target_ip != "" and target_port > 0:
+			send_snapshot_udp(snapshot)
 	_flush_host_stats()
+
+# True si toca emitir snapshot en este tick (cada snapshot_every_n_ticks).
+func _snapshot_due() -> bool:
+	if snapshot_every_n_ticks <= 1:
+		return true
+	return _current_tick % snapshot_every_n_ticks == 0
 
 func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> void:
 	if source_id == "client":
@@ -589,7 +615,10 @@ func capture_snapshot() -> Dictionary:
 		entities[path_str] = state
 
 	var globals: Dictionary = {
-		"scene": scene_path
+		"scene": scene_path,
+		# FD-316 (tarea G): cada cuantos ticks se emitio este snapshot. El esclavo lo usa
+		# para no contar el salto esperado como ticks perdidos y calibrar la interpolacion.
+		"snap_step": snapshot_every_n_ticks
 	}
 	# FD-316: la interaccion es parte de la simulacion. El host render-esclavo no
 	# simula fisica, asi que su Area de interaccion no se actualiza; la autoridad

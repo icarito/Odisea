@@ -48,14 +48,15 @@ Detalle del flujo (control remoto = teléfono emparejado vía FD-294):
    de FD-294 (UDP para snapshots de alto ritmo, WS para control/pairing).
 4. **Host low-end → render-esclavo**: recibe snapshots y renderiza solo lo gráfico. Su
    simulación de física está **apagada** (no instancia física ni Core V2); su CPU queda
-   libre para el render. **Interpolación: NO implementada en main** — el esclavo encola
-   los snapshots ordenados por tick pero aplica **solo el más nuevo** y descarta el resto
-   (`RemoteSimClient._process`, `receive_snapshot`); no hay buffer de 1 tick ni
-   interpolación de transforms (ver "Estado en main").
+   libre para el render. **Interpolación: implementada (tarea G)** — el esclavo guarda los
+   **dos** snapshots más nuevos, mantiene un retardo fijo de `INTERP_DELAY_TICKS` (2 ticks =
+   33 ms) y en `_process` interpola transforms de entidades/rig/cámara; sin siguiente
+   snapshot sostiene el último (sin extrapolar). El estado no interpolable (interacción,
+   estados lógicos, velocidad/wish del animator, linterna) se aplica solo del más nuevo.
 5. **Determinismo (Core V2)**: trivial — una sola autoridad (el control remoto).
    Replay/checkpoints se graban en el control remoto, igual que hoy (el input es
    el gamepad/touch virtual local). El render-esclavo no necesita ser
-   determinista: solo aplica snapshots (hoy sin interpolar).
+   determinista: solo aplica snapshots (interpolando entre los dos últimos).
 
 ### Considered Options
 
@@ -92,20 +93,21 @@ Basado en `feature/FD-294-control-remoto` (infraestructura de red ya existe:
 
 - `core_v2/net/RemoteProtocol.gd` (modify) — mensajes nuevos: `sim_hello`,
   `sim_snapshot`, `sim_input` (y `RIG_CHAIN`, la cadena del rig compartida). El
-  `sim_config` (tick rate/interpolación) se eliminó: nadie lo mandaba ni lo consumía y la
-  interpolación no se implementó (review FD-316).
+  `sim_config` (tick rate/interpolación) se eliminó en el review: nadie lo mandaba ni lo
+  consumía; la interpolación se implementó después (tarea G), sin mensaje de config.
 - `core_v2/net/RemoteSimHost.gd` (new) — lado **control remoto**: simulación
-  headless (Box3D + Core V2) a 60 Hz, captura y emite snapshots por tick.
-- `core_v2/net/RemoteSimClient.gd` (new) — lado **host low-end**: recibe snapshots, los
-  encola ordenados por tick y aplica el más nuevo (sin interpolar), replica
-  transforms/animation state/luces/cámara/rig y **desactiva** la simulación local de
-  física.
+  headless (Box3D + Core V2) a 60 Hz, captura y emite snapshots cada
+  `snapshot_every_n_ticks` ticks (default 2 = 30 Hz; el step viaja en
+  `globals.snap_step`).
+- `core_v2/net/RemoteSimClient.gd` (new) — lado **host low-end**: drena el UDP del frame
+  pero **parsea solo los 2 paquetes más nuevos**, guarda los dos últimos snapshots con su
+  tick y **interpola** transforms/rig/cámara con un retardo fijo; replica el estado no
+  interpolable del más nuevo y **desactiva** la simulación local de física.
 - `core_v2/net/RemoteControlManager.gd` (modify) — detecta el gatillo
   (host = tier LOW + pairing activo) y asigna roles `sim_host` (control remoto) /
   `render_slave` (host low-end) sin tocar el flujo normal de los demás casos.
 - `core_v2/tests/test_remote_sim.gd` (new) — tests del protocolo, del frame de input
-  fusionado y de la aplicación del snapshot (la interpolación no se implementó, así que
-  no hay tests de ella).
+  fusionado, de la aplicación/interpolación del snapshot y del ritmo de emisión.
 - `docs/features/FEATURE_INDEX.md` (modify) — entrada FD-316.
 
 **Fuera de alcance (backlog)**: predicción, WAN, compresión binaria (JSON v1
@@ -115,15 +117,17 @@ alcanza en LAN).
 
 1. **Tests automatizados** (`bin/jules-cli` corre la suite):
    - `test_remote_sim.gd` cubre: encode/decode de `sim_snapshot` y `sim_input` (el
-     `sim_config` se eliminó), ordenamiento del buffer de snapshots por tick (aplicar el
-     más nuevo, **sin** interpolación), rol `render_slave` que apaga física/mutea audio y
-     aplica snapshots, el frame de input fusionado y el pipeline autoridad↔esclavo
+     `sim_config` se eliminó), retención de los 2 snapshots más nuevos, interpolación a
+     mitad de intervalo (transform intermedio de entidad y rig), sostenimiento sin
+     siguiente snapshot, ritmo de emisión `snapshot_every_n_ticks` (con `snap_step` para no
+     contar el salto esperado como pérdida), rol `render_slave` que apaga física/mutea audio
+     y aplica snapshots, el frame de input fusionado y el pipeline autoridad↔esclavo
      in-process.
    - La suite existente (`test_remote_control.gd`, determinismo) sigue verde.
 2. **Prueba manual en LAN (host low-end-flat + control remoto)**:
-   - El control remoto simula a 60 Hz headless; el host low-end renderiza aplicando el
-     último snapshot (sin interpolación). Verificar CPU del host notablemente más baja que
-     con sim local y que no haya saltos visibles.
+   - El control remoto simula a 60 Hz headless y emite snapshots a 30 Hz; el host low-end
+     renderiza interpolando entre los dos últimos. Verificar CPU del host notablemente más
+     baja que con sim local y que no haya saltos visibles.
    - Input desde el control remoto: el personaje responde sin lag perceptible
      (el input se procesa localmente en el control remoto).
    - Verificar que con un **host capaz** el control remoto sigue funcionando
@@ -164,10 +168,13 @@ Estado verificable en main:
 - `sim_hello` se manda al promover y lo consume `RemoteSimHost.load_sim_level()`, que
   aplica escena, `run_seed` (antes de instanciar) y spawn/checkpoint.
 - `sim_ready` exige nivel montado **con** jugador; sin eso no hay tick ni emisión.
-- **La interpolación NO está implementada**: el esclavo encola los snapshots ordenados
-  por tick pero aplica **solo el más nuevo** y vacía el buffer (`RemoteSimClient._process`
-  / `receive_snapshot`). No hay `interp_buffer_ticks` ni `sim_config` (se eliminaron en el
-  review FD-316, ver "Fixes del review").
+- **La interpolación está implementada (tarea G)**: el esclavo retiene los dos snapshots
+  más nuevos, mantiene un reloj de render en ticks del host con retardo fijo
+  (`INTERP_DELAY_TICKS = 2`) e interpola transforms de entidades/rig/cámara entre el par
+  que encierra ese tiempo; sin siguiente snapshot sostiene el último. El estado no
+  interpolable se aplica solo del más nuevo. El host emite cada
+  `snapshot_every_n_ticks` (default 2 = 30 Hz) y manda `snap_step` para que el conteo de
+  `dropped_ticks` no confunda el salto esperado con pérdida.
 - El tick es el fijo de `Engine.iterations_per_second`; `sim_fps` no se consume en ningún
   lado (el campo de `sim_hello` queda solo por compatibilidad del mensaje).
 
@@ -178,7 +185,7 @@ Estado verificable en main:
 | Nivel | cargado, **sin render** | cargado, solo como escena visual |
 | Física / lógica / interacción | **sí** (autoridad) | no (física apagada) |
 | Audio (música + SFX) | **sí**, se escucha en el control | no (bus Master muteado) |
-| Render | no (su pantalla sigue siendo la UI del control remoto) | sí, aplicando los snapshots |
+| Render | no (su pantalla sigue siendo la UI del control remoto) | sí, interpolando los snapshots |
 | Input | local del control + el del handheld por UDP | se envía a la autoridad |
 | HUD / widget de contexto | lo resuelve la autoridad; el bridge lo muestra en ambos | lo pinta desde el snapshot |
 
@@ -186,7 +193,10 @@ Estado verificable en main:
 
 1. Validación en device con oráculo de replay, midiendo el desfase de 1 tick
    input→snapshot (ver "Ensayo local por partes" más abajo).
-2. Implementar la interpolación solo si el ensayo muestra saltos visibles a <60 fps.
+2. Ajustar la tasa de emisión óptima para el device draw-bound: medido en el Anbernic
+   (`ce1d2522`), `fps=10` y `apply_ms_avg=15`; mandar más snapshots que cuadros
+   renderizables solo agrega parseo. `snapshot_every_n_ticks` ya es configurable (30 Hz
+   default); evaluar subirlo (p. ej. 4-6 = 15-10 Hz) o hacerlo adaptativo al fps del esclavo.
 3. Auth del canal UDP (riesgo abierto del review) más allá del token de sesión.
 
 ### Decisión de implementación (paso 2, 2026-09-28)
@@ -398,10 +408,46 @@ Sección "Código duplicado / muerto" y "Contradicciones FD-316" del review:
 - Sin cambios de comportamiento: `test_remote_sim.gd` y `test_remote_control.gd` siguen
   verdes.
 
+## Tarea G: costo de aplicar snapshots + interpolación (2026-09-29, Kilo)
+
+Medido en device con el Anbernic como render-esclavo y el desktop como sim host
+(stats de `ce1d2522`): `snap_hz=60`, `fps=10`, `apply_ms_avg=15 ms` por frame,
+`snap_bytes≈2.9 KB`, `dropped_ticks=0`, `snap_gap_ms_max` hasta 169. Síntoma visual:
+animación "por olas" (el esclavo saltaba al snapshot más nuevo cada ~100 ms, sin
+interpolar; `step_remote_animator` recibía dt=100 ms).
+
+1. **Costo de parseo** (`RemoteSimClient._poll_udp`). Al drenar el UDP del frame se
+   siguen leyendo **todos** los datagramas (para no acumular atraso en el socket), pero
+   solo se decodifica el JSON de los `MAX_SNAPSHOTS_PER_FRAME = 2` más recientes. Antes
+   se parseaba cada paquete a 60 Hz en un device de 10 fps: ese JSON era el grueso de los
+   15 ms/frame. `snap_hz`/`snap_bytes_avg` se miden sobre todo lo recibido (canal), no
+   sobre lo parseado.
+2. **Interpolación** (`RemoteSimClient`). Se retienen los dos snapshots más nuevos con su
+   tick y se mantiene un reloj de render en ticks del host (`delta *
+   Engine.iterations_per_second`) con retardo fijo `INTERP_DELAY_TICKS = 2` (33 ms a 60
+   Hz). En `_process` se interpolan con `Transform.interpolate_with` las transforms de
+   entidades, la cadena `RIG_CHAIN` y `cam_t` entre el par que encierra el tiempo de
+   render; si falta el siguiente se sostiene el último (sin extrapolar). El estado no
+   interpolable (interacción, `states`, velocidad/wish para el animator, linterna) se
+   aplica solo del snapshot más nuevo, una vez por snapshot.
+3. **Ritmo de emisión** (`RemoteSimHost.snapshot_every_n_ticks`, default 2 = 30 Hz). La
+   simulación sigue a 60 Hz (input y ticks intactos); solo se espacia el snapshot. El step
+   viaja en `globals.snap_step` y el cliente lo usa para no contar el salto esperado como
+   `dropped_ticks`.
+4. **Stats**: `apply_ms` ahora mide `_poll_udp` + aplicar globals + interpolar, y se agrega
+   `interp_ms_avg` desglosado.
+
+Tests en `core_v2/tests/test_remote_sim.gd`: `test_render_slave_keeps_only_two_newest_snapshots`,
+`test_render_slave_interpolates_transforms_between_snapshots`,
+`test_render_slave_holds_last_transform_without_next_snapshot`,
+`test_render_slave_dropped_ticks_accounts_for_snap_step`,
+`test_sim_host_snapshot_rate_is_configurable` (y `test_sim_host_does_not_emit_before_sim_ready`
+actualizado al ritmo de 2 ticks).
+
 ## Notas de implementación para Jules
 
 - Reusar el transporte existente de FD-294. Snapshots de sim por **UDP** (tolerante a
-  pérdida: hoy no hay interpolación, así que una pérdida se resuelve con el próximo
+  pérdida: con interpolación de 2 snapshots, una pérdida se resuelve con el próximo
   snapshot completo); control (pairing/config) por WS.
 - El render-esclavo NO toca `core_v2/` de simulación: solo un nodo receptor que aplica
   transforms a la escena base recibida.
