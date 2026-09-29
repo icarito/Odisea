@@ -7,6 +7,7 @@ signal snapshot_applied(tick)
 
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
+var RemoteSimStats = load("res://core_v2/net/RemoteSimStats.gd")
 
 export var is_render_slave: bool = false
 
@@ -56,6 +57,20 @@ var _interaction_authority_player: Node = null
 # compartido con el stop blando del sim host.
 var _freezer = SimLogicFreeze.new()
 
+# FD-316 (tarea E): instrumentacion de lag y carga. Ventana de 5 s; last_stats queda
+# expuesto para la telemetria ANNAV2. Solo contadores y muestras chicas por evento.
+var _stats = RemoteSimStats.new()
+var last_stats: Dictionary = {}
+# seq -> OS.get_ticks_msec() del envio. Ring chico: los seqs mas viejos sin ack se
+# descartan. El RTT input->snapshot se cierra con el ack_seq de la autoridad, siempre con
+# el reloj local del esclavo (no se comparan relojes entre maquinas).
+const RTT_RING_MAX := 64
+var _sent_seq_ms: Dictionary = {}
+var _sent_seq_order: Array = []
+# Ultimo tick/instante de snapshot recibido: gaps de snapshot y ticks perdidos.
+var _stats_last_recv_tick: int = -1
+var _stats_last_recv_ms: int = 0
+
 func _ready() -> void:
 	# Aplicar el snapshot DESPUES de cualquier otro _process del frame (camara incluida):
 	# la autoridad manda sobre lo que quede corriendo en local.
@@ -82,6 +97,12 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_jump_latch = 0
 	_interact_latch = 0
 	_last_actor_states.clear()
+	# Instrumentacion (tarea E): ventana nueva, sin seqs pendientes ni muestras viejas.
+	_stats.reset(OS.get_ticks_msec())
+	_sent_seq_ms.clear()
+	_sent_seq_order.clear()
+	_stats_last_recv_tick = -1
+	_stats_last_recv_ms = 0
 
 	# El rol se abre solo para ESCUCHAR: fisica, audio e interaccion siguen locales
 	# hasta que llegue el primer snapshot valido (FD-316 paso 3).
@@ -102,6 +123,9 @@ func stop_render_slave() -> void:
 	# La cache de estados por path se descarta al salir del rol: si no, una re-promocion
 	# en otro nivel con los mismos paths no re-aplicaria el estado (review FD-316).
 	_last_actor_states.clear()
+	# Instrumentacion (tarea E): sin seqs pendientes que un ack ya no va a cerrar.
+	_sent_seq_ms.clear()
+	_sent_seq_order.clear()
 
 # Primer snapshot valido de la autoridad: recien aca el esclavo deja de simular.
 func _engage_offload() -> void:
@@ -196,7 +220,7 @@ func _read_physics_active() -> bool:
 		return PhysicsServer.is_active()
 	return true
 
-func receive_snapshot(snapshot: Dictionary) -> void:
+func receive_snapshot(snapshot: Dictionary, p_packet_bytes: int = 0) -> void:
 	if not snapshot.has("tick"):
 		return
 	# FD-316 paso 3: el primer snapshot valido compromete el offload. Antes de eso,
@@ -221,6 +245,10 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	if not inserted:
 		_buffer.append(snapshot)
 
+	# Instrumentacion (tarea E): recien con el snapshot aceptado (duplicados fuera) se
+	# cierra el RTT del ack_seq y se miden tamano, gaps y ticks perdidos.
+	_stats_on_snapshot(tick, snapshot, p_packet_bytes)
+
 	# Keep buffer bounded (e.g., max 30 snapshots)
 	while _buffer.size() > 30:
 		_buffer.pop_front()
@@ -229,7 +257,12 @@ func _process(delta: float) -> void:
 	if not is_render_slave:
 		return
 
+	# Instrumentacion (tarea E): frames de la ventana y costo de _poll_udp +
+	# _apply_snapshot en el mismo tick de OS.get_ticks_usec.
+	_stats.tally("frame")
+	var poll_started_us := OS.get_ticks_usec()
 	_poll_udp()
+	var poll_us := OS.get_ticks_usec() - poll_started_us
 
 	# El player pudo cambiar de escena (o no existir al arrancar el rol): reintentar
 	# hasta que la autoridad de interaccion quede aplicada en la instancia actual.
@@ -246,10 +279,13 @@ func _process(delta: float) -> void:
 	# frame acumulaba hasta 30 de atraso (0.5 s) y luego pop_front descartaba a saltos
 	# (camara atrasada y a tirones). Se aplica siempre el mas reciente y se descarta lo viejo.
 	if not _buffer.empty():
+		var apply_started_us := OS.get_ticks_usec()
 		var newest = _buffer[_buffer.size() - 1]
 		_apply_snapshot(newest)
 		_latest_applied_tick = int(newest["tick"])
 		_buffer.clear()
+		_stats.add("apply_us", float(poll_us + (OS.get_ticks_usec() - apply_started_us)))
+		_stats.tally("apply_count")
 	# El _physics_process del Pilot esta congelado: el animator se alimenta aca con la
 	# velocidad de la autoridad que llego en el snapshot (si no, se queda en idle).
 	if _engaged:
@@ -257,11 +293,15 @@ func _process(delta: float) -> void:
 		if player != null and is_instance_valid(player) and player.has_method("step_remote_animator"):
 			player.call("step_remote_animator", delta)
 	_send_local_input()
+	_flush_client_stats()
 
 func _send_local_input() -> void:
 	if _target_ip == "" or _target_port <= 0:
 		return
 	var sim_input = _build_local_input()
+	# Instrumentacion (tarea E): guardar el instante de envio de este seq para cerrar el
+	# RTT cuando la autoridad lo ackee.
+	_record_sent_seq(int(sim_input.get("seq", 0)))
 	var bytes = RemoteProtocol.encode_json(sim_input).to_utf8()
 	_udp.set_dest_address(_target_ip, _target_port)
 	_udp.put_packet(bytes)
@@ -353,11 +393,11 @@ func _poll_udp() -> void:
 		var pkt = _udp.get_packet()
 		var pkt_str = pkt.get_string_from_utf8()
 		var dict = RemoteProtocol.decode_json(pkt_str)
-		_handle_udp_packet(packet_ip, dict)
+		_handle_udp_packet(packet_ip, dict, pkt.size())
 
 # FD-316: un snapshot sin el token de la sesion se descarta por completo: no se aplica
 # ni se adopta su IP de origen como destino (suplantacion del sim host, riesgo "Sin auth").
-func _handle_udp_packet(packet_ip: String, dict: Dictionary) -> void:
+func _handle_udp_packet(packet_ip: String, dict: Dictionary, packet_bytes: int = 0) -> void:
 	if String(dict.get("type", "")) != "sim_snapshot":
 		return
 	if not _snapshot_token_ok(dict):
@@ -365,7 +405,7 @@ func _handle_udp_packet(packet_ip: String, dict: Dictionary) -> void:
 		return
 	if packet_ip != "":
 		_target_ip = packet_ip
-	receive_snapshot(dict)
+	receive_snapshot(dict, packet_bytes)
 
 # Sin token fijado (legacy/tests) se acepta cualquier snapshot.
 func _snapshot_token_ok(snapshot: Dictionary) -> bool:
@@ -497,3 +537,77 @@ func _states_equal(a, b) -> bool:
 	if a is float and b is float:
 		return is_equal_approx(a, b)
 	return a == b
+
+# --- FD-316 (tarea E): instrumentacion de lag y carga del render-esclavo ---
+
+# Guarda el instante de envio de cada seq en un ring chico (los mas viejos sin ack se
+# descartan). La ventana no puede crecer sin limite ni allocar por frame.
+func _record_sent_seq(seq: int) -> void:
+	if seq <= 0:
+		return
+	_sent_seq_ms[seq] = OS.get_ticks_msec()
+	_sent_seq_order.append(seq)
+	while _sent_seq_order.size() > RTT_RING_MAX:
+		_sent_seq_ms.erase(_sent_seq_order.pop_front())
+
+# Llamado por cada snapshot nuevo: cierra el RTT del ack_seq, mide el tamano del paquete,
+# el gap entre snapshots y los ticks saltados (perdida de datagramas).
+func _stats_on_snapshot(tick: int, snapshot: Dictionary, packet_bytes: int) -> void:
+	_stats.tally("snap")
+	_stats.add("snap_bytes", float(packet_bytes))
+	var now_ms := OS.get_ticks_msec()
+	if _stats_last_recv_ms > 0:
+		_stats.observe_max("snap_gap_ms", float(now_ms - _stats_last_recv_ms))
+	_stats_last_recv_ms = now_ms
+	if _stats_last_recv_tick >= 0 and tick > _stats_last_recv_tick:
+		_stats.tally("dropped_ticks", tick - _stats_last_recv_tick - 1)
+	if tick > _stats_last_recv_tick:
+		_stats_last_recv_tick = tick
+	if snapshot.has("ack_seq"):
+		_stats_ack(int(snapshot["ack_seq"]))
+
+# RTT input->snapshot: la autoridad ackea el ultimo seq aplicado y aca se resta contra el
+# instante de envio, todo con el reloj local (no se comparan relojes entre maquinas).
+func _stats_ack(seq: int) -> void:
+	if seq <= 0:
+		return
+	var sent_ms = _sent_seq_ms.get(seq, null)
+	if sent_ms == null:
+		return
+	_sent_seq_ms.erase(seq)
+	_stats.add_sample("rtt_ms", float(OS.get_ticks_msec() - int(sent_ms)))
+
+# Cierra la ventana cada RemoteSimStats.WINDOW_MS con UNA linea, publica el dict en
+# last_stats (telemetria ANNAV2) y resetea los acumuladores para la ventana siguiente.
+func _flush_client_stats() -> void:
+	var now_ms := OS.get_ticks_msec()
+	if not _stats.is_due(now_ms):
+		return
+	var elapsed_ms: int = _stats.elapsed_ms(now_ms)
+	var elapsed_s: float = max(float(elapsed_ms) / 1000.0, 0.001)
+	var frames: int = _stats.count("frame")
+	var snaps: int = _stats.count("snap")
+	var stats := {
+		"rtt_ms_p50": _stats.percentile("rtt_ms", 0.5),
+		"rtt_ms_p95": _stats.percentile("rtt_ms", 0.95),
+		"rtt_ms_max": _stats.percentile("rtt_ms", 1.0),
+		"snap_hz": float(snaps) / elapsed_s,
+		"snap_gap_ms_max": _stats.max_value("snap_gap_ms"),
+		"dropped_ticks": _stats.count("dropped_ticks"),
+		"apply_ms_avg": (_stats.sum("apply_us") / float(max(_stats.count("apply_count"), 1))) / 1000.0,
+		"frame_ms_avg": float(elapsed_ms) / float(max(frames, 1)),
+		"fps": float(frames) / elapsed_s,
+		"snap_bytes_avg": _stats.sum("snap_bytes") / float(max(snaps, 1))
+	}
+	last_stats = stats
+	print("[RemoteSimClient] stats rtt_ms p50=", "%.1f" % stats["rtt_ms_p50"],
+		" p95=", "%.1f" % stats["rtt_ms_p95"],
+		" max=", "%.1f" % stats["rtt_ms_max"],
+		" snap_hz=", "%.1f" % stats["snap_hz"],
+		" snap_gap_ms_max=", "%.1f" % stats["snap_gap_ms_max"],
+		" dropped_ticks=", stats["dropped_ticks"],
+		" apply_ms_avg=", "%.3f" % stats["apply_ms_avg"],
+		" frame_ms_avg=", "%.1f" % stats["frame_ms_avg"],
+		" fps=", "%.1f" % stats["fps"],
+		" snap_bytes_avg=", "%.0f" % stats["snap_bytes_avg"])
+	_stats.reset(now_ms)

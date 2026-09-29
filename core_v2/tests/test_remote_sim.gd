@@ -6,6 +6,7 @@ const RemoteProtocolScript = preload("res://core_v2/net/RemoteProtocol.gd")
 const RemoteSimHostScript = preload("res://core_v2/net/RemoteSimHost.gd")
 const RemoteSimClientScript = preload("res://core_v2/net/RemoteSimClient.gd")
 const SimLogicFreezeScript = preload("res://core_v2/net/SimLogicFreeze.gd")
+const RemoteSimStatsScript = preload("res://core_v2/net/RemoteSimStats.gd")
 const PlayerScript = preload("res://core_v2/player/PlayerControllerV2.gd")
 
 func test_protocol_sim_messages_encode_decode():
@@ -1084,4 +1085,72 @@ class FakePadProvider extends Reference:
 
 class FakePadPlayer extends KinematicBody:
 	var input_provider = FakePadProvider.new()
+
+
+# FD-316 (tarea E): el esclavo cierra el RTT input->snapshot con el ack_seq que manda la
+# autoridad: guarda el instante de envio por seq y mide la vuelta con su reloj local.
+func test_render_slave_rtt_from_known_ack():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0, "127.0.0.1", 10445)
+
+	client._sent_seq_ms[7] = OS.get_ticks_msec() - 40
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(1, 0, {}, {}, "", 7))
+
+	assert_int(client._stats.sample_count("rtt_ms")).is_equal(1)
+	assert_float(client._stats.percentile("rtt_ms", 1.0)).is_greater_equal(40.0)
+	# El seq ackeado sale del ring: un ack repetido no vuelve a contar.
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(2, 0, {}, {}, "", 7))
+	assert_int(client._stats.sample_count("rtt_ms")).is_equal(1)
+
+	client.stop_render_slave()
+
+
+# FD-316 (tarea E): la ventana de stats se cierra cada WINDOW_MS: publica last_stats y
+# resetea contadores y muestras para la ventana siguiente.
+func test_render_slave_stats_flush_and_reset():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	client._stats.tally("frame")
+	client._stats.add_sample("rtt_ms", 12.0)
+	client._stats.window_start_ms = OS.get_ticks_msec() - RemoteSimStatsScript.WINDOW_MS - 1
+	client._flush_client_stats()
+
+	assert_bool(client.last_stats.has("rtt_ms_p50")).is_true()
+	assert_float(float(client.last_stats["rtt_ms_p50"])).is_equal_approx(12.0, 0.001)
+	assert_float(float(client.last_stats["fps"])).is_greater(0.0)
+	# Ventana nueva: contadores y muestras en cero.
+	assert_int(client._stats.count("frame")).is_equal(0)
+	assert_int(client._stats.sample_count("rtt_ms")).is_equal(0)
+
+	client.stop_render_slave()
+
+
+# FD-316 (tarea E): el sim host pone el seq APLICADO en ack_seq de cada snapshot y
+# publica/resetea sus stats por ventana.
+func test_sim_host_ack_seq_and_stats_flush():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+	assert_bool(host._attach_sim_level(_make_sim_level(), {})).is_true()
+
+	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
+		{"move_x": 1.0}, {"jump": false}, 1, "", {}, 9), "client")
+	host._process_input_queue_for_tick(1)
+	host._physics_process(1.0 / 60.0)
+
+	var snap: Dictionary = host.capture_snapshot()
+	assert_int(int(snap["ack_seq"])).is_equal(9)
+
+	host._stats.window_start_ms = OS.get_ticks_msec() - RemoteSimStatsScript.WINDOW_MS - 1
+	host._physics_process(1.0 / 60.0)
+
+	assert_bool(host.last_stats.has("tick_hz")).is_true()
+	assert_float(float(host.last_stats["tick_hz"])).is_greater(0.0)
+	assert_float(float(host.last_stats["capture_ms_avg"])).is_greater_equal(0.0)
+	assert_int(host._stats.count("tick")).is_equal(0)
+
+	host.stop_simulation()
 

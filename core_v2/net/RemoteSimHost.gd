@@ -7,6 +7,7 @@ signal snapshot_generated(snapshot)
 
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
+var RemoteSimStats = load("res://core_v2/net/RemoteSimStats.gd")
 
 export var target_ip: String = ""
 export var target_port: int = 10444
@@ -66,6 +67,16 @@ var _last_client_input_ms: int = 0
 # vuelven a sumar el delta de camara (bugs 1 y 3 del review FD-316).
 var _last_client_seq: int = -1
 
+# FD-316 (tarea E): instrumentacion de carga del sim host. Ventana de 5 s; last_stats
+# queda expuesto para la telemetria ANNAV2.
+var _stats = RemoteSimStats.new()
+var last_stats: Dictionary = {}
+# Ultimo seq del esclavo APLICADO al tick (no solo encolado): viaja en cada snapshot
+# como ack_seq para que el esclavo cierre su RTT input->snapshot.
+var _last_applied_client_seq: int = 0
+# Marca del ultimo sim_input del esclavo aceptado, para el gap maximo de input.
+var _stats_last_input_ms: int = 0
+
 func _ready() -> void:
 	set_physics_process(false)
 	# _process solo se usa para vigilar el vencimiento del stop blando (ver _process).
@@ -83,7 +94,11 @@ func start_simulation(p_target_ip: String, p_target_port: int, p_token: String =
 	# Sesion nueva: el seq del esclavo arranca de cero y no hay input pegado de la
 	# sesion anterior (ver _last_client_seq / _last_client_input_ms).
 	_last_client_seq = -1
+	_last_applied_client_seq = 0
 	_release_client_input()
+	# Instrumentacion (tarea E): la ventana arranca con la sesion.
+	_stats.reset(OS.get_ticks_msec())
+	_stats_last_input_ms = 0
 	# FD-316: reanudar tras un stop blando descongela el nivel conservado antes de que
 	# nadie lo re-promueva (si no, queda con la logica apagada y no simula nada).
 	_clear_soft_stop()
@@ -307,6 +322,7 @@ func _physics_process(_delta: float) -> void:
 	# capture_snapshot sobre RemoteControlHome no sirve a nadie (FD-316 paso 3).
 	if not sim_ready:
 		return
+	_stats.tally("tick")
 	_poll_udp_input()
 	_current_tick += 1
 	_process_input_queue_for_tick(_current_tick)
@@ -315,6 +331,7 @@ func _physics_process(_delta: float) -> void:
 	emit_signal("snapshot_generated", snapshot)
 	if target_ip != "" and target_port > 0:
 		send_snapshot_udp(snapshot)
+	_flush_host_stats()
 
 func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> void:
 	if source_id == "client":
@@ -330,6 +347,13 @@ func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> 
 		if seq <= _last_client_seq:
 			return
 		_last_client_seq = seq
+		# Instrumentacion (tarea E): input del esclavo aceptado (los duplicados ya
+		# salieron por el dedupe) y gap maximo entre paquetes.
+		var now_ms := OS.get_ticks_msec()
+		if _stats_last_input_ms > 0:
+			_stats.observe_max("input_gap_ms", float(now_ms - _stats_last_input_ms))
+		_stats_last_input_ms = now_ms
+		_stats.tally("input")
 
 	var target_tick = int(input_dict.get("last_tick", _current_tick))
 	if target_tick <= 0:
@@ -338,6 +362,7 @@ func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> 
 	var entry = {
 		"tick": target_tick,
 		"source": source_id,
+		"seq": int(input_dict.get("seq", 0)),
 		"axes": input_dict.get("axes", {}),
 		"buttons": input_dict.get("buttons", {}),
 		"camera": input_dict.get("camera", {})
@@ -379,6 +404,8 @@ func _process_input_queue_for_tick(tick: int) -> void:
 func _apply_sim_input_entry(entry: Dictionary) -> void:
 	if String(entry.get("source", "")) != "client":
 		return
+	# Instrumentacion (tarea E): el seq que viaja como ack_seq es el APLICADO al tick.
+	_last_applied_client_seq = int(entry.get("seq", 0))
 	# El estado del handheld se guarda (axes/buttons) y su look se acumula: recien al
 	# cerrar el tick se fusiona con el input del control y se inyecta como un InputDataV2.
 	_client_input_state = entry
@@ -484,6 +511,8 @@ func _expire_stale_client_input() -> void:
 	_release_client_input()
 
 func capture_snapshot() -> Dictionary:
+	# Instrumentacion (tarea E): costo de armar el snapshot (Tarea E).
+	var started_us := OS.get_ticks_usec()
 	var tree = get_tree()
 	if tree == null:
 		return {}
@@ -574,7 +603,10 @@ func capture_snapshot() -> Dictionary:
 		globals["cam_t"] = RemoteProtocol.encode_transform(camera.global_transform)
 		globals["cam_fov"] = camera.fov
 
-	return RemoteProtocol.create_sim_snapshot(_current_tick, OS.get_ticks_msec(), entities, globals, _token)
+	var snap = RemoteProtocol.create_sim_snapshot(_current_tick, OS.get_ticks_msec(), entities, globals, _token, _last_applied_client_seq)
+	_stats.add("capture_us", float(OS.get_ticks_usec() - started_us))
+	_stats.tally("snap")
+	return snap
 
 # La cadena del rig la define RemoteProtocol.RIG_CHAIN: host y esclavo comparten una sola
 # (ver capture_snapshot).
@@ -623,5 +655,30 @@ func send_snapshot_udp(snapshot: Dictionary) -> void:
 		return
 	var json_str = RemoteProtocol.encode_json(snapshot)
 	var bytes = json_str.to_utf8()
+	# Instrumentacion (tarea E): tamanio real del datagrama del snapshot.
+	_stats.add("snap_bytes", float(bytes.size()))
 	_udp.set_dest_address(target_ip, target_port)
 	_udp.put_packet(bytes)
+
+# FD-316 (tarea E): cierra la ventana de stats cada RemoteSimStats.WINDOW_MS con UNA
+# linea, publica el dict en last_stats (telemetria ANNAV2) y arranca la ventana nueva.
+func _flush_host_stats() -> void:
+	var now_ms := OS.get_ticks_msec()
+	if not _stats.is_due(now_ms):
+		return
+	var elapsed_s: float = max(float(_stats.elapsed_ms(now_ms)) / 1000.0, 0.001)
+	var snap_count: int = _stats.count("snap")
+	var stats := {
+		"tick_hz": float(_stats.count("tick")) / elapsed_s,
+		"capture_ms_avg": (_stats.sum("capture_us") / float(max(snap_count, 1))) / 1000.0,
+		"snap_bytes_avg": _stats.sum("snap_bytes") / float(max(snap_count, 1)),
+		"input_hz": float(_stats.count("input")) / elapsed_s,
+		"input_gap_ms_max": _stats.max_value("input_gap_ms")
+	}
+	last_stats = stats
+	print("[RemoteSimHost] stats tick_hz=", "%.1f" % stats["tick_hz"],
+		" capture_ms_avg=", "%.3f" % stats["capture_ms_avg"],
+		" snap_bytes_avg=", "%.0f" % stats["snap_bytes_avg"],
+		" input_hz=", "%.1f" % stats["input_hz"],
+		" input_gap_ms_max=", "%.1f" % stats["input_gap_ms_max"])
+	_stats.reset(now_ms)

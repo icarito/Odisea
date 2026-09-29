@@ -265,11 +265,15 @@ static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: Strin
 		"checkpoint": checkpoint
 	}
 
-static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictionary, globals: Dictionary = {}, token: String = "") -> Dictionary:
+static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictionary, globals: Dictionary = {}, token: String = "", ack_seq: int = 0) -> Dictionary:
+	# FD-316 (tarea E): ack_seq = ultimo seq de sim_input del esclavo APLICADO al tick.
+	# El esclavo guarda el instante de envio de cada seq y, con este ack, cierra el RTT
+	# input->snapshot usando solo su propio reloj (no se comparan relojes entre maquinas).
 	return {
 		"type": "sim_snapshot",
 		"tick": tick,
 		"ts": timestamp_msec,
+		"ack_seq": ack_seq,
 		"entities": entities,
 		"globals": globals,
 		"token": token
