@@ -609,6 +609,11 @@ func _apply_snapshot_globals(snapshot: Dictionary) -> void:
 				if flash != null and is_instance_valid(flash) and flash.has_method("apply_remote_state"):
 					var f: Dictionary = state["flash"]
 					flash.call("apply_remote_state", bool(f.get("on", false)), float(f.get("battery", 0.0)))
+			# FD-316: los one-shots de animacion de la autoridad (salto acrobatico
+			# incluido). El controlador los re-emite a su animator una vez por cambio
+			# cuando RemoteSimClient lo alimenta con step_remote_animator.
+			if state.has("anim") and node.has_method("set_remote_anim_events"):
+				node.call("set_remote_anim_events", state["anim"])
 
 	var globals: Dictionary = snapshot.get("globals", {})
 	# FD-316: interaccion resuelta por la autoridad (prompt + path del interactuable).

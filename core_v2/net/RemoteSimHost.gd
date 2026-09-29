@@ -660,6 +660,12 @@ func capture_snapshot() -> Dictionary:
 					"on": bool(flashlight.enabled),
 					"battery": float(flashlight.battery)
 				}
+			# FD-316: los one-shots de animacion que el controlador le pasa a su animator
+			# por señal (salto acrobatico incluido) viajan como contadores. Sin esto el
+			# esclavo reproduce el salto como uno normal: la fisica acrobatica si llega
+			# por el transform, pero el gatillo del backflip no.
+			if node.has_method("get_anim_event_counters"):
+				state["anim"] = node.call("get_anim_event_counters")
 		entities[path_str] = state
 
 	var globals: Dictionary = {

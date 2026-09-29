@@ -445,8 +445,11 @@ func test_sim_input_encode_decode():
 
 class FakePlayer extends Spatial:
 	var velocity := Vector3(0, 0, 3)
+	var anim_events := {"jumped": 0, "acrobatic": 0, "hit_ceiling": 0}
 	func is_effectively_grounded() -> bool:
 		return true
+	func get_anim_event_counters() -> Dictionary:
+		return anim_events.duplicate()
 
 
 class FakeArm extends Spatial:
@@ -464,9 +467,12 @@ class FakeWishPlayer extends Spatial:
 class FakeRemoteAnimPlayer extends Spatial:
 	var last_wish := Vector3.ZERO
 	var got_state := false
+	var last_anim_events: Dictionary = {}
 	func set_remote_anim_state(_v: Vector3, _g: bool, w: Vector3 = Vector3.ZERO) -> void:
 		last_wish = w
 		got_state = true
+	func set_remote_anim_events(events: Dictionary) -> void:
+		last_anim_events = events.duplicate()
 
 
 class FakeSwitchActor extends Spatial:
@@ -894,6 +900,110 @@ func test_render_slave_applies_remote_wish_and_actor_state_on_change():
 
 	if previous_scene != null:
 		get_tree().current_scene = previous_scene
+
+
+# FD-316 (tarea Q): los one-shots de animacion del jugador (salto acrobatico incluido)
+# viajan en su estado como contadores. Sin esto el esclavo solo recibe la velocidad y
+# reproduce un salto normal aunque la fisica acrobatica de la autoridad si llegue.
+func test_sim_snapshot_carries_player_anim_events():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var level := Spatial.new()
+	level.name = "SimLevel"
+	var player = auto_free(FakePlayer.new())
+	player.name = "Pilot"
+	player.add_to_group("player")
+	player.anim_events = {"jumped": 3, "acrobatic": 2, "hit_ceiling": 1}
+	level.add_child(player)
+
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	var snap = host.capture_snapshot()
+
+	var state: Dictionary = snap["entities"]["Pilot"]
+	assert_bool(state.has("anim")).is_true()
+	assert_int(int(state["anim"]["jumped"])).is_equal(3)
+	assert_int(int(state["anim"]["acrobatic"])).is_equal(2)
+	assert_int(int(state["anim"]["hit_ceiling"])).is_equal(1)
+
+	host.stop_simulation()
+
+
+# FD-316 (tarea Q): el render-esclavo guarda el bloque "anim" en su controlador, que lo
+# aplica al animator durante step_remote_animator.
+func test_render_slave_applies_remote_anim_events():
+	var level_b := Spatial.new()
+	level_b.name = "SimLevelB"
+	var player_b = auto_free(FakeRemoteAnimPlayer.new())
+	player_b.name = "Pilot"
+	player_b.add_to_group("player")
+	level_b.add_child(player_b)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level_b)
+	get_tree().current_scene = level_b
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	client._apply_snapshot({"tick": 1, "entities": {
+		"Pilot": {"vel": [0, 0, 3], "g": true, "anim": {"jumped": 0, "acrobatic": 2, "hit_ceiling": 0}}
+	}})
+
+	assert_bool(player_b.got_state).is_true()
+	assert_int(int(player_b.last_anim_events["acrobatic"])).is_equal(2)
+
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+
+
+class FakeStepAnimator extends Spatial:
+	var steps := 0
+	func step_animator(_dt: float, _velocity: Vector3) -> void:
+		steps += 1
+
+
+# FD-316 (tarea Q): la autoridad contabiliza los one-shots que le pasa al animator por
+# señal y el render-esclavo re-emite la misma señal UNA sola vez por cambio de contador
+# (no en cada snapshot). Asi el backflip se reproduce en el Anbernic igual que en la
+# autoridad, en vez de caer al salto normal.
+var _slave_acrobatic_events := 0
+
+func _on_slave_acrobatic_event() -> void:
+	_slave_acrobatic_events += 1
+
+func test_remote_acrobatic_one_shot_replicated_once():
+	# Autoridad: el one-shot mueve su contador, que es lo que viaja en el snapshot.
+	var authority = PlayerScript.new()
+	authority._emit_anim_event("acrobatic_jumped")
+	assert_int(int(authority.get_anim_event_counters()["acrobatic"])).is_equal(1)
+	assert_int(int(authority.get_anim_event_counters()["jumped"])).is_equal(0)
+
+	# Esclavo: mismo script, animator falso y rol de render-esclavo.
+	var slave_player = PlayerScript.new()
+	var anim = FakeStepAnimator.new()
+	slave_player.animator = anim
+	slave_player.set_remote_interaction_authoritative(true)
+	slave_player.connect("acrobatic_jumped", self, "_on_slave_acrobatic_event")
+	_slave_acrobatic_events = 0
+
+	# Primer snapshot: solo fija la referencia (no re-dispara lo que ya paso).
+	slave_player.set_remote_anim_events({"jumped": 0, "acrobatic": 1, "hit_ceiling": 0})
+	slave_player.step_remote_animator(1.0 / 60.0)
+	assert_int(_slave_acrobatic_events).is_equal(0)
+
+	# Cambio de contador: re-emite UNA vez y el animator avanza igual.
+	slave_player.set_remote_anim_events({"jumped": 0, "acrobatic": 2, "hit_ceiling": 0})
+	slave_player.step_remote_animator(1.0 / 60.0)
+	assert_int(_slave_acrobatic_events).is_equal(1)
+
+	# Mismo contador otra vez: no se rearma el backflip cada snapshot.
+	slave_player.step_remote_animator(1.0 / 60.0)
+	assert_int(_slave_acrobatic_events).is_equal(1)
+	assert_int(anim.steps).is_equal(3)
+
+	slave_player.free()
+	anim.free()
+	authority.free()
 
 
 # FD-316 (D2): el estado logico de un replay_sync NO Spatial (RingHubLightState es un
