@@ -123,6 +123,7 @@ func _ready():
 		server.connect("client_disconnected", self, "_on_server_client_disconnected")
 		server.connect("client_stalled", self, "_on_server_client_disconnected")
 		server.connect("client_connected", self, "_on_server_client_connected")
+		server.connect("ui_directive_received", self, "_on_server_ui_directive")
 
 	_apply_settings()
 	call_deferred("_sync_host_for_scene")
@@ -154,6 +155,7 @@ func enable_low_tier_offload() -> void:
 		server.connect("client_disconnected", self, "_on_server_client_disconnected")
 		server.connect("client_stalled", self, "_on_server_client_disconnected")
 		server.connect("client_connected", self, "_on_server_client_connected")
+		server.connect("ui_directive_received", self, "_on_server_ui_directive")
 	if bridge == null and SuitOSRemoteBridge != null:
 		bridge = SuitOSRemoteBridge.new()
 		bridge.name = "SuitOSRemoteBridge"
@@ -244,15 +246,19 @@ func _on_client_ui_directive(op: String, payload) -> void:
 		# FD-316 paso 2: el esclavo dice QUE nivel simular y desde donde.
 		if sim_host != null:
 			sim_host.load_sim_level(payload if payload is Dictionary else {})
-	elif op == "set_language":
-		# FD-294: el idioma del CONTROL manda en el host mientras dura la sesion (el HUD
-		# y los prompts del nivel se muestran en el idioma de quien juega). Al cerrar la
-		# sesion se restaura el locale propio del host.
-		_apply_control_language(payload if payload is Dictionary else {})
 	elif op == "stop_sim_host":
 		is_sim_host_active = false
 		if sim_host != null:
 			sim_host.stop_simulation()
+
+# Directivas que el CONTROL manda a este host (client.send_ui_directive llega por el
+# server, no por _on_client_ui_directive, que es el sentido host -> control).
+func _on_server_ui_directive(op: String, payload) -> void:
+	if op == "set_language":
+		# FD-294: el idioma del CONTROL manda en el host mientras dura la sesion (el HUD
+		# y los prompts del nivel se muestran en el idioma de quien juega). Al cerrar la
+		# sesion se restaura el locale propio del host.
+		_apply_control_language(payload if payload is Dictionary else {})
 
 # FD-316: sesion caida o cerrada mientras este device era la autoridad: nivel fuera.
 func _stop_sim_host_if_active() -> void:
@@ -524,7 +530,7 @@ func _apply_control_language(payload: Dictionary) -> void:
 		return
 	if _remote_locale_applied == "":
 		_remote_locale_applied = sm.resolve_effective_language()
-	if locale == _remote_locale_applied:
+	if locale == TranslationServer.get_locale():
 		return
 	TranslationServer.set_locale(locale)
 	print("[RemoteControlManager] idioma del control aplicado al host: ", locale)
