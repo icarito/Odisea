@@ -472,7 +472,31 @@ class FakeLogicActor extends Node:
 		state = d.duplicate()
 
 
-# FD-316: la linterna del casco no esta en replay_sync; su encendido/bateria viajan en el
+# FD-316 (tarea J): replica el contrato de RingHubWakeup para el despertar del criopod. La
+# decision de correr la intro es por el dato explicito `wakeup_completed` (que viaja en el
+# snapshot del nivel), no por `gated_oys_script` vacio: usarlo de proxy dejaba al jugador
+# encerrado. `open_pod_terminal` es el equivalente de RingHubWakeup._open_pod_terminal.
+class FakeWakeupActor extends Spatial:
+	var wakeup_completed := false
+	var gated_oys_script := ""
+	var intro_runs := 0
+	var hatch_open := false
+	func get_snapshot() -> Dictionary:
+		return {"wakeup_completed": wakeup_completed, "gated_oys_script": gated_oys_script}
+	func restore_snapshot(d: Dictionary) -> void:
+		wakeup_completed = bool(d.get("wakeup_completed", wakeup_completed))
+		gated_oys_script = String(d.get("gated_oys_script", gated_oys_script))
+	func open_pod_terminal() -> void:
+		if wakeup_completed:
+			return
+		intro_runs += 1
+		# La cinematica es la que abre la escotilla; al terminar queda completado.
+		wakeup_completed = true
+		gated_oys_script = ""
+		hatch_open = true
+
+
+# FD-316 (tarea J): la linterna del casco no esta en replay_sync; su encendido/bateria viajan en el
 # estado del jugador (ver RemoteSimHost.capture_snapshot / RemoteSimClient._apply_snapshot).
 class FakeFlashlight extends Spatial:
 	var enabled := true
@@ -916,13 +940,15 @@ func test_render_slave_applies_non_spatial_actor_state():
 func test_sim_hello_carries_level_states():
 	var hello = RemoteProtocolScript.create_sim_hello(
 		"res://core_v2/levels/RingHub_Level.tscn", 60, "tok", {}, 7, {}, {
-			".": {"selected_slot": 3, "gated_oys_script": ""},
+			".": {"selected_slot": 3, "gated_oys_script": "", "wakeup_completed": true},
 			"Criopod_Vert/RotatingObjectV2": {"active": false, "progress": 0.0, "target": 0.0}
 		})
 	var wire = RemoteProtocolScript.decode_json(RemoteProtocolScript.encode_json(hello))
 	assert_bool(wire["states"].has(".")).is_true()
 	assert_int(int(wire["states"]["."]["selected_slot"])).is_equal(3)
 	assert_str(String(wire["states"]["."]["gated_oys_script"])).is_empty()
+	# Tarea J: el dato explicito de "despertar ya completado" viaja con el estado del nivel.
+	assert_bool(bool(wire["states"]["."]["wakeup_completed"])).is_true()
 	assert_bool(bool(wire["states"]["Criopod_Vert/RotatingObjectV2"]["active"])).is_false()
 
 
@@ -1063,6 +1089,69 @@ func test_build_sim_hello_collects_level_actor_states():
 		get_tree().current_scene = previous_scene
 	get_tree().root.remove_child(level)
 	level.free()
+
+
+# FD-316 (tarea J) offload, caso "el esclavo YA desperto": el sim_hello trae el estado del
+# nivel con `wakeup_completed=true` (y sin secuencia gateada). El host lo adopta ANTES de
+# sim_ready y la intro diferida del _ready no vuelve a correr: la escotilla no se reabre ni
+# vuelve a sonar al conectar el offload.
+func test_offload_wakeup_already_done_does_not_reopen_on_host():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = FakeWakeupActor.new()
+	level.name = "SimWakeupLevel"
+	var player = auto_free(FakePlayer.new())
+	player.name = "Player"
+	player.add_to_group("player")
+	level.add_child(player)
+
+	assert_bool(host._attach_sim_level(level, {"scene": "res://x.tscn", "states": {".": {
+		"wakeup_completed": true, "gated_oys_script": ""}}})).is_true()
+	assert_bool(host.sim_ready).is_true()
+	# El host adopto el dato explicito del esclavo.
+	assert_bool(level.wakeup_completed).is_true()
+
+	# La intro diferida no tiene nada que hacer: no reabre la escotilla.
+	level.open_pod_terminal()
+	assert_int(level.intro_runs).is_equal(0)
+	assert_bool(level.hatch_open).is_false()
+
+	host.stop_simulation()
+
+
+# FD-316 (tarea J) offload, caso "el esclavo TODAVIA no desperto": el sim_hello trae el
+# estado con `wakeup_completed=false`. El host lo adopta (sigue pendiente) y la intro corre en
+# la autoridad, que abre la escotilla; ese estado es el que se replica de vuelta al esclavo.
+func test_offload_wakeup_pending_runs_intro_on_host():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = FakeWakeupActor.new()
+	level.name = "SimWakeupLevel"
+	var player = auto_free(FakePlayer.new())
+	player.name = "Player"
+	player.add_to_group("player")
+	level.add_child(player)
+
+	assert_bool(host._attach_sim_level(level, {"scene": "res://x.tscn", "states": {".": {
+		"wakeup_completed": false,
+		"gated_oys_script": "res://core_v2/levels/ringhub_wakeup.oys"}}})).is_true()
+	assert_bool(level.wakeup_completed).is_false()
+	assert_str(level.gated_oys_script).is_equal("res://core_v2/levels/ringhub_wakeup.oys")
+
+	# La autoridad corre la secuencia de despertar y la escotilla se abre.
+	level.open_pod_terminal()
+	assert_int(level.intro_runs).is_equal(1)
+	assert_bool(level.hatch_open).is_true()
+	# Estado replicable ya completado (es lo que le llega al esclavo en el proximo snapshot).
+	var snap = level.get_snapshot()
+	assert_bool(bool(snap["wakeup_completed"])).is_true()
+	assert_str(String(snap["gated_oys_script"])).is_empty()
+
+	host.stop_simulation()
 
 
 # FD-316: la linterna del casco viaja con el jugador (encendido/bateria). El sintoma en

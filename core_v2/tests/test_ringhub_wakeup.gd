@@ -127,9 +127,29 @@ func test_initial_screen_close_releases_wakeup_once_without_open_button() -> voi
 	assert_str(String(zone.script_file)).is_empty()
 
 
-# FD-316: el sim host restaura el estado persistente del esclavo (ya despierto) antes de que
-# corra la intro diferida del _ready. Con la secuencia liberada, la holoterminal no se reabre
-# y la escotilla no vuelve a abrirse/sonar por el offload.
+# Flujo normal (un solo device, sin offload): al arrancar la intro queda gateada y a la espera
+# de que el jugador cierre la holoterminal; cerrarla dispara la cinematica y la escotilla se
+# abre. Es el A/B del guard por estado explicito: sin offload el despertar SIEMPRE tiene que
+# abrir, aunque `_gated_oys_script` quede vacio por el camino.
+func test_normal_boot_opens_pod_when_terminal_closes() -> void:
+	var level = auto_free(RingHubScene.instance())
+	# No se toca open_pod_terminal_on_start: se prueba el arranque real (default true).
+	add_child(level)
+	yield(get_tree(), "idle_frame")
+
+	var hatch = level.get_node("Criopod_Vert/RotatingObjectV2")
+	# El jugador cierra la holoterminal: corre la cinematica de despertar.
+	level.close_pod_terminal()
+	for _i in range(8):
+		yield(get_tree(), "idle_frame")
+	assert_bool(hatch.is_active).is_true()
+	assert_bool(level._wakeup_completed).is_true()
+
+
+# FD-316: el sim host restaura el estado persistente del esclavo (ya despertado) antes de que
+# corra la intro diferida del _ready. El dato explicito `wakeup_completed` manda: aunque el gate
+# siga armado (que es lo que el guard por `_gated_oys_script` vacio no distinguia), la
+# holoterminal no se reabre y la escotilla no vuelve a abrirse/sonar por el offload.
 func test_restored_already_woken_state_does_not_reopen_pod() -> void:
 	var level = auto_free(RingHubScene.instance())
 	level.open_pod_terminal_on_start = false
@@ -141,15 +161,19 @@ func test_restored_already_woken_state_does_not_reopen_pod() -> void:
 	level._gate_wakeup_sequence()
 	assert_bool(String(level._gated_oys_script) != "").is_true()
 
-	# Estado del esclavo ya despertado: slot ya aplicado y secuencia liberada.
-	level.restore_snapshot({"selected_slot": level._selected_slot, "gated_oys_script": ""})
-	assert_str(String(level._gated_oys_script)).is_empty()
+	# Estado del esclavo ya despertado. No se manda `gated_oys_script`: el restore conserva el
+	# gate que armo el _ready, y el despertar se decide solo por `wakeup_completed`.
+	level.restore_snapshot({
+		"selected_slot": level._selected_slot,
+		"wakeup_completed": true,
+	})
+	assert_bool(level._wakeup_completed).is_true()
 	assert_bool(hatch.is_active).is_false()
 
-	# La intro diferida ya no tiene nada que abrir.
+	# La intro diferida no vuelve a correr: no libera la secuencia ni abre la escotilla.
 	level._open_pod_terminal()
 	yield(get_tree(), "idle_frame")
-	assert_str(String(level._gated_oys_script)).is_empty()
+	assert_bool(String(level._gated_oys_script) != "").is_true()
 	assert_bool(hatch.is_active).is_false()
 
 

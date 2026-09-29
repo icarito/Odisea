@@ -29,6 +29,12 @@ var _selected_slot := -1
 var _selected_item_transform := Transform()
 var _has_selected_item_transform := false
 var _gated_oys_script := ""
+# Dato explicito de "el despertar ya se completo" (la cinematica corrio y libero la
+# escotilla). Reemplaza al guard por `_gated_oys_script` vacio: ese campo tambien queda
+# vacio por otras razones (un restore parcial, el sim_hello del offload), y usarlo como
+# proxy dejaba al jugador encerrado porque _open_pod_terminal se retiraba sin abrir nada.
+# Viaja en get_snapshot/restore_snapshot para que el sim host decida con el dato real.
+var _wakeup_completed := false
 
 func _ready() -> void:
 	add_to_group("replay_sync")
@@ -168,10 +174,11 @@ func _gate_wakeup_sequence() -> void:
 	zone.script_file = ""
 
 func _open_pod_terminal() -> void:
-	# Sim host de FD-316: si el estado restaurado del esclavo ya libero la secuencia de
-	# despertar (_gated_oys_script vacio), no hay nada que abrir. Reabrir la holoterminal
-	# re-dispararia la intro de despertar y con ella la apertura/sonido de la escotilla.
-	if _gated_oys_script.empty():
+	# Sim host de FD-316: si el estado restaurado del esclavo dice que el despertar YA se
+	# completo, no hay intro que correr (reabrir la holoterminal re-dispararia la apertura/
+	# sonido de la escotilla). Se decide por el dato explicito `_wakeup_completed`; el estado
+	# de `_gated_oys_script` no sirve de proxy (ver declaracion del campo).
+	if _wakeup_completed:
 		return
 	var suit_os = get_node_or_null("/root/SuitOS")
 	if suit_os != null and not suit_os.has_screen(pod_screen_id):
@@ -224,6 +231,8 @@ func _release_wakeup_sequence() -> void:
 		return
 	zone.script_file = _gated_oys_script
 	_gated_oys_script = ""
+	# El despertar queda completado recien aca: la cinematica es la que abre la escotilla.
+	_wakeup_completed = true
 	var pilot := get_node_or_null("Pilot")
 	if pilot != null and pilot.has_method("set_traversal_entry_suppressed"):
 		pilot.set_traversal_entry_suppressed(false)
@@ -337,9 +346,13 @@ func get_snapshot() -> Dictionary:
 	return {
 		"selected_slot": _selected_slot,
 		"gated_oys_script": _gated_oys_script,
+		"wakeup_completed": _wakeup_completed,
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
 	_selected_slot = int(data.get("selected_slot", _selected_slot))
-	_gated_oys_script = String(data.get("gated_oys_script", ""))
+	# Default al valor actual (no ""): un snapshot sin el campo no debe vaciar el gate que
+	# el _ready acaba de armar, o la escotilla quedaria sin cinematica que la abra.
+	_gated_oys_script = String(data.get("gated_oys_script", _gated_oys_script))
+	_wakeup_completed = bool(data.get("wakeup_completed", _wakeup_completed))
 	_apply_wakeup_slot()
