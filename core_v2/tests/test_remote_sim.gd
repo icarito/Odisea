@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-# test_remote_sim.gd - FD-316: Tests for remote simulation protocol, interpolation buffer, and offload roles.
+# test_remote_sim.gd - FD-316: Tests for remote simulation protocol, snapshot buffer and offload roles.
 
 const RemoteProtocolScript = preload("res://core_v2/net/RemoteProtocol.gd")
 const RemoteSimHostScript = preload("res://core_v2/net/RemoteSimHost.gd")
@@ -30,11 +30,6 @@ func test_protocol_sim_messages_encode_decode():
 	assert_float(float(wire["spawn"]["yaw"])).is_equal_approx(1.25, 0.001)
 	assert_bool(wire["checkpoint"]["player_snapshot"].has("yaw")).is_true()
 
-	var config = RemoteProtocolScript.create_sim_config(60, 1, "tok123")
-	assert_str(config["type"]).is_equal("sim_config")
-	assert_int(config["tick_rate"]).is_equal(60)
-	assert_int(config["interp_buffer_ticks"]).is_equal(1)
-
 	var snapshot = RemoteProtocolScript.create_sim_snapshot(10, 1000, {"entity1": {}}, {"scene": "test"}, "tok123")
 	assert_str(snapshot["type"]).is_equal("sim_snapshot")
 	assert_int(snapshot["tick"]).is_equal(10)
@@ -51,7 +46,9 @@ func test_protocol_transform_encode_decode():
 	assert_float(dec.origin.y).is_equal_approx(2.5, 0.001)
 	assert_float(dec.origin.z).is_equal_approx(-3.5, 0.001)
 
-func test_client_interpolation_buffer():
+# FD-316: el buffer solo ORDENA los snapshots por tick; la interpolacion no esta
+# implementada (el cliente aplica el mas nuevo). Este test cubre el ordenamiento.
+func test_render_slave_snapshot_buffer_sorts_by_tick():
 	var client = auto_free(RemoteSimClientScript.new())
 	add_child(client)
 
@@ -69,7 +66,7 @@ func test_client_interpolation_buffer():
 	assert_int(client._buffer[1]["tick"]).is_equal(2)
 	assert_int(client._buffer[2]["tick"]).is_equal(3)
 
-func test_render_slave_disables_physics():
+func test_render_slave_toggles_role_flag():
 	var client = auto_free(RemoteSimClientScript.new())
 	add_child(client)
 
@@ -264,7 +261,7 @@ func test_sim_input_encode_decode():
 
 	# FD-316: el look de camara viaja en su propio campo (no es accion del InputMap).
 	var with_camera = RemoteProtocolScript.create_sim_input(axes, buttons, 43, "tok_test",
-		{"x": 3.0, "y": -2.0, "touch_x": 1.0, "touch_y": 0.5, "zoom": 0.25})
+		{"x": 3.0, "y": -2.0, "zoom": 0.25})
 	var wire = RemoteProtocolScript.decode_json(RemoteProtocolScript.encode_json(with_camera))
 	assert_float(float(wire["camera"]["x"])).is_equal_approx(3.0, 0.001)
 	assert_float(float(wire["camera"]["zoom"])).is_equal_approx(0.25, 0.001)
@@ -339,7 +336,7 @@ func test_sim_host_injects_client_look_in_input_frame():
 	host._sim_player = player
 
 	host.receive_sim_input(RemoteProtocolScript.create_sim_input({"move_x": 0.0}, {"jump": false}, 1,
-		"", {"x": 3.0, "y": -2.0, "touch_x": 1.0, "touch_y": 0.5, "zoom": 0.25}), "client")
+		"", {"x": 3.0, "y": -2.0, "zoom": 0.25}), "client")
 	host._process_input_queue_for_tick(1)
 	host._apply_authority_input_frame()
 

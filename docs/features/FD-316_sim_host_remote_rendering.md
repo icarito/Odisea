@@ -1,6 +1,6 @@
 # FD-316: CPU offload al control remoto — render-esclavo para host low-end-flat
 
-**Status:** Planned (delegada a Jules)
+**Status:** In Progress — implementado en main; validación en device pendiente
 **Priority:** P1
 **Effort:** Large
 **Created:** 2026-09-25
@@ -46,13 +46,16 @@ Detalle del flujo (control remoto = teléfono emparejado vía FD-294):
 3. **Control remoto → host low-end**: transmite el **estado de la escena**
    (snapshots por tick: transforms, animación, luces, cámara) por el transporte
    de FD-294 (UDP para snapshots de alto ritmo, WS para control/pairing).
-4. **Host low-end → render-esclavo**: recibe snapshots, interpola (buffer de 1
-   tick) y renderiza solo lo gráfico. Su simulación de física está **apagada**
-   (no instancia física ni Core V2); su CPU queda libre para el render.
+4. **Host low-end → render-esclavo**: recibe snapshots y renderiza solo lo gráfico. Su
+   simulación de física está **apagada** (no instancia física ni Core V2); su CPU queda
+   libre para el render. **Interpolación: NO implementada en main** — el esclavo encola
+   los snapshots ordenados por tick pero aplica **solo el más nuevo** y descarta el resto
+   (`RemoteSimClient._process`, `receive_snapshot`); no hay buffer de 1 tick ni
+   interpolación de transforms (ver "Estado en main").
 5. **Determinismo (Core V2)**: trivial — una sola autoridad (el control remoto).
    Replay/checkpoints se graban en el control remoto, igual que hoy (el input es
    el gamepad/touch virtual local). El render-esclavo no necesita ser
-   determinista: solo interpola.
+   determinista: solo aplica snapshots (hoy sin interpolar).
 
 ### Considered Options
 
@@ -88,17 +91,21 @@ Basado en `feature/FD-294-control-remoto` (infraestructura de red ya existe:
 `RemoteAnnouncer.gd`, `RemoteDiscovery.gd`, `RemoteControlManager.gd`):
 
 - `core_v2/net/RemoteProtocol.gd` (modify) — mensajes nuevos: `sim_hello`,
-  `sim_snapshot`, `sim_config` (tick rate, interpolación, escena base).
+  `sim_snapshot`, `sim_input` (y `RIG_CHAIN`, la cadena del rig compartida). El
+  `sim_config` (tick rate/interpolación) se eliminó: nadie lo mandaba ni lo consumía y la
+  interpolación no se implementó (review FD-316).
 - `core_v2/net/RemoteSimHost.gd` (new) — lado **control remoto**: simulación
   headless (Box3D + Core V2) a 60 Hz, captura y emite snapshots por tick.
-- `core_v2/net/RemoteSimClient.gd` (new) — lado **host low-end**: recibe
-  snapshots, bufferiza (1 tick), interpola transforms/animación/luces/cámara y
-  renderiza; **desactiva** la simulación local de física.
+- `core_v2/net/RemoteSimClient.gd` (new) — lado **host low-end**: recibe snapshots, los
+  encola ordenados por tick y aplica el más nuevo (sin interpolar), replica
+  transforms/animation state/luces/cámara/rig y **desactiva** la simulación local de
+  física.
 - `core_v2/net/RemoteControlManager.gd` (modify) — detecta el gatillo
   (host = tier LOW + pairing activo) y asigna roles `sim_host` (control remoto) /
   `render_slave` (host low-end) sin tocar el flujo normal de los demás casos.
-- `core_v2/tests/test_remote_sim.gd` (new) — tests del protocolo y de la
-  interpolación.
+- `core_v2/tests/test_remote_sim.gd` (new) — tests del protocolo, del frame de input
+  fusionado y de la aplicación del snapshot (la interpolación no se implementó, así que
+  no hay tests de ella).
 - `docs/features/FEATURE_INDEX.md` (modify) — entrada FD-316.
 
 **Fuera de alcance (backlog)**: predicción, WAN, compresión binaria (JSON v1
@@ -107,14 +114,16 @@ alcanza en LAN).
 ## Verification
 
 1. **Tests automatizados** (`bin/jules-cli` corre la suite):
-   - `test_remote_sim.gd` cubre: encode/decode de `sim_snapshot` y `sim_config`;
-     buffer de interpolación (1 tick) sin huecos ni saltos; rol `render_slave`
-     NO instancia física ni Core V2; el gatillo solo se activa con host en tier
-     LOW (el resto de combinaciones siguen el flujo normal).
+   - `test_remote_sim.gd` cubre: encode/decode de `sim_snapshot` y `sim_input` (el
+     `sim_config` se eliminó), ordenamiento del buffer de snapshots por tick (aplicar el
+     más nuevo, **sin** interpolación), rol `render_slave` que apaga física/mutea audio y
+     aplica snapshots, el frame de input fusionado y el pipeline autoridad↔esclavo
+     in-process.
    - La suite existente (`test_remote_control.gd`, determinismo) sigue verde.
 2. **Prueba manual en LAN (host low-end-flat + control remoto)**:
-   - El control remoto simula a 60 Hz headless; el host low-end renderiza
-     interpolado. Verificar CPU del host notablemente más baja que con sim local.
+   - El control remoto simula a 60 Hz headless; el host low-end renderiza aplicando el
+     último snapshot (sin interpolación). Verificar CPU del host notablemente más baja que
+     con sim local y que no haya saltos visibles.
    - Input desde el control remoto: el personaje responde sin lag perceptible
      (el input se procesa localmente en el control remoto).
    - Verificar que con un **host capaz** el control remoto sigue funcionando
@@ -128,18 +137,41 @@ alcanza en LAN).
    primero (física, serialización de snapshots, red). El resultado es un informe,
    no solo verde/rojo.
 
-## Estado real y reparto de roles (2026-09-28, Sebastián)
+## Estado en main (2026-09-29, git log)
 
-**Qué hay en main** (`e3b6da8f`, `66bb2b6d`, `0d4d837c`, `53fc3c19`): emparejamiento y roles
-(`RemoteControlManager.update_offload_roles`), canal UDP de snapshots, interpolación en el
-render-esclavo (`RemoteSimClient`), interacción autoritativa, input del esclavo aplicado en la
-autoridad, mute del esclavo. **Falta la pieza central**: `RemoteSimHost.start_simulation()` no
-carga ningún nivel; captura lo que el control tenga abierto (`RemoteControlHome`, sin jugador). El
-mensaje `sim_hello` (`RemoteProtocol.create_sim_hello(scene_path, …)`) existe pero nadie lo manda
-ni lo consume. Por eso la promoción a render-esclavo está apagada
-(`RemoteControlManager.RENDER_SLAVE_OFFLOAD_READY = false`).
+Refresco del "Estado real" del 2026-09-28: **la pieza central ya está en main** y la
+promoción quedó encendida. Commits relevantes (`56bfb2de..fb0595fd`):
 
-**Reparto decidido:**
+- `5c19f9d1`: `RemoteSimHost.start_simulation()` carga el nivel del handheld en un
+  `Viewport` propio sin render; offload real.
+- `29aac9db` / `f699f196`: el render-esclavo congela toda la lógica del nivel
+  (`_physics_process`), no solo el Pilot.
+- `fbb01d3c`: frame de input unificado (`player.inject_input` con un `InputDataV2`),
+  rig/cámara y estado de actores en el snapshot, nivel conservado en la reconexión,
+  idioma del control.
+- `824ff024`: cámara sin atraso y HUD sin rosado en el render-esclavo.
+- `4c29cfc3`: stop blando del sim host (congela el nivel conservado y lo descarga a los
+  60 s sin re-promoción).
+- `84931bae`: robustez del canal UDP `sim_input` (seq monotónico, expiración a 200 ms,
+  latch de flancos y token).
+- `fb0595fd`: congelado de nodos que entran después del freeze, pausa del esclavo en
+  offload y robustez del rol.
+
+Estado verificable en main:
+
+- `RENDER_SLAVE_OFFLOAD_READY = true` (`RemoteControlManager.gd:59`); la validación en
+  device sigue pendiente de reporte.
+- `sim_hello` se manda al promover y lo consume `RemoteSimHost.load_sim_level()`, que
+  aplica escena, `run_seed` (antes de instanciar) y spawn/checkpoint.
+- `sim_ready` exige nivel montado **con** jugador; sin eso no hay tick ni emisión.
+- **La interpolación NO está implementada**: el esclavo encola los snapshots ordenados
+  por tick pero aplica **solo el más nuevo** y vacía el buffer (`RemoteSimClient._process`
+  / `receive_snapshot`). No hay `interp_buffer_ticks` ni `sim_config` (se eliminaron en el
+  review FD-316, ver "Fixes del review").
+- El tick es el fijo de `Engine.iterations_per_second`; `sim_fps` no se consume en ningún
+  lado (el campo de `sim_hello` queda solo por compatibilidad del mensaje).
+
+**Reparto (el decidido el 2026-09-28, ya implementado):**
 
 | | Control remoto (sim host) | Handheld low-end (render-esclavo) |
 |---|---|---|
@@ -150,20 +182,12 @@ ni lo consume. Por eso la promoción a render-esclavo está apagada
 | Input | local del control + el del handheld por UDP | se envía a la autoridad |
 | HUD / widget de contexto | lo resuelve la autoridad; el bridge lo muestra en ambos | lo pinta desde el snapshot |
 
-**Lo que hay que construir:**
-1. Handshake: al promover, el esclavo manda `sim_hello` con escena, estado de spawn (posición,
-   yaw, checkpoint, `run_seed` de SessionManager) y config de tick.
-2. El sim host carga ese nivel **sin reemplazar** la UI del control (`RemoteControlHome` sigue
-   como pantalla). Decidir con evidencia: nivel en un `Viewport` propio con
-   `render_target_update_mode = UPDATE_DISABLED` + `own_world` (y listener 3D habilitado para
-   que suene el audio), vs. cambiar `current_scene` y mantener la UI en un CanvasLayer. Tener en
-   cuenta que `SessionManager.player`, `SceneManager` y los autoloads asumen `current_scene`.
-3. El sim host arranca a emitir snapshots **recién** cuando el nivel está listo y tiene jugador
-   (`sim_ready`); el esclavo apaga física y audio **al recibir el primer snapshot válido**, no al
-   promover.
-4. Salida limpia: al desemparejar, el sim host descarga el nivel y el esclavo retoma su
-   simulación local desde el último snapshot (sin teletransporte).
-5. Recién entonces `RENDER_SLAVE_OFFLOAD_READY = true`.
+**Lo que falta** (nada del "a construir" del 2026-09-28 sigue pendiente):
+
+1. Validación en device con oráculo de replay, midiendo el desfase de 1 tick
+   input→snapshot (ver "Ensayo local por partes" más abajo).
+2. Implementar la interpolación solo si el ensayo muestra saltos visibles a <60 fps.
+3. Auth del canal UDP (riesgo abierto del review) más allá del token de sesión.
 
 ### Decisión de implementación (paso 2, 2026-09-28)
 
@@ -222,8 +246,9 @@ host y esclavo en el mismo árbol. Verifica (1) que el input del control (accion
 inyectado a la autoridad, y (2) que el esclavo reproduzca player + rig + `arm_len` +
 cámara exactamente lo que la autoridad capturó. Descubrió un bug real: el snapshot se
 aplicaba contra `SessionManager.player`, que el autoload pisa a null fuera de
-`current_scene` — ahora el rig/cámara se resuelven contra el nivel del esclavo
-(`RemoteSimClient._get_scene_player`), igual que el loop de entidades.
+`current_scene` — ahora el jugador se resuelve contra el nivel del esclavo primero
+(`RemoteSimClient._get_player`, función única tras el review FD-316), igual que el loop
+de entidades.
 
 **Ensayo con replay real** (`user://replay_1790487798.json`): el replay ya trae el
 lenguaje completo por tick:
@@ -238,6 +263,15 @@ Rehearsal A (autoridad, ya existe como base): el determinismo del Core con ese r
 (`test_determinism_v2`) valida input → estado. Falta agregar: correrlo a través del
 pipeline del sim host (`_apply_authority_input_frame`) y comparar cada snapshot contra
 `buffer[i].snapshot` (posición/yaw/pitch/arm).
+
+> **Desfase de 1 tick input→snapshot (para el oráculo).** `RemoteSimHost._physics_process`
+> primero avanza el tick, luego aplica el input encolado y recién al final captura el
+> snapshot. Es decir, el snapshot de tick N contiene el estado **después** de consumir el
+> input del tick N-1 (no el N). El oráculo del rehearsal no puede comparar índice a índice
+> `buffer[i].snapshot` contra el snapshot N del host: hay que correrlo con un corrimiento
+> de un tick o etiquetar el snapshot con el tick de input aplicado. El mapeo actual ya
+> etiqueta mal por un tick (el desfase también aparece en el rehearsal B si se sintetizan
+> snapshots desde `buffer[i].snapshot` sin corregirlo).
 
 Rehearsal B (esclavo): sintetizar snapshots desde `buffer[i].snapshot` (root + rig
 yaw/pitch + `base_spring_length_3d`) y verificar que el esclavo reproduzca rig/arm/
@@ -304,7 +338,7 @@ sonar la apertura del pod.
 > cerrado: esa intro es el único camino que abre la escotilla. Revertido; la repetición
 > del sonido la evita la carga idempotente de arriba.
 
-Tests nuevos en `core_v2/tests/test_remote_sim.gd` (20 casos, 0 fallos): jugador fuera de
+Tests en `core_v2/tests/test_remote_sim.gd` (34 casos al 2026-09-29, `fb0595fd`): jugador fuera de
 `replay_sync` presente en el snapshot; `sim_hello` repetido con la misma escena no recarga;
 `step_remote_animator` sin animator no explota; el look del cliente viaja en el frame
 inyectado; el frame fusiona ejes/botones sin tocar el `Input` global. Correr:
@@ -344,13 +378,33 @@ Tests: `test_freeze_catches_nodes_added_after_freeze`,
 `test_failed_start_render_slave_does_not_activate_role`,
 `test_sim_pause_directive_freezes_and_resumes_authority_level` (test_remote_control.gd).
 
+### Limpieza de contratos y doc (2026-09-29, Task C)
+
+Sección "Código duplicado / muerto" y "Contradicciones FD-316" del review:
+
+- `RIG_CHAIN` queda **una sola vez** en `RemoteProtocol.RIG_CHAIN`; `RemoteSimHost` y
+  `RemoteSimClient` la consumen (antes estaba duplicada y renombrar un nodo del rig rompía
+  un lado en silencio).
+- `RemoteSimClient._get_player` y `_get_scene_player` se unificaron en **una** función
+  (`_get_player`): primero el jugador del nivel (grupo `player` bajo `current_scene`),
+  `SessionManager.player` como respaldo. Todos los usos (interacción, congelado, input,
+  rig, arm) pasan por ella.
+- Código muerto borrado: `touch_x`/`touch_y` de cámara, `RemoteProtocol.create_sim_config`,
+  `interp_buffer_ticks` y `RemoteSimHost.sim_fps` (nadie los leía; grep en todo el repo,
+  tests incluidos). `_last_actor_states` se limpia también en `stop_render_slave`, no solo
+  en `start_render_slave`.
+- `test_render_slave_disables_physics` se renombró a `test_render_slave_toggles_role_flag`
+  (solo verifica el flag de rol, no física).
+- Sin cambios de comportamiento: `test_remote_sim.gd` y `test_remote_control.gd` siguen
+  verdes.
+
 ## Notas de implementación para Jules
 
-- Reusar el transporte existente de FD-294. Snapshots de sim por **UDP**
-  (tolerante a pérdida, la interpolación cubre huecos); control (pairing/config)
-  por WS.
-- El render-esclavo NO toca `core_v2/` de simulación: solo un nodo receptor que
-  interpola y aplica transforms a la escena base recibida.
+- Reusar el transporte existente de FD-294. Snapshots de sim por **UDP** (tolerante a
+  pérdida: hoy no hay interpolación, así que una pérdida se resuelve con el próximo
+  snapshot completo); control (pairing/config) por WS.
+- El render-esclavo NO toca `core_v2/` de simulación: solo un nodo receptor que aplica
+  transforms a la escena base recibida.
 - El control remoto simula headless con el mismo binario; no se recompila el
   fork ni se cambia Box3D.
 - No implementar predicción, compresión binaria ni WAN en esta FD.

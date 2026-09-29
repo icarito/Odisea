@@ -265,14 +265,6 @@ static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: Strin
 		"checkpoint": checkpoint
 	}
 
-static func create_sim_config(tick_rate: int = 60, interp_buffer_ticks: int = 1, token: String = "") -> Dictionary:
-	return {
-		"type": "sim_config",
-		"tick_rate": tick_rate,
-		"interp_buffer_ticks": interp_buffer_ticks,
-		"token": token
-	}
-
 static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictionary, globals: Dictionary = {}, token: String = "") -> Dictionary:
 	return {
 		"type": "sim_snapshot",
@@ -299,6 +291,17 @@ static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied
 		"token": token,
 		"seq": seq
 	}
+
+# FD-316: cadena del rig de camara relativa al Pilot. La usan el sim host (captura) y el
+# render-esclavo (aplicacion); una sola definicion evita que renombrar un nodo del rig
+# rompa un lado en silencio (review FD-316, "Codigo duplicado / muerto").
+const RIG_CHAIN := [
+	"CameraRig",
+	"CameraRig/Yaw",
+	"CameraRig/Yaw/Pitch",
+	"CameraRig/Yaw/Pitch/OTS_Offset",
+	"CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"
+]
 
 static func encode_transform(t: Transform) -> Dictionary:
 	return {

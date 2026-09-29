@@ -10,7 +10,6 @@ var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
 
 export var target_ip: String = ""
 export var target_port: int = 10444
-export var sim_fps: int = 60
 export var active: bool = false
 
 # FD-316: la autoridad solo emite cuando el nivel pedido por el render-esclavo
@@ -390,7 +389,7 @@ func _apply_sim_input_entry(entry: Dictionary) -> void:
 func _accumulate_client_camera(camera) -> void:
 	if not (camera is Dictionary):
 		return
-	for key in ["x", "y", "touch_x", "touch_y", "zoom"]:
+	for key in ["x", "y", "zoom"]:
 		if camera.has(key):
 			_client_camera[key] = float(_client_camera.get(key, 0.0)) + float(camera[key])
 
@@ -577,22 +576,14 @@ func capture_snapshot() -> Dictionary:
 
 	return RemoteProtocol.create_sim_snapshot(_current_tick, OS.get_ticks_msec(), entities, globals, _token)
 
-# Cadena del rig de camara relativa al Pilot: se replica entera para que el esclavo no
-# se quede con la pose de spawn (ver capture_snapshot).
-const RIG_CHAIN := [
-	"CameraRig",
-	"CameraRig/Yaw",
-	"CameraRig/Yaw/Pitch",
-	"CameraRig/Yaw/Pitch/OTS_Offset",
-	"CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"
-]
-
+# La cadena del rig la define RemoteProtocol.RIG_CHAIN: host y esclavo comparten una sola
+# (ver capture_snapshot).
 func _capture_player_rig() -> Array:
 	var out: Array = []
 	var player = _get_authority_player()
 	if player == null or not is_instance_valid(player):
 		return out
-	for path in RIG_CHAIN:
+	for path in RemoteProtocol.RIG_CHAIN:
 		var n = player.get_node_or_null(path)
 		out.append(RemoteProtocol.encode_transform(n.global_transform) if n is Spatial else null)
 	return out
@@ -601,7 +592,7 @@ func _capture_arm_length() -> float:
 	var player = _get_authority_player()
 	if player == null or not is_instance_valid(player):
 		return -1.0
-	var arm = player.get_node_or_null(RIG_CHAIN[RIG_CHAIN.size() - 1])
+	var arm = player.get_node_or_null(RemoteProtocol.RIG_CHAIN[RemoteProtocol.RIG_CHAIN.size() - 1])
 	if arm != null and "current_length" in arm:
 		return float(arm.current_length)
 	return -1.0

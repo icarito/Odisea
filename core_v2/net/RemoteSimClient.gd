@@ -9,7 +9,6 @@ var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
 
 export var is_render_slave: bool = false
-export var interp_buffer_ticks: int = 1
 
 var _udp = PacketPeerUDP.new()
 var _listening_port: int = 0
@@ -100,6 +99,9 @@ func stop_render_slave() -> void:
 	_thaw_local_simulation()
 	_set_player_interaction_authoritative(false)
 	_set_local_audio_muted(false)
+	# La cache de estados por path se descarta al salir del rol: si no, una re-promocion
+	# en otro nivel con los mismos paths no re-aplicaria el estado (review FD-316).
+	_last_actor_states.clear()
 
 # Primer snapshot valido de la autoridad: recien aca el esclavo deja de simular.
 func _engage_offload() -> void:
@@ -123,20 +125,22 @@ func _set_local_audio_muted(muted: bool) -> void:
 	if audio != null and audio.has_method("set_render_slave_audio_muted"):
 		audio.set_render_slave_audio_muted(muted)
 
+# FD-316: una sola resolucion del jugador para todo el cliente (interaccion, congelado,
+# input, rig y arm). El jugador del nivel (grupo "player" bajo current_scene) manda:
+# SessionManager pisa player=null cuando el jugador no esta bajo current_scene, asi que el
+# autoload es solo respaldo (ensayo local sin escena, tests). Antes habia dos funciones
+# que resolvian distinto y podian congelar uno y animar otro (review FD-316).
 func _get_player() -> Node:
-	var session = get_node_or_null("/root/SessionManager")
-	if session != null and "player" in session:
-		var p = session.player
-		if p != null and is_instance_valid(p):
-			return p
-	# FD-316: fallback al jugador del nivel del esclavo. SessionManager pisa player=null
-	# cuando el jugador no esta bajo current_scene; el rig/camara del snapshot tienen que
-	# aplicarse igual (ensayo local incluido).
 	var tree = get_tree()
 	if tree != null and tree.current_scene != null:
 		for p in tree.get_nodes_in_group("player"):
 			if is_instance_valid(p) and tree.current_scene.is_a_parent_of(p):
 				return p
+	var session = get_node_or_null("/root/SessionManager")
+	if session != null and "player" in session:
+		var p = session.player
+		if p != null and is_instance_valid(p):
+			return p
 	return null
 
 func _set_player_interaction_authoritative(on: bool) -> void:
@@ -270,7 +274,7 @@ func _send_local_input() -> void:
 func _build_local_input() -> Dictionary:
 	var axes := {"move_x": 0.0, "move_y": 0.0, "analog": false}
 	var buttons := {"jump": false, "interact": false, "sprint": false, "crouch": false}
-	var camera := {"x": 0.0, "y": 0.0, "touch_x": 0.0, "touch_y": 0.0, "zoom": 0.0}
+	var camera := {"x": 0.0, "y": 0.0, "zoom": 0.0}
 	var tree = get_tree()
 	var paused: bool = tree != null and tree.paused
 	if paused:
@@ -428,37 +432,29 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 
 	emit_signal("snapshot_applied", int(snapshot.get("tick", 0)))
 
-# Misma cadena que RemoteSimHost.RIG_CHAIN: el rig del Pilot se replica entero para que
-# el esclavo no se quede con la pose de spawn.
-const RIG_CHAIN := [
-	"CameraRig",
-	"CameraRig/Yaw",
-	"CameraRig/Yaw/Pitch",
-	"CameraRig/Yaw/Pitch/OTS_Offset",
-	"CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"
-]
-
+# La cadena del rig la define RemoteProtocol.RIG_CHAIN (host y esclavo comparten una sola):
+# el rig del Pilot se replica entero para que el esclavo no se quede con la pose de spawn.
 func _apply_player_rig(rig) -> void:
 	if not (rig is Array):
 		return
-	var player = _get_scene_player()
+	var player = _get_player()
 	if player == null or not is_instance_valid(player):
 		return
-	var count: int = int(min(rig.size(), RIG_CHAIN.size()))
+	var count: int = int(min(rig.size(), RemoteProtocol.RIG_CHAIN.size()))
 	for i in range(count):
 		if rig[i] == null:
 			continue
-		var node = player.get_node_or_null(RIG_CHAIN[i])
+		var node = player.get_node_or_null(RemoteProtocol.RIG_CHAIN[i])
 		if node != null and node is Spatial:
 			node.global_transform = RemoteProtocol.decode_transform(rig[i])
 
 func _apply_arm_length(length: float) -> void:
 	if length < 0.0:
 		return
-	var player = _get_scene_player()
+	var player = _get_player()
 	if player == null or not is_instance_valid(player):
 		return
-	var arm = player.get_node_or_null(RIG_CHAIN[RIG_CHAIN.size() - 1])
+	var arm = player.get_node_or_null(RemoteProtocol.RIG_CHAIN[RemoteProtocol.RIG_CHAIN.size() - 1])
 	if arm != null and "current_length" in arm:
 		arm.current_length = length
 
@@ -501,16 +497,3 @@ func _states_equal(a, b) -> bool:
 	if a is float and b is float:
 		return is_equal_approx(a, b)
 	return a == b
-
-# El jugador del nivel del ESCLAVO: el mismo criterio que usa el loop de entidades
-# (paths relativos a current_scene). SessionManager.player puede apuntar a otra cosa
-# (pisa player=null fuera de current_scene), asi que el rig/camara del snapshot se
-# resuelven contra el nivel, no contra el autoload.
-func _get_scene_player() -> Node:
-	var tree = get_tree()
-	if tree == null or tree.current_scene == null:
-		return null
-	for p in tree.get_nodes_in_group("player"):
-		if is_instance_valid(p) and tree.current_scene.is_a_parent_of(p):
-			return p
-	return null
