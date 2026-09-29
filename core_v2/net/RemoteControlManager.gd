@@ -257,7 +257,28 @@ func _build_sim_hello() -> Dictionary:
 			if snapshot.has("yaw"):
 				spawn["yaw"] = float(snapshot["yaw"])
 	var token: String = server._active_token if server != null else ""
-	return RemoteProtocol.create_sim_hello(scene_path, 60, token, spawn, run_seed, checkpoint)
+	return RemoteProtocol.create_sim_hello(scene_path, 60, token, spawn, run_seed, checkpoint,
+		_capture_level_states(scene))
+
+# FD-316: estado persistente del nivel que el sim host tiene que adoptar para no
+# recargarlo desde cero: los actores replay_sync con get_snapshot (p. ej. RingHubWakeup,
+# la escotilla del criopod, el OYSTrigger de despertar). Sin esto la autoridad instancia
+# el nivel, su _ready corre la intro de nuevo y la escotilla se abre/suena otra vez.
+# La clave es el path relativo a la escena; la raiz del nivel queda como "." para que
+# viaje tambien el estado del propio RingHubWakeup (secuencia de despertar ya liberada).
+func _capture_level_states(scene: Node) -> Dictionary:
+	var states: Dictionary = {}
+	if scene == null or not is_inside_tree():
+		return states
+	for node in get_tree().get_nodes_in_group("replay_sync"):
+		if not is_instance_valid(node):
+			continue
+		if node != scene and not scene.is_a_parent_of(node):
+			continue
+		if not node.has_method("get_snapshot"):
+			continue
+		states[String(scene.get_path_to(node))] = node.call("get_snapshot")
+	return states
 
 func _stop_render_slave_role() -> void:
 	is_render_slave_active = false

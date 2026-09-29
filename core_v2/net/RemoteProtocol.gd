@@ -251,10 +251,13 @@ static func create_pong() -> Dictionary:
 
 # FD-316: sim_hello lleva TODO lo que la autoridad necesita para levantar el mismo
 # nivel que tiene abierto el render-esclavo: escena, tick, token, la semilla de la
-# corrida (determinismo: nunca se sortea en el sim host) y el estado del jugador
+# corrida (determinismo: nunca se sortea en el sim host), el estado del jugador
 # (spawn directo + snapshot completo del controlador, el mismo que viaja entre
-# escenas via SessionManager.capture_scene_transition_state).
-static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: String = "", spawn: Dictionary = {}, run_seed: int = 0, checkpoint: Dictionary = {}) -> Dictionary:
+# escenas via SessionManager.capture_scene_transition_state) y el estado persistente
+# de los actores del nivel (`states`: path relativo -> get_snapshot). Sin `states` la
+# autoridad arranca el nivel desde cero y su _ready vuelve a correr la intro (la
+# escotilla del criopod se abria y sonaba de nuevo en el offload).
+static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: String = "", spawn: Dictionary = {}, run_seed: int = 0, checkpoint: Dictionary = {}, states: Dictionary = {}) -> Dictionary:
 	return {
 		"type": "sim_hello",
 		"scene": scene_path,
@@ -262,7 +265,8 @@ static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: Strin
 		"token": token,
 		"spawn": spawn,
 		"run_seed": run_seed,
-		"checkpoint": checkpoint
+		"checkpoint": checkpoint,
+		"states": states
 	}
 
 static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictionary, globals: Dictionary = {}, token: String = "", ack_seq: int = 0) -> Dictionary:
@@ -278,6 +282,28 @@ static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictio
 		"globals": globals,
 		"token": token
 	}
+
+# FD-316: comparacion profunda de estados replicados (dicts/arrays/escalares). La usan
+# el sim host al adoptar el estado del sim_hello y el render-esclavo para no re-aplicar
+# un estado que el actor ya tiene (y no re-disparar sus efectos one-shot).
+static func states_equal(a, b) -> bool:
+	if a is Dictionary and b is Dictionary:
+		if a.size() != b.size():
+			return false
+		for k in a:
+			if not b.has(k) or not states_equal(a[k], b[k]):
+				return false
+		return true
+	if a is Array and b is Array:
+		if a.size() != b.size():
+			return false
+		for i in range(a.size()):
+			if not states_equal(a[i], b[i]):
+				return false
+		return true
+	if a is float and b is float:
+		return is_equal_approx(a, b)
+	return a == b
 
 static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied_tick: int, token: String = "", camera: Dictionary = {}, seq: int = 0) -> Dictionary:
 	# FD-316: la camara (mouse/right stick) es lo unico del input que NO es una accion

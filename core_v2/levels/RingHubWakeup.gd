@@ -168,6 +168,11 @@ func _gate_wakeup_sequence() -> void:
 	zone.script_file = ""
 
 func _open_pod_terminal() -> void:
+	# Sim host de FD-316: si el estado restaurado del esclavo ya libero la secuencia de
+	# despertar (_gated_oys_script vacio), no hay nada que abrir. Reabrir la holoterminal
+	# re-dispararia la intro de despertar y con ella la apertura/sonido de la escotilla.
+	if _gated_oys_script.empty():
+		return
 	var suit_os = get_node_or_null("/root/SuitOS")
 	if suit_os != null and not suit_os.has_screen(pod_screen_id):
 		yield(get_tree(), "idle_frame")

@@ -127,6 +127,32 @@ func test_initial_screen_close_releases_wakeup_once_without_open_button() -> voi
 	assert_str(String(zone.script_file)).is_empty()
 
 
+# FD-316: el sim host restaura el estado persistente del esclavo (ya despierto) antes de que
+# corra la intro diferida del _ready. Con la secuencia liberada, la holoterminal no se reabre
+# y la escotilla no vuelve a abrirse/sonar por el offload.
+func test_restored_already_woken_state_does_not_reopen_pod() -> void:
+	var level = auto_free(RingHubScene.instance())
+	level.open_pod_terminal_on_start = false
+	add_child(level)
+	yield(get_tree(), "idle_frame")
+
+	var hatch = level.get_node("Criopod_Vert/RotatingObjectV2")
+	# Simula el _ready del host: secuencia gated antes de la intro diferida.
+	level._gate_wakeup_sequence()
+	assert_bool(String(level._gated_oys_script) != "").is_true()
+
+	# Estado del esclavo ya despertado: slot ya aplicado y secuencia liberada.
+	level.restore_snapshot({"selected_slot": level._selected_slot, "gated_oys_script": ""})
+	assert_str(String(level._gated_oys_script)).is_empty()
+	assert_bool(hatch.is_active).is_false()
+
+	# La intro diferida ya no tiene nada que abrir.
+	level._open_pod_terminal()
+	yield(get_tree(), "idle_frame")
+	assert_str(String(level._gated_oys_script)).is_empty()
+	assert_bool(hatch.is_active).is_false()
+
+
 func test_wakeup_keeps_pilot_collision_mask() -> void:
 	var level = auto_free(RingHubScene.instance())
 	level.open_pod_terminal_on_start = false

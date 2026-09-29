@@ -242,6 +242,7 @@ func _reuse_sim_level_if_same(scene_path: String, hello: Dictionary = {}) -> boo
 	# por si el reuso llega sin un start_simulation previo.
 	_clear_soft_stop()
 	print("[RemoteSimHost] mismo nivel ya montado: se conserva (sin recargar)")
+	_apply_hello_actor_states(hello)
 	_apply_spawn_state(hello)
 	return true
 
@@ -265,6 +266,9 @@ func _attach_sim_level(level_root: Node, hello: Dictionary = {}) -> bool:
 	# mismo nivel y no lo recarga (ver _reuse_sim_level_if_same).
 	_sim_scene_path = String(hello.get("scene", level_root.filename))
 	_sim_player = _ensure_sim_player()
+	# FD-316: adoptar el estado persistente del nivel del esclavo ANTES de habilitar la
+	# simulacion y antes de que corra la intro diferida del _ready (ver _apply_hello_actor_states).
+	_apply_hello_actor_states(hello)
 	_apply_spawn_state(hello)
 	# FD-316 paso 3: sim_ready = nivel listo Y con jugador. Sin jugador no hay nada
 	# que simular: no se emite y el esclavo nunca deja su simulacion local.
@@ -323,6 +327,27 @@ func _apply_spawn_state(hello: Dictionary) -> void:
 			_sim_player.call("teleport_to", t)
 		elif _sim_player is Spatial:
 			(_sim_player as Spatial).global_transform = t
+
+# FD-316: el sim host arranca el nivel desde cero: su _ready corre la intro de despertar
+# (la escotilla del criopod se abre y suena). El esclavo puede haberla visto hace rato, asi
+# que el estado persistente que viaja en el sim_hello (`states`: path -> get_snapshot) se
+# aplica ANTES de sim_ready. Aplicarlo neutraliza la intro en el host (p. ej. RingHubWakeup
+# queda con la secuencia ya liberada) y evita la apertura/sonido repetidos. El restore se
+# salta si el actor ya esta en ese estado, para no re-disparar efectos one-shot.
+func _apply_hello_actor_states(hello: Dictionary) -> void:
+	var states = hello.get("states", {})
+	if not (states is Dictionary) or states.empty():
+		return
+	if _sim_level == null or not is_instance_valid(_sim_level):
+		return
+	for path_str in states:
+		var node = _sim_level.get_node_or_null(NodePath(String(path_str)))
+		if node == null or not is_instance_valid(node) or not node.has_method("restore_snapshot"):
+			continue
+		var incoming = states[path_str]
+		if node.has_method("get_snapshot") and RemoteProtocol.states_equal(node.call("get_snapshot"), incoming):
+			continue
+		node.call("restore_snapshot", incoming)
 
 func _unload_sim_level() -> void:
 	_clear_soft_stop()

@@ -681,33 +681,21 @@ func _apply_actor_states(states: Dictionary) -> void:
 	for path_str in states:
 		var incoming = states[path_str]
 		var cached = _last_actor_states.get(path_str, null)
-		if cached != null and _states_equal(cached, incoming):
+		if cached != null and RemoteProtocol.states_equal(cached, incoming):
 			continue
 		var node = scene.get_node_or_null(NodePath(path_str))
 		if node == null:
 			node = get_node_or_null(NodePath(path_str))
-		if node != null and is_instance_valid(node) and node.has_method("restore_snapshot"):
-			node.call("restore_snapshot", incoming)
+		if node == null or not is_instance_valid(node) or not node.has_method("restore_snapshot"):
+			continue
+		# Replicacion: si el actor ya esta en ese estado, no se le vuelve a llamar el
+		# restore. Re-aplicarlo re-dispararia efectos one-shot (la apertura/sonido de la
+		# escotilla del criopod al reconectar, por ejemplo).
+		if node.has_method("get_snapshot") and RemoteProtocol.states_equal(node.call("get_snapshot"), incoming):
 			_last_actor_states[path_str] = incoming
-
-func _states_equal(a, b) -> bool:
-	if a is Dictionary and b is Dictionary:
-		if a.size() != b.size():
-			return false
-		for k in a:
-			if not b.has(k) or not _states_equal(a[k], b[k]):
-				return false
-		return true
-	if a is Array and b is Array:
-		if a.size() != b.size():
-			return false
-		for i in range(a.size()):
-			if not _states_equal(a[i], b[i]):
-				return false
-		return true
-	if a is float and b is float:
-		return is_equal_approx(a, b)
-	return a == b
+			continue
+		node.call("restore_snapshot", incoming)
+		_last_actor_states[path_str] = incoming
 
 # --- FD-316 (tarea E): instrumentacion de lag y carga del render-esclavo ---
 

@@ -910,6 +910,161 @@ func test_render_slave_applies_non_spatial_actor_state():
 		get_tree().current_scene = previous_scene
 
 
+# FD-316: el sim_hello lleva el estado persistente del nivel (actores con get_snapshot) ademas
+# del jugador. Sin esto la autoridad carga el nivel desde cero y su _ready vuelve a correr la
+# intro de despertar: la escotilla del criopod se abria y sonaba de nuevo al iniciar el offload.
+func test_sim_hello_carries_level_states():
+	var hello = RemoteProtocolScript.create_sim_hello(
+		"res://core_v2/levels/RingHub_Level.tscn", 60, "tok", {}, 7, {}, {
+			".": {"selected_slot": 3, "gated_oys_script": ""},
+			"Criopod_Vert/RotatingObjectV2": {"active": false, "progress": 0.0, "target": 0.0}
+		})
+	var wire = RemoteProtocolScript.decode_json(RemoteProtocolScript.encode_json(hello))
+	assert_bool(wire["states"].has(".")).is_true()
+	assert_int(int(wire["states"]["."]["selected_slot"])).is_equal(3)
+	assert_str(String(wire["states"]["."]["gated_oys_script"])).is_empty()
+	assert_bool(bool(wire["states"]["Criopod_Vert/RotatingObjectV2"]["active"])).is_false()
+
+
+# FD-316: la autoridad adopta el estado del nivel ANTES de habilitar la emision (sim_ready).
+# Asi el estado restaurado (secuencia de despertar ya liberada, escotilla cerrada) neutraliza
+# la intro que correria el _ready del nivel recien instanciado.
+func test_sim_host_applies_hello_actor_states_before_sim_ready():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = _make_sim_level()
+	var actor = auto_free(FakeSwitchActor.new())
+	actor.name = "PodHatch"
+	actor.add_to_group("replay_sync")
+	level.add_child(actor)
+	actor.owner = level
+	actor.state = {"switch_active": false}
+
+	assert_bool(host._attach_sim_level(level, {"scene": "res://x.tscn",
+		"states": {"PodHatch": {"switch_active": true}}})).is_true()
+	assert_bool(host.sim_ready).is_true()
+	assert_int(actor.applied.size()).is_equal(1)
+	assert_bool(bool(actor.state["switch_active"])).is_true()
+
+	host.stop_simulation()
+
+
+# FD-316: una re-promocion del MISMO nivel tambien re-sincroniza el estado persistente (el
+# esclavo pudo avanzar mientras estaba desconectado), no solo la pose del jugador.
+func test_sim_host_reuse_reapplies_hello_states():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = _make_sim_level()
+	var actor = auto_free(FakeSwitchActor.new())
+	actor.name = "PodHatch"
+	actor.add_to_group("replay_sync")
+	level.add_child(actor)
+	actor.owner = level
+	actor.state = {"switch_active": false}
+
+	assert_bool(host._attach_sim_level(level, {"scene": "res://x.tscn",
+		"states": {"PodHatch": {"switch_active": true}}})).is_true()
+	assert_int(actor.applied.size()).is_equal(1)
+
+	assert_bool(host._reuse_sim_level_if_same("res://x.tscn",
+		{"states": {"PodHatch": {"switch_active": false}}})).is_true()
+	assert_int(actor.applied.size()).is_equal(2)
+	assert_bool(bool(actor.state["switch_active"])).is_false()
+
+	host.stop_simulation()
+
+
+# FD-316: la raiz del nivel tambien puede tener estado persistente (RingHubWakeup lo replica
+# como "." y ahi vive la secuencia de despertar ya liberada). El host lo aplica igual.
+func test_sim_host_applies_hello_root_state():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = FakeLogicActor.new()
+	level.name = "SimLevelRoot"
+	level.state = {"lit": false}
+	var fake = FakePlayer.new()
+	fake.name = "Player"
+	fake.add_to_group("player")
+	level.add_child(fake)
+
+	assert_bool(host._attach_sim_level(level, {"scene": "res://x.tscn",
+		"states": {".": {"lit": true}}})).is_true()
+	assert_int(level.applied.size()).is_equal(1)
+	assert_bool(bool(level.state["lit"])).is_true()
+
+	host.stop_simulation()
+
+
+# FD-316: por replicacion, un restore con el estado que el actor YA tiene no debe re-disparar
+# efectos one-shot (la apertura/sonido de la escotilla del criopod al reconectar el control).
+func test_render_slave_skips_restore_when_actor_already_in_state():
+	var level_b := Spatial.new()
+	level_b.name = "SimLevelB"
+	var actor = auto_free(FakeSwitchActor.new())
+	actor.name = "PodHatch"
+	actor.state = {"switch_active": true}
+	level_b.add_child(actor)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level_b)
+	get_tree().current_scene = level_b
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	# El actor ya esta en ese estado: no se le llama el restore.
+	client._apply_snapshot({"tick": 1, "entities": {}, "globals": {"states": {
+		"PodHatch": {"switch_active": true}}}})
+	assert_int(actor.applied.size()).is_equal(0)
+
+	# Estado distinto: si se aplica (y el cache queda al dia para los siguientes ticks).
+	client._apply_snapshot({"tick": 2, "entities": {}, "globals": {"states": {
+		"PodHatch": {"switch_active": false}}}})
+	assert_int(actor.applied.size()).is_equal(1)
+	assert_bool(bool(actor.state["switch_active"])).is_false()
+
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+
+
+# FD-316: el esclavo arma el `states` del sim_hello desde los actores replay_sync del nivel,
+# con el path relativo a la escena (la raiz queda como "." para que viaje el estado del
+# propio nivel, como la secuencia de despertar de RingHubWakeup).
+func test_build_sim_hello_collects_level_actor_states():
+	var rcm = get_node("/root/RemoteControlManager")
+	# La raiz del nivel es un actor replay_sync con get_snapshot (como RingHubWakeup):
+	# su estado viaja con la clave "." (path relativo a si misma).
+	var level = FakeLogicActor.new()
+	level.name = "SimLevelCollect"
+	level.state = {"lit": true}
+	level.add_to_group("replay_sync")
+	var actor = FakeSwitchActor.new()
+	actor.name = "PodHatch"
+	actor.state = {"switch_active": true}
+	actor.add_to_group("replay_sync")
+	level.add_child(actor)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+
+	var states: Dictionary = rcm._capture_level_states(level)
+	assert_bool(states.has(".")).is_true()
+	assert_bool(bool(states["."]["lit"])).is_true()
+	assert_bool(states.has("PodHatch")).is_true()
+	assert_bool(bool(states["PodHatch"]["switch_active"])).is_true()
+
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+	get_tree().root.remove_child(level)
+	level.free()
+
+
 # FD-316: la linterna del casco viaja con el jugador (encendido/bateria). El sintoma en
 # device era que el esclavo conservaba SU estado local y quedaba prendida/ajena a la
 # autoridad.
