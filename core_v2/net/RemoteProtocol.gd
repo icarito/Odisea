@@ -307,6 +307,11 @@ const RIG_CHAIN := [
 	"CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"
 ]
 
+# FD-316: linterna del casco, hija directa del Pilot. No esta en replay_sync: su estado
+# logico (on/off/bateria) viaja con el jugador y el render-esclavo le da la orientacion
+# desde la camara replicada (ver HelmetFlashlight._process).
+const FLASHLIGHT_PATH := "HelmetFlashlight"
+
 static func encode_transform(t: Transform) -> Dictionary:
 	return {
 		"p": [t.origin.x, t.origin.y, t.origin.z],

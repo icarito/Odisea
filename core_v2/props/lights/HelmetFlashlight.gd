@@ -95,6 +95,9 @@ var _bob_phase: float = 0.0
 var _mount_pending_visible := false
 var _mount_attempts := 0
 const MOUNT_MAX_ATTEMPTS := 30
+# FD-316: recuerda si el frame anterior corria como render-esclavo, para re-prender el
+# apuntado de fisica recien al salir del rol (ver _process).
+var _was_remote_render_slave := false
 # Precalentamiento del shader (ver _start_flashlight_preheat): un Timer y el quad
 # temporal colgado de la camara.
 const FLASHLIGHT_PREHEAT_SECONDS := 0.3
@@ -226,7 +229,24 @@ func _process(delta: float) -> void:
 		if _material:
 			_material.set_shader_param("mask_scroll", _scroll_offset)
 
-	if enabled and battery > 0.0:
+	# FD-316: en el render-esclavo SimLogicFreeze congela el _physics_process (no simula),
+	# asi que la orientacion del haz se actualiza aca con la camara replicada. El
+	# encendido/bateria los manda la autoridad en el snapshot (ver apply_remote_state).
+	if _is_remote_render_slave():
+		_was_remote_render_slave = true
+		_step_mount(delta)
+		return
+
+	# Salida del rol de render-esclavo: la linterna pudo quedar encendida por la autoridad
+	# con su _physics_process apagado (SimLogicFreeze no lo restaura porque no estaba
+	# corriendo al congelar). Recien al volver a autoridad local se re-prende, para no
+	# pelearle el frame a un congelado del propio host (stop blando de la autoridad).
+	if _was_remote_render_slave:
+		_was_remote_render_slave = false
+		if not is_physics_processing():
+			set_physics_process(true)
+
+	if battery > 0.0:
 		var prev_battery := battery
 		battery = max(0.0, battery - battery_drain_per_second * delta)
 		if battery <= 0.0:
@@ -241,9 +261,16 @@ func _process(delta: float) -> void:
 
 # En _physics_process, no en _process: la camara y el esqueleto se actualizan en el paso
 # de fisica, y con dt fijo el suavizado da el mismo resultado a cualquier frame rate.
+# En el render-esclavo el mismo paso corre desde _process (ver _process / _step_mount).
 func _physics_process(delta: float) -> void:
 	if not enabled:
 		return
+	_step_mount(delta)
+
+
+# Montaje + apuntado del haz. Lo llaman _physics_process (autoridad local) y _process
+# (render-esclavo, donde la fisica esta congelada). Idempotente por frame.
+func _step_mount(delta: float) -> void:
 	if _mount_pending_visible:
 		_mount_attempts += 1
 		if _update_mount(delta) or not _can_mount() or _mount_attempts >= MOUNT_MAX_ATTEMPTS:
@@ -251,6 +278,27 @@ func _physics_process(delta: float) -> void:
 			_apply_light_visibility()
 		return
 	_update_mount(delta)
+
+
+# FD-316: true cuando el Pilot padre esta en rol de render-esclavo (no simula; la fisica
+# la apaga SimLogicFreeze). La linterna misma no esta en replay_sync: su orientacion sale
+# de la camara replicada y su encendido/bateria del snapshot de la autoridad.
+func _is_remote_render_slave() -> bool:
+	var owner_node := get_parent()
+	return owner_node != null and owner_node.has_method("is_remote_render_slave") \
+			and bool(owner_node.call("is_remote_render_slave"))
+
+
+# FD-316: estado logico de la linterna en el render-esclavo. Lo aplica RemoteSimClient
+# con lo que mando la autoridad en el snapshot. No re-inicializa el apuntado si el
+# encendido no cambio: set_enabled resetea los resortes y el haz saltaria cada snapshot.
+func apply_remote_state(p_enabled: bool, p_battery: float) -> void:
+	var clamped_battery: float = clamp(p_battery, 0.0, battery_max)
+	if not is_equal_approx(battery, clamped_battery):
+		battery = clamped_battery
+		_last_emitted_battery = battery
+	if enabled != p_enabled:
+		set_enabled(p_enabled)
 
 
 func _update_mount(delta: float) -> bool:
@@ -441,7 +489,11 @@ func set_enabled(val: bool) -> void:
 		_mount_pending_visible = true
 		_hide_light_visibility()
 	set_process(true)
-	set_physics_process(true)
+	# FD-316: en el render-esclavo el apuntado lo mueve _process con la camara replicada;
+	# re-prender _physics_process descongelaria la logica que SimLogicFreeze apago y
+	# volveria a simular localmente encima de los snapshots.
+	if not _is_remote_render_slave():
+		set_physics_process(true)
 
 func _can_mount() -> bool:
 	return _skeleton != null and _mount_bone_idx >= 0

@@ -446,6 +446,13 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 					if w_arr is Array and w_arr.size() >= 3:
 						wish = Vector3(w_arr[0], w_arr[1], w_arr[2])
 					node.call("set_remote_anim_state", Vector3(v_arr[0], v_arr[1], v_arr[2]), bool(state.get("g", false)), wish)
+			# FD-316: el encendido/bateria de la linterna del casco son de la autoridad
+			# (su orientacion la sigue el propio nodo desde la camara replicada).
+			if state.has("flash"):
+				var flash = node.get_node_or_null(RemoteProtocol.FLASHLIGHT_PATH)
+				if flash != null and is_instance_valid(flash) and flash.has_method("apply_remote_state"):
+					var f: Dictionary = state["flash"]
+					flash.call("apply_remote_state", bool(f.get("on", false)), float(f.get("battery", 0.0)))
 
 	var globals: Dictionary = snapshot.get("globals", {})
 	# FD-316: interaccion resuelta por la autoridad (prompt + path del interactuable).

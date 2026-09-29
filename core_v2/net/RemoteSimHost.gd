@@ -566,6 +566,15 @@ func capture_snapshot() -> Dictionary:
 					var wish = node.call("get_wish_direction")
 					if wish is Vector3:
 						state["wish"] = [wish.x, wish.y, wish.z]
+				# FD-316: la linterna del casco no esta en replay_sync: su estado logico
+				# (encendido/bateria) viaja con el jugador. La orientacion del haz la saca
+				# el esclavo de la camara replicada (ver HelmetFlashlight._process).
+				var flashlight = node.get_node_or_null(RemoteProtocol.FLASHLIGHT_PATH)
+				if flashlight != null and "enabled" in flashlight:
+					state["flash"] = {
+						"on": bool(flashlight.enabled),
+						"battery": float(flashlight.battery)
+					}
 			else:
 				# FD-316: estado RICO del actor (get_snapshot), no solo el transform: los
 				# interactuables (p.ej. LightGroup del pedestal) se replican por su estado

@@ -304,6 +304,31 @@ class FakeSwitchActor extends Spatial:
 		state = d.duplicate()
 
 
+# FD-316: la linterna del casco no esta en replay_sync; su encendido/bateria viajan en el
+# estado del jugador (ver RemoteSimHost.capture_snapshot / RemoteSimClient._apply_snapshot).
+class FakeFlashlight extends Spatial:
+	var enabled := true
+	var battery := 42.0
+
+
+class FakeFlashPlayer extends Spatial:
+	var velocity := Vector3(0, 0, 3)
+	func is_effectively_grounded() -> bool:
+		return true
+
+
+class FakeRemoteFlashlight extends Spatial:
+	var applied: Array = []
+	func apply_remote_state(on: bool, battery: float) -> void:
+		applied.append({"on": on, "battery": battery})
+
+
+class FakeRemoteFlashPlayer extends Spatial:
+	var last_wish := Vector3.ZERO
+	func set_remote_anim_state(_v: Vector3, _g: bool, w: Vector3 = Vector3.ZERO) -> void:
+		last_wish = w
+
+
 class FakeProvider extends Reference:
 	var hardware_look_sensitivity := 1.0
 	# Lee el Input real igual que InputProviderV2: asi el ensayo ejercita el merge del
@@ -657,6 +682,149 @@ func test_render_slave_applies_remote_wish_and_actor_state_on_change():
 
 	if previous_scene != null:
 		get_tree().current_scene = previous_scene
+
+
+# FD-316: la linterna del casco viaja con el jugador (encendido/bateria). El sintoma en
+# device era que el esclavo conservaba SU estado local y quedaba prendida/ajena a la
+# autoridad.
+func test_sim_snapshot_carries_flashlight_state():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var level := Spatial.new()
+	level.name = "SimLevel"
+	var player = auto_free(FakeFlashPlayer.new())
+	player.name = "Pilot"
+	player.add_to_group("player")
+	var flashlight = auto_free(FakeFlashlight.new())
+	flashlight.name = RemoteProtocolScript.FLASHLIGHT_PATH
+	flashlight.enabled = true
+	flashlight.battery = 42.0
+	player.add_child(flashlight)
+	level.add_child(player)
+
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	var snap = host.capture_snapshot()
+
+	var state: Dictionary = snap["entities"]["Pilot"]
+	assert_bool(state.has("flash")).is_true()
+	assert_bool(bool(state["flash"]["on"])).is_true()
+	assert_float(float(state["flash"]["battery"])).is_equal_approx(42.0, 0.001)
+
+	host.stop_simulation()
+
+
+# FD-316: el esclavo aplica el encendido/bateria de la autoridad a su propia linterna.
+func test_render_slave_applies_remote_flashlight_state():
+	var level_b := Spatial.new()
+	level_b.name = "SimLevelB"
+	var player_b = auto_free(FakeRemoteFlashPlayer.new())
+	player_b.name = "Pilot"
+	player_b.add_to_group("player")
+	var flashlight_b = auto_free(FakeRemoteFlashlight.new())
+	flashlight_b.name = RemoteProtocolScript.FLASHLIGHT_PATH
+	player_b.add_child(flashlight_b)
+	level_b.add_child(player_b)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level_b)
+	get_tree().current_scene = level_b
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	client._apply_snapshot({"tick": 1, "entities": {
+		"Pilot": {"vel": [0, 0, 3], "g": true, "flash": {"on": true, "battery": 33.0}}
+	}})
+
+	assert_int(flashlight_b.applied.size()).is_equal(1)
+	assert_bool(bool(flashlight_b.applied[0]["on"])).is_true()
+	assert_float(float(flashlight_b.applied[0]["battery"])).is_equal_approx(33.0, 0.001)
+
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+
+
+# FD-316: en el render-esclavo la fisica esta congelada (SimLogicFreeze apaga el
+# _physics_process de la linterna), asi que su orientacion tiene que salir de _process,
+# que no se congela, siguiendo la camara replicada. Antes quedaba clavada en la pose de
+# spawn (apagar/prender la arreglaba porque set_enabled re-montaba una vez).
+class FakeRemoteSlavePlayer extends Spatial:
+	var velocity := Vector3.ZERO
+	func is_effectively_grounded() -> bool:
+		return true
+	func is_remote_render_slave() -> bool:
+		return true
+
+
+func _make_mountable_owner(with_pivot: bool) -> FakeRemoteSlavePlayer:
+	var owner_node = auto_free(FakeRemoteSlavePlayer.new())
+	owner_node.name = "Pilot"
+	add_child(owner_node)
+	if with_pivot:
+		var visual := Spatial.new()
+		visual.name = "Visual"
+		var pivot := Spatial.new()
+		pivot.name = "Pivot"
+		var skel_root := Spatial.new()
+		skel_root.name = "Skeleton"
+		var mesh := Spatial.new()
+		mesh.name = "Skinned_Mesh_0"
+		var skeleton := Skeleton.new()
+		skeleton.name = "Skeleton"
+		skeleton.add_bone("DEF-upper_armR")
+		owner_node.add_child(visual)
+		visual.add_child(pivot)
+		pivot.add_child(skel_root)
+		skel_root.add_child(mesh)
+		mesh.add_child(skeleton)
+	return owner_node
+
+
+func test_helmet_flashlight_remote_hook_marks_orientation_path():
+	# Contrato liviano: con el padre en rol de render-esclavo, la linterna lo detecta y no
+	# depende de _physics_process para apuntar (que SimLogicFreeze apaga).
+	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
+	var flashlight = auto_free(packed.instance())
+	var owner_node = _make_mountable_owner(false)
+	owner_node.add_child(flashlight)
+	yield(get_tree(), "idle_frame")
+
+	flashlight.apply_remote_state(true, 50.0)
+	assert_bool(flashlight.enabled).is_true()
+	assert_float(flashlight.get_battery()).is_equal_approx(50.0, 0.001)
+	# No re-prende la logica congelada del render-esclavo.
+	assert_bool(flashlight.is_physics_processing()).is_false()
+	assert_bool(flashlight.is_processing()).is_true()
+	assert_bool(flashlight._is_remote_render_slave()).is_true()
+
+
+func test_helmet_flashlight_remote_aim_follows_camera_in_process():
+	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
+	var flashlight = auto_free(packed.instance())
+	var owner_node = _make_mountable_owner(true)
+	owner_node.add_child(flashlight)
+	yield(get_tree(), "idle_frame")
+
+	var cam = auto_free(Camera.new())
+	cam.name = "TestRemoteCam"
+	add_child(cam)
+	cam.current = true
+
+	flashlight.apply_remote_state(true, 50.0)
+	# La fisica esta congelada: el apuntado solo puede avanzar por _process.
+	flashlight.set_physics_process(false)
+	var before: Vector3 = flashlight.get_aim_direction()
+
+	# La autoridad mira hacia +X (la linterna tiene que virar hacia alla, con el tope de 75).
+	cam.global_transform = Transform(Basis(Vector3.UP, -PI * 0.5), Vector3.ZERO)
+	for _i in range(120):
+		flashlight._process(1.0 / 60.0)
+	var after: Vector3 = flashlight.get_aim_direction()
+
+	assert_bool(flashlight.is_physics_processing()).is_false()
+	# Convergio hacia +X siguiendo la camara replicada, no quedo en el frente.
+	assert_float(after.x).is_greater(0.1)
+	assert_float(after.x).is_greater(before.x + 0.05)
 
 
 func test_repeated_sim_hello_same_scene_reuses_level():
