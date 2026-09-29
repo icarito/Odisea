@@ -302,6 +302,30 @@ func test_sim_host_snapshot_rate_is_configurable():
 	host.stop_simulation()
 
 
+# FD-316 (tarea G): con adapt_snapshot_rate el host deriva el paso del fps del esclavo
+# (~1.4x su ritmo) y cae al valor configurado si no hay datos o el adaptativo esta off.
+func test_sim_host_adapts_snapshot_step_to_client_rate():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.snapshot_every_n_ticks = 2
+	host.adapt_snapshot_rate = true
+
+	# Esclavo a 10 fps => apunta a ~15 Hz => N=4.
+	host._update_active_snap_step(10.0)
+	assert_int(host._active_snap_step).is_equal(4)
+	# Esclavo a 30 fps => ya alcanza 60 Hz => N=1.
+	host._update_active_snap_step(30.0)
+	assert_int(host._active_snap_step).is_equal(1)
+	# Sin datos del esclavo cae al valor configurado.
+	host._update_active_snap_step(0.0)
+	assert_int(host._active_snap_step).is_equal(2)
+
+	# Adaptativo desactivado: siempre el valor configurado.
+	host.adapt_snapshot_rate = false
+	host._update_active_snap_step(10.0)
+	assert_int(host._active_snap_step).is_equal(2)
+
+
 # FD-316: las entidades viajan con rutas relativas al nivel simulado (el esclavo las
 # resuelve contra SU current_scene), y la camara es la del nivel, no la del UI.
 func test_sim_host_snapshot_paths_relative_to_sim_level():

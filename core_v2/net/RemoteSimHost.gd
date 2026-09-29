@@ -115,6 +115,9 @@ func start_simulation(p_target_ip: String, p_target_port: int, p_token: String =
 	# Instrumentacion (tarea E): la ventana arranca con la sesion.
 	_stats.reset(OS.get_ticks_msec())
 	_stats_last_input_ms = 0
+	# Tarea G: el paso efectivo de emision arranca en el configurado hasta medir el
+	# ritmo real del esclavo (adapt_snapshot_rate se recalcula en _flush_host_stats).
+	_active_snap_step = int(max(1, snapshot_every_n_ticks))
 	# FD-316: reanudar tras un stop blando descongela el nivel conservado antes de que
 	# nadie lo re-promueva (si no, queda con la logica apagada y no simula nada).
 	_clear_soft_stop()
@@ -353,11 +356,22 @@ func _physics_process(_delta: float) -> void:
 			send_snapshot_udp(snapshot)
 	_flush_host_stats()
 
-# True si toca emitir snapshot en este tick (cada snapshot_every_n_ticks).
+# True si toca emitir snapshot en este tick (cada _active_snap_step ticks).
 func _snapshot_due() -> bool:
-	if snapshot_every_n_ticks <= 1:
+	if _active_snap_step <= 1:
 		return true
-	return _current_tick % snapshot_every_n_ticks == 0
+	return _current_tick % _active_snap_step == 0
+
+# Tarea G: deriva el paso del fps real del esclavo (su input llega ~1 vez por cuadro).
+# Apunta a ~1.4x ese fps para que nunca falte el proximo snapshot al interpolar; se
+# clampea y, sin datos, cae al valor configurado.
+func _update_active_snap_step(input_hz: float) -> void:
+	if not adapt_snapshot_rate or input_hz <= 1.0:
+		_active_snap_step = int(max(1, snapshot_every_n_ticks))
+		return
+	var host_hz: float = float(Engine.iterations_per_second) if Engine.iterations_per_second > 0 else 60.0
+	var desired: int = int(round(host_hz / (input_hz * SNAP_RATE_HEADROOM)))
+	_active_snap_step = int(clamp(desired, SNAP_RATE_MIN_N, SNAP_RATE_MAX_N))
 
 func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> void:
 	if source_id == "client":
@@ -618,7 +632,7 @@ func capture_snapshot() -> Dictionary:
 		"scene": scene_path,
 		# FD-316 (tarea G): cada cuantos ticks se emitio este snapshot. El esclavo lo usa
 		# para no contar el salto esperado como ticks perdidos y calibrar la interpolacion.
-		"snap_step": snapshot_every_n_ticks
+		"snap_step": _active_snap_step
 	}
 	# FD-316: la interaccion es parte de la simulacion. El host render-esclavo no
 	# simula fisica, asi que su Area de interaccion no se actualiza; la autoridad
@@ -715,12 +729,18 @@ func _flush_host_stats() -> void:
 		"capture_ms_avg": (_stats.sum("capture_us") / float(max(snap_count, 1))) / 1000.0,
 		"snap_bytes_avg": _stats.sum("snap_bytes") / float(max(snap_count, 1)),
 		"input_hz": float(_stats.count("input")) / elapsed_s,
-		"input_gap_ms_max": _stats.max_value("input_gap_ms")
+		"input_gap_ms_max": _stats.max_value("input_gap_ms"),
+		"snap_step": _active_snap_step
 	}
+	# Tarea G: con la ventana cerrada, ajustar el paso de emision al ritmo medido del
+	# esclavo (una vez por ventana: sin oscilacion por frame).
+	_update_active_snap_step(float(stats["input_hz"]))
+	stats["snap_step"] = _active_snap_step
 	last_stats = stats
 	print("[RemoteSimHost] stats tick_hz=", "%.1f" % stats["tick_hz"],
 		" capture_ms_avg=", "%.3f" % stats["capture_ms_avg"],
 		" snap_bytes_avg=", "%.0f" % stats["snap_bytes_avg"],
 		" input_hz=", "%.1f" % stats["input_hz"],
-		" input_gap_ms_max=", "%.1f" % stats["input_gap_ms_max"])
+		" input_gap_ms_max=", "%.1f" % stats["input_gap_ms_max"],
+		" snap_step=", stats["snap_step"])
 	_stats.reset(now_ms)

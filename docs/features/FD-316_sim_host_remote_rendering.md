@@ -44,8 +44,9 @@ Detalle del flujo (control remoto = teléfono emparejado vía FD-294):
    **localmente** (el input nace en el propio teléfono, así que no hay RTT de
    input). Es la **autoridad única**.
 3. **Control remoto → host low-end**: transmite el **estado de la escena**
-   (snapshots por tick: transforms, animación, luces, cámara) por el transporte
-   de FD-294 (UDP para snapshots de alto ritmo, WS para control/pairing).
+   (snapshots cada `snapshot_every_n_ticks` ticks, adaptado al fps del esclavo: ver
+   tarea G) por el transporte de FD-294 (UDP para snapshots de alto ritmo, WS para
+   control/pairing).
 4. **Host low-end → render-esclavo**: recibe snapshots y renderiza solo lo gráfico. Su
    simulación de física está **apagada** (no instancia física ni Core V2); su CPU queda
    libre para el render. **Interpolación: implementada (tarea G)** — el esclavo guarda los
@@ -97,8 +98,8 @@ Basado en `feature/FD-294-control-remoto` (infraestructura de red ya existe:
   consumía; la interpolación se implementó después (tarea G), sin mensaje de config.
 - `core_v2/net/RemoteSimHost.gd` (new) — lado **control remoto**: simulación
   headless (Box3D + Core V2) a 60 Hz, captura y emite snapshots cada
-  `snapshot_every_n_ticks` ticks (default 2 = 30 Hz; el step viaja en
-  `globals.snap_step`).
+  `snapshot_every_n_ticks` ticks (default 2 = 30 Hz); `adapt_snapshot_rate` lo deriva del
+  fps del esclavo (~1.4x) y el step viaja en `globals.snap_step`.
 - `core_v2/net/RemoteSimClient.gd` (new) — lado **host low-end**: drena el UDP del frame
   pero **parsea solo los 2 paquetes más nuevos**, guarda los dos últimos snapshots con su
   tick y **interpola** transforms/rig/cámara con un retardo fijo; replica el estado no
@@ -193,10 +194,11 @@ Estado verificable en main:
 
 1. Validación en device con oráculo de replay, midiendo el desfase de 1 tick
    input→snapshot (ver "Ensayo local por partes" más abajo).
-2. Ajustar la tasa de emisión óptima para el device draw-bound: medido en el Anbernic
+2. Afinar el ritmo de emisión para el device draw-bound: medido en el Anbernic
    (`ce1d2522`), `fps=10` y `apply_ms_avg=15`; mandar más snapshots que cuadros
-   renderizables solo agrega parseo. `snapshot_every_n_ticks` ya es configurable (30 Hz
-   default); evaluar subirlo (p. ej. 4-6 = 15-10 Hz) o hacerlo adaptativo al fps del esclavo.
+   renderizables solo agrega parseo. Ya hay `snapshot_every_n_ticks` (base 30 Hz) y
+   `adapt_snapshot_rate` (default activo) que lo deriva del fps del esclavo (~1.4x); la
+   validación en device de ese ajuste queda pendiente.
 3. Auth del canal UDP (riesgo abierto del review) más allá del token de sesión.
 
 ### Decisión de implementación (paso 2, 2026-09-28)
@@ -430,9 +432,13 @@ interpolar; `step_remote_animator` recibía dt=100 ms).
    render; si falta el siguiente se sostiene el último (sin extrapolar). El estado no
    interpolable (interacción, `states`, velocidad/wish para el animator, linterna) se
    aplica solo del snapshot más nuevo, una vez por snapshot.
-3. **Ritmo de emisión** (`RemoteSimHost.snapshot_every_n_ticks`, default 2 = 30 Hz). La
-   simulación sigue a 60 Hz (input y ticks intactos); solo se espacia el snapshot. El step
-   viaja en `globals.snap_step` y el cliente lo usa para no contar el salto esperado como
+3. **Ritmo de emisión** (`RemoteSimHost`). La simulación sigue a 60 Hz (input y ticks
+   intactos); solo se espacia el snapshot. `snapshot_every_n_ticks` (default 2 = 30 Hz) es
+   el valor base, y `adapt_snapshot_rate` (default activo) lo deriva del fps real del
+   esclavo: su input llega ~1 vez por cuadro, así que `input_hz ≈ fps`; el host apunta a
+   ~1.4x ese ritmo (p. ej. 10 fps ⇒ N=4 = 15 Hz) para que nunca falte el próximo snapshot
+   al interpolar, y cae al valor configurado sin datos. El step realmente usado viaja en
+   `globals.snap_step` y el cliente lo usa para no contar el salto esperado como
    `dropped_ticks`.
 4. **Stats**: `apply_ms` ahora mide `_poll_udp` + aplicar globals + interpolar, y se agrega
    `interp_ms_avg` desglosado.
@@ -441,8 +447,9 @@ Tests en `core_v2/tests/test_remote_sim.gd`: `test_render_slave_keeps_only_two_n
 `test_render_slave_interpolates_transforms_between_snapshots`,
 `test_render_slave_holds_last_transform_without_next_snapshot`,
 `test_render_slave_dropped_ticks_accounts_for_snap_step`,
-`test_sim_host_snapshot_rate_is_configurable` (y `test_sim_host_does_not_emit_before_sim_ready`
-actualizado al ritmo de 2 ticks).
+`test_sim_host_snapshot_rate_is_configurable`,
+`test_sim_host_adapts_snapshot_step_to_client_rate` (y
+`test_sim_host_does_not_emit_before_sim_ready` actualizado al ritmo de 2 ticks).
 
 ## Notas de implementación para Jules
 
