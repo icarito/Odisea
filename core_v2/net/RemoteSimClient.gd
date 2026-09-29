@@ -30,7 +30,13 @@ var _jump_latch: int = 0
 var _interact_latch: int = 0
 var _buffer: Array = [] # Sorted list of snapshots by tick
 var _latest_applied_tick: int = -1
+# FD-316 (review bug 8): estado del PhysicsServer ANTES de que el offload lo apagara. No
+# se re-prende incondicionalmente: otro sistema (p.ej. la sonda split_load_frame de
+# SceneManager) pudo haberlo apagado a proposito.
 var _physics_was_active: bool = true
+# True solo si este componente apago el PhysicsServer: evita tocar el estado global del
+# motor cuando el offload nunca se comprometio.
+var _physics_disabled_by_offload: bool = false
 # FD-316: fisica apagada/audio muteado/interaccion cedida recien con el PRIMER
 # snapshot valido, no al promover. Promover solo abre el canal: mientras el sim host
 # no cargue el nivel (sim_hello -> sim_ready) no llega nada y el handheld sigue
@@ -164,10 +170,27 @@ func _thaw_local_simulation() -> void:
 	_freezer.thaw()
 
 func _disable_local_physics() -> void:
+	if _physics_disabled_by_offload:
+		return
+	# Guardar el estado previo: al salir del rol se restaura EL MISMO, no un true ciego.
+	_physics_was_active = _read_physics_active()
+	_physics_disabled_by_offload = true
 	PhysicsServer.set_active(false)
 
 func _restore_local_physics() -> void:
-	PhysicsServer.set_active(true)
+	if not _physics_disabled_by_offload:
+		return
+	_physics_disabled_by_offload = false
+	# Restaurar el estado previo, sin re-prender si este componente nunca lo apago.
+	PhysicsServer.set_active(_physics_was_active)
+
+# Godot 3 (y el binding de Box3D) no expone un getter del estado global del PhysicsServer:
+# `is_active()` no existe. Si el motor algun dia lo expone se usa; mientras tanto se asume
+# activo, que es el arranque normal del proyecto.
+func _read_physics_active() -> bool:
+	if PhysicsServer.has_method("is_active"):
+		return PhysicsServer.is_active()
+	return true
 
 func receive_snapshot(snapshot: Dictionary) -> void:
 	if not snapshot.has("tick"):
@@ -210,7 +233,9 @@ func _process(delta: float) -> void:
 	if _engaged and not _interaction_authority_is_current():
 		_set_player_interaction_authoritative(true)
 	# Mismo caso para el congelamiento: una escena nueva (cambio de nivel) nace simulando.
-	if _engaged and not _freezer.frozen_root_is(get_tree().current_scene):
+	# Con current_scene en null (mitad de transicion) no hay nada que congelar todavia.
+	var current_scene = get_tree().current_scene
+	if _engaged and current_scene != null and not _freezer.frozen_root_is(current_scene):
 		_freeze_local_simulation()
 
 	# Los snapshots llegan a 60 Hz y el handheld dibuja a ~15-25 fps: consumir uno por
@@ -232,35 +257,48 @@ func _process(delta: float) -> void:
 func _send_local_input() -> void:
 	if _target_ip == "" or _target_port <= 0:
 		return
-
-	# FD-316: el handheld manda SU frame ya procesado por el InputProvider local: el
-	# move_vec con curva/sensibilidad, el auto-sprint analogico (vive en el provider, por
-	# eso solo caminaba) y la camara (mouse, stick, D-pad con rampa, touch). La autoridad
-	# lo suma tal cual sobre SU frame local.
-	var axes := {"move_x": 0.0, "move_y": 0.0, "analog": false}
-	var buttons := {"jump": false, "interact": false, "sprint": false, "crouch": false}
-	var camera := {"x": 0.0, "y": 0.0, "touch_x": 0.0, "touch_y": 0.0, "zoom": 0.0}
-	var player := _get_player()
-	if player != null and is_instance_valid(player):
-		var provider = player.get("input_provider") if "input_provider" in player else null
-		if provider != null and provider.has_method("get_input"):
-			var frame = provider.call("get_input")
-			if frame != null:
-				axes["move_x"] = frame.move_vec.x
-				axes["move_y"] = frame.move_vec.y
-				axes["analog"] = frame.analog_move_active
-				buttons["jump"] = frame.jump
-				buttons["sprint"] = frame.sprint
-				buttons["crouch"] = frame.crouch
-				buttons["interact"] = frame.interact or frame.interact_held
-				camera["x"] = frame.mouse_delta.x
-				camera["y"] = frame.mouse_delta.y
-				camera["zoom"] = frame.zoom_delta
-
-	var sim_input = RemoteProtocol.create_sim_input(axes, _latch_flanked_buttons(buttons), _latest_applied_tick, _token, camera, _next_seq())
+	var sim_input = _build_local_input()
 	var bytes = RemoteProtocol.encode_json(sim_input).to_utf8()
 	_udp.set_dest_address(_target_ip, _target_port)
 	_udp.put_packet(bytes)
+
+# FD-316 (review bug 5): si el handheld pauso su arbol (menu de pausa, pausa rapida), no
+# debe mandar movimiento/camara: el Input singleton no se pausa y el sim host seguiria
+# moviendo al personaje detras del menu. En pausa se manda un frame NEUTRO (y se limpian
+# los latches de flanco) para que la autoridad suelte el input; al despausar vuelve el
+# frame del provider. La notificacion del congelado del nivel la manda RemoteControlManager.
+func _build_local_input() -> Dictionary:
+	var axes := {"move_x": 0.0, "move_y": 0.0, "analog": false}
+	var buttons := {"jump": false, "interact": false, "sprint": false, "crouch": false}
+	var camera := {"x": 0.0, "y": 0.0, "touch_x": 0.0, "touch_y": 0.0, "zoom": 0.0}
+	var tree = get_tree()
+	var paused: bool = tree != null and tree.paused
+	if paused:
+		_jump_latch = 0
+		_interact_latch = 0
+	else:
+		# FD-316: el handheld manda SU frame ya procesado por el InputProvider local: el
+		# move_vec con curva/sensibilidad, el auto-sprint analogico (vive en el provider, por
+		# eso solo caminaba) y la camara (mouse, stick, D-pad con rampa, touch). La autoridad
+		# lo suma tal cual sobre SU frame local.
+		var player := _get_player()
+		if player != null and is_instance_valid(player):
+			var provider = player.get("input_provider") if "input_provider" in player else null
+			if provider != null and provider.has_method("get_input"):
+				var frame = provider.call("get_input")
+				if frame != null:
+					axes["move_x"] = frame.move_vec.x
+					axes["move_y"] = frame.move_vec.y
+					axes["analog"] = frame.analog_move_active
+					buttons["jump"] = frame.jump
+					buttons["sprint"] = frame.sprint
+					buttons["crouch"] = frame.crouch
+					buttons["interact"] = frame.interact or frame.interact_held
+					camera["x"] = frame.mouse_delta.x
+					camera["y"] = frame.mouse_delta.y
+					camera["zoom"] = frame.zoom_delta
+		buttons = _latch_flanked_buttons(buttons)
+	return RemoteProtocol.create_sim_input(axes, buttons, _latest_applied_tick, _token, camera, _next_seq())
 
 # FD-316: latch corto de jump/interact. Si el press se pierde con su datagrama, los
 # siguientes paquetes ya traerian false y el tap desaparecia (bug 2 del review FD-316).

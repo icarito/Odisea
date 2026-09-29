@@ -35,6 +35,13 @@ var _mouse_mode_before_pairing: int = Input.MOUSE_MODE_VISIBLE
 var _remote_held: Dictionary = {}
 # Ultimo estado de pausa avisado a los controles; -1 fuerza reenviarlo.
 var _sent_paused: int = -1
+# FD-316 (review bug 5): ultimo estado de pausa del esclavo avisado a la autoridad; -1
+# fuerza reenviarlo al activar el rol.
+var _sent_sim_paused: int = -1
+# FD-316 (review bug 7): si start_render_slave falla (puerto sim ocupado) no hay rol y no
+# se martilla el bind cada frame: se reintenta recien pasado este plazo.
+const RENDER_SLAVE_START_RETRY_MSEC := 2000
+var _render_slave_retry_at_ms: int = 0
 # El aviso de emparejamiento va por encima del menu de pausa (CanvasLayer 50): si la ventana
 # perdio el foco mientras llegaba la solicitud, al volver el menu lo tapaba y no se podia
 # aceptar. Ver tambien PauseManager, que se hace a un lado mientras este abierto.
@@ -135,6 +142,7 @@ func _ready():
 func _process(_delta: float) -> void:
 	_sync_host_for_scene()
 	_sync_pause_to_controls()
+	_sync_sim_pause_to_authority()
 	update_offload_roles()
 
 func enable_low_tier_offload() -> void:
@@ -178,24 +186,35 @@ func update_offload_roles() -> void:
 	# FD-316: la promocion a render-esclavo requiere nivel real abierto (no menu): el
 	# sim_hello describe ESTA escena y su jugador; sin jugador no hay nada que ceder.
 	if is_low_host and has_paired and RENDER_SLAVE_OFFLOAD_READY and in_gameplay:
-		if not is_render_slave_active:
+		# Review bug 7: si el bind del puerto sim falla no hay rol; no se reintenta cada
+		# frame (ver RENDER_SLAVE_START_RETRY_MSEC).
+		if not is_render_slave_active and OS.get_ticks_msec() >= _render_slave_retry_at_ms:
 			_start_render_slave_role()
 	else:
 		if is_render_slave_active:
 			_stop_render_slave_role()
 
 func _start_render_slave_role() -> void:
-	is_render_slave_active = true
+	if sim_client == null:
+		printerr("[RemoteControlManager] sin RemoteSimClient: no se activa el render-esclavo")
+		_render_slave_retry_at_ms = OS.get_ticks_msec() + RENDER_SLAVE_START_RETRY_MSEC
+		return
 	# El canal de snapshots NO puede ser el sensor_udp_port: el server ya lo tiene
 	# tomado en esta misma maquina, asi que el render-esclavo escucha en el siguiente.
 	var sim_port: int = (server.sensor_udp_port + 1) if server != null else 10445
-	if sim_client != null:
-		# El mismo puerto es el que escucha el sim host para el sim_input de este
-		# esclavo (RemoteSimHost._poll_udp_input): antes quedaba el default 10444 y
-		# el input del Anbernic no llegaba a la autoridad.
-		# FD-316: el token de la sesion firma cada sim_input y valida los snapshots.
-		var sim_token: String = String(server._active_token) if server != null else ""
-		sim_client.start_render_slave(sim_port, "", sim_port, sim_token)
+	# FD-316: el token de la sesion firma cada sim_input y valida los snapshots.
+	var sim_token: String = String(server._active_token) if server != null else ""
+	# Review bug 7: si el puerto sim esta ocupado start_render_slave devuelve false. Antes
+	# se ignoraba: el manager se marcaba activo y mandaba start_sim_host/sim_hello, dejando
+	# a la autoridad simulando para un esclavo sordo y sin input.
+	if not sim_client.start_render_slave(sim_port, "", sim_port, sim_token):
+		printerr("[RemoteControlManager] start_render_slave fallo (puerto ", sim_port,
+			" ocupado): no se activa el render-esclavo")
+		_render_slave_retry_at_ms = OS.get_ticks_msec() + RENDER_SLAVE_START_RETRY_MSEC
+		return
+	is_render_slave_active = true
+	# El primer _process del rol reenvia el estado de pausa actual a la autoridad.
+	_sent_sim_paused = -1
 	if server != null:
 		server.send_ui_directive("start_sim_host", {"target_port": sim_port})
 		# FD-316 paso 1: el handshake con TODO el estado que la autoridad necesita:
@@ -255,6 +274,23 @@ func _on_client_ui_directive(op: String, payload) -> void:
 		is_sim_host_active = false
 		if sim_host != null:
 			sim_host.stop_simulation()
+	elif op == "sim_pause":
+		# FD-316 (review bug 5): el handheld pauso su arbol; la autoridad congela la
+		# logica del nivel sin descargarlo (mismo congelado que el stop blando).
+		var sim_paused: bool = bool(payload.get("paused", false)) if payload is Dictionary else false
+		_set_sim_host_paused(sim_paused)
+
+# FD-316 (review bug 5): pausa del esclavo. El sim host sigue emitiendo snapshots del
+# estado congelado (es lo que el esclavo pausado debe mostrar), pero su mundo no avanza
+# detras del menu. Reusa el congelado compartido; al despausar se descongela.
+func _set_sim_host_paused(paused: bool) -> void:
+	if sim_host == null or not is_sim_host_active:
+		return
+	if paused:
+		if sim_host.sim_ready:
+			sim_host._freeze_sim_level()
+	elif not sim_host._soft_stopped:
+		sim_host._freezer.thaw()
 
 # Directivas que el CONTROL manda a este host (client.send_ui_directive llega por el
 # server, no por _on_client_ui_directive, que es el sentido host -> control).
@@ -296,6 +332,21 @@ func _sync_pause_to_controls() -> void:
 
 func _on_server_client_connected(_device_name: String) -> void:
 	_sent_paused = -1
+
+# FD-316 (review bug 5): el handheld render-esclavo avisa a la autoridad cuando su arbol
+# queda pausado (menu/pausa rapida), para que el sim host congele la logica del nivel en
+# vez de simular el mundo detras del menu. Solo al cambiar; RemoteSimClient manda ademas
+# el frame neutro. La pausa se resuelve en _set_sim_host_paused del lado de la autoridad.
+func _sync_sim_pause_to_authority() -> void:
+	if not is_render_slave_active:
+		_sent_sim_paused = -1
+		return
+	var paused: int = int(get_tree().paused)
+	if paused == _sent_sim_paused:
+		return
+	_sent_sim_paused = paused
+	if server != null:
+		server.send_ui_directive("sim_pause", {"paused": paused == 1})
 
 # Cerrar la app (Salir, quit) tambien es cerrar la partida: el control recibe session_end
 # y se va en vez de reintentar 30 s. Si el sistema mata el proceso no hay aviso posible.

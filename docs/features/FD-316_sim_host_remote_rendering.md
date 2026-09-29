@@ -315,6 +315,35 @@ la animación del Pilot se ven y siguen a la cámara; al cambiar de ventana en e
 ya no vuelve a sonar la apertura del pod; girar la cámara (mouse del desktop o stick del
 Anbernic) mueve la vista.
 
+## Fixes del review FD-316 (2026-09-29, Kilo)
+
+Bugs 4, 5, 7 y 8 del review (`docs/agents/sessions/2026-09-29_review_fd316.md`):
+
+1. **Nodos que entran después del congelado** (`SimLogicFreeze`). Spawners,
+   `PlateContentStream` y pickups añadidos tras el freeze nacían simulando encima de los
+   snapshots. `freeze()` ahora se suscribe a `SceneTree.node_added`, filtra por alcance
+   (subárbol del root congelado o el jugador aparte) y apaga su `_physics_process`; se
+   desconecta en `thaw()`. Hook por evento, sin re-scan por frame.
+2. **Pausa del esclavo** (`RemoteControlManager._sync_sim_pause_to_authority` +
+   `RemoteSimClient._build_local_input`). Con el árbol del handheld pausado el `Input`
+   singleton no se pausa: el esclavo manda un **frame neutro** (y limpia los latches de
+   flanco) y avisa a la autoridad con la directiva `sim_pause`. La autoridad
+   congela/descongela la lógica del nivel reusando el congelado del stop blando
+   (`RemoteSimHost._freeze_sim_level`) **sin** descargarlo, y sigue emitiendo snapshots del
+   estado congelado, que es lo que el esclavo pausado debe mostrar.
+3. **Fallo de `start_render_slave`** (`RemoteControlManager._start_render_slave_role`).
+   Si el puerto sim está ocupado no se activa el rol ni se mandan `start_sim_host`/
+   `sim_hello`; se reintenta tras `RENDER_SLAVE_START_RETRY_MSEC` en vez de cada frame.
+4. **Estado del `PhysicsServer`** (`RemoteSimClient`). Sólo se toca si este componente lo
+   apagó, y se restaura el estado guardado en vez de `set_active(true)` incondicional.
+   Nota: el binding de Godot 3/Box3D no expone `PhysicsServer.is_active()`, así que el
+   estado previo se asume activo salvo que el motor lo exponga.
+
+Tests: `test_freeze_catches_nodes_added_after_freeze`,
+`test_render_slave_pause_sends_neutral_frame` (test_remote_sim.gd) y
+`test_failed_start_render_slave_does_not_activate_role`,
+`test_sim_pause_directive_freezes_and_resumes_authority_level` (test_remote_control.gd).
+
 ## Notas de implementación para Jules
 
 - Reusar el transporte existente de FD-294. Snapshots de sim por **UDP**

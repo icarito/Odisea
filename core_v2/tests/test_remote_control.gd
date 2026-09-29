@@ -727,3 +727,54 @@ func test_update_offload_roles_never_promotes_outside_gameplay():
 # (handshake -> carga sin render -> sim_ready -> engagement por snapshot -> salida limpia).
 func test_render_slave_offload_flag_is_contract_complete():
 	assert_bool(RemoteControlManager.RENDER_SLAVE_OFFLOAD_READY).is_true()
+
+
+# FD-316 (review bug 7): si el puerto del canal sim esta ocupado, start_render_slave
+# devuelve false. El manager NO se marca activo ni manda start_sim_host/sim_hello: antes
+# la autoridad quedaba simulando para un esclavo sordo y sin input.
+func test_failed_start_render_slave_does_not_activate_role():
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+	var sim_port: int = manager.server.sensor_udp_port + 1
+	var blocker := PacketPeerUDP.new()
+	# best-effort: si el puerto ya estaba tomado, el start igual falla.
+	blocker.listen(sim_port)
+
+	manager._start_render_slave_role()
+	assert_bool(manager.is_render_slave_active).is_false()
+	assert_bool(manager.sim_client.is_render_slave).is_false()
+	# Plazo de gracia: no se reintenta el bind cada frame.
+	assert_bool(manager._render_slave_retry_at_ms > 0).is_true()
+
+	blocker.close()
+
+
+# FD-316 (review bug 5): la pausa del esclavo llega como directiva sim_pause. La autoridad
+# congela la logica del nivel (mismo congelado del stop blando) sin descargarla, y la
+# descongela al reanudar.
+func test_sim_pause_directive_freezes_and_resumes_authority_level():
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+	manager.is_sim_host_active = true
+
+	var level := Spatial.new()
+	level.name = "SimLevel"
+	var player := Spatial.new()
+	player.name = "Pilot"
+	player.set_physics_process(true)
+	level.add_child(player)
+	manager.add_child(level)
+	manager.sim_host._sim_level = level
+	manager.sim_host._sim_player = player
+	manager.sim_host.sim_ready = true
+
+	# La directiva viaja por la senal real del cliente (no llamando al handler a mano).
+	manager.client.emit_signal("ui_directive_received", "sim_pause", {"paused": true})
+	assert_bool(player.is_physics_processing()).is_false()
+	assert_bool(manager.sim_host._freezer.is_frozen()).is_true()
+
+	manager.client.emit_signal("ui_directive_received", "sim_pause", {"paused": false})
+	assert_bool(player.is_physics_processing()).is_true()
+	assert_bool(manager.sim_host._freezer.is_frozen()).is_false()
+	manager.is_sim_host_active = false
+

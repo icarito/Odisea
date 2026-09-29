@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const RemoteProtocolScript = preload("res://core_v2/net/RemoteProtocol.gd")
 const RemoteSimHostScript = preload("res://core_v2/net/RemoteSimHost.gd")
 const RemoteSimClientScript = preload("res://core_v2/net/RemoteSimClient.gd")
+const SimLogicFreezeScript = preload("res://core_v2/net/SimLogicFreeze.gd")
 const PlayerScript = preload("res://core_v2/player/PlayerControllerV2.gd")
 
 func test_protocol_sim_messages_encode_decode():
@@ -990,4 +991,100 @@ func test_render_slave_ignores_spoofed_snapshot_token():
 	assert_int(client._buffer.size()).is_equal(1)
 
 	client.stop_render_slave()
+
+
+# FD-316 (review bug 4): lo que entra al nivel DESPUES del congelado (spawners,
+# PlateContentStream, pickups) nace simulando encima de los snapshots. El hook
+# SceneTree.node_added lo filtra por alcance y lo congela: sin re-scan por frame.
+func test_freeze_catches_nodes_added_after_freeze():
+	var freezer = SimLogicFreezeScript.new()
+	var level := Spatial.new()
+	level.name = "FrozenLevel"
+	var existing := Spatial.new()
+	existing.name = "Existing"
+	existing.set_physics_process(true)
+	level.add_child(existing)
+	get_tree().root.add_child(level)
+
+	freezer.freeze(level)
+	assert_bool(freezer.is_frozen()).is_true()
+	assert_bool(existing.is_physics_processing()).is_false()
+
+	# Nodo que entra al nivel despues del congelado, con _physics_process activo.
+	var spawned := Spatial.new()
+	spawned.name = "SpawnedLater"
+	spawned.set_physics_process(true)
+	level.add_child(spawned)
+	assert_bool(spawned.is_physics_processing()).is_false()
+
+	# Fuera del alcance congelado: no se toca.
+	var outside := Spatial.new()
+	outside.name = "Outside"
+	outside.set_physics_process(true)
+	get_tree().root.add_child(outside)
+	assert_bool(outside.is_physics_processing()).is_true()
+
+	# Al descongelar se restauran los que estaban corriendo y se deja de escuchar.
+	freezer.thaw()
+	assert_bool(freezer.is_frozen()).is_false()
+	assert_bool(existing.is_physics_processing()).is_true()
+	assert_bool(spawned.is_physics_processing()).is_true()
+
+	# Despues del thaw un nodo nuevo nace simulando (ya no hay escucha).
+	var late := Spatial.new()
+	late.name = "AfterThaw"
+	late.set_physics_process(true)
+	level.add_child(late)
+	assert_bool(late.is_physics_processing()).is_true()
+
+	get_tree().root.remove_child(outside)
+	get_tree().root.remove_child(level)
+	outside.free()
+	level.free()
+
+
+# FD-316 (review bug 5): si el handheld pausa su arbol (menu/pausa rapida), el Input
+# singleton NO se pausa, asi que el provider seguiria mandando movimiento a la autoridad.
+# En pausa el frame sale NEUTRO; al despausar vuelve el frame del provider.
+func test_render_slave_pause_sends_neutral_frame():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+	var session = get_node("/root/SessionManager")
+	var previous_player = session.player
+	var player = auto_free(FakePadPlayer.new())
+	session.player = player
+
+	get_tree().paused = false
+	var live: Dictionary = client._build_local_input()
+	assert_float(float(live["axes"]["move_x"])).is_equal_approx(1.0, 0.001)
+	assert_bool(bool(live["buttons"]["jump"])).is_true()
+	assert_float(float(live["camera"]["x"])).is_equal_approx(2.0, 0.001)
+
+	get_tree().paused = true
+	var neutral: Dictionary = client._build_local_input()
+	get_tree().paused = false
+	assert_float(float(neutral["axes"]["move_x"])).is_equal_approx(0.0, 0.001)
+	assert_float(float(neutral["axes"]["move_y"])).is_equal_approx(0.0, 0.001)
+	assert_bool(bool(neutral["buttons"]["jump"])).is_false()
+	assert_bool(bool(neutral["buttons"]["interact"])).is_false()
+	assert_float(float(neutral["camera"]["x"])).is_equal_approx(0.0, 0.001)
+	assert_float(float(neutral["camera"]["zoom"])).is_equal_approx(0.0, 0.001)
+
+	session.player = previous_player
+	client.stop_render_slave()
+
+
+class FakePadProvider extends Reference:
+	func get_input() -> InputDataV2:
+		var d := InputDataV2.new()
+		d.move_vec = Vector2(1.0, 0.0)
+		d.jump = true
+		d.mouse_delta = Vector2(2.0, 0.0)
+		d.zoom_delta = 0.5
+		return d
+
+
+class FakePadPlayer extends KinematicBody:
+	var input_provider = FakePadProvider.new()
 
