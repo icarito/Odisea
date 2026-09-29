@@ -193,7 +193,9 @@ func _start_render_slave_role() -> void:
 		# El mismo puerto es el que escucha el sim host para el sim_input de este
 		# esclavo (RemoteSimHost._poll_udp_input): antes quedaba el default 10444 y
 		# el input del Anbernic no llegaba a la autoridad.
-		sim_client.start_render_slave(sim_port, "", sim_port)
+		# FD-316: el token de la sesion firma cada sim_input y valida los snapshots.
+		var sim_token: String = String(server._active_token) if server != null else ""
+		sim_client.start_render_slave(sim_port, "", sim_port, sim_token)
 	if server != null:
 		server.send_ui_directive("start_sim_host", {"target_port": sim_port})
 		# FD-316 paso 1: el handshake con TODO el estado que la autoridad necesita:
@@ -241,7 +243,10 @@ func _on_client_ui_directive(op: String, payload) -> void:
 		if sim_host != null:
 			# La simulacion queda activa PERO sin emitir: nada sale hasta que llegue
 			# el sim_hello con el nivel (RemoteSimHost.sim_ready).
-			sim_host.start_simulation(target_ip, port)
+			# FD-316: el token de la sesion viaja a la autoridad para que descarte
+			# sim_input/snapshots de un peer LAN ajeno (riesgo "Sin auth" del review).
+			var session_token: String = String(client._session_token) if client != null else ""
+			sim_host.start_simulation(target_ip, port, session_token)
 	elif op == "sim_hello":
 		# FD-316 paso 2: el esclavo dice QUE nivel simular y desde donde.
 		if sim_host != null:

@@ -252,12 +252,14 @@ func test_sim_snapshot_carries_interaction_globals():
 func test_sim_input_encode_decode():
 	var axes = {"move_x": 1.0, "move_y": 0.0}
 	var buttons = {"jump": true, "interact": false}
-	var sim_input = RemoteProtocolScript.create_sim_input(axes, buttons, 42, "tok_test")
+	var sim_input = RemoteProtocolScript.create_sim_input(axes, buttons, 42, "tok_test", {}, 7)
 
 	assert_str(sim_input["type"]).is_equal("sim_input")
 	assert_float(sim_input["axes"]["move_x"]).is_equal(1.0)
 	assert_bool(sim_input["buttons"]["jump"]).is_true()
 	assert_int(sim_input["last_tick"]).is_equal(42)
+	# FD-316: el seq monotono del esclavo sobrevive el viaje JSON (dedupe del host).
+	assert_int(int(sim_input["seq"])).is_equal(7)
 
 	# FD-316: el look de camara viaja en su propio campo (no es accion del InputMap).
 	var with_camera = RemoteProtocolScript.create_sim_input(axes, buttons, 43, "tok_test",
@@ -360,7 +362,7 @@ func test_sim_host_injects_merged_input_without_touching_global_input():
 	host._sim_player = player
 
 	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
-		{"move_x": 0.5, "move_y": 0.25}, {"jump": true, "interact": true}, 1), "client")
+		{"move_x": 0.5, "move_y": 0.25}, {"jump": true, "interact": true}, 1, "", {}, 1), "client")
 	host._process_input_queue_for_tick(1)
 	host._apply_authority_input_frame()
 
@@ -378,7 +380,7 @@ func test_sim_host_injects_merged_input_without_touching_global_input():
 
 	# El handheld suelta: el proximo frame ya no trae sus intents.
 	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
-		{"move_x": 0.0, "move_y": 0.0}, {"jump": false, "interact": false}, 2), "client")
+		{"move_x": 0.0, "move_y": 0.0}, {"jump": false, "interact": false}, 2, "", {}, 2), "client")
 	host._process_input_queue_for_tick(2)
 	host._apply_authority_input_frame()
 	var d2: Dictionary = player.injected[1]
@@ -824,4 +826,168 @@ func test_set_language_directive_changes_locale_and_disconnect_restores():
 
 	TranslationServer.set_locale(previous_locale)
 	rcm._remote_locale_applied = previous_applied
+
+
+# FD-316 (review bugs 1 y 3): el esclavo manda un seq monotono por sesion. La autoridad
+# descarta los seq <= al ultimo visto, asi dos copias del mismo datagrama (comun en WiFi)
+# no vuelven a sumar el delta de camara.
+func test_sim_host_dedupes_client_input_seq():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var player = auto_free(FakeInjectPlayer.new())
+	player.add_to_group("player")
+	host._sim_player = player
+
+	# Dos copias identicas (mismo seq): el look entra una sola vez.
+	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
+		{"move_x": 0.0}, {"jump": false}, 1, "", {"x": 3.0, "y": -2.0}, 5), "client")
+	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
+		{"move_x": 0.0}, {"jump": false}, 1, "", {"x": 3.0, "y": -2.0}, 5), "client")
+	assert_int(host._input_queue.size()).is_equal(1)
+
+	host._process_input_queue_for_tick(1)
+	host._apply_authority_input_frame()
+	assert_int(player.injected.size()).is_equal(1)
+	var d: Dictionary = player.injected[0]
+	assert_float(float(d["mouse_delta"][0])).is_equal_approx(3.0, 0.001)
+	assert_float(float(d["mouse_delta"][1])).is_equal_approx(-2.0, 0.001)
+
+	# Un seq menor (paquete reordenado) tambien se descarta.
+	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
+		{"move_x": 1.0}, {"jump": false}, 2, "", {}, 4), "client")
+	assert_int(host._input_queue.size()).is_equal(0)
+
+	host.stop_simulation()
+
+
+# FD-316 (review bug 1): sin un sim_input valido por mas de CLIENT_INPUT_TIMEOUT_MSEC, el
+# estado del handheld se suelta. Antes el ultimo axes/buttons se re-inyectaba tick a tick
+# y el personaje seguia corriendo a ciegas al cortarse la red.
+func test_sim_host_expires_stale_client_input():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var player = auto_free(FakeInjectPlayer.new())
+	player.add_to_group("player")
+	host._sim_player = player
+
+	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
+		{"move_x": 1.0, "move_y": 0.0}, {"jump": true}, 1, "", {"x": 3.0}, 1), "client")
+	host._process_input_queue_for_tick(1)
+	host._apply_authority_input_frame()
+	var d1: Dictionary = player.injected[0]
+	assert_float(float(d1["move_vec"][0])).is_equal_approx(1.0, 0.001)
+	assert_float(float(d1["mouse_delta"][0])).is_equal_approx(3.0, 0.001)
+
+	# 250 ms sin paquetes validos: move_vec y look vuelven a cero.
+	host._last_client_input_ms -= 250
+	host._apply_authority_input_frame()
+	var d2: Dictionary = player.injected[1]
+	assert_float(float(d2["move_vec"][0])).is_equal_approx(0.0, 0.001)
+	assert_float(float(d2["move_vec"][1])).is_equal_approx(0.0, 0.001)
+	assert_float(float(d2["mouse_delta"][0])).is_equal_approx(0.0, 0.001)
+	assert_float(float(d2["zoom_delta"])).is_equal_approx(0.0, 0.001)
+
+	host.stop_simulation()
+
+
+# FD-316 (review bug 2): el flanco de jump/interact viaja en un unico datagrama. El
+# esclavo repite el true FLANK_REPEAT_PACKETS paquetes para que la perdida del paquete del
+# press no borre el tap.
+func test_sim_input_flank_latch_survives_lost_packet():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	var pressed := {"jump": true, "interact": true, "sprint": false, "crouch": false}
+	var held := {"jump": false, "interact": false, "sprint": false, "crouch": false}
+
+	# Frame del press: sale con el flanco.
+	var first: Dictionary = client._latch_flanked_buttons(pressed)
+	assert_bool(bool(first["jump"])).is_true()
+	assert_bool(bool(first["interact"])).is_true()
+
+	# Ese datagrama se "pierde": los dos siguientes igual repiten el true.
+	var second: Dictionary = client._latch_flanked_buttons(held)
+	assert_bool(bool(second["jump"])).is_true()
+	assert_bool(bool(second["interact"])).is_true()
+	var third: Dictionary = client._latch_flanked_buttons(held)
+	assert_bool(bool(third["jump"])).is_true()
+	assert_bool(bool(third["interact"])).is_true()
+
+	# Recien el cuarto paquete vuelve a false.
+	var fourth: Dictionary = client._latch_flanked_buttons(held)
+	assert_bool(bool(fourth["jump"])).is_false()
+	assert_bool(bool(fourth["interact"])).is_false()
+
+	client.stop_render_slave()
+
+
+# FD-316 (review bug 2): el host re-inyecta jump=true mientras dura el latch, pero el
+# flanco real del controlador es por transicion (PlayerControllerV2._jump_was_pressed):
+# los frames repetidos no producen un segundo salto.
+func test_repeated_jump_frames_only_one_edge():
+	var player = PlayerScript.new() # sin arbol: no corre _ready
+	var frame1 := InputDataV2.new()
+	frame1.jump = true
+	var edge1: bool = frame1.jump and not player._jump_was_pressed
+	player._update_input_edge_state(frame1)
+
+	var frame2 := InputDataV2.new()
+	frame2.jump = true
+	var edge2: bool = frame2.jump and not player._jump_was_pressed
+	player._update_input_edge_state(frame2)
+
+	assert_bool(edge1).is_true()
+	assert_bool(edge2).is_false()
+	player.free()
+
+
+# FD-316 (riesgo "Sin auth"): con sesion firmada, la autoridad descarta el sim_input de
+# un peer LAN que no conoce el token.
+func test_sim_host_ignores_foreign_token_input():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0, "sesame")
+
+	var player = auto_free(FakeInjectPlayer.new())
+	player.add_to_group("player")
+	host._sim_player = player
+
+	# Token ajeno: no se encola.
+	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
+		{"move_x": 1.0}, {"jump": true}, 1, "otro", {}, 1), "client")
+	assert_int(host._input_queue.size()).is_equal(0)
+	host._apply_authority_input_frame()
+	assert_float(float(player.injected[0]["move_vec"][0])).is_equal_approx(0.0, 0.001)
+
+	# Token de la sesion: si.
+	host.receive_sim_input(RemoteProtocolScript.create_sim_input(
+		{"move_x": 1.0}, {"jump": false}, 2, "sesame", {}, 2), "client")
+	assert_int(host._input_queue.size()).is_equal(1)
+	host._process_input_queue_for_tick(2)
+	host._apply_authority_input_frame()
+	assert_float(float(player.injected[1]["move_vec"][0])).is_equal_approx(1.0, 0.001)
+
+	host.stop_simulation()
+
+
+# FD-316 (riesgo "Sin auth"): el esclavo no aplica ni adopta la IP de un snapshot con
+# token invalido: el suplantador no puede redirigir el sim_input del handheld.
+func test_render_slave_ignores_spoofed_snapshot_token():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0, "192.168.1.10", 10445, "sesame")
+
+	client._handle_udp_packet("10.0.0.9", {"type": "sim_snapshot", "tick": 1, "token": "otro"})
+	assert_str(client._target_ip).is_equal("192.168.1.10")
+	assert_int(client._buffer.size()).is_equal(0)
+
+	# El token correcto si: se adopta la IP de origen y se encola.
+	client._handle_udp_packet("10.0.0.9", {"type": "sim_snapshot", "tick": 1, "token": "sesame"})
+	assert_str(client._target_ip).is_equal("10.0.0.9")
+	assert_int(client._buffer.size()).is_equal(1)
+
+	client.stop_render_slave()
 

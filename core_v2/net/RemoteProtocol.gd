@@ -283,17 +283,21 @@ static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictio
 		"token": token
 	}
 
-static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied_tick: int, token: String = "", camera: Dictionary = {}) -> Dictionary:
+static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied_tick: int, token: String = "", camera: Dictionary = {}, seq: int = 0) -> Dictionary:
 	# FD-316: la camara (mouse/right stick) es lo unico del input que NO es una accion
 	# del InputMap, asi que viaja aparte: sin esto el render-esclavo no podia girar la
 	# camara de la autoridad (el look del control se perdia).
+	# `seq` es un entero monotono por sesion del esclavo: la autoridad descarta los
+	# paquetes con seq <= al ultimo visto, asi un duplicado/reordenado de WiFi no vuelve
+	# a sumar el delta de camara (bug 3 del review FD-316).
 	return {
 		"type": "sim_input",
 		"axes": axes,
 		"buttons": buttons,
 		"camera": camera,
 		"last_tick": last_applied_tick,
-		"token": token
+		"token": token,
+		"seq": seq
 	}
 
 static func encode_transform(t: Transform) -> Dictionary:

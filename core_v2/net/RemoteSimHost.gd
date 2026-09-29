@@ -56,6 +56,16 @@ var _client_input_state: Dictionary = {}
 var _client_camera: Dictionary = {}
 # Flanco del interact del handheld (para no re-dispararlo cada tick mientras se sostiene).
 var _client_interact_was_down := false
+# FD-316: expiracion del input del handheld. Si no llega un sim_input valido en
+# CLIENT_INPUT_TIMEOUT_MSEC, el estado del esclavo vuelve a cero: sin esto el ultimo
+# axes/buttons se re-inyectaba tick a tick y el personaje seguia corriendo a ciegas
+# cuando se cortaba la red (bug 1 del review FD-316).
+const CLIENT_INPUT_TIMEOUT_MSEC := 200
+# Marca de llegada (OS.get_ticks_msec) del ultimo sim_input del esclavo; 0 = ninguno.
+var _last_client_input_ms: int = 0
+# Ultimo seq aceptado del esclavo: descarta duplicados/reordenados de WiFi que si no
+# vuelven a sumar el delta de camara (bugs 1 y 3 del review FD-316).
+var _last_client_seq: int = -1
 
 func _ready() -> void:
 	set_physics_process(false)
@@ -71,6 +81,10 @@ func start_simulation(p_target_ip: String, p_target_port: int, p_token: String =
 	target_ip = p_target_ip
 	target_port = p_target_port
 	_token = p_token
+	# Sesion nueva: el seq del esclavo arranca de cero y no hay input pegado de la
+	# sesion anterior (ver _last_client_seq / _last_client_input_ms).
+	_last_client_seq = -1
+	_release_client_input()
 	# FD-316: reanudar tras un stop blando descongela el nivel conservado antes de que
 	# nadie lo re-promueva (si no, queda con la logica apagada y no simula nada).
 	_clear_soft_stop()
@@ -148,6 +162,10 @@ func load_sim_level(hello: Dictionary) -> bool:
 	if not active:
 		printerr("[RemoteSimHost] sim_hello ignorado: simulacion no activa")
 		return false
+	# FD-316: el token de la sesion puede llegar por el sim_hello ademas de por la
+	# directiva start_sim_host. Si ya vino en start_simulation se conserva.
+	if _token == "":
+		_token = String(hello.get("token", ""))
 	var scene_path := String(hello.get("scene", "")).strip_edges()
 	if scene_path == "" or not scene_path.begins_with("res://"):
 		printerr("[RemoteSimHost] sim_hello sin escena valida: '", scene_path, "'")
@@ -300,6 +318,20 @@ func _physics_process(_delta: float) -> void:
 		send_snapshot_udp(snapshot)
 
 func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> void:
+	if source_id == "client":
+		# Token: con sesion firmada, un peer LAN que no conoce el token no puede
+		# inyectar input (riesgo "Sin auth" del review FD-316).
+		if not _client_token_ok(input_dict):
+			return
+		# Paquete recibido = enlace vivo, aunque sea duplicado: renueva la expiracion.
+		_last_client_input_ms = OS.get_ticks_msec()
+		# Dedupe por seq monotono: un duplicado/reordenado no vuelve a sumar su
+		# delta de camara (bug 3 del review FD-316).
+		var seq := int(input_dict.get("seq", 0))
+		if seq <= _last_client_seq:
+			return
+		_last_client_seq = seq
+
 	var target_tick = int(input_dict.get("last_tick", _current_tick))
 	if target_tick <= 0:
 		target_tick = _current_tick
@@ -320,6 +352,12 @@ func receive_sim_input(input_dict: Dictionary, source_id: String = "remote") -> 
 			break
 	if not inserted:
 		_input_queue.append(entry)
+
+# Token valido del esclavo: sin token fijado (legacy/tests) se acepta cualquiera.
+func _client_token_ok(input_dict: Dictionary) -> bool:
+	if _token == "":
+		return true
+	return String(input_dict.get("token", "")) == _token
 
 func _poll_udp_input() -> void:
 	while _udp.get_available_packet_count() > 0:
@@ -363,6 +401,9 @@ func _accumulate_client_camera(camera) -> void:
 # simula exactamente el frame, sin materializar acciones globales en la maquina del
 # control (Input.action_press ensuciaba su input y no admitia el look).
 func _apply_authority_input_frame() -> void:
+	# FD-316: sin paquetes del esclavo por mas de CLIENT_INPUT_TIMEOUT_MSEC su estado
+	# se suelta: el ultimo axes/buttons no se re-inyecta para siempre (bug 1).
+	_expire_stale_client_input()
 	var player = _get_authority_player()
 	if player == null or not is_instance_valid(player) or not player.has_method("inject_input"):
 		_client_camera = {}
@@ -424,6 +465,24 @@ func _release_client_input() -> void:
 	# limpiando el frame (el proximo tick inyecta solo el input local del control).
 	_client_input_state = {}
 	_client_camera = {}
+	# Tambien el flanco del interact: si el release se perdio, el proximo press tiene
+	# que volver a contar como flanco.
+	_client_interact_was_down = false
+	_last_client_input_ms = 0
+
+# FD-316: expiracion del input del esclavo. Pasado CLIENT_INPUT_TIMEOUT_MSEC sin un
+# sim_input valido, se suelta su estado y su look acumulado: el personaje no corre a
+# ciegas con el ultimo paquete (bug 1 del review FD-316).
+func _expire_stale_client_input() -> void:
+	if _last_client_input_ms <= 0:
+		return
+	if OS.get_ticks_msec() - _last_client_input_ms <= CLIENT_INPUT_TIMEOUT_MSEC:
+		return
+	if _client_input_state.empty() and _client_camera.empty():
+		return
+	print("[RemoteSimHost] sim_input vencido (", CLIENT_INPUT_TIMEOUT_MSEC,
+		" ms sin paquetes validos): input del handheld a cero")
+	_release_client_input()
 
 func capture_snapshot() -> Dictionary:
 	var tree = get_tree()

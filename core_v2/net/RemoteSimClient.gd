@@ -15,6 +15,19 @@ var _udp = PacketPeerUDP.new()
 var _listening_port: int = 0
 var _target_ip: String = ""
 var _target_port: int = 10444
+# FD-316: token de la sesion. Firma cada sim_input y valida los snapshots: un peer LAN
+# sin el token no puede suplantar a la autoridad ni cambiarle el destino al esclavo.
+var _token: String = ""
+# FD-316: seq monotono del esclavo. La autoridad descarta los seq <= al ultimo visto,
+# asi un duplicado/reordenado de WiFi no suma dos veces el delta de camara.
+var _seq: int = 0
+# FD-316: latch corto de flancos. jump/interact viajan en un unico datagrama UDP; si el
+# paquete del press se pierde no hay segundo intento. Se repite el true unos paquetes
+# mas para sobrevivir a esa perdida (la autoridad deriva el flanco por transicion, asi
+# que repetir no duplica la accion).
+const FLANK_REPEAT_PACKETS := 3
+var _jump_latch: int = 0
+var _interact_latch: int = 0
 var _buffer: Array = [] # Sorted list of snapshots by tick
 var _latest_applied_tick: int = -1
 var _physics_was_active: bool = true
@@ -44,10 +57,11 @@ func _ready() -> void:
 	process_priority = 1000
 	set_process(false)
 
-func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_port: int = 10444) -> bool:
+func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_port: int = 10444, p_token: String = "") -> bool:
 	_listening_port = p_port
 	_target_ip = p_target_ip
 	_target_port = p_target_port
+	_token = p_token
 	if _listening_port > 0:
 		var err = _udp.listen(_listening_port)
 		if err != OK:
@@ -58,6 +72,10 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_engaged = false
 	_buffer.clear()
 	_latest_applied_tick = -1
+	# Sesion nueva: el seq arranca de cero y no hay flancos latcheados de la anterior.
+	_seq = 0
+	_jump_latch = 0
+	_interact_latch = 0
 	_last_actor_states.clear()
 
 	# El rol se abre solo para ESCUCHAR: fisica, audio e interaccion siguen locales
@@ -239,10 +257,32 @@ func _send_local_input() -> void:
 				camera["y"] = frame.mouse_delta.y
 				camera["zoom"] = frame.zoom_delta
 
-	var sim_input = RemoteProtocol.create_sim_input(axes, buttons, _latest_applied_tick, "", camera)
+	var sim_input = RemoteProtocol.create_sim_input(axes, _latch_flanked_buttons(buttons), _latest_applied_tick, _token, camera, _next_seq())
 	var bytes = RemoteProtocol.encode_json(sim_input).to_utf8()
 	_udp.set_dest_address(_target_ip, _target_port)
 	_udp.put_packet(bytes)
+
+# FD-316: latch corto de jump/interact. Si el press se pierde con su datagrama, los
+# siguientes paquetes ya traerian false y el tap desaparecia (bug 2 del review FD-316).
+# Se repite el true FLANK_REPEAT_PACKETS paquetes; la autoridad deriva el flanco por
+# transicion (interact_was_down / _jump_was_pressed), asi que repetir no lo duplica.
+func _latch_flanked_buttons(buttons: Dictionary) -> Dictionary:
+	if bool(buttons.get("jump", false)):
+		_jump_latch = FLANK_REPEAT_PACKETS
+	if bool(buttons.get("interact", false)):
+		_interact_latch = FLANK_REPEAT_PACKETS
+	var out: Dictionary = buttons.duplicate()
+	if _jump_latch > 0:
+		out["jump"] = true
+		_jump_latch -= 1
+	if _interact_latch > 0:
+		out["interact"] = true
+		_interact_latch -= 1
+	return out
+
+func _next_seq() -> int:
+	_seq += 1
+	return _seq
 
 # FD-316: el control manda su look ("mouse_delta"/"touch_camera") a ESTE handheld. Como
 # render-esclavo no simula, no alcanza con aplicarlo a su player: se mete en el
@@ -271,10 +311,25 @@ func _poll_udp() -> void:
 		var pkt = _udp.get_packet()
 		var pkt_str = pkt.get_string_from_utf8()
 		var dict = RemoteProtocol.decode_json(pkt_str)
-		if dict.get("type", "") == "sim_snapshot":
-			if packet_ip != "":
-				_target_ip = packet_ip
-			receive_snapshot(dict)
+		_handle_udp_packet(packet_ip, dict)
+
+# FD-316: un snapshot sin el token de la sesion se descarta por completo: no se aplica
+# ni se adopta su IP de origen como destino (suplantacion del sim host, riesgo "Sin auth").
+func _handle_udp_packet(packet_ip: String, dict: Dictionary) -> void:
+	if String(dict.get("type", "")) != "sim_snapshot":
+		return
+	if not _snapshot_token_ok(dict):
+		printerr("[RemoteSimClient] snapshot descartado: token invalido")
+		return
+	if packet_ip != "":
+		_target_ip = packet_ip
+	receive_snapshot(dict)
+
+# Sin token fijado (legacy/tests) se acepta cualquier snapshot.
+func _snapshot_token_ok(snapshot: Dictionary) -> bool:
+	if _token == "":
+		return true
+	return String(snapshot.get("token", "")) == _token
 
 func _apply_snapshot(snapshot: Dictionary) -> void:
 	var tree = get_tree()
