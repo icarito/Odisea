@@ -216,6 +216,13 @@ func borrow_viewport() -> Viewport:
 		viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
 		if viewport.has_method("set_hud_relative_cursor"):
 			viewport.set_hud_relative_cursor(true)
+		# FD-316 (tarea R2): mientras el HUD es dueno del Viewport, la UI local de la pantalla
+		# (cursor del Viewport y navegacion por superficie) corre aunque el terminal NO este en
+		# foco. En el render-esclavo la camara la impone el snapshot y el foco local queda
+		# bloqueado (guard K2): sin esto la Pantalla del HUD se abria sin cursor para operarla.
+		# release_viewport() la devuelve al estado real del terminal (_update_ui_mode).
+		if viewport.has_method("set_ui_mode"):
+			viewport.call("set_ui_mode", true)
 		# Mientras el HUD es dueno del Viewport, el mouse lo maneja el overlay con la posicion
 		# ABSOLUTA del puntero real proyectada a la superficie (process_surface_motion). Se apaga el
 		# _input del terminal para que su camino relativo no compita (cursor invertido/saltando).
