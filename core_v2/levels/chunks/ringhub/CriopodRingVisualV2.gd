@@ -95,12 +95,17 @@ func _enter_tree() -> void:
 		_lod_base = _capture_base_transforms()
 	if blocked_slot >= 0:
 		block_slot(blocked_slot)
-	# Godot 3 NO puede hornear MultiMeshInstance, asi que por default los anillos se
-	# cambian por pods instanciados (MeshInstance, bakeables y con lightmap). Si en
-	# la Anbernic sale caro, se apaga con ODISEA_CRIOPOD_RING_INSTANCED=0.
-	var ring_env := OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED").to_lower()
-	if ring_env != "0" and ring_env != "false" and ring_env != "no" and ring_env != "off":
-		_instance_bakeable_pods()
+	# Godot 3 NO puede hornear MultiMeshInstance, asi que fuera del tier LOW los anillos
+	# se cambian por pods instanciados (MeshInstance, bakeables y con lightmap). En tier
+	# LOW manda el costo por draw del driver Mali (FD-316 tarea Y): el anillo visible vuelve
+	# a sus capas MultiMesh horneadas, que ya agrupan los pods por (mesh, material) y
+	# dibujan el anillo entero en 1 draw por superficie en vez de uno por pod. Los pods
+	# igual se instancian pero OCULTOS: son las anclas que el BakedLightmap del nivel
+	# referencia por path (`Pod_CriopodsN_NN` y su `Interior/Glass`). Sin ellos, cada carga
+	# y descarga del nivel loguea "Node not found" desde _assign_lightmaps/_clear_lightmaps.
+	# ODISEA_CRIOPOD_RING_INSTANCED fuerza el camino para A/B
+	# (1/true = instanciar visible siempre, 0/false = MultiMesh siempre).
+	_instance_bakeable_pods(_criopod_ring_batched())
 	# El LOD MultiMesh solo tiene sentido si las capas MultiMesh son la
 	# representacion activa: con pods instanciados quedan ocultas y el culling por
 	# nodo ya funciona. En ese caso no se crea el manager.
@@ -146,6 +151,30 @@ func _criopod_ring_lod_enabled() -> bool:
 	return true
 
 
+# FD-316 (tarea Y): en el Mali del Anbernic cada pod instanciado (CriopodParallax con
+# 3 MeshInstance: shell, glass y tarjeta) es un draw; un anillo de 23 pods costaba ~69.
+# Las capas MultiMesh horneadas del anillo ya vienen agrupadas por (mesh, material) y
+# dibujan las N instancias en 1 draw por superficie (3 por anillo). El batcheo se limita
+# al tier LOW porque pierde el lightmap horneado por pod: Godot 3 no hornea
+# MultiMeshInstance, y fuera del tier LOW el aplanado del gate no esta activo. El pod
+# funcional (Criopod_Vert) es un nodo aparte del visual; el slot bloqueado se sigue
+# colapsando con block_slot().
+func _criopod_ring_batched() -> bool:
+	var ring_env := OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED").to_lower()
+	if ring_env == "0" or ring_env == "false" or ring_env == "no" or ring_env == "off":
+		return true
+	if ring_env == "1" or ring_env == "true" or ring_env == "yes" or ring_env == "on":
+		return false
+	return _is_low_tier()
+
+
+func _is_low_tier() -> bool:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null or not gate.has_method("is_low_tier"):
+		return false
+	return bool(gate.is_low_tier())
+
+
 func _capture_base_transforms() -> Array:
 	var base := []
 	for layer in _layers:
@@ -178,9 +207,13 @@ func _slot_for(index: int) -> int:
 	return _lod.slot_for(index)
 
 
-# Cambia las capas MultiMesh (no bakeables en Godot 3) por pods CriopodParallax
-# instanciados, que sí son MeshInstance con UV2 y reciben el lightmap.
-func _instance_bakeable_pods() -> void:
+# Instancia los pods CriopodParallax (MeshInstance con UV2 que reciben el lightmap).
+# `batch_hidden` (tier LOW): los pods se crean pero quedan OCULTOS y el anillo visible son
+# las capas MultiMesh. Los nodos siguen existiendo porque el BakedLightmap del nivel los
+# referencia por path para asignar el lightmap horneado; borrarlos o no crearlos dispara
+# "Node not found" en _assign_lightmaps/_clear_lightmaps. Con `batch_hidden` no se ocultan
+# las capas MultiMesh, que pasan a ser la representacion activa (1 draw por superficie).
+func _instance_bakeable_pods(batch_hidden: bool = false) -> void:
 	var shell_layer: MultiMeshInstance = null
 	for layer in _layers:
 		if String(layer.name) == "Shell":
@@ -200,6 +233,9 @@ func _instance_bakeable_pods() -> void:
 		# coincide entre el bake y el runtime, y _assign_lightmaps falla ("Node not
 		# found"). El nombre tiene que ser igual en ambos.
 		pod.name = "Pod_%s_%02d" % [String(name).replace("Criopods_Visual_", ""), i]
+		# Ancla oculta del lightmap: no aporta draw (el que dibuja es el MultiMesh).
+		if batch_hidden:
+			pod.visible = false
 		add_child(pod)
 		# En runtime visual-only; la posicion se aplica en _ready (en _enter_tree el
 		# global_transform todavia no es valido).
@@ -214,6 +250,9 @@ func _instance_bakeable_pods() -> void:
 		for c in pod.get_children():
 			if c is StaticBody or c is KinematicBody:
 				c.queue_free()
+	if batch_hidden:
+		print("[criopods] ", get_path(), " batched pods=", count, " hidden lightmap hooks (layers=", _layers.size(), ")")
+		return
 	for layer in _layers:
 		layer.visible = false
 	set_meta("ring_instanced_bake", true)
