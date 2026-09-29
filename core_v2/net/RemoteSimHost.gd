@@ -683,12 +683,11 @@ func capture_snapshot() -> Dictionary:
 	globals["rig"] = _capture_player_rig()
 	globals["arm_len"] = _capture_arm_length()
 
-	# Capture camera state: la del nivel simulado (viewport oculto), no la del UI.
-	var camera: Camera = null
-	if _sim_viewport != null and is_instance_valid(_sim_viewport):
-		camera = _sim_viewport.get_camera()
-	if camera == null:
-		camera = tree.root.get_viewport().get_camera()
+	# Capture camera state: la ACTIVA del nivel simulado (viewport oculto), no la del UI.
+	# FD-316 (tarea K2): es la camara que esta viendo la autoridad en ese tick, la del
+	# terminal o la cinematica incluidas; el esclavo solo impone transform + fov sobre
+	# su camara actual y nunca la elige por logica local.
+	var camera: Camera = _resolve_active_sim_camera()
 	if camera != null and is_instance_valid(camera):
 		globals["cam_t"] = RemoteProtocol.encode_transform(camera.global_transform)
 		globals["cam_fov"] = camera.fov
@@ -697,6 +696,30 @@ func capture_snapshot() -> Dictionary:
 	_stats.add("capture_us", float(OS.get_ticks_usec() - started_us))
 	_stats.tally("snap")
 	return snap
+
+# FD-316 (tarea K2): camara activa del nivel simulado. El viewport oculto ya resuelve la
+# que quedo `current` ahi (jugador, terminal o cinematica), asi que se prefiere esa; como
+# respaldo se consulta al CinematicManager si su camara activa vive en el nivel. Con nivel
+# montado pero sin camara activa se devuelve null: no se manda la camara del UI.
+func _resolve_active_sim_camera() -> Camera:
+	if _sim_viewport != null and is_instance_valid(_sim_viewport):
+		var cam = _sim_viewport.get_camera()
+		if cam != null and is_instance_valid(cam):
+			return cam
+	var cinematic = get_node_or_null("/root/CinematicManager")
+	if cinematic != null and cinematic.has_method("get_active_camera"):
+		var active = cinematic.call("get_active_camera")
+		if active != null and is_instance_valid(active) and _is_in_sim_level(active):
+			return active
+	if _sim_viewport != null and is_instance_valid(_sim_viewport):
+		return null
+	# Sin nivel simulado (legacy): la camara del arbol, como antes.
+	return get_tree().root.get_viewport().get_camera() if get_tree() != null else null
+
+func _is_in_sim_level(node: Node) -> bool:
+	if _sim_level == null or not is_instance_valid(_sim_level):
+		return false
+	return _sim_level == node or _sim_level.is_a_parent_of(node)
 
 # La cadena del rig la define RemoteProtocol.RIG_CHAIN: host y esclavo comparten una sola
 # (ver capture_snapshot).

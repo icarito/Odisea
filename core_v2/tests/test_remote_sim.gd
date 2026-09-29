@@ -1969,3 +1969,111 @@ func test_pause_manager_exempts_sim_host_on_focus_loss():
 
 	rcm.is_sim_host_active = prev_active
 
+
+# FD-316 (tarea K2): el render-esclavo no es duenno de la camara. Con el rol activo, la
+# logica local de un HoloTerminalV2 (auto-interaccion de zona o focus) NO debe entrar en
+# foco ni pedir camara, y por lo tanto tampoco salir de foco despues. Sin el guard, el
+# terminal enfocaba y desenfocaba al ritmo del jugador replicado (el "Exiting focus mode"
+# repetido del handheld).
+class SpyTerminal extends HoloTerminalV2:
+	var exit_calls := 0
+	func _exit_focus_mode():
+		exit_calls += 1
+		._exit_focus_mode()
+
+
+func test_render_slave_terminal_does_not_own_camera_by_local_logic():
+	var rcm = get_node("/root/RemoteControlManager")
+	var prev_active: bool = rcm.is_render_slave_active
+
+	var terminal = auto_free(SpyTerminal.new())
+	terminal.use_cinematic_zone = false
+	terminal.enable_ui_interaction = true
+	terminal.allow_focus_mode = true
+	# Con un FocusedRig presente, el UNICO motivo para no enfocar es el guard.
+	var rig := Spatial.new()
+	rig.name = "FocusedRig"
+	auto_free(rig)
+	terminal._focused_rig = rig
+
+	rcm.is_render_slave_active = true
+	assert_bool(RemoteControlManagerScript.render_slave_owns_camera()).is_true()
+
+	# Entrada de foco: ni foco ni pedido de camara local.
+	terminal._enter_focus_mode()
+	terminal.focus()
+	assert_bool(terminal.is_focused()).is_false()
+	assert_int(terminal._focus_camera_request_id).is_equal(-1)
+
+	# Cerrar el terminal (close_on_exit_zone) tampoco dispara la salida de foco local.
+	terminal.set_active(false)
+	assert_int(terminal.exit_calls).is_equal(0)
+
+	# Fuera del rol el camino normal sigue funcionando (el guard no rompe el foco).
+	rcm.is_render_slave_active = false
+	assert_bool(RemoteControlManagerScript.render_slave_owns_camera()).is_false()
+	terminal._enter_focus_mode()
+	assert_bool(terminal.is_focused()).is_true()
+	assert_int(terminal._focus_camera_request_id).is_not_equal(-1)
+	terminal._exit_focus_mode()
+	assert_bool(terminal.is_focused()).is_false()
+
+	rcm.is_render_slave_active = prev_active
+
+
+# FD-316 (tarea K2): el render-esclavo impone la camara del snapshot (transform + fov)
+# sobre su camara actual, sin elegirla ni pedirla localmente.
+func test_render_slave_applies_snapshot_camera_transform_and_fov():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	var holder := Spatial.new()
+	var camera := Camera.new()
+	holder.add_child(camera)
+	get_tree().root.add_child(holder)
+	camera.current = true
+
+	var t := Transform(Basis(Vector3.UP, 0.5), Vector3(1.0, 2.0, 3.0))
+	client._apply_snapshot({"tick": 1, "entities": {}, "globals": {
+		"cam_fov": 71.5,
+		"cam_t": RemoteProtocolScript.encode_transform(t)
+	}})
+
+	assert_float(camera.fov).is_equal_approx(71.5, 0.001)
+	assert_vector3(camera.global_transform.origin).is_equal_approx(t.origin, Vector3.ONE * 0.001)
+
+	camera.current = false
+	get_tree().root.remove_child(holder)
+	holder.free()
+	client.stop_render_slave()
+
+
+# FD-316 (tarea K2): la autoridad manda la camara ACTIVA del nivel simulado (la del
+# terminal/cinematica incluida), no solo la del jugador, con su fov.
+func test_sim_host_captures_active_sim_camera_and_fov():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = _make_sim_level()
+	var cam_holder := Spatial.new()
+	cam_holder.name = "CinematicRig"
+	var cam := Camera.new()
+	cam.name = "Camera"
+	cam.fov = 66.0
+	cam_holder.add_child(cam)
+	level.add_child(cam_holder)
+
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	cam.current = true
+	cam.global_transform = Transform(Basis(Vector3.UP, 0.25), Vector3(5.0, 6.0, 7.0))
+
+	var snap: Dictionary = host.capture_snapshot()
+	assert_bool(snap["globals"].has("cam_t")).is_true()
+	assert_float(float(snap["globals"]["cam_fov"])).is_equal_approx(66.0, 0.001)
+	var enc: Dictionary = snap["globals"]["cam_t"]
+	var decoded: Transform = RemoteProtocolScript.decode_transform(enc)
+	assert_vector3(decoded.origin).is_equal_approx(Vector3(5.0, 6.0, 7.0), Vector3.ONE * 0.001)
+
+	host.stop_simulation()

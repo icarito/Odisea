@@ -4,6 +4,10 @@ class_name TerminalCameraRig
 # TerminalCameraRig.gd - Orchestrates cinematic/focus camera modes for terminals
 # Extracted from HoloTerminalV2 for reusability and cleaner architecture.
 
+# FD-316 (tarea K2): guard central del unico dueno de la camara (ver
+# RemoteControlManager.render_slave_owns_camera).
+const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManager.gd")
+
 signal focus_entered()
 signal focus_exited()
 
@@ -95,6 +99,10 @@ func is_player_in_zone() -> bool:
 func enter_focus_mode() -> void:
 	if _is_focused:
 		return
+	# FD-316 (tarea K2): con el render-esclavo activo la camara la impone el snapshot; el
+	# terminal no entra en foco por logica local (pelearia con la vista de la autoridad).
+	if RemoteControlManagerScript.render_slave_owns_camera():
+		return
 	
 	if not _focused_rig:
 		push_warning("[TerminalCameraRig] Cannot enter focus mode: FocusedRig not found")
@@ -175,6 +183,8 @@ func _find_player() -> Node:
 	return null
 
 func _request_focus_camera_rig(rig: Node) -> void:
+	if RemoteControlManagerScript.render_slave_owns_camera():
+		return
 	_release_focus_camera_request()
 	if rig == null or not is_instance_valid(rig):
 		return

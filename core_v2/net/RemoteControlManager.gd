@@ -70,6 +70,24 @@ const LOW_TIER_BROADCAST_INTERVAL := 4.0
 # implementacion". La validacion en vivo (Anbernic + control) queda en el reporte.
 const RENDER_SLAVE_OFFLOAD_READY := true
 
+# FD-316 (tarea K2): un solo dueno de la camara. Mientras el rol de render-esclavo esta
+# activo, la vista la impone el snapshot de la autoridad: ninguna logica local (terminales,
+# cinematicas) debe pedir ni soltar camaras por su cuenta, porque pelea con la vista
+# replicada (el sintoma era el ida y vuelta de foco del terminal en el handheld). Punto
+# unico de consulta para no dispersar el guard; estatico para que lo usen nodos que no
+# tienen por que depender del autoload instanciado.
+static func render_slave_owns_camera() -> bool:
+	var loop = Engine.get_main_loop()
+	if not (loop is SceneTree):
+		return false
+	var root = (loop as SceneTree).root
+	if root == null:
+		return false
+	var manager = root.get_node_or_null("RemoteControlManager")
+	if manager == null:
+		return false
+	return bool(manager.get("is_render_slave_active"))
+
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	# HTML5: el navegador no puede ser servidor (WebSocketServer no es instanciable) ni

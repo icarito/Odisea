@@ -9,6 +9,9 @@ class_name HoloTerminalV2
 const TerminalCameraRigScript = preload("res://core_v2/components/TerminalCameraRig.gd")
 const TerminalHUDBridgeScript = preload("res://core_v2/components/TerminalHUDBridge.gd")
 const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
+# FD-316 (tarea K2): guard central del unico dueno de la camara (ver
+# RemoteControlManager.render_slave_owns_camera).
+const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManager.gd")
 
 const DebugOverlayScene = preload("res://core_v2/ui/retro/DebugOverlay.tscn")
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
@@ -999,6 +1002,12 @@ func _enter_focus_mode():
 	# por detras de esa UI. `focus()` ya lo chequea, pero hay llamadas directas.
 	if _system_ui_owns_pointer():
 		return
+	# FD-316 (tarea K2): con el render-esclavo activo la camara la impone el snapshot. Si el
+	# terminal entra/sale de foco por su cuenta (auto-interaccion de zona sobre el jugador
+	# replicado), pelea con la vista de la autoridad: el sintoma era el "Exiting focus mode"
+	# repetido y el salto de camara. No se enfoca nada por logica local.
+	if RemoteControlManagerScript.render_slave_owns_camera():
+		return
 
 	if attach_to_active_camera:
 		_is_focused = true
@@ -1151,6 +1160,10 @@ func _apply_player_ui_settings() -> void:
 		_terminal_ui.set("cursor_sensitivity", _resolved_cursor_sensitivity)
 
 func _request_focus_camera_rig(rig: Node) -> void:
+	# FD-316 (tarea K2): defensa en profundidad; el guard de entrada ya lo impide, pero
+	# ningun pedido de camara local debe salir con el render-esclavo activo.
+	if RemoteControlManagerScript.render_slave_owns_camera():
+		return
 	_release_focus_camera_request()
 	if rig == null or not is_instance_valid(rig):
 		return
