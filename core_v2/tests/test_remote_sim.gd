@@ -1787,17 +1787,17 @@ func test_render_slave_stats_flush_and_reset():
 	client.stop_render_slave()
 
 
-# FD-316 (tarea L): la linea de stats publica el desglose del frame: process/physics del
-# motor, draw calls, objetos/vertices en frame, nodos totales y el remanente de render
-# (frame - process - physics). Los promedios son de la ventana.
+# FD-316 (tarea L/M): la linea de stats publica el desglose del frame: script real medido
+# por el probe, physics del motor, draw calls, objetos/vertices en frame, nodos totales y
+# el remanente de render (frame - script - physics). Los promedios son de la ventana.
 func test_render_slave_stats_reports_frame_breakdown():
 	var client = auto_free(RemoteSimClientScript.new())
 	add_child(client)
 	client.start_render_slave(0)
 
 	client._stats.tally("frame")
-	client._stats.add("process_us", 10000.0) # 10 ms
-	client._stats.add("physics_us", 5000.0) # 5 ms
+	client._stats.add("script_us", 10000.0) # 10 ms
+	client._stats.add("engine_physics_us", 5000.0) # 5 ms
 	client._stats.add("draw_calls", 90.0)
 	client._stats.add("objects_in_frame", 200.0)
 	client._stats.add("vertices_in_frame", 12345.0)
@@ -1805,19 +1805,69 @@ func test_render_slave_stats_reports_frame_breakdown():
 	client._stats.window_start_ms = OS.get_ticks_msec() - RemoteSimStatsScript.WINDOW_MS - 1
 	client._flush_client_stats()
 
-	for key in ["process_ms_avg", "physics_ms_avg", "render_ms_avg", "draw_calls_avg",
+	for key in ["script_ms_avg", "physics_ms_avg", "render_ms_avg", "draw_calls_avg",
 			"objects_in_frame_avg", "vertices_in_frame_avg", "node_count_avg"]:
 		assert_bool(client.last_stats.has(key)).is_true()
-	assert_float(float(client.last_stats["process_ms_avg"])).is_equal_approx(10.0, 0.001)
+	assert_bool(client.last_stats.has("process_ms_avg")).is_false()
+	assert_float(float(client.last_stats["script_ms_avg"])).is_equal_approx(10.0, 0.001)
 	assert_float(float(client.last_stats["physics_ms_avg"])).is_equal_approx(5.0, 0.001)
 	assert_float(float(client.last_stats["draw_calls_avg"])).is_equal_approx(90.0, 0.001)
 	assert_float(float(client.last_stats["objects_in_frame_avg"])).is_equal_approx(200.0, 0.001)
 	assert_float(float(client.last_stats["vertices_in_frame_avg"])).is_equal_approx(12345.0, 0.001)
 	assert_float(float(client.last_stats["node_count_avg"])).is_equal_approx(400.0, 0.001)
-	# Remanente = frame_ms - process_ms - physics_ms.
+	# Tarea M: ningun componente negativo y el desglose suma el frame de la ventana.
 	var frame_ms: float = float(client.last_stats["frame_ms_avg"])
-	assert_float(float(client.last_stats["render_ms_avg"])).is_equal_approx(
-		frame_ms - 15.0, 0.001)
+	var render_ms: float = float(client.last_stats["render_ms_avg"])
+	assert_float(render_ms).is_greater_equal(0.0)
+	assert_float(frame_ms - 15.0).is_equal_approx(render_ms, 0.001)
+
+	client.stop_render_slave()
+
+
+# FD-316 (tarea M): con una ventana larga y el desglose de un render-esclavo real (la
+# fisica local esta apagada, asi que engine_physics ~= 0), script + render cierra el frame
+# y ninguno sale negativo (el bug era render_ms < 0 porque TIME_PROCESS se usaba como
+# "tiempo de scripts").
+func test_render_slave_frame_breakdown_adds_up_and_is_non_negative():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	# 312 frames en 5 s => frame_ms_avg ~= 16 ms, con 5 ms de scripts y sin fisica local.
+	var frames := 312
+	for _i in range(frames):
+		client._stats.tally("frame")
+		client._stats.add("script_us", 5000.0)
+	client._stats.window_start_ms = OS.get_ticks_msec() - RemoteSimStatsScript.WINDOW_MS - 1
+	client._flush_client_stats()
+
+	var frame_ms: float = float(client.last_stats["frame_ms_avg"])
+	var script_ms: float = float(client.last_stats["script_ms_avg"])
+	var physics_ms: float = float(client.last_stats["physics_ms_avg"])
+	var render_ms: float = float(client.last_stats["render_ms_avg"])
+	assert_float(script_ms).is_equal_approx(5.0, 0.01)
+	assert_float(physics_ms).is_equal_approx(0.0, 0.01)
+	assert_float(script_ms).is_greater_equal(0.0)
+	assert_float(render_ms).is_greater_equal(0.0)
+	assert_float(frame_ms).is_greater_equal(0.0)
+	# Sin fisica local: script + render = frame.
+	assert_float(script_ms + render_ms).is_equal_approx(frame_ms, 0.01)
+	assert_float(script_ms + physics_ms + render_ms).is_equal_approx(frame_ms, 0.01)
+
+	client.stop_render_slave()
+
+
+# FD-316 (tarea M): el probe acumula el tramo de scripts por frame en las stats.
+func test_render_slave_frame_probe_accumulates_script_us():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+
+	client._on_frame_probe(7000)
+	client._on_frame_probe(3000)
+	# Un valor negativo (reloj no monotonico) se descarta.
+	client._on_frame_probe(-1)
+	assert_float(client._stats.sum("script_us")).is_equal_approx(10000.0, 0.001)
 
 	client.stop_render_slave()
 
@@ -1840,6 +1890,75 @@ func test_render_slave_profile_groups_processing_nodes_by_script():
 	assert_int(int(counts.get("<sin script>", 0))).is_greater_equal(1)
 
 	client.stop_render_slave()
+
+
+# FD-316 (tarea M): el censo de vertices del perfil agrupa por hijo de primer nivel de
+# current_scene, suma solo mallas VISIBLES y cuenta las instancias visibles de un
+# MultiMesh. El conteo por Mesh queda cacheado.
+func test_render_slave_profile_vertex_census_groups_by_first_level_child():
+	var level := Spatial.new()
+	level.name = "CensusLevel"
+	var group_a := Spatial.new()
+	group_a.name = "GroupA"
+	var group_b := Spatial.new()
+	group_b.name = "GroupB"
+	level.add_child(group_a)
+	level.add_child(group_b)
+
+	var mesh_a := _make_test_mesh(3)
+	var mi_a := MeshInstance.new()
+	mi_a.mesh = mesh_a
+	group_a.add_child(mi_a)
+	# Oculta: no aporta al censo.
+	var mi_hidden := MeshInstance.new()
+	mi_hidden.mesh = mesh_a
+	mi_hidden.visible = false
+	group_a.add_child(mi_hidden)
+
+	var mesh_b := _make_test_mesh(5)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh_b
+	mm.instance_count = 4
+	mm.visible_instance_count = 2
+	var mmi := MultiMeshInstance.new()
+	mmi.multimesh = mm
+	group_b.add_child(mmi)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	var entries: Array = client._profile_vertex_census()
+	var by_group: Dictionary = {}
+	for e in entries:
+		by_group[String(e["group"])] = int(e["verts"])
+	# 3 vertices en A (la copia oculta no cuenta); 5 * 2 instancias visibles en B.
+	assert_int(int(by_group.get("GroupA", -1))).is_equal(3)
+	assert_int(int(by_group.get("GroupB", -1))).is_equal(10)
+	assert_int(entries.size()).is_equal(2)
+	# El conteo por malla se cacheo (no se recalcula surface_get_arrays).
+	assert_int(client._mesh_vertex_cache.size()).is_equal(2)
+
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+	get_tree().root.remove_child(level)
+	level.free()
+
+
+# Malla de test con una superficie de N vertices (sin triangulos: alcanza para el censo).
+func _make_test_mesh(vertex_count: int) -> ArrayMesh:
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	var points := PoolVector3Array()
+	for i in range(vertex_count):
+		points.append(Vector3(float(i), 0.0, 0.0))
+	arrays[Mesh.ARRAY_VERTEX] = points
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_POINTS, arrays)
+	return mesh
 
 
 # FD-316 (tarea L): el retardo de interpolacion es UN intervalo de snapshot, y el

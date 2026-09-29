@@ -99,6 +99,16 @@ var _stats_last_recv_ms: int = 0
 const PROFILE_WINDOW_MS := 5000
 var _profile_enabled: bool = false
 var _profile_last_ms: int = 0
+# Tarea M: sentinelas de prioridad extrema que encierran el _process de TODO el arbol para
+# medir el tramo real de scripts (ver _FrameProbe). Performance.TIME_PROCESS no es eso y
+# hacia que render_ms saliera negativo; ver _flush_client_stats.
+var _probe_start: Node = null
+var _probe_end: Node = null
+# Timestamp (usec) del inicio del frame, compartido entre las dos sentinelas.
+var _frame_start_us: int = 0
+# Tarea M: cache de vertices por Mesh. surface_get_arrays es caro, y el censo del perfil
+# recorre el nivel: el conteo de cada malla se calcula una sola vez.
+var _mesh_vertex_cache: Dictionary = {}
 
 func _ready() -> void:
 	# Aplicar el snapshot DESPUES de cualquier otro _process del frame (camara incluida):
@@ -106,6 +116,14 @@ func _ready() -> void:
 	process_priority = 1000
 	set_process(false)
 	_profile_enabled = OS.get_environment("ODISEA_SLAVE_PROFILE") == "1"
+	# Tarea M: el inicio corre antes que cualquier _process del arbol (prioridad minima) y
+	# el fin despues del propio cliente (prioridad maxima): la resta es el tramo de scripts.
+	_probe_start = _FrameProbe.new(self, false)
+	_probe_start.name = "FrameProbeStart"
+	add_child(_probe_start)
+	_probe_end = _FrameProbe.new(self, true)
+	_probe_end.name = "FrameProbeEnd"
+	add_child(_probe_end)
 
 func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_port: int = 10444, p_token: String = "") -> bool:
 	_listening_port = p_port
@@ -342,8 +360,9 @@ func _process(delta: float) -> void:
 	_stats.tally("frame")
 	# Tarea L: muestreo por frame de los monitores del motor para promediarlos por ventana
 	# (get_monitor devuelve el ultimo valor, no un promedio). TIME_* vienen en segundos.
-	_stats.add("process_us", float(Performance.get_monitor(Performance.TIME_PROCESS)) * 1000000.0)
-	_stats.add("physics_us", float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000000.0)
+	# Tarea M: se conserva solo la fisica real del motor; el tramo de scripts lo mide el
+	# probe (TIME_PROCESS no es tiempo de scripts y falseaba el desglose del frame).
+	_stats.add("engine_physics_us", float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000000.0)
 	_stats.add("draw_calls", float(Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)))
 	_stats.add("objects_in_frame", float(Performance.get_monitor(Performance.RENDER_OBJECTS_IN_FRAME)))
 	_stats.add("vertices_in_frame", float(Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME)))
@@ -770,6 +789,13 @@ func _stats_ack(seq: int) -> void:
 	_sent_seq_ms.erase(seq)
 	_stats.add_sample("rtt_ms", float(OS.get_ticks_msec() - int(sent_ms)))
 
+# Tarea M: lo llama la sentinela de fin una vez por frame procesado; acumula el tramo de
+# scripts del frame para promediarlo al cerrar la ventana.
+func _on_frame_probe(script_us: int) -> void:
+	if script_us < 0:
+		return
+	_stats.add("script_us", float(script_us))
+
 # Cierra la ventana cada RemoteSimStats.WINDOW_MS con UNA linea, publica el dict en
 # last_stats (telemetria ANNAV2) y resetea los acumuladores para la ventana siguiente.
 func _flush_client_stats() -> void:
@@ -780,13 +806,16 @@ func _flush_client_stats() -> void:
 	var elapsed_s: float = max(float(elapsed_ms) / 1000.0, 0.001)
 	var frames: int = _stats.count("frame")
 	var frame_den: int = max(frames, 1)
-	# Tarea L: promedio por ventana del frame desglosado. render_ms_avg = frame - process
-	# - physics es lo que queda para el render/driver, lo unico que el motor no mide
-	# aparte (el objetivo de esta tarea es justamente ver donde se va el frame).
-	var process_ms_avg: float = (_stats.sum("process_us") / float(frame_den)) / 1000.0
-	var physics_ms_avg: float = (_stats.sum("physics_us") / float(frame_den)) / 1000.0
+	# Tarea M: promedio por ventana del frame desglosado. script_ms es el tramo real de
+	# GDScript (lo mide el probe de prioridad extrema sobre TODO el _process del arbol);
+	# engine_physics es TIME_PHYSICS_PROCESS del motor; render_ms es el remanente
+	# (render + swap + driver), lo unico que el motor no mide aparte. Se acota a >= 0
+	# porque el reloj de pared del frame, el tramo de scripts y el timer de fisica no
+	# miden exactamente el mismo intervalo; un residual negativo es ruido de medicion.
+	var script_ms_avg: float = (_stats.sum("script_us") / float(frame_den)) / 1000.0
+	var physics_ms_avg: float = (_stats.sum("engine_physics_us") / float(frame_den)) / 1000.0
 	var frame_ms_avg: float = float(elapsed_ms) / float(frame_den)
-	var render_ms_avg: float = frame_ms_avg - process_ms_avg - physics_ms_avg
+	var render_ms_avg: float = max(0.0, frame_ms_avg - script_ms_avg - physics_ms_avg)
 	# Tarea G: snap_hz/snap_bytes miden el canal (todo lo recibido), no el parseo, que
 	# ahora esta acotado a 2 paquetes por frame.
 	var raw_snaps: int = _stats.count("raw_snap")
@@ -803,7 +832,7 @@ func _flush_client_stats() -> void:
 		"fps": float(frames) / elapsed_s,
 		"snap_bytes_avg": _stats.sum("raw_bytes") / float(max(raw_snaps, 1)),
 		# Tarea L: contadores del motor promediados por ventana.
-		"process_ms_avg": process_ms_avg,
+		"script_ms_avg": script_ms_avg,
 		"physics_ms_avg": physics_ms_avg,
 		"render_ms_avg": render_ms_avg,
 		"draw_calls_avg": _stats.sum("draw_calls") / float(frame_den),
@@ -823,7 +852,7 @@ func _flush_client_stats() -> void:
 		" frame_ms_avg=", "%.1f" % stats["frame_ms_avg"],
 		" fps=", "%.1f" % stats["fps"],
 		" snap_bytes_avg=", "%.0f" % stats["snap_bytes_avg"],
-		" process_ms=", "%.2f" % stats["process_ms_avg"],
+		" script_ms=", "%.2f" % stats["script_ms_avg"],
 		" physics_ms=", "%.2f" % stats["physics_ms_avg"],
 		" render_ms=", "%.2f" % stats["render_ms_avg"],
 		" draw_calls=", "%.0f" % stats["draw_calls_avg"],
@@ -851,6 +880,71 @@ func _flush_profile(now_ms: int) -> void:
 		" scripts, top ", top)
 	for i in range(top):
 		print("  ", entries[i]["count"], " nodos  ", entries[i]["script"])
+	# Tarea M: censo de vertices visibles del nivel, agrupado por hijo de primer nivel de
+	# current_scene. Una vez por ventana (no por frame): dice que parte del nivel pesa.
+	var verts_entries: Array = _profile_vertex_census()
+	var vtop: int = int(min(verts_entries.size(), 10))
+	for i in range(vtop):
+		print("[RemoteSimClient] profile verts: ", verts_entries[i]["verts"],
+			" ", verts_entries[i]["group"])
+
+# Tarea M: suma los vertices VISIBLES de MeshInstance y MultiMeshInstance por hijo de
+# primer nivel de current_scene. El conteo de cada Mesh se cachea porque
+# surface_get_arrays es caro. Devuelve pares {group, verts} ordenados de mayor a menor.
+func _profile_vertex_census() -> Array:
+	var tree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return []
+	var totals: Dictionary = {}
+	for child in tree.current_scene.get_children():
+		if not is_instance_valid(child):
+			continue
+		var verts: int = _count_subtree_vertices(child)
+		if verts > 0:
+			totals[String(child.name)] = verts
+	var entries: Array = []
+	for group_name in totals:
+		entries.append({"group": group_name, "verts": int(totals[group_name])})
+	entries.sort_custom(self, "_profile_verts_sort_desc")
+	return entries
+
+# Recorrido iterativo del subarbol sumando vertices visibles. Un MeshInstance oculto (el o
+# cualquiera de sus padres no visible en el arbol) no aporta.
+func _count_subtree_vertices(root) -> int:
+	var total := 0
+	var stack: Array = [root]
+	while not stack.empty():
+		var node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		if node is MeshInstance:
+			if node.mesh != null and node.is_visible_in_tree():
+				total += _mesh_vertex_count(node.mesh)
+		elif node is MultiMeshInstance:
+			var mm = node.multimesh
+			if mm != null and mm.mesh != null and node.is_visible_in_tree():
+				var instances: int = mm.visible_instance_count if mm.visible_instance_count >= 0 else mm.instance_count
+				total += _mesh_vertex_count(mm.mesh) * max(0, instances)
+		for child in node.get_children():
+			stack.append(child)
+	return total
+
+# Vertices de una malla: suma de ARRAY_VERTEX de cada superficie. Cacheado por Mesh.
+func _mesh_vertex_count(mesh) -> int:
+	if mesh == null:
+		return 0
+	if _mesh_vertex_cache.has(mesh):
+		return int(_mesh_vertex_cache[mesh])
+	var total := 0
+	for i in range(mesh.get_surface_count()):
+		var arrays = mesh.surface_get_arrays(i)
+		if arrays == null or arrays.size() <= Mesh.ARRAY_VERTEX:
+			continue
+		var verts = arrays[Mesh.ARRAY_VERTEX]
+		if verts != null:
+			total += verts.size()
+	_mesh_vertex_cache[mesh] = total
+	return total
 
 # Cuenta nodos con _process activo por script (path del recurso; los nodos sin script se
 # agrupan bajo un rotulo). Pasada iterativa: sin recursion ni allocs por frame.
@@ -876,3 +970,29 @@ func _profile_script_counts() -> Dictionary:
 
 func _profile_sort_desc(a, b) -> bool:
 	return int(a["count"]) > int(b["count"])
+
+func _profile_verts_sort_desc(a, b) -> bool:
+	return int(a["verts"]) > int(b["verts"])
+
+# Tarea M: sentinela de prioridad extrema. process_priority ordena los _process de TODO el
+# arbol, asi que la de inicio (prioridad minima) corre antes que cualquier script y la de
+# fin (prioridad maxima) despues del cliente (que tiene 1000): la resta de timestamps es el
+# tramo real de scripts del frame. Solo actua como render-esclavo.
+class _FrameProbe extends Node:
+	var _client = null
+	var _is_end := false
+
+	func _init(p_client, p_is_end: bool) -> void:
+		_client = p_client
+		_is_end = p_is_end
+		process_priority = 10000 if _is_end else -10000
+		# En Godot 3 un nodo nuevo no procesa hasta habilitarlo explicitamente.
+		set_process(true)
+
+	func _process(_delta: float) -> void:
+		if _client == null or not _client.is_render_slave:
+			return
+		if not _is_end:
+			_client._frame_start_us = OS.get_ticks_usec()
+		elif _client._frame_start_us > 0:
+			_client._on_frame_probe(OS.get_ticks_usec() - _client._frame_start_us)
