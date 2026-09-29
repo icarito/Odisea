@@ -1669,6 +1669,27 @@ const REPLAY_CENSO_INTERVALO := 60
 var _replay_censos := []
 var _replay_censo_contador := 0
 
+# FD-316 (tarea T2): censo de Viewports + sonda A/B. El conteo de geometria en frustum
+# (~114k) no explica los vertices que el driver dice dibujar (~313k): el sospechoso son
+# Viewports creados en runtime que comparten el World 3D (own_world=false) y con camara
+# propia o UPDATE_ALWAYS re-renderizan el nivel entero. El listado se vuelca en cada censo;
+# la sonda corre UNA vez, tarde (la camara del replay ya esta quieta) y por cada Viewport
+# no-root con 3D apaga su render REPLAY_VIEWPORT_PROBE_ESPERA frames para medir la caida
+# real de INFO_VERTICES_IN_FRAME / INFO_DRAW_CALLS_IN_FRAME, restaurando el modo exacto.
+const REPLAY_VIEWPORT_PROBE_FRAME := 600
+const REPLAY_VIEWPORT_PROBE_ESPERA := 2
+# 0 idle, 1 probando viewports no-root, 2 midiendo el root con todos apagados, 3 terminada.
+var _viewports_sonda := []
+var _viewports_sonda_estado := 0
+var _viewports_sonda_todos := []
+var _viewports_sonda_pendientes := []
+var _viewports_sonda_actual = null
+var _viewports_sonda_espera := 0
+var _viewports_sonda_base := {}
+var _viewports_sonda_raiz := {}
+var _viewports_sonda_raiz_base := {}
+var _viewports_sonda_guardados := {}
+
 func _process(_delta: float) -> void:
 	if not tick_pressure_monitor_enabled:
 		return
@@ -2287,6 +2308,17 @@ func load_and_play(path: String, perf_label: String = ""):
 	_replay_perf_on = perf_label != "" or OS.get_environment("ODISEA_REPLAY_PERF") in ["1", "true", "yes", "on"]
 	_replay_censos = []
 	_replay_censo_contador = 0
+	# Sesion nueva: la sonda de Viewports no arrastra resultados ni viewports apagados.
+	_restaurar_sonda_viewports()
+	_viewports_sonda = []
+	_viewports_sonda_estado = 0
+	_viewports_sonda_todos = []
+	_viewports_sonda_pendientes = []
+	_viewports_sonda_espera = 0
+	_viewports_sonda_base = {}
+	_viewports_sonda_raiz = {}
+	_viewports_sonda_raiz_base = {}
+	_viewports_sonda_guardados = {}
 	if _replay_perf_on:
 		var pm_perfil = get_node_or_null("/root/PerformanceMonitor")
 		if pm_perfil != null and pm_perfil.has_method("perfil_corrida_iniciar"):
@@ -2879,6 +2911,9 @@ func _muestrear_perf() -> void:
 	})
 	if _toca_censo():
 		_censar_geometria_visible(_replay_frame)
+		_sonda_viewports_iniciar_si_toca()
+	# La sonda avanza un paso por frame (una vez arrancada); fuera de eso es no-op.
+	_avanzar_sonda_viewports()
 
 
 # Decide si esta muestra lleva censo: la primera y luego cada REPLAY_CENSO_INTERVALO. Con la
@@ -2887,6 +2922,238 @@ func _toca_censo() -> bool:
 	var toca: bool = _replay_perf_on and (_replay_censo_contador % REPLAY_CENSO_INTERVALO == 0)
 	_replay_censo_contador += 1
 	return toca
+
+
+# FD-316 (tarea T2): inventario de TODOS los Viewports del arbol (el root incluido). Es lo
+# que permite ver si un Viewport de runtime comparte el World 3D del root (mismo_world) y
+# por eso re-renderiza el nivel, o si su textura se muestra en algun lado.
+func _listar_viewports() -> Array:
+	var tree := get_tree()
+	if tree == null:
+		return []
+	var raiz: Viewport = tree.root
+	var world_raiz = raiz.find_world()
+	var ids_texturas := _ids_texturas_del_arbol(tree.root)
+	var pila := [tree.root]
+	var lista := []
+	while not pila.empty():
+		var nodo = pila.pop_back()
+		if nodo is Viewport:
+			var vp := nodo as Viewport
+			var cam: Camera = vp.get_camera()
+			var tiene_cam: bool = cam != null and is_instance_valid(cam)
+			var tex = vp.get_texture()
+			lista.append({
+				"ruta": String(vp.get_path()),
+				"raiz": vp == raiz,
+				"size": [vp.size.x, vp.size.y],
+				"update_mode": int(vp.render_target_update_mode),
+				"own_world": vp.own_world,
+				# El World efectivo (no la propiedad `world`, que queda null sin own_world):
+				# find_world() es el que realmente renderiza la escena.
+				"mismo_world": vp.find_world() != null and vp.find_world() == world_raiz,
+				"cam": (String(cam.get_path()) if tiene_cam else ""),
+				"disable_3d": vp.disable_3d,
+				"usage": int(vp.usage),
+				"tiene_3d": _viewport_tiene_3d(vp),
+				"en_textura": tex != null and ids_texturas.has(tex.get_instance_id()),
+			})
+		for hijo in nodo.get_children():
+			pila.append(hijo)
+	return lista
+
+
+# IDs de instancia de las texturas a las que apunta algun nodo: propiedad "texture" (UI y
+# sprites) y albedo de Material/MeshInstance (displays colgantes que pintan el ViewportTexture
+# en una malla). Node.get() de una propiedad inexistente devuelve null sin error.
+func _ids_texturas_del_arbol(raiz: Node) -> Dictionary:
+	var ids := {}
+	var pila := [raiz]
+	while not pila.empty():
+		var nodo = pila.pop_back()
+		for hijo in nodo.get_children():
+			pila.append(hijo)
+		var tex = nodo.get("texture")
+		if tex is Texture:
+			ids[tex.get_instance_id()] = true
+		else:
+			_recoger_albedo_textura(nodo.get("material_override"), ids)
+			if nodo is MeshInstance:
+				var mi := nodo as MeshInstance
+				for i in range(mi.get_surface_material_count()):
+					_recoger_albedo_textura(mi.get_surface_material(i), ids)
+	return ids
+
+
+func _recoger_albedo_textura(mat, ids: Dictionary) -> void:
+	if mat is SpatialMaterial:
+		var at = (mat as SpatialMaterial).albedo_texture
+		if at is Texture:
+			ids[at.get_instance_id()] = true
+
+
+# 3D habilitado = no desactiva 3D y su usage es de escena 3D (USAGE_3D / USAGE_3D_NO_EFFECTS).
+func _viewport_tiene_3d(vp: Viewport) -> bool:
+	if vp.disable_3d:
+		return false
+	return vp.usage == Viewport.USAGE_3D or vp.usage == Viewport.USAGE_3D_NO_EFFECTS
+
+
+# Dispara la sonda UNA sola vez, despues de REPLAY_VIEWPORT_PROBE_FRAME: para entonces la
+# camara del replay ya esta quieta y el nivel streammeado se estabilizo, asi que la caida de
+# vertices al apagar un Viewport es atribuible a ese Viewport y no al scroll del mundo.
+func _sonda_viewports_iniciar_si_toca() -> bool:
+	if not _replay_perf_on or _viewports_sonda_estado != 0:
+		return false
+	if _replay_frame < REPLAY_VIEWPORT_PROBE_FRAME:
+		return false
+	_viewports_sonda_todos = _listar_viewports()
+	_viewports_sonda_pendientes = []
+	for info in _viewports_sonda_todos:
+		if bool(info.get("raiz", false)):
+			continue
+		if not bool(info.get("tiene_3d", false)):
+			continue
+		_viewports_sonda_pendientes.append(info)
+	_viewports_sonda = []
+	_viewports_sonda_actual = null
+	_viewports_sonda_espera = 0
+	_viewports_sonda_base = {}
+	_viewports_sonda_raiz = {}
+	_viewports_sonda_raiz_base = {}
+	_viewports_sonda_guardados = {}
+	_viewports_sonda_estado = 1
+	return true
+
+
+# Avanza la sonda un frame. Secuencia: por cada Viewport no-root con 3D apaga el render,
+# espera REPLAY_VIEWPORT_PROBE_ESPERA frames y mide la caida contra la base; despues apaga
+# TODOS los no-root para aislar lo que dibuja el root. Restaura SIEMPRE el modo exacto.
+func _avanzar_sonda_viewports() -> void:
+	if _viewports_sonda_estado == 0 or _viewports_sonda_estado == 3:
+		return
+	if _viewports_sonda_actual != null:
+		if _viewports_sonda_espera > 0:
+			_viewports_sonda_espera -= 1
+			return
+		_cerrar_sonda_viewport_actual()
+		return
+	if _viewports_sonda_espera > 0:
+		_viewports_sonda_espera -= 1
+		return
+	if _viewports_sonda_estado == 1:
+		if _viewports_sonda_pendientes.empty():
+			_iniciar_sonda_raiz()
+			return
+		var info: Dictionary = _viewports_sonda_pendientes.pop_front()
+		var vp = get_node_or_null(NodePath(String(info.get("ruta", ""))))
+		if vp == null or not is_instance_valid(vp) or not (vp is Viewport):
+			# El Viewport desaparecio entre el listado y la sonda (streaming de escena): se
+			# registra sin medicion y se sigue, para que la secuencia nunca se trabe.
+			_viewports_sonda.append(_resultado_viewport_invalido(info))
+			return
+		info["modo_original"] = int(vp.render_target_update_mode)
+		_viewports_sonda_guardados[String(info.get("ruta", ""))] = info
+		_viewports_sonda_base = _leer_render_info()
+		vp.render_target_update_mode = Viewport.UPDATE_DISABLED
+		_viewports_sonda_actual = info
+		_viewports_sonda_espera = REPLAY_VIEWPORT_PROBE_ESPERA
+		return
+	if _viewports_sonda_estado == 2:
+		_cerrar_sonda_raiz()
+
+
+func _iniciar_sonda_raiz() -> void:
+	_viewports_sonda_raiz_base = _leer_render_info()
+	_viewports_sonda_guardados = {}
+	for info in _viewports_sonda_todos:
+		if bool(info.get("raiz", false)):
+			continue
+		var vp = get_node_or_null(NodePath(String(info.get("ruta", ""))))
+		if vp == null or not is_instance_valid(vp) or not (vp is Viewport):
+			continue
+		info["modo_original"] = int(vp.render_target_update_mode)
+		_viewports_sonda_guardados[String(info.get("ruta", ""))] = info
+		vp.render_target_update_mode = Viewport.UPDATE_DISABLED
+	_viewports_sonda_estado = 2
+	_viewports_sonda_espera = REPLAY_VIEWPORT_PROBE_ESPERA
+
+
+func _cerrar_sonda_viewport_actual() -> void:
+	var info: Dictionary = _viewports_sonda_actual
+	_viewports_sonda_actual = null
+	var vp = get_node_or_null(NodePath(String(info.get("ruta", ""))))
+	var actual := _leer_render_info()
+	var base := _viewports_sonda_base
+	var restaurado := -1
+	if vp != null and is_instance_valid(vp) and vp is Viewport:
+		vp.render_target_update_mode = int(info.get("modo_original", Viewport.UPDATE_ALWAYS))
+		restaurado = int(vp.render_target_update_mode)
+	_viewports_sonda.append({
+		"ruta": String(info.get("ruta", "")),
+		"update_mode_original": int(info.get("modo_original", -1)),
+		"update_mode_restaurado": restaurado,
+		"delta_verts": int(base.get("verts", 0)) - int(actual.get("verts", 0)),
+		"delta_draws": int(base.get("draws", 0)) - int(actual.get("draws", 0)),
+		"verts": int(actual.get("verts", 0)),
+		"draws": int(actual.get("draws", 0)),
+		"own_world": bool(info.get("own_world", false)),
+		"mismo_world": bool(info.get("mismo_world", false)),
+		"cam": String(info.get("cam", "")),
+		"en_textura": bool(info.get("en_textura", false)),
+	})
+
+
+func _resultado_viewport_invalido(info: Dictionary) -> Dictionary:
+	return {
+		"ruta": String(info.get("ruta", "")),
+		"update_mode_original": int(info.get("update_mode", -1)),
+		"update_mode_restaurado": -1,
+		"delta_verts": 0,
+		"delta_draws": 0,
+		"verts": 0,
+		"draws": 0,
+		"own_world": bool(info.get("own_world", false)),
+		"mismo_world": bool(info.get("mismo_world", false)),
+		"cam": String(info.get("cam", "")),
+		"en_textura": bool(info.get("en_textura", false)),
+		"invalido": true,
+	}
+
+
+func _cerrar_sonda_raiz() -> void:
+	var base := _viewports_sonda_raiz_base
+	var actual := _leer_render_info()
+	_viewports_sonda_raiz = {
+		"verts": int(actual.get("verts", 0)),
+		"draws": int(actual.get("draws", 0)),
+		"delta_verts": int(base.get("verts", 0)) - int(actual.get("verts", 0)),
+		"delta_draws": int(base.get("draws", 0)) - int(actual.get("draws", 0)),
+	}
+	_restaurar_sonda_viewports()
+	_viewports_sonda_estado = 3
+
+
+# Restaura el render_target_update_mode exacto de todos los Viewports que la sonda apago.
+# Idempotente: se llama al cerrar la sonda y al volcar la traza, para no dejar nunca un
+# Viewport sin render si la reproduccion termina a mitad de la sonda.
+func _restaurar_sonda_viewports() -> void:
+	for ruta in _viewports_sonda_guardados:
+		var info: Dictionary = _viewports_sonda_guardados[ruta]
+		var vp = get_node_or_null(NodePath(String(ruta)))
+		if vp != null and is_instance_valid(vp) and vp is Viewport:
+			vp.render_target_update_mode = int(info.get("modo_original", Viewport.UPDATE_ALWAYS))
+	_viewports_sonda_guardados = {}
+	_viewports_sonda_actual = null
+
+
+# Vertices y draw calls realmente emitidos en el frame. INFO_*_IN_FRAME es lo que la GPU
+# recibio: la diferencia contra el censo en frustum es justo el x2.7 a explicar.
+func _leer_render_info() -> Dictionary:
+	return {
+		"verts": int(VisualServer.get_render_info(VisualServer.INFO_VERTICES_IN_FRAME)),
+		"draws": int(VisualServer.get_render_info(VisualServer.INFO_DRAW_CALLS_IN_FRAME)),
+	}
 
 
 # Camara que manda en el frame: CinematicManager resuelve transiciones/VCam/rig; si no la
@@ -2974,6 +3241,9 @@ func _censar_geometria_visible(frame: int, cam_forzada: Camera = null) -> void:
 		# se pide aparte el conteo que el script declara.
 		"criopods_declaradas": _contar_instancias_criopods(escena),
 		"grupos": lista,
+		# FD-316 (tarea T2): inventario de Viewports del arbol en esta muestra. Los que
+		# comparten el World del root (mismo_world=true) pueden re-renderizar el nivel.
+		"viewports": _listar_viewports(),
 	})
 
 
@@ -3124,16 +3394,52 @@ func _volcar_perf(etiqueta: String) -> void:
 	var pm_perfil = get_node_or_null("/root/PerformanceMonitor")
 	if pm_perfil != null and pm_perfil.has_method("perfil_corrida_terminar"):
 		perfiles = pm_perfil.perfil_corrida_terminar()
+	# La sonda puede haber quedado a mitad si el replay termino antes; restaurar siempre.
+	_restaurar_sonda_viewports()
 	f.store_string(JSON.print({
 		"etiqueta": etiqueta,
 		"frames": _replay_perf.size(),
 		"perfiles": perfiles,
 		"muestras": _replay_perf,
 		"censos": _replay_censos,
+		# FD-316 (tarea T2): resultado de la sonda A/B por Viewport y el aislamiento del root
+		# (vertices con TODOS los no-root apagados). Es la evidencia del x2.7 de vertices.
+		"viewports": _viewports_sonda,
+		"viewport_raiz": _viewports_sonda_raiz,
 	}))
 	f.close()
 	print("[SessionManager] Traza de rendimiento: %s (%d muestras, %d censos)" % [REPLAY_PERF_PATH, _replay_perf.size(), _replay_censos.size()])
 	_print_censo_top(_replay_censos)
+	_print_sonda_viewports()
+
+
+# FD-316 (tarea T2): resumen de la sonda ordenado por caida de vertices (el Viewport que mas
+# aporta al render primero). El root se imprime aparte: es lo que queda con todo apagado.
+func _print_sonda_viewports() -> void:
+	if _viewports_sonda.empty() and _viewports_sonda_raiz.empty():
+		return
+	print("[SessionManager] Sonda de Viewports: caida de vertices/draws al apagar cada uno")
+	var orden: Array = _viewports_sonda.duplicate()
+	orden.sort_custom(self, "_ordenar_viewports_por_delta_verts")
+	for r in orden:
+		print("  ", String(r.get("ruta", "?")),
+			" delta_verts=", int(r.get("delta_verts", 0)),
+			" delta_draws=", int(r.get("delta_draws", 0)),
+			" update_mode=", int(r.get("update_mode_original", -1)),
+			" own_world=", bool(r.get("own_world", false)),
+			" mismo_world=", bool(r.get("mismo_world", false)),
+			" en_textura=", bool(r.get("en_textura", false)),
+			" cam=", String(r.get("cam", "")))
+	if not _viewports_sonda_raiz.empty():
+		print("  [root] delta_verts=", int(_viewports_sonda_raiz.get("delta_verts", 0)),
+			" delta_draws=", int(_viewports_sonda_raiz.get("delta_draws", 0)),
+			" verts=", int(_viewports_sonda_raiz.get("verts", 0)),
+			" draws=", int(_viewports_sonda_raiz.get("draws", 0)),
+			" (con TODOS los no-root deshabilitados)")
+
+
+func _ordenar_viewports_por_delta_verts(a: Dictionary, b: Dictionary) -> bool:
+	return int(a.get("delta_verts", 0)) > int(b.get("delta_verts", 0))
 
 
 # Resumen del censo mas pesado (el de mayor total de vertices en frustum), top 10 de grupos.

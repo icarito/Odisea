@@ -3032,3 +3032,82 @@ func test_replay_censo_agrupa_por_segundo_nivel_y_respeta_intervalo():
 	session._replay_perf_on = prev_on
 	session._replay_censos = prev_censos
 	session._replay_censo_contador = prev_contador
+
+
+# FD-316 (tarea T2): la lista de Viewports incluye uno de prueba con own_world=false (comparte
+# el World del root, el mismo 3D del nivel), y la sonda A/B apaga cada Viewport no-root con 3D
+# y restaura su render_target_update_mode exacto al cerrar. Tambien queda medido el aislamiento
+# del root con todos los no-root deshabilitados.
+func test_replay_viewports_sonda_lista_y_restaura():
+	var session = get_node("/root/SessionManager")
+	var prev_on: bool = session._replay_perf_on
+	var prev_frame: int = session._replay_frame
+	var prev_estado: int = session._viewports_sonda_estado
+	var prev_sonda: Array = session._viewports_sonda
+	var prev_raiz: Dictionary = session._viewports_sonda_raiz
+	var prev_todos: Array = session._viewports_sonda_todos
+	var prev_pend: Array = session._viewports_sonda_pendientes
+	var prev_actual = session._viewports_sonda_actual
+	var prev_guardados: Dictionary = session._viewports_sonda_guardados
+
+	var vp := Viewport.new()
+	vp.name = "VpPruebaT2"
+	vp.own_world = false
+	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	get_tree().root.add_child(vp)
+
+	var lista: Array = session._listar_viewports()
+	var info_prueba = null
+	for info in lista:
+		if String(info.get("ruta", "")) == String(vp.get_path()):
+			info_prueba = info
+	assert_bool(info_prueba != null).is_true()
+	# own_world=false: el World efectivo es el del root, el mismo 3D que ya se dibuja.
+	assert_bool(bool(info_prueba["own_world"])).is_false()
+	assert_bool(bool(info_prueba["mismo_world"])).is_true()
+	assert_int(int(info_prueba["update_mode"])).is_equal(Viewport.UPDATE_ALWAYS)
+	assert_bool(bool(info_prueba["tiene_3d"])).is_true()
+
+	# La sonda arranca pasada la muestra de disparo y se avanza frame a frame.
+	session._replay_perf_on = true
+	session._replay_frame = 601
+	session._viewports_sonda_estado = 0
+	session._viewports_sonda = []
+	session._viewports_sonda_todos = []
+	session._viewports_sonda_pendientes = []
+	session._viewports_sonda_actual = null
+	session._viewports_sonda_guardados = {}
+	assert_bool(session._sonda_viewports_iniciar_si_toca()).is_true()
+
+	var guard := 0
+	while session._viewports_sonda_estado != 3 and guard < 200:
+		session._avanzar_sonda_viewports()
+		guard += 1
+	assert_bool(guard < 200).is_true()
+	assert_int(session._viewports_sonda_estado).is_equal(3)
+
+	# El modo exacto quedo restaurado y la sonda lo registro.
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+	var resultado = null
+	for r in session._viewports_sonda:
+		if String(r.get("ruta", "")) == String(vp.get_path()):
+			resultado = r
+	assert_bool(resultado != null).is_true()
+	assert_int(int(resultado["update_mode_original"])).is_equal(Viewport.UPDATE_ALWAYS)
+	assert_int(int(resultado["update_mode_restaurado"])).is_equal(Viewport.UPDATE_ALWAYS)
+	assert_bool(resultado.has("delta_verts")).is_true()
+	assert_bool(resultado.has("delta_draws")).is_true()
+	assert_bool(session._viewports_sonda_raiz.has("delta_verts")).is_true()
+
+	get_tree().root.remove_child(vp)
+	vp.free()
+	session._restaurar_sonda_viewports()
+	session._replay_perf_on = prev_on
+	session._replay_frame = prev_frame
+	session._viewports_sonda_estado = prev_estado
+	session._viewports_sonda = prev_sonda
+	session._viewports_sonda_raiz = prev_raiz
+	session._viewports_sonda_todos = prev_todos
+	session._viewports_sonda_pendientes = prev_pend
+	session._viewports_sonda_actual = prev_actual
+	session._viewports_sonda_guardados = prev_guardados
