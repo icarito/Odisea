@@ -540,49 +540,53 @@ func capture_snapshot() -> Dictionary:
 				sync_nodes.append(player_node)
 
 	for node in sync_nodes:
-		if is_instance_valid(node) and node is Spatial:
-			# Con nivel de simulacion, solo nodos de ese nivel viajan (el resto del
-			# arbol del control no existe en el esclavo).
-			if _sim_level != null and is_instance_valid(_sim_level) \
-					and not _sim_level.is_a_parent_of(node) and node != _sim_level:
-				continue
-			var path_str = String(scene.get_path_to(node)) if scene != null else String(node.get_path())
-			var state = {
-				"t": RemoteProtocol.encode_transform(node.global_transform),
-				"v": node.visible
-			}
-			if node is Light:
-				state["l_energy"] = node.light_energy
-			# FD-316: la velocidad y el piso del jugador viajan para que el
-			# render-esclavo anime walk/run/aire: alla no hay simulacion local.
-			if node.is_in_group("player"):
-				var node_velocity = node.get("velocity")
-				if node_velocity is Vector3:
-					state["vel"] = [node_velocity.x, node_velocity.y, node_velocity.z]
-					state["g"] = bool(node.call("is_effectively_grounded")) if node.has_method("is_effectively_grounded") else false
-				# La direccion de caminar orienta el cuerpo en el esclavo (alla el input
-				# local esta congelado y el wish queda en cero).
-				if node.has_method("get_wish_direction"):
-					var wish = node.call("get_wish_direction")
-					if wish is Vector3:
-						state["wish"] = [wish.x, wish.y, wish.z]
-				# FD-316: la linterna del casco no esta en replay_sync: su estado logico
-				# (encendido/bateria) viaja con el jugador. La orientacion del haz la saca
-				# el esclavo de la camara replicada (ver HelmetFlashlight._process).
-				var flashlight = node.get_node_or_null(RemoteProtocol.FLASHLIGHT_PATH)
-				if flashlight != null and "enabled" in flashlight:
-					state["flash"] = {
-						"on": bool(flashlight.enabled),
-						"battery": float(flashlight.battery)
-					}
-			else:
-				# FD-316: estado RICO del actor (get_snapshot), no solo el transform: los
-				# interactuables (p.ej. LightGroup del pedestal) se replican por su estado
-				# logico; sin esto el switch cambiaba en la autoridad y las luces del
-				# esclavo quedaban apagadas.
-				if node.has_method("get_snapshot"):
-					actor_states[path_str] = node.call("get_snapshot")
-			entities[path_str] = state
+		if not is_instance_valid(node):
+			continue
+		# Con nivel de simulacion, solo nodos de ese nivel viajan (el resto del
+		# arbol del control no existe en el esclavo).
+		if _sim_level != null and is_instance_valid(_sim_level) \
+				and not _sim_level.is_a_parent_of(node) and node != _sim_level:
+			continue
+		var path_str = String(scene.get_path_to(node)) if scene != null else String(node.get_path())
+		# FD-316: estado RICO del actor (get_snapshot) para TODO nodo de replay_sync,
+		# no solo los Spatial. Los componentes de logica puros viven en replay_sync sin
+		# transform y su estado es lo unico replicable: p.ej. RingHubLightState (Node)
+		# maneja las luces del domo que acciona el PedestalLight. Al filtrar por
+		# "node is Spatial" su get_snapshot no viajaba y el esclavo quedaba apagado
+		# aunque la autoridad encendiera. El jugador ya viaja por su rama de anim.
+		if not node.is_in_group("player") and node.has_method("get_snapshot"):
+			actor_states[path_str] = node.call("get_snapshot")
+		if not (node is Spatial):
+			continue
+		var state = {
+			"t": RemoteProtocol.encode_transform(node.global_transform),
+			"v": node.visible
+		}
+		if node is Light:
+			state["l_energy"] = node.light_energy
+		# FD-316: la velocidad y el piso del jugador viajan para que el
+		# render-esclavo anime walk/run/aire: alla no hay simulacion local.
+		if node.is_in_group("player"):
+			var node_velocity = node.get("velocity")
+			if node_velocity is Vector3:
+				state["vel"] = [node_velocity.x, node_velocity.y, node_velocity.z]
+				state["g"] = bool(node.call("is_effectively_grounded")) if node.has_method("is_effectively_grounded") else false
+			# La direccion de caminar orienta el cuerpo en el esclavo (alla el input
+			# local esta congelado y el wish queda en cero).
+			if node.has_method("get_wish_direction"):
+				var wish = node.call("get_wish_direction")
+				if wish is Vector3:
+					state["wish"] = [wish.x, wish.y, wish.z]
+			# FD-316: la linterna del casco no esta en replay_sync: su estado logico
+			# (encendido/bateria) viaja con el jugador. La orientacion del haz la saca
+			# el esclavo de la camara replicada (ver HelmetFlashlight._process).
+			var flashlight = node.get_node_or_null(RemoteProtocol.FLASHLIGHT_PATH)
+			if flashlight != null and "enabled" in flashlight:
+				state["flash"] = {
+					"on": bool(flashlight.enabled),
+					"battery": float(flashlight.battery)
+				}
+		entities[path_str] = state
 
 	var globals: Dictionary = {
 		"scene": scene_path

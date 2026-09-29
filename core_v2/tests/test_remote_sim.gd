@@ -304,6 +304,19 @@ class FakeSwitchActor extends Spatial:
 		state = d.duplicate()
 
 
+# FD-316 (D2): componente de logica puro en replay_sync, sin transform. Asi es
+# RingHubLightState (Node, no Spatial), el dueno de las luces del domo que acciona el
+# PedestalLight: su estado tiene que replicarse igual que el de un prop Spatial.
+class FakeLogicActor extends Node:
+	var state := {"lit": false}
+	var applied: Array = []
+	func get_snapshot() -> Dictionary:
+		return state.duplicate()
+	func restore_snapshot(d: Dictionary) -> void:
+		applied.append(d)
+		state = d.duplicate()
+
+
 # FD-316: la linterna del casco no esta en replay_sync; su encendido/bateria viajan en el
 # estado del jugador (ver RemoteSimHost.capture_snapshot / RemoteSimClient._apply_snapshot).
 class FakeFlashlight extends Spatial:
@@ -679,6 +692,64 @@ func test_render_slave_applies_remote_wish_and_actor_state_on_change():
 	# Estado distinto: se aplica.
 	client._apply_snapshot({"tick": 3, "entities": {}, "globals": {"states": {"PedestalLight": {"switch_active": false}}}})
 	assert_int(switch_b.applied.size()).is_equal(2)
+
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+
+
+# FD-316 (D2): el estado logico de un replay_sync NO Spatial (RingHubLightState es un
+# Node, no un Spatial) viaja igual en globals.states. Antes se filtraba por
+# "node is Spatial" y su get_snapshot no entraba al snapshot: la autoridad encendia las
+# luces del domo con el PedestalLight y el esclavo las conservaba apagadas.
+func test_snapshot_carries_non_spatial_actor_states():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var level := Spatial.new()
+	level.name = "SimLevel"
+	var player = auto_free(FakeWishPlayer.new())
+	player.name = "Pilot"
+	player.add_to_group("player")
+	var light_state = auto_free(FakeLogicActor.new())
+	light_state.name = "LightState"
+	light_state.add_to_group("replay_sync")
+	light_state.state = {"lit": true}
+	level.add_child(player)
+	level.add_child(light_state)
+
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	var snap = host.capture_snapshot()
+
+	assert_bool(snap["globals"].has("states")).is_true()
+	assert_bool(snap["globals"]["states"].has("LightState")).is_true()
+	assert_bool(bool(snap["globals"]["states"]["LightState"]["lit"])).is_true()
+	# Sin transform no entra en entities: de ese nodo solo viaja el estado logico.
+	assert_bool(snap["entities"].has("LightState")).is_false()
+
+	host.stop_simulation()
+
+
+# FD-316 (D2): el esclavo aplica el estado logico de un actor NO Spatial igual que el de
+# un prop: la resolucion del path contra current_scene y el restore no dependen del tipo.
+func test_render_slave_applies_non_spatial_actor_state():
+	var level_b := Spatial.new()
+	level_b.name = "SimLevelB"
+	var light_b = auto_free(FakeLogicActor.new())
+	light_b.name = "LightState"
+	level_b.add_child(light_b)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level_b)
+	get_tree().current_scene = level_b
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+
+	client._apply_snapshot({"tick": 1, "entities": {}, "globals": {"states": {"LightState": {"lit": true}}}})
+	assert_int(light_b.applied.size()).is_equal(1)
+	assert_bool(bool(light_b.state["lit"])).is_true()
+	# Mismo estado: no se re-aplica cada tick.
+	client._apply_snapshot({"tick": 2, "entities": {}, "globals": {"states": {"LightState": {"lit": true}}}})
+	assert_int(light_b.applied.size()).is_equal(1)
 
 	if previous_scene != null:
 		get_tree().current_scene = previous_scene
