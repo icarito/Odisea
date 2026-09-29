@@ -164,6 +164,13 @@ func _layer_instance_count() -> int:
 	return _layers[0].multimesh.instance_count
 
 
+# Cuantas instancias declara este anillo. El censo de geometria de replay
+# (SessionManager) lo pide por reflexion: esa geometria puede no existir como nodo
+# visible del arbol, asi que el censo por nodo no la ve.
+func declared_instance_count() -> int:
+	return _layer_instance_count()
+
+
 # Slot del buffer donde vive el pod `index` (identidad si el LOD esta apagado).
 func _slot_for(index: int) -> int:
 	if _lod == null:

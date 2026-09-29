@@ -2950,3 +2950,85 @@ func test_render_slave_profile_reports_physics_process_scripts():
 	assert_int(int(process_counts.get("<sin script>", 0))).is_greater_equal(0)
 
 	client.stop_render_slave()
+
+
+# FD-316 (tarea T1): el censo de geometria del replay agrupa por la ruta de 2do nivel bajo
+# current_scene, estima vertices por malla y respeta el intervalo (no por frame). Con la
+# traza apagada _toca_censo nunca dispara, asi que el censo no recorre el arbol.
+func test_replay_censo_agrupa_por_segundo_nivel_y_respeta_intervalo():
+	var session = get_node("/root/SessionManager")
+	var prev_on: bool = session._replay_perf_on
+	var prev_censos: Array = session._replay_censos
+	var prev_contador: int = session._replay_censo_contador
+	var prev_scene = get_tree().current_scene
+
+	var level := Spatial.new()
+	level.name = "CensoLevel"
+	var scaffold := Spatial.new()
+	scaffold.name = "ScaffoldStreamRoot"
+	var chunk := Spatial.new()
+	chunk.name = "Chunk_3"
+	# _make_test_mesh(N) genera N vertices sobre el eje X; se centra para caer en frustum.
+	var malla_a := MeshInstance.new()
+	malla_a.name = "MallaA"
+	malla_a.mesh = _make_test_mesh(7)
+	malla_a.translation = Vector3(-3.0, 0.0, -5.0)
+	var malla_b := MeshInstance.new()
+	malla_b.name = "MallaB"
+	malla_b.mesh = _make_test_mesh(5)
+	malla_b.translation = Vector3(-2.0, 0.0, -5.0)
+	chunk.add_child(malla_a)
+	chunk.add_child(malla_b)
+	scaffold.add_child(chunk)
+	level.add_child(scaffold)
+	var suelo := MeshInstance.new()
+	suelo.name = "Suelo"
+	suelo.mesh = _make_test_mesh(3)
+	suelo.translation = Vector3(0.0, 0.0, -6.0)
+	level.add_child(suelo)
+	var cam := Camera.new()
+	cam.name = "Cam"
+	level.add_child(cam)
+
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+	cam.current = true
+
+	# El grupo es la ruta hasta el 2do nivel, no el nodo hoja.
+	assert_str(session._grupo_de_censo(level, malla_a)).is_equal("ScaffoldStreamRoot/Chunk_3")
+	assert_str(session._grupo_de_censo(level, suelo)).is_equal("Suelo")
+
+	session._replay_censos = []
+	session._censar_geometria_visible(42, cam)
+	assert_int(session._replay_censos.size()).is_equal(1)
+	var censo: Dictionary = session._replay_censos[0]
+	assert_int(int(censo["frame"])).is_equal(42)
+	var por_grupo := {}
+	for g in censo["grupos"]:
+		por_grupo[String(g["grupo"])] = g
+	assert_bool(por_grupo.has("ScaffoldStreamRoot/Chunk_3")).is_true()
+	assert_int(int(por_grupo["ScaffoldStreamRoot/Chunk_3"]["n_instancias"])).is_equal(2)
+	assert_int(int(por_grupo["ScaffoldStreamRoot/Chunk_3"]["vertices"])).is_equal(12)
+	assert_int(int(por_grupo["ScaffoldStreamRoot/Chunk_3"]["en_frustum"])).is_equal(2)
+	assert_bool(por_grupo.has("Suelo")).is_true()
+	assert_int(int(por_grupo["Suelo"]["vertices"])).is_equal(3)
+	# Ordenado por vertices en frustum descendente (Chunk_3 suma 12, Suelo 3).
+	assert_str(String(censo["grupos"][0]["grupo"])).is_equal("ScaffoldStreamRoot/Chunk_3")
+
+	# Intervalo: primera muestra y luego cada 60; apagado nunca toca el censo.
+	session._replay_perf_on = true
+	session._replay_censo_contador = 0
+	assert_bool(session._toca_censo()).is_true()
+	for _i in range(59):
+		assert_bool(session._toca_censo()).is_false()
+	assert_bool(session._toca_censo()).is_true()
+	session._replay_perf_on = false
+	assert_bool(session._toca_censo()).is_false()
+
+	get_tree().current_scene = prev_scene
+	cam.current = false
+	get_tree().root.remove_child(level)
+	level.free()
+	session._replay_perf_on = prev_on
+	session._replay_censos = prev_censos
+	session._replay_censo_contador = prev_contador

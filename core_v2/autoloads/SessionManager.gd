@@ -1661,6 +1661,14 @@ var _replay_perf := []
 var _replay_perf_on := false
 var _replay_perf_label := ""
 
+# Censo de geometria visible (que se dibuja y cuanto) para decidir culling/LOD. Se arma solo
+# con la traza encendida y cada REPLAY_CENSO_INTERVALO muestras: recorrer el arbol + testear
+# el frustum por instancia no es gratis, asi que nunca corre por frame. Se vuelca junto a
+# "muestras" en REPLAY_PERF_PATH.
+const REPLAY_CENSO_INTERVALO := 60
+var _replay_censos := []
+var _replay_censo_contador := 0
+
 func _process(_delta: float) -> void:
 	if not tick_pressure_monitor_enabled:
 		return
@@ -2277,6 +2285,8 @@ func load_and_play(path: String, perf_label: String = ""):
 	_replay_perf = []
 	_replay_perf_label = perf_label
 	_replay_perf_on = perf_label != "" or OS.get_environment("ODISEA_REPLAY_PERF") in ["1", "true", "yes", "on"]
+	_replay_censos = []
+	_replay_censo_contador = 0
 	if _replay_perf_on:
 		var pm_perfil = get_node_or_null("/root/PerformanceMonitor")
 		if pm_perfil != null and pm_perfil.has_method("perfil_corrida_iniciar"):
@@ -2829,12 +2839,32 @@ func _muestrear_perf() -> void:
 	var pos := Vector3.ZERO
 	if is_instance_valid(player):
 		pos = player.global_transform.origin
+	# Que mira la camara en esta muestra. Se guarda la basis completa ademas de yaw/pitch:
+	# el rig carga camera_basis_prefix (180° en Y) y un yaw recalculado desde el rig se lee
+	# espejado. Forward de la camara = -basis.z, igual que la direccion de movimiento.
+	var cam := _camara_activa()
+	var cam_pos := []
+	var cam_basis := []
+	var cam_yaw := 0.0
+	var cam_pitch := 0.0
+	if cam != null and is_instance_valid(cam):
+		var b: Basis = cam.global_transform.basis
+		cam_basis = [b.x.x, b.x.y, b.x.z, b.y.x, b.y.y, b.y.z, b.z.x, b.z.y, b.z.z]
+		var o: Vector3 = cam.global_transform.origin
+		cam_pos = [o.x, o.y, o.z]
+		var fwd: Vector3 = -b.z
+		cam_yaw = atan2(fwd.x, fwd.z)
+		cam_pitch = asin(clamp(fwd.y, -1.0, 1.0))
 	_replay_perf.append({
 		"frame": _replay_frame,
 		"fps": Performance.get_monitor(Performance.TIME_FPS),
 		"ms_process": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		"ms_physics": Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 		"draw_calls": Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
+		# Vertices/objetos realmente renderizados en el frame. Separan un frame de GEOMETRIA
+		# (muchos vertices/objetos) de uno de CPU aunque draw_calls sea parecido.
+		"vertices": VisualServer.get_render_info(VisualServer.INFO_VERTICES_IN_FRAME),
+		"objetos_render": VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME),
 		# Para distinguir un tiron de ARBOL (nodos que entran o salen: instanciar un prop,
 		# cargar un tramo) de uno de GPU (compilar un shader la primera vez que algo se ve).
 		# Los dos se ven igual en ms_process, pero solo el primero mueve estos contadores.
@@ -2842,7 +2872,243 @@ func _muestrear_perf() -> void:
 		"recursos": Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT),
 		"objetos": Performance.get_monitor(Performance.OBJECT_COUNT),
 		"x": pos.x, "y": pos.y, "z": pos.z,
+		"cam_pos": cam_pos,
+		"cam_basis": cam_basis,
+		"cam_yaw": cam_yaw,
+		"cam_pitch": cam_pitch,
 	})
+	if _toca_censo():
+		_censar_geometria_visible(_replay_frame)
+
+
+# Decide si esta muestra lleva censo: la primera y luego cada REPLAY_CENSO_INTERVALO. Con la
+# traza apagada devuelve false siempre, asi que el censo (que recorre el arbol) no se llama.
+func _toca_censo() -> bool:
+	var toca: bool = _replay_perf_on and (_replay_censo_contador % REPLAY_CENSO_INTERVALO == 0)
+	_replay_censo_contador += 1
+	return toca
+
+
+# Camara que manda en el frame: CinematicManager resuelve transiciones/VCam/rig; si no la
+# encuentra (p. ej. nivel en un Viewport oculto) cae a la del viewport.
+func _camara_activa() -> Camera:
+	if is_instance_valid(CinematicManager) and CinematicManager.has_method("get_active_camera"):
+		var cam = CinematicManager.get_active_camera()
+		if cam != null and is_instance_valid(cam):
+			return cam
+	var vp := get_viewport()
+	if vp != null:
+		return vp.get_camera()
+	return null
+
+
+# Censo de la geometria VISIBLE agrupada por la ruta hasta el 2do nivel bajo current_scene
+# (p. ej. ScaffoldStreamRoot/Chunk_3): instancias, vertices estimados y cuantas caen en el
+# frustum de la camara. `cam_forzada` permite testear con una camara conocida; en runtime se
+# resuelve la activa. Se llama solo desde _muestrear_perf, cada REPLAY_CENSO_INTERVALO.
+func _censar_geometria_visible(frame: int, cam_forzada: Camera = null) -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	var escena: Node = tree.current_scene
+	if escena == null:
+		return
+	var cam: Camera = cam_forzada if cam_forzada != null else _camara_activa()
+	if cam == null or not is_instance_valid(cam):
+		return
+	var cam_origin: Vector3 = cam.global_transform.origin
+	var grupos := {}
+	# Cache de vertices por malla (instance_id -> count): en un tramo la misma malla se repite
+	# en decenas de instancias y surface_get_array_len no es gratis.
+	var cache_mallas := {}
+	# Recorrido iterativo (no recursivo) para no crecer el stack en jerarquias profundas.
+	var pila := [escena]
+	while not pila.empty():
+		var nodo = pila.pop_back()
+		for hijo in nodo.get_children():
+			pila.append(hijo)
+		if not (nodo is GeometryInstance):
+			continue
+		var geo := nodo as GeometryInstance
+		if not geo.is_visible_in_tree():
+			continue
+		var info := _info_geometria(geo, cache_mallas)
+		if info.empty():
+			continue
+		var aabb_glob: AABB = info["aabb"]
+		var centro: Vector3 = aabb_glob.position + aabb_glob.size * 0.5
+		var radio: float = aabb_glob.size.length() * 0.5
+		var dist: float = max(0.0, cam_origin.distance_to(centro) - radio)
+		var en_frustum := _aabb_en_frustum(cam, aabb_glob)
+		var grupo := _grupo_de_censo(escena, geo)
+		var acum = grupos.get(grupo, null)
+		if acum == null:
+			acum = {
+				"grupo": grupo,
+				"n_instancias": 0,
+				"vertices": 0,
+				"vertices_frustum": 0,
+				"en_frustum": 0,
+				"dist_min": dist,
+				"dist_max": dist,
+				"lod_max_distance": -1.0,
+			}
+			grupos[grupo] = acum
+		acum["n_instancias"] += 1
+		acum["vertices"] += int(info["vertices"])
+		acum["dist_min"] = min(float(acum["dist_min"]), dist)
+		acum["dist_max"] = max(float(acum["dist_max"]), dist)
+		if en_frustum:
+			acum["en_frustum"] += 1
+			acum["vertices_frustum"] += int(info["vertices"])
+		if float(info["lod_max_distance"]) > float(acum["lod_max_distance"]):
+			acum["lod_max_distance"] = info["lod_max_distance"]
+	var lista := []
+	for g in grupos.values():
+		lista.append(g)
+	lista.sort_custom(self, "_ordenar_grupos_por_vertices_frustum")
+	_replay_censos.append({
+		"frame": frame,
+		"cam_pos": [cam_origin.x, cam_origin.y, cam_origin.z],
+		# Geometria creada por RID (CriopodRingVisualV2) puede no existir como nodo del arbol:
+		# se pide aparte el conteo que el script declara.
+		"criopods_declaradas": _contar_instancias_criopods(escena),
+		"grupos": lista,
+	})
+
+
+# Vertices estimados y AABB global de una GeometryInstance. Mesh: suma de
+# surface_get_array_len; MultiMesh: vertices de la malla por visible_instance_count.
+# Devuelve {} para tipos sin malla (CSG, ImmediateGeometry) o sin AABB medible.
+func _info_geometria(geo: GeometryInstance, cache_mallas: Dictionary) -> Dictionary:
+	var aabb_local := AABB(Vector3.ZERO, Vector3.ZERO)
+	var tiene_aabb := false
+	var verts := 0
+	if geo is MeshInstance:
+		var malla: Mesh = (geo as MeshInstance).mesh
+		if malla != null:
+			aabb_local = malla.get_aabb()
+			tiene_aabb = true
+			verts = _verts_de_malla(malla, cache_mallas)
+	elif geo is MultiMeshInstance:
+		var mm: MultiMesh = (geo as MultiMeshInstance).multimesh
+		if mm != null:
+			aabb_local = mm.get_aabb()
+			tiene_aabb = true
+			var instancias: int = mm.visible_instance_count
+			if instancias < 0:
+				instancias = mm.instance_count
+			if mm.mesh != null:
+				verts = _verts_de_malla(mm.mesh, cache_mallas) * max(0, instancias)
+	if not tiene_aabb:
+		return {}
+	var lod := -1.0
+	if "lod_max_distance" in geo:
+		lod = float(geo.lod_max_distance)
+	return {
+		"aabb": _transform_aabb(aabb_local, geo.global_transform),
+		"vertices": verts,
+		"lod_max_distance": lod,
+	}
+
+
+# Vertices de una malla cacheado por instancia. surface_get_array_len es el conteo real de
+# vertices de cada superficie; si la malla no expone el array (PrimitiveMesh) se usa el
+# conteo de indices como cota.
+func _verts_de_malla(malla: Mesh, cache_mallas: Dictionary) -> int:
+	var id: int = malla.get_instance_id()
+	if cache_mallas.has(id):
+		return int(cache_mallas[id])
+	var total := 0
+	for i in range(malla.get_surface_count()):
+		var n: int = malla.surface_get_array_len(i)
+		if n > 0:
+			total += n
+		else:
+			var idx: int = malla.surface_get_array_index_len(i)
+			if idx > 0:
+				total += idx
+	cache_mallas[id] = total
+	return total
+
+
+# AABB global a partir del local y el transform del nodo (mismo patron que OdiseaExterior).
+func _transform_aabb(aabb: AABB, xform: Transform) -> AABB:
+	var esquinas := [
+		xform.xform(aabb.position),
+		xform.xform(aabb.position + Vector3(aabb.size.x, 0, 0)),
+		xform.xform(aabb.position + Vector3(0, aabb.size.y, 0)),
+		xform.xform(aabb.position + Vector3(0, 0, aabb.size.z)),
+		xform.xform(aabb.position + Vector3(aabb.size.x, aabb.size.y, 0)),
+		xform.xform(aabb.position + Vector3(aabb.size.x, 0, aabb.size.z)),
+		xform.xform(aabb.position + Vector3(0, aabb.size.y, aabb.size.z)),
+		xform.xform(aabb.position + aabb.size),
+	]
+	var resultado := AABB(esquinas[0], Vector3.ZERO)
+	for i in range(1, esquinas.size()):
+		resultado = resultado.expand(esquinas[i])
+	return resultado
+
+
+# Aproximacion de frustum: alcanza con que UNA esquina del AABB global caiga dentro del cono
+# de vision de la camara. Se calcula con basis/fov/near/far propios porque esta build del
+# motor no expone Camera.is_position_in_frustum. Asume keep_aspect KEEP_HEIGHT (default).
+func _aabb_en_frustum(cam: Camera, aabb_glob: AABB) -> bool:
+	var xform: Transform = cam.global_transform
+	var cam_origin: Vector3 = xform.origin
+	var adelante: Vector3 = -xform.basis.z
+	var derecha: Vector3 = xform.basis.x
+	var arriba: Vector3 = xform.basis.y
+	var tan_v: float = tan(deg2rad(cam.fov) * 0.5)
+	var aspecto := 1.0
+	var vp := get_viewport()
+	if vp != null and vp.size.y > 0:
+		aspecto = float(vp.size.x) / float(vp.size.y)
+	for i in range(8):
+		var esquina := aabb_glob.position
+		if i & 1:
+			esquina.x += aabb_glob.size.x
+		if i & 2:
+			esquina.y += aabb_glob.size.y
+		if i & 4:
+			esquina.z += aabb_glob.size.z
+		var v: Vector3 = esquina - cam_origin
+		var prof: float = v.dot(adelante)
+		if prof < cam.near or prof > cam.far:
+			continue
+		var mitad_alto: float = prof * tan_v
+		var mitad_ancho: float = mitad_alto * aspecto
+		if abs(v.dot(derecha)) <= mitad_ancho and abs(v.dot(arriba)) <= mitad_alto:
+			return true
+	return false
+
+
+# Grupo = los DOS primeros tramos de la ruta relativa a current_scene; un nodo de primer
+# nivel cae en su propio nombre.
+func _grupo_de_censo(escena: Node, nodo: Node) -> String:
+	var partes := String(escena.get_path_to(nodo)).split("/")
+	if partes.size() >= 2:
+		return String(partes[0]) + "/" + String(partes[1])
+	return String(partes[0]) if partes.size() == 1 else "."
+
+
+# Instancias declaradas por los CriopodRingVisualV2 del subarbol. Esa geometria puede estar
+# creada por RID (no como nodo visible), por eso el censo por nodo no la ve.
+func _contar_instancias_criopods(escena: Node) -> int:
+	var total := 0
+	var pila := [escena]
+	while not pila.empty():
+		var nodo = pila.pop_back()
+		for hijo in nodo.get_children():
+			pila.append(hijo)
+		if nodo.has_method("declared_instance_count"):
+			total += int(nodo.call("declared_instance_count"))
+	return total
+
+
+func _ordenar_grupos_por_vertices_frustum(a: Dictionary, b: Dictionary) -> bool:
+	return int(a.get("vertices_frustum", 0)) > int(b.get("vertices_frustum", 0))
+
 
 
 func _volcar_perf(etiqueta: String) -> void:
@@ -2863,9 +3129,41 @@ func _volcar_perf(etiqueta: String) -> void:
 		"frames": _replay_perf.size(),
 		"perfiles": perfiles,
 		"muestras": _replay_perf,
+		"censos": _replay_censos,
 	}))
 	f.close()
-	print("[SessionManager] Traza de rendimiento: %s (%d muestras)" % [REPLAY_PERF_PATH, _replay_perf.size()])
+	print("[SessionManager] Traza de rendimiento: %s (%d muestras, %d censos)" % [REPLAY_PERF_PATH, _replay_perf.size(), _replay_censos.size()])
+	_print_censo_top(_replay_censos)
+
+
+# Resumen del censo mas pesado (el de mayor total de vertices en frustum), top 10 de grupos.
+# Es la lectura directa para decidir culling/LOD sin abrir el JSON.
+func _print_censo_top(censos: Array) -> void:
+	if censos.empty():
+		return
+	var mas_pesado = null
+	var mejor := -1
+	for censo in censos:
+		var total := 0
+		for g in censo.get("grupos", []):
+			total += int(g.get("vertices_frustum", 0))
+		if total > mejor:
+			mejor = total
+			mas_pesado = censo
+	if mas_pesado == null:
+		return
+	print("[SessionManager] Censo de geometria (frame %d): top 10 por vertices en frustum" % int(mas_pesado.get("frame", -1)))
+	var grupos: Array = mas_pesado.get("grupos", [])
+	for i in range(min(10, grupos.size())):
+		var g: Dictionary = grupos[i]
+		var lod := float(g.get("lod_max_distance", -1.0))
+		print("  ", i + 1, ". ", String(g.get("grupo", "?")),
+			" verts_frustum=", int(g.get("vertices_frustum", 0)),
+			" verts=", int(g.get("vertices", 0)),
+			" inst=", int(g.get("n_instancias", 0)),
+			" en_frustum=", int(g.get("en_frustum", 0)),
+			" dist=", "%.1f" % float(g.get("dist_min", 0.0)), "..", "%.1f" % float(g.get("dist_max", 0.0)),
+			" lod=", ("%.1f" % lod) if lod >= 0.0 else "n/a")
 
 
 func _finish_and_validate():
