@@ -523,7 +523,9 @@ func _on_server_client_disconnected(_device_name: String) -> void:
 # para restaurarlo al desemparejar.
 func _apply_control_language(payload: Dictionary) -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
-	if sm == null or not "resolve_effective_language" in sm:
+	# has_method, no `in`: el operador `in` de GDScript 1.x solo mira propiedades, y con
+	# `in` este guard daba siempre true y el idioma del control nunca se aplicaba.
+	if sm == null or not sm.has_method("resolve_effective_language"):
 		return
 	var locale := String(payload.get("locale", ""))
 	if locale == "" or not locale in sm.UI_LOCALES:
@@ -541,7 +543,7 @@ func _send_language_to_host() -> void:
 	if client == null or not client._is_paired:
 		return
 	var sm = get_node_or_null("/root/SettingsManager")
-	if sm == null or not "resolve_effective_language" in sm:
+	if sm == null or not sm.has_method("resolve_effective_language"):
 		return
 	client.send_ui_directive("set_language", {"locale": sm.resolve_effective_language()})
 

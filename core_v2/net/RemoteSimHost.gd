@@ -6,6 +6,7 @@ extends Node
 signal snapshot_generated(snapshot)
 
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
+var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
 
 export var target_ip: String = ""
 export var target_port: int = 10444
@@ -27,6 +28,18 @@ var _sim_player: Node = null
 # recargarlo; ver load_sim_level). El nombre del recurso del nivel instanciado.
 var _sim_scene_path: String = ""
 
+# FD-316: stop blando. La sesion se cayo pero el nivel se conserva para reanudar. Nadie
+# llama _apply_authority_input_frame, asi que sin congelar la logica el Pilot oculto cae
+# a su InputProvider local (el teclado del control lo mueve), los timers/cinematicas
+# avanzan y la bateria se gasta. Se congela igual que el render-esclavo (SimLogicFreeze)
+# y se descongela al retomar.
+var _freezer = SimLogicFreeze.new()
+var _soft_stopped: bool = false
+# Vencimiento (msec, OS.get_ticks_msec) del nivel conservado. Si no hay re-promocion en
+# SOFT_STOP_UNLOAD_SEC, se descarga.
+const SOFT_STOP_UNLOAD_SEC := 60.0
+var _soft_stop_deadline_ms: int = 0
+
 var _udp = PacketPeerUDP.new()
 var _current_tick: int = 0
 var _token: String = ""
@@ -46,6 +59,8 @@ var _client_interact_was_down := false
 
 func _ready() -> void:
 	set_physics_process(false)
+	# _process solo se usa para vigilar el vencimiento del stop blando (ver _process).
+	set_process(false)
 	# FD-316: el snapshot se captura DESPUES del step del Pilot (mismo tick): si corre
 	# antes, cam_t/rig/arm llegan un tick atrasados y el esclavo ve un angulo que no
 	# coincide con el movimiento que la autoridad acaba de simular (movimiento relativo a
@@ -56,6 +71,9 @@ func start_simulation(p_target_ip: String, p_target_port: int, p_token: String =
 	target_ip = p_target_ip
 	target_port = p_target_port
 	_token = p_token
+	# FD-316: reanudar tras un stop blando descongela el nivel conservado antes de que
+	# nadie lo re-promueva (si no, queda con la logica apagada y no simula nada).
+	_clear_soft_stop()
 	# FD-316: una re-promocion puede llegar tras una caida transitoria (el control
 	# perdio foco/pauso) con el nivel todavia montado: se conserva y sigue el tick.
 	# Resetear el tick a 0 lo dejaria por detras del ultimo aplicado en el esclavo, que
@@ -86,8 +104,40 @@ func stop_simulation(keep_level: bool = false) -> void:
 	_udp.close()
 	_release_client_input()
 	if keep_level and sim_ready and _sim_level != null and is_instance_valid(_sim_level):
+		# El nivel se conserva, pero su logica no puede seguir corriendo: sin la
+		# inyeccion de input de la autoridad el Pilot leeria su provider local y el
+		# control (el teclado del sim host) lo moveria solo. Se congela y se arranca
+		# el reloj del vencimiento.
+		_freeze_sim_level()
+		_soft_stopped = true
+		_soft_stop_deadline_ms = OS.get_ticks_msec() + int(SOFT_STOP_UNLOAD_SEC * 1000.0)
+		set_process(true)
 		print("[RemoteSimHost] stop blando: nivel conservado para reanudar")
 		return
+	_unload_sim_level()
+
+# Congela la logica del nivel conservado (subarbol del nivel + el jugador, que puede no
+# colgar de el). Mismo patron que el render-esclavo, via el helper compartido.
+func _freeze_sim_level() -> void:
+	var root: Node = _sim_level if _sim_level != null and is_instance_valid(_sim_level) else null
+	_freezer.freeze(root, _sim_player)
+
+# Revierte el stop blando: descongela y cancela el vencimiento. Idempotente; se llama al
+# retomar (start_simulation / reuso del nivel) y al descargar.
+func _clear_soft_stop() -> void:
+	_soft_stopped = false
+	_soft_stop_deadline_ms = 0
+	set_process(false)
+	_freezer.thaw()
+
+# Vigila el vencimiento del stop blando: sin re-promocion en SOFT_STOP_UNLOAD_SEC el
+# nivel conservado se descarga (deja de ocupar memoria y de existir sin dueno).
+func _process(_delta: float) -> void:
+	if not _soft_stopped:
+		return
+	if OS.get_ticks_msec() < _soft_stop_deadline_ms:
+		return
+	print("[RemoteSimHost] stop blando vencido sin re-promocion: se descarga el nivel")
 	_unload_sim_level()
 
 # --- FD-316: carga del nivel del handheld en el sim host (offload real) ---
@@ -137,6 +187,9 @@ func _reuse_sim_level_if_same(scene_path: String, hello: Dictionary = {}) -> boo
 		return false
 	if _sim_scene_path != scene_path:
 		return false
+	# FD-316: reanudar un nivel conservado por stop blando. Aca tambien se descongela
+	# por si el reuso llega sin un start_simulation previo.
+	_clear_soft_stop()
 	print("[RemoteSimHost] mismo nivel ya montado: se conserva (sin recargar)")
 	_apply_spawn_state(hello)
 	return true
@@ -221,6 +274,7 @@ func _apply_spawn_state(hello: Dictionary) -> void:
 			(_sim_player as Spatial).global_transform = t
 
 func _unload_sim_level() -> void:
+	_clear_soft_stop()
 	sim_ready = false
 	_sim_player = null
 	_sim_level = null

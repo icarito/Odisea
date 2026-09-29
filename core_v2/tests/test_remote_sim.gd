@@ -752,3 +752,76 @@ func test_sim_host_client_input_reaches_player_frame():
 # FD-316: entrar/salir del rol render-esclavo YA NO muta al promover: el mute (y la
 # cesion de fisica/interaccion) ocurre con el primer snapshot valido — ver
 # test_render_slave_does_not_engage_on_promotion / test_render_slave_engages_on_first_valid_snapshot.
+
+
+# FD-316: stop blando. El nivel conservado no puede seguir simulando: sin la inyeccion de
+# input de la autoridad, el Pilot oculto cae a su InputProvider local (el teclado del
+# control) y los timers/cinematicas avanzan. Se congela la logica y se descongela al
+# retomar; si no hay re-promocion en SOFT_STOP_UNLOAD_SEC, el nivel se descarga.
+func test_soft_stop_freezes_level_and_timeout_unloads():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var scene_path := "res://core_v2/levels/RingHub_Level.tscn"
+	var level = _make_sim_level()
+	assert_bool(host._attach_sim_level(level, {"scene": scene_path})).is_true()
+	var player = host._sim_player
+	player.set_physics_process(true)
+	assert_bool(player.is_physics_processing()).is_true()
+
+	# Stop blando: el nivel se conserva, pero su logica queda congelada.
+	host.stop_simulation(true)
+	assert_bool(host.sim_ready).is_true()
+	assert_bool(host._soft_stopped).is_true()
+	assert_bool(player.is_physics_processing()).is_false()
+
+	# Re-promocion antes del timeout: se reusa la MISMA instancia y se descongela.
+	var level_id = level.get_instance_id()
+	host.start_simulation("127.0.0.1", 0)
+	assert_bool(host._reuse_sim_level_if_same(scene_path)).is_true()
+	assert_int(host._sim_level.get_instance_id()).is_equal(level_id)
+	assert_bool(host._soft_stopped).is_false()
+	assert_bool(player.is_physics_processing()).is_true()
+
+	# Otro stop blando y vencimiento del plazo: el nivel conservado se descarga.
+	host.stop_simulation(true)
+	assert_bool(player.is_physics_processing()).is_false()
+	host._soft_stop_deadline_ms = 0
+	host._process(0.0)
+	assert_object(host._sim_level).is_null()
+	assert_bool(host.sim_ready).is_false()
+	assert_bool(host._soft_stopped).is_false()
+
+
+# FD-294/316: el idioma del control llega al host por el server
+# (server.ui_directive_received -> _on_server_ui_directive) y cambia TranslationServer. Al
+# desconectar el control se restaura el locale propio; si el control vuelve al idioma del
+# host, el host vuelve.
+func test_set_language_directive_changes_locale_and_disconnect_restores():
+	var rcm = get_node("/root/RemoteControlManager")
+	var sm = get_node("/root/SettingsManager")
+	var previous_locale := TranslationServer.get_locale()
+	var previous_applied: String = rcm._remote_locale_applied
+	var host_locale: String = sm.resolve_effective_language()
+	var remote_locale: String = "en" if host_locale != "en" else "es"
+
+	# La directiva viaja por la senal real del server, no llamando al handler a mano.
+	rcm.server.emit_signal("ui_directive_received", "set_language", {"locale": remote_locale})
+	assert_str(TranslationServer.get_locale()).is_equal(remote_locale)
+	assert_str(rcm._remote_locale_applied).is_equal(host_locale)
+
+	# El control vuelve al idioma del host: el host tambien.
+	rcm.server.emit_signal("ui_directive_received", "set_language", {"locale": host_locale})
+	assert_str(TranslationServer.get_locale()).is_equal(host_locale)
+
+	# De nuevo remoto y desconexion: se restaura el locale propio del host.
+	rcm.server.emit_signal("ui_directive_received", "set_language", {"locale": remote_locale})
+	assert_str(TranslationServer.get_locale()).is_equal(remote_locale)
+	rcm._on_server_client_disconnected("control")
+	assert_str(TranslationServer.get_locale()).is_equal(host_locale)
+	assert_str(rcm._remote_locale_applied).is_equal("")
+
+	TranslationServer.set_locale(previous_locale)
+	rcm._remote_locale_applied = previous_applied
+

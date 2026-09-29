@@ -6,6 +6,7 @@ extends Node
 signal snapshot_applied(tick)
 
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
+var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
 
 export var is_render_slave: bool = false
 export var interp_buffer_ticks: int = 1
@@ -33,9 +34,9 @@ var _interaction_authority_player: Node = null
 # input local encima de cada snapshot ("doble simulacion") y gastando el CPU que el
 # offload tiene que liberar. Por convencion del proyecto la logica vive en
 # _physics_process y lo visual en _process: se congela el primero en todo el nivel y el
-# segundo sigue (animaciones, particulas). Se restauran exactamente los nodos congelados.
-var _frozen_nodes: Array = []
-var _frozen_scene: Node = null
+# segundo sigue (animaciones, particulas). El congelado vive en SimLogicFreeze,
+# compartido con el stop blando del sim host.
+var _freezer = SimLogicFreeze.new()
 
 func _ready() -> void:
 	# Aplicar el snapshot DESPUES de cualquier otro _process del frame (camara incluida):
@@ -136,36 +137,13 @@ func _apply_player_interaction(prompt: String, target_path: String) -> void:
 
 func _freeze_local_simulation() -> void:
 	var scene = get_tree().current_scene if get_tree() != null else null
-	if scene == _frozen_scene and is_instance_valid(scene) and not _frozen_nodes.empty():
+	if _freezer.frozen_root_is(scene):
 		return
-	_thaw_local_simulation()
-	if scene != null and is_instance_valid(scene):
-		_frozen_scene = scene
-		_freeze_subtree(scene)
 	# El player puede no colgar de current_scene (SessionManager lo resuelve aparte).
-	var player = _get_player()
-	if player != null and is_instance_valid(player) and player.is_physics_processing():
-		player.set_physics_process(false)
-		_frozen_nodes.append(player)
-
-func _freeze_subtree(node: Node) -> void:
-	if node == self:
-		return
-	# HoloTerminalV2 (pantallas y HUD del traje) usa _physics_process para presentacion:
-	# transicion al HUD, cursor del shader, oclusion y anclaje a la camara activa.
-	# Congelarlo dejaba las pantallas rosadas y sueltas de la camara.
-	if node.is_physics_processing() and not (node is HoloTerminalV2):
-		node.set_physics_process(false)
-		_frozen_nodes.append(node)
-	for child in node.get_children():
-		_freeze_subtree(child)
+	_freezer.freeze(scene, _get_player())
 
 func _thaw_local_simulation() -> void:
-	for node in _frozen_nodes:
-		if is_instance_valid(node):
-			node.set_physics_process(true)
-	_frozen_nodes.clear()
-	_frozen_scene = null
+	_freezer.thaw()
 
 func _disable_local_physics() -> void:
 	PhysicsServer.set_active(false)
@@ -214,7 +192,7 @@ func _process(delta: float) -> void:
 	if _engaged and not _interaction_authority_is_current():
 		_set_player_interaction_authoritative(true)
 	# Mismo caso para el congelamiento: una escena nueva (cambio de nivel) nace simulando.
-	if _engaged and (_frozen_scene == null or not is_instance_valid(_frozen_scene) or _frozen_scene != get_tree().current_scene):
+	if _engaged and not _freezer.frozen_root_is(get_tree().current_scene):
 		_freeze_local_simulation()
 
 	# Los snapshots llegan a 60 Hz y el handheld dibuja a ~15-25 fps: consumir uno por
