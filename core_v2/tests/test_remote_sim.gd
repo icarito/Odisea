@@ -2687,6 +2687,113 @@ func test_sim_host_captures_blend_camera_during_transition():
 	host.stop_simulation()
 
 
+# FD-316 (tarea R1): el caso general de CinematicManager. Una cinematica activa puede vivir
+# FUERA del subarbol del nivel simulado (la hipotesis de la tarea: un rig/VCamera en un
+# autoload, o la camara de blend de /root/CameraTransition durante una transicion). El
+# viewport oculto solo ve la camara del rig del jugador, asi que capture_snapshot tiene que
+# mandar la camara que CinematicManager considera activa aunque su nodo no cuelgue del nivel.
+# Antes se exigia `_is_in_sim_level(rig)` y ese caso caia a la camara del jugador (la
+# transicion cinematica no se veia en el render-esclavo del Anbernic).
+func test_sim_host_captures_out_of_level_cinematic_camera():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = _make_sim_level()
+	var player_cam = auto_free(Camera.new())
+	player_cam.name = "PlayerCam"
+	player_cam.fov = 70.0
+	level.add_child(player_cam)
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	player_cam.current = true
+
+	# Rig cinematico FUERA del nivel simulado (como el que vive en un autoload o en una
+	# escena de cinematica aparte): se cuelga directo del arbol, no del nivel.
+	var outer_rig = auto_free(FakeCinematicRig.new())
+	outer_rig.name = "OuterCinematicRig"
+	var outer_cam = auto_free(Camera.new())
+	outer_cam.name = "Camera"
+	outer_cam.fov = 42.0
+	outer_rig.camera = outer_cam
+	outer_rig.add_child(outer_cam)
+	add_child(outer_rig)
+	outer_cam.global_transform = Transform(Basis(Vector3.UP, 0.3), Vector3(11.0, 12.0, 13.0))
+
+	var cinematic = get_node("/root/CinematicManager")
+	var prev_rig = cinematic.active_rig
+	var prev_transition: bool = cinematic._transition_active
+	cinematic._transition_active = false
+	cinematic.active_rig = outer_rig
+	var snap: Dictionary = host.capture_snapshot()
+	cinematic.active_rig = prev_rig
+	cinematic._transition_active = prev_transition
+
+	# La camara current del viewport oculto (el rig del jugador) no gana: manda la cinematica
+	# de afuera, con su fov.
+	assert_bool(snap["globals"].has("cam_t")).is_true()
+	assert_float(float(snap["globals"]["cam_fov"])).is_equal_approx(42.0, 0.001)
+	var decoded: Transform = RemoteProtocolScript.decode_transform(snap["globals"]["cam_t"])
+	assert_vector3(decoded.origin).is_equal_approx(Vector3(11.0, 12.0, 13.0), Vector3.ONE * 0.001)
+
+	host.stop_simulation()
+
+
+# FD-316 (tarea R1): durante un blend la autoridad manda la camara de /root/CameraTransition
+# (autoload, fuera del nivel) con su transform INTERPOLADO en ese tick, aunque active_rig sea
+# null y ninguna punta de la transicion cuelgue del nivel simulado. Antes se exigia un extremo
+# dentro del nivel y este blend caia a la camara del jugador: la vista saltaba a mitad de la
+# cinematica en el render-esclavo.
+func test_sim_host_captures_interpolated_blend_camera_outside_level():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = _make_sim_level()
+	var player_cam = auto_free(Camera.new())
+	player_cam.name = "PlayerCam"
+	player_cam.fov = 70.0
+	level.add_child(player_cam)
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	player_cam.current = true
+
+	# Origen y destino del blend, los dos fuera del nivel simulado.
+	var from_cam = auto_free(Camera.new())
+	from_cam.name = "FromCam"
+	from_cam.fov = 60.0
+	add_child(from_cam)
+	from_cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+	var to_cam = auto_free(Camera.new())
+	to_cam.name = "ToCam"
+	to_cam.fov = 40.0
+	add_child(to_cam)
+	to_cam.global_transform = Transform(Basis(), Vector3(10, 0, 0))
+
+	var cinematic = get_node("/root/CinematicManager")
+	var prev_rig = cinematic.active_rig
+	var prev_transition: bool = cinematic._transition_active
+	cinematic.active_rig = null
+	cinematic._start_dynamic_transition(from_cam, to_cam, 2.0, "to_cinematic")
+	# Avanzar la mitad del blend: la camara de /root/CameraTransition queda en el intermedio.
+	cinematic.step(1.0)
+
+	var cam_transition = get_node("/root/CameraTransition")
+	var blend: Camera = cam_transition.camera3D
+	var mid: Vector3 = blend.global_transform.origin
+	assert_float(mid.x).is_greater(0.0)
+	assert_float(mid.x).is_less(10.0)
+
+	var snap: Dictionary = host.capture_snapshot()
+	assert_bool(snap["globals"].has("cam_t")).is_true()
+	var decoded: Transform = RemoteProtocolScript.decode_transform(snap["globals"]["cam_t"])
+	assert_vector3(decoded.origin).is_equal_approx(mid, Vector3.ONE * 0.001)
+
+	# Limpieza del estado compartido de la CinematicManager.
+	cinematic._cancel_dynamic_transition("test_cleanup")
+	cinematic.active_rig = prev_rig
+	cinematic._transition_active = prev_transition
+	host.stop_simulation()
+
+
 # FD-316 (tarea K2): con el rol de render-esclavo el player no reclama la camara. Los
 # sistemas locales (airlock, teleport, SessionManager) llaman force_camera_current durante
 # las transiciones; hacerlo peleaba con la vista replicada del snapshot.

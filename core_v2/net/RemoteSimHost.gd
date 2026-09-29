@@ -721,34 +721,23 @@ func capture_snapshot() -> Dictionary:
 	_stats.tally("snap")
 	return snap
 
-# FD-316 (tareas K2/K3): camara realmente ACTIVA del nivel simulado. El viewport oculto
+# FD-316 (tareas K2/K3/R1): camara realmente ACTIVA del nivel simulado. El viewport oculto
 # no alcanza: el foco de terminal y las cinematicas piden su camara por CinematicManager,
 # que resuelve contra el viewport PRINCIPAL (la transicion hace current la camara de
 # /root/CameraTransition), asi que `_sim_viewport.get_camera()` se queda con la camara del
-# jugador y la de terminal nunca llegaba al render-esclavo. Por eso se resuelve primero por
-# el CinematicManager cuando su rig activo pertenece al nivel simulado: en estado estable
-# get_active_camera() devuelve la camara del rig de foco, y durante la transicion devuelve
-# la camara de blend (la vista realmente activa en ese tick). Con nivel montado y sin
+# jugador y la cinematica nunca llegaba al render-esclavo. Por eso se pregunta al
+# CinematicManager cuando controla la vista (get_active_camera resuelve la camara del rig
+# activo, la de blend durante una transicion y la del brain de una VCamera). Prioridad:
+# cinematica activa > foco de terminal > camara del rig del jugador. Con nivel montado y sin
 # camara propia se devuelve null: la camara del UI nunca se manda.
 func _resolve_active_sim_camera() -> Camera:
 	var cinematic = get_node_or_null("/root/CinematicManager")
-	if cinematic != null and cinematic.has_method("get_active_camera"):
-		# FD-316 (tarea K2): durante una transicion la camara realmente activa es la de
-		# blend de /root/CameraTransition, y active_rig puede ser null (vuelta a FREE).
-		# Si algun extremo del blend pertenece al nivel simulado, se manda la camara de
-		# blend: sin esto el snapshot caia a la camara del jugador a mitad de la
-		# transicion y el render-esclavo peleaba entre dos camaras (la vista saltaba).
-		if bool(cinematic.get("_transition_active")) \
-				and (_is_in_sim_level(cinematic.get("_transition_from_cam")) \
-					or _is_in_sim_level(cinematic.get("_transition_to_cam"))):
-			var blend = cinematic.call("get_active_camera")
-			if blend != null and is_instance_valid(blend):
-				return blend
-		var rig = cinematic.get("active_rig")
-		if rig != null and is_instance_valid(rig) and _is_in_sim_level(rig):
-			var active = cinematic.call("get_active_camera")
-			if active != null and is_instance_valid(active):
-				return active
+	if _sim_level != null and is_instance_valid(_sim_level) \
+			and cinematic != null and cinematic.has_method("get_active_camera") \
+			and _cinematic_controls_camera(cinematic):
+		var active = cinematic.call("get_active_camera")
+		if active != null and is_instance_valid(active):
+			return active
 	if _sim_viewport != null and is_instance_valid(_sim_viewport):
 		var cam = _sim_viewport.get_camera()
 		if cam != null and is_instance_valid(cam):
@@ -757,6 +746,28 @@ func _resolve_active_sim_camera() -> Camera:
 		return null
 	# Sin nivel simulado (legacy): la camara del arbol, como antes.
 	return get_tree().root.get_viewport().get_camera() if get_tree() != null else null
+
+# FD-316 (tarea R1): el CinematicManager controla la vista del nivel simulado cuando tiene
+# una transicion/blend en curso, un rig activo (foco de terminal o cinematica de zona/Path) o
+# una VCamera activa. NO se exige que su nodo cuelgue del nivel simulado: la camara de blend
+# vive en el autoload /root/CameraTransition (fuera del subarbol del nivel) y una cinematica
+# puede vivir fuera del nivel, que es justo el caso que el viewport oculto no ve. En estado
+# libre no controla y manda la camara del rig del jugador.
+func _cinematic_controls_camera(cinematic) -> bool:
+	# Transicion/blend en curso: la vista real es la camara de /root/CameraTransition, que
+	# vive en un autoload fuera del nivel simulado. active_rig puede ser null (vuelta a FREE).
+	if bool(cinematic.get("_transition_active")):
+		return true
+	# Rig activo (foco de terminal, cinematica de zona o de Path): en el nivel simulado o,
+	# si vive fuera del subarbol, con camara propia.
+	var rig = cinematic.get("active_rig")
+	if rig != null and is_instance_valid(rig) and (_is_in_sim_level(rig) or rig.has_method("get_camera")):
+		return true
+	# VCamera activa: su camara la resuelve el brain via get_active_camera.
+	var vcam = cinematic.get("_vcam_active_camera")
+	if vcam != null and is_instance_valid(vcam):
+		return true
+	return false
 
 func _is_in_sim_level(node) -> bool:
 	if node == null or not is_instance_valid(node):
