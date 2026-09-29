@@ -241,6 +241,43 @@ func test_render_slave_engages_on_first_valid_snapshot():
 	session.player = prev_player
 
 
+# FD-316 (tarea S): en offload el esclavo apaga el DRIVER de audio, no solo el bus. El mute
+# de bus dejaba corriendo el hilo Pulse/SDL y su mezclado (~9% del CPU medido en device).
+# Con el fork (AudioServer.set_enabled) el driver pasa a Dummy y al salir del offload se
+# restaura el valor previo; en un Godot stock sin el metodo el rol sigue funcionando con el
+# mute de bus (la guarda has_method evita romper).
+func test_render_slave_offload_toggles_audio_driver_when_available():
+	var has_toggle: bool = AudioServer.has_method("set_enabled")
+	var can_read: bool = AudioServer.has_method("is_enabled")
+	var prev_enabled: bool = true
+	if has_toggle and can_read:
+		prev_enabled = AudioServer.is_enabled()
+		AudioServer.set_enabled(true)
+
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(1, 100, {}))
+	assert_bool(client.is_engaged()).is_true()
+	if has_toggle and can_read:
+		assert_bool(AudioServer.is_enabled()).is_false()
+
+	client.stop_render_slave()
+	if has_toggle and can_read:
+		assert_bool(AudioServer.is_enabled()).is_true()
+
+	# Valor previo apagado: el esclavo lo conserva al salir (no lo prende de mas).
+	if has_toggle:
+		AudioServer.set_enabled(false)
+	client.start_render_slave(0)
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(1, 100, {}))
+	client.stop_render_slave()
+	if has_toggle and can_read:
+		assert_bool(AudioServer.is_enabled()).is_false()
+	if has_toggle:
+		AudioServer.set_enabled(prev_enabled)
+
+
 # FD-316 paso 2/3: el sim host solo emite cuando el nivel del esclavo esta cargado
 # (sim_hello aplicado -> sim_ready). Antes de eso no hay tick ni snapshot: capturar
 # RemoteControlHome era el bug original (promocion a autoridad vacia).

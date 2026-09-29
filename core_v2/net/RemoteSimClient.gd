@@ -59,6 +59,13 @@ var _physics_was_active: bool = true
 # True solo si este componente apago el PhysicsServer: evita tocar el estado global del
 # motor cuando el offload nunca se comprometio.
 var _physics_disabled_by_offload: bool = false
+# FD-316 (tarea S): estado del driver de audio ANTES de apagarlo en el offload. Se restaura
+# el mismo al salir: si otro sistema ya lo tenia apagado, no se prende de mas.
+var _audio_driver_was_enabled: bool = true
+# True solo si este componente apago el driver de audio: mismo criterio que la fisica.
+var _audio_driver_disabled_by_offload: bool = false
+# El aviso del driver (perfil opt-in) se imprime UNA vez por sesion de offload.
+var _audio_driver_logged: bool = false
 # FD-316: fisica apagada/audio muteado/interaccion cedida recien con el PRIMER
 # snapshot valido, no al promover. Promover solo abre el canal: mientras el sim host
 # no cargue el nivel (sim_hello -> sim_ready) no llega nada y el handheld sigue
@@ -150,6 +157,8 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 
 	is_render_slave = true
 	_engaged = false
+	# Sesion nueva: el aviso del driver de audio sale una vez por offload.
+	_audio_driver_logged = false
 	_buffer.clear()
 	_latest_applied_tick = -1
 	# Tarea G: par de interpolacion y reloj de render en cero para la sesion nueva.
@@ -234,6 +243,32 @@ func _set_local_audio_muted(muted: bool) -> void:
 	var audio = get_node_or_null("/root/AudioManager")
 	if audio != null and audio.has_method("set_render_slave_audio_muted"):
 		audio.set_render_slave_audio_muted(muted)
+	# FD-316 (tarea S): ademas del mute de bus, apagar el DRIVER de audio del handheld. Con
+	# el bus muteado seguian corriendo el hilo Pulse/SDL y su mezclado (~9% del CPU medido);
+	# con el driver Dummy el motor no mezcla ni corre el daemon. El fork lo expone como
+	# AudioServer.set_enabled(); en un Godot stock sin el metodo queda solo el mute de bus.
+	if AudioServer.has_method("set_enabled"):
+		if muted and not _audio_driver_disabled_by_offload:
+			_audio_driver_was_enabled = _read_audio_enabled()
+			_audio_driver_disabled_by_offload = true
+			AudioServer.set_enabled(false)
+		elif not muted and _audio_driver_disabled_by_offload:
+			_audio_driver_disabled_by_offload = false
+			AudioServer.set_enabled(_audio_driver_was_enabled)
+	if muted and not _audio_driver_logged:
+		_audio_driver_logged = true
+		if _profile_enabled:
+			if AudioServer.has_method("set_enabled"):
+				print("[RemoteSimClient] audio driver apagado (Dummy)")
+			else:
+				print("[RemoteSimClient] sin set_enabled: solo mute de bus")
+
+# El fork expone is_enabled() junto de set_enabled(); sin getter se asume encendido (el
+# arranque normal del proyecto) para no apagarlo de mas al restaurar.
+func _read_audio_enabled() -> bool:
+	if AudioServer.has_method("is_enabled"):
+		return AudioServer.is_enabled()
+	return true
 
 # FD-316: una sola resolucion del jugador para todo el cliente (interaccion, congelado,
 # input, rig y arm). El jugador del nivel (grupo "player" bajo current_scene) manda:
