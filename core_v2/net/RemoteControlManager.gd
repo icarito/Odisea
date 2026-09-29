@@ -70,7 +70,7 @@ const LOW_TIER_BROADCAST_INTERVAL := 4.0
 # implementacion". La validacion en vivo (Anbernic + control) queda en el reporte.
 const RENDER_SLAVE_OFFLOAD_READY := true
 
-# FD-316 (tarea K2): un solo dueno de la camara. Mientras el rol de render-esclavo esta
+# FD-316 (tareas K2/K3): un solo dueno de la camara. Mientras el rol de render-esclavo esta
 # activo, la vista la impone el snapshot de la autoridad: ninguna logica local (terminales,
 # cinematicas) debe pedir ni soltar camaras por su cuenta, porque pelea con la vista
 # replicada (el sintoma era el ida y vuelta de foco del terminal en el handheld). Punto
@@ -86,7 +86,18 @@ static func render_slave_owns_camera() -> bool:
 	var manager = root.get_node_or_null("RemoteControlManager")
 	if manager == null:
 		return false
-	return bool(manager.get("is_render_slave_active"))
+	if bool(manager.get("is_render_slave_active")):
+		return true
+	# FD-316 (tarea K3): ventana de armado del offload. En tier LOW con un control
+	# emparejado ESTE device ya no es dueno de la camara, aunque el canal de snapshots
+	# todavia no haya arrancado (p. ej. el bind del puerto sim esta en reintento): en esa
+	# ventana el terminal local se colaba a foco y despues el snapshot le peleaba la vista.
+	if not bool(manager.get("allow_low_tier_offload")):
+		return false
+	var server = manager.get("server")
+	if server == null or not is_instance_valid(server) or not server.has_method("has_paired_client"):
+		return false
+	return bool(server.call("has_paired_client"))
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS

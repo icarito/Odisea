@@ -2077,3 +2077,117 @@ func test_sim_host_captures_active_sim_camera_and_fov():
 	assert_vector3(decoded.origin).is_equal_approx(Vector3(5.0, 6.0, 7.0), Vector3.ONE * 0.001)
 
 	host.stop_simulation()
+
+
+# FD-316 (tarea K3): en el host de simulacion el nivel vive en un Viewport oculto, pero el
+# foco de terminal pide su camara por CinematicManager, que la hace current en el viewport
+# PRINCIPAL (la transicion usa /root/CameraTransition). El viewport oculto se queda con la
+# camara del jugador, asi que capture_snapshot tiene que resolver la camara del rig activo
+# del CinematicManager cuando ese rig vive en el nivel simulado; si no, la terminal de la
+# autoridad nunca llega al render-esclavo (la transicion no se ve en el Anbernic).
+class FakeCinematicRig extends Spatial:
+	var camera: Camera = null
+	func get_camera() -> Camera:
+		return camera
+
+
+func test_sim_host_captures_cinematic_focus_camera_in_sim_level():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = _make_sim_level()
+	# Camara del jugador: es la que queda current en el viewport oculto (lo que K2 mandaba).
+	var viewport_cam = auto_free(Camera.new())
+	viewport_cam.name = "PlayerCam"
+	viewport_cam.fov = 70.0
+	level.add_child(viewport_cam)
+	# Rig de foco del terminal: vive en el nivel simulado y es lo que la CinematicManager
+	# considera activo (la transicion corre sobre el viewport principal).
+	var focus_rig = auto_free(FakeCinematicRig.new())
+	focus_rig.name = "FocusedRigInside"
+	var focus_cam = auto_free(Camera.new())
+	focus_cam.name = "Camera"
+	focus_cam.fov = 55.0
+	focus_rig.camera = focus_cam
+	focus_rig.add_child(focus_cam)
+	level.add_child(focus_rig)
+
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	viewport_cam.current = true
+	focus_cam.global_transform = Transform(Basis(Vector3.UP, 0.4), Vector3(2.0, 3.0, 4.0))
+
+	var cinematic = get_node("/root/CinematicManager")
+	var prev_rig = cinematic.active_rig
+	cinematic.active_rig = focus_rig
+	var snap: Dictionary = host.capture_snapshot()
+	cinematic.active_rig = prev_rig
+
+	# La camara current del viewport oculto no gana: manda la del rig de foco, con su fov.
+	assert_bool(snap["globals"].has("cam_t")).is_true()
+	assert_float(float(snap["globals"]["cam_fov"])).is_equal_approx(55.0, 0.001)
+	var decoded: Transform = RemoteProtocolScript.decode_transform(snap["globals"]["cam_t"])
+	assert_vector3(decoded.origin).is_equal_approx(Vector3(2.0, 3.0, 4.0), Vector3.ONE * 0.001)
+
+	host.stop_simulation()
+
+
+# FD-316 (tareas K2/K3): con el render-esclavo activo la vista la impone el snapshot. Entrar
+# en foco por logica local no debe pedir ni cambiar ninguna camara; la guarda cubre tambien
+# la ventana de armado del offload (emparejado en tier LOW, canal de snapshots todavia no
+# arriba), que era por donde se colaba el foco local antes de la promocion.
+func test_render_slave_terminal_focus_does_not_change_camera():
+	var rcm = get_node("/root/RemoteControlManager")
+	var prev_active: bool = rcm.is_render_slave_active
+	var prev_allow: bool = rcm.allow_low_tier_offload
+	var server = rcm.server
+	var injected_peer_id := 999999
+	var had_peer: bool = server != null and server._peers.has(injected_peer_id)
+
+	var holder := Spatial.new()
+	var camera := Camera.new()
+	holder.add_child(camera)
+	get_tree().root.add_child(holder)
+	camera.current = true
+	var before := camera.global_transform
+
+	var terminal = auto_free(SpyTerminal.new())
+	terminal.use_cinematic_zone = false
+	terminal.enable_ui_interaction = true
+	terminal.allow_focus_mode = true
+	var focus_rig := Spatial.new()
+	focus_rig.name = "FocusedRig"
+	var focus_cam := Camera.new()
+	focus_cam.fov = 40.0
+	focus_rig.add_child(focus_cam)
+	auto_free(focus_rig)
+	terminal._focused_rig = focus_rig
+
+	# Rol activo: el foco local queda bloqueado antes de pedir camara.
+	rcm.is_render_slave_active = true
+	terminal._enter_focus_mode()
+	assert_bool(terminal.is_focused()).is_false()
+	assert_int(terminal._focus_camera_request_id).is_equal(-1)
+	assert_bool(focus_cam.current).is_false()
+
+	# Ventana de armado: sin rol todavia, pero tier LOW emparejado.
+	rcm.is_render_slave_active = false
+	rcm.allow_low_tier_offload = true
+	if server != null:
+		server._peers[injected_peer_id] = {"paired": true}
+	assert_bool(RemoteControlManagerScript.render_slave_owns_camera()).is_true()
+	terminal._enter_focus_mode()
+	assert_bool(terminal.is_focused()).is_false()
+	assert_int(terminal._focus_camera_request_id).is_equal(-1)
+
+	# La camara local no se movio ni se cambio de dueno.
+	camera.current = true
+	assert_vector3(camera.global_transform.origin).is_equal_approx(before.origin, Vector3.ONE * 0.001)
+
+	if server != null and not had_peer:
+		server._peers.erase(injected_peer_id)
+	rcm.is_render_slave_active = prev_active
+	rcm.allow_low_tier_offload = prev_allow
+	camera.current = false
+	get_tree().root.remove_child(holder)
+	holder.free()

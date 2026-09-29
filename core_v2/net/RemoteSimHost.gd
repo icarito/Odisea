@@ -683,10 +683,10 @@ func capture_snapshot() -> Dictionary:
 	globals["rig"] = _capture_player_rig()
 	globals["arm_len"] = _capture_arm_length()
 
-	# Capture camera state: la ACTIVA del nivel simulado (viewport oculto), no la del UI.
-	# FD-316 (tarea K2): es la camara que esta viendo la autoridad en ese tick, la del
-	# terminal o la cinematica incluidas; el esclavo solo impone transform + fov sobre
-	# su camara actual y nunca la elige por logica local.
+	# Capture camera state: la ACTIVA del nivel simulado, no la del UI. La resuelve
+	# _resolve_active_sim_camera (tarea K3: incluye la camara de foco del terminal y la
+	# de una transicion via CinematicManager); el esclavo solo impone transform + fov
+	# sobre su camara actual y nunca la elige por logica local.
 	var camera: Camera = _resolve_active_sim_camera()
 	if camera != null and is_instance_valid(camera):
 		globals["cam_t"] = RemoteProtocol.encode_transform(camera.global_transform)
@@ -697,21 +697,28 @@ func capture_snapshot() -> Dictionary:
 	_stats.tally("snap")
 	return snap
 
-# FD-316 (tarea K2): camara activa del nivel simulado. El viewport oculto ya resuelve la
-# que quedo `current` ahi (jugador, terminal o cinematica), asi que se prefiere esa; como
-# respaldo se consulta al CinematicManager si su camara activa vive en el nivel. Con nivel
-# montado pero sin camara activa se devuelve null: no se manda la camara del UI.
+# FD-316 (tareas K2/K3): camara realmente ACTIVA del nivel simulado. El viewport oculto
+# no alcanza: el foco de terminal y las cinematicas piden su camara por CinematicManager,
+# que resuelve contra el viewport PRINCIPAL (la transicion hace current la camara de
+# /root/CameraTransition), asi que `_sim_viewport.get_camera()` se queda con la camara del
+# jugador y la de terminal nunca llegaba al render-esclavo. Por eso se resuelve primero por
+# el CinematicManager cuando su rig activo pertenece al nivel simulado: en estado estable
+# get_active_camera() devuelve la camara del rig de foco, y durante la transicion devuelve
+# la camara de blend (la vista realmente activa en ese tick). Con nivel montado y sin
+# camara propia se devuelve null: la camara del UI nunca se manda.
 func _resolve_active_sim_camera() -> Camera:
+	var cinematic = get_node_or_null("/root/CinematicManager")
+	if cinematic != null and cinematic.has_method("get_active_camera"):
+		var rig = cinematic.get("active_rig")
+		if rig != null and is_instance_valid(rig) and _is_in_sim_level(rig):
+			var active = cinematic.call("get_active_camera")
+			if active != null and is_instance_valid(active):
+				return active
 	if _sim_viewport != null and is_instance_valid(_sim_viewport):
 		var cam = _sim_viewport.get_camera()
 		if cam != null and is_instance_valid(cam):
 			return cam
-	var cinematic = get_node_or_null("/root/CinematicManager")
-	if cinematic != null and cinematic.has_method("get_active_camera"):
-		var active = cinematic.call("get_active_camera")
-		if active != null and is_instance_valid(active) and _is_in_sim_level(active):
-			return active
-	if _sim_viewport != null and is_instance_valid(_sim_viewport):
+		# Nivel montado sin camara activa: no se manda la camara del UI.
 		return null
 	# Sin nivel simulado (legacy): la camara del arbol, como antes.
 	return get_tree().root.get_viewport().get_camera() if get_tree() != null else null
