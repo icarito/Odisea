@@ -109,6 +109,18 @@ var _frame_start_us: int = 0
 # Tarea M: cache de vertices por Mesh. surface_get_arrays es caro, y el censo del perfil
 # recorre el nivel: el conteo de cada malla se calcula una sola vez.
 var _mesh_vertex_cache: Dictionary = {}
+# Tarea P: censo de vertices por A/B de visibilidad. El censo por nodos no ve la geometria
+# creada directo con VisualServer (criopods instanciados por RID), asi que se mide la caida
+# real de INFO_VERTICES_IN_FRAME al ocultar UN hijo de primer nivel durante un frame. Una
+# medicion por ventana, rotando por los hijos, y la visibilidad se restaura SIEMPRE.
+var _profile_ab_child = null
+var _profile_ab_name: String = ""
+var _profile_ab_baseline_verts: int = -1
+var _profile_ab_pending: bool = false
+var _profile_ab_index: int = 0
+var _profile_ab_last_ms: int = 0
+# Ranking acumulado: name -> mayor caida de vertices medida en cualquier ventana.
+var _profile_ab_ranking: Dictionary = {}
 
 func _ready() -> void:
 	# Aplicar el snapshot DESPUES de cualquier otro _process del frame (camara incluida):
@@ -151,6 +163,11 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_host_tick_rate = float(Engine.iterations_per_second) if Engine.iterations_per_second > 0 else 60.0
 	# Tarea L: la primera impresion del perfil sale una ventana despues de arrancar el rol.
 	_profile_last_ms = OS.get_ticks_msec()
+	# Tarea P: el A/B de visibilidad arranca su reloj con el rol y no arrastra estado previo.
+	_restore_profile_ab_child()
+	_profile_ab_index = 0
+	_profile_ab_ranking.clear()
+	_profile_ab_last_ms = OS.get_ticks_msec()
 	# Sesion nueva: el seq arranca de cero y no hay flancos latcheados de la anterior.
 	_seq = 0
 	_jump_latch = 0
@@ -193,6 +210,8 @@ func stop_render_slave() -> void:
 	# Instrumentacion (tarea E): sin seqs pendientes que un ack ya no va a cerrar.
 	_sent_seq_ms.clear()
 	_sent_seq_order.clear()
+	# Tarea P: salir del rol no puede dejar un hijo del nivel oculto por el A/B.
+	_restore_profile_ab_child()
 
 # Primer snapshot valido de la autoridad: recien aca el esclavo deja de simular.
 func _engage_offload() -> void:
@@ -406,7 +425,10 @@ func _process(delta: float) -> void:
 	_forward_discrete_actions()
 	_send_local_input()
 	_flush_client_stats()
-	_flush_profile(OS.get_ticks_msec())
+	var now_ms := OS.get_ticks_msec()
+	_flush_profile(now_ms)
+	# Tarea P: A/B de visibilidad, una medicion por ventana (rotando los hijos).
+	_profile_ab_step(now_ms)
 
 # FD-316 (tarea N): acciones discretas del InputMap que no viajan en el frame del sim_input
 # (move/jump/interact/sprint/crouch/camara). El flanco viaja por el WS confiable a la
@@ -440,7 +462,8 @@ func _send_local_input() -> void:
 	# Instrumentacion (tarea E): guardar el instante de envio de este seq para cerrar el
 	# RTT cuando la autoridad lo ackee.
 	_record_sent_seq(int(sim_input.get("seq", 0)))
-	var bytes = RemoteProtocol.encode_json(sim_input).to_utf8()
+	# FD-316 (tarea P): paquete binario nativo, no JSON (mas barato de armar en el handheld).
+	var bytes = RemoteProtocol.encode_packet(sim_input)
 	_udp.set_dest_address(_target_ip, _target_port)
 	_udp.put_packet(bytes)
 
@@ -528,7 +551,9 @@ func _poll_udp() -> void:
 		return
 	# FD-316 (tarea G): se drenan TODOS los datagramas del frame (para no acumular atraso en
 	# el socket), pero solo se parsean los MAX_SNAPSHOTS_PER_FRAME mas recientes. El JSON
-	# de los intermedios es lo que costaba los ~15 ms/frame en el Anbernic.
+	# de los intermedios era lo que costaba los ~15 ms/frame en el Anbernic.
+	# Tarea P: el paquete ahora es binario nativo (var2bytes); decode_packet mantiene el
+	# fallback JSON para un peer viejo.
 	var batch: Array = []
 	var raw_total := 0
 	while _udp.get_available_packet_count() > 0:
@@ -549,8 +574,7 @@ func _poll_udp() -> void:
 	var skipped: int = max(0, raw_total - batch.size())
 	for i in range(batch.size()):
 		var expected_packets: int = (skipped + 1) if i == 0 else 1
-		var pkt_str: String = batch[i]["pkt"].get_string_from_utf8()
-		var dict = RemoteProtocol.decode_json(pkt_str)
+		var dict = RemoteProtocol.decode_packet(batch[i]["pkt"])
 		_handle_udp_packet(String(batch[i]["ip"]), dict, batch[i]["pkt"].size(), expected_packets)
 
 # FD-316: un snapshot sin el token de la sesion se descarta por completo: no se aplica
@@ -884,6 +908,8 @@ func _flush_client_stats() -> void:
 # Tarea L: perfil opt-in del esclavo. Recorre el arbol UNA vez por ventana (no por frame)
 # y agrupa por script los nodos con _process activo: con el nivel congelado, esos son los
 # que siguen gastando CPU en el handheld. Imprime el top 10 por cantidad de nodos.
+# Tarea P: ademas imprime el top de scripts con _physics_process ACTIVO (lo que corre en
+# offload pese al SimLogicFreeze) y el ranking del A/B de visibilidad de vertices.
 func _flush_profile(now_ms: int) -> void:
 	if not _profile_enabled:
 		return
@@ -900,6 +926,19 @@ func _flush_profile(now_ms: int) -> void:
 		" scripts, top ", top)
 	for i in range(top):
 		print("  ", entries[i]["count"], " nodos  ", entries[i]["script"])
+	# Tarea P: top de scripts con _physics_process activo. Con el nivel congelado por
+	# SimLogicFreeze, lo que quede aca es lo que sigue sumando al physics_ms en offload
+	# (autoloads/UI/HUD fuera del nivel no se congelan).
+	var phys_counts: Dictionary = _profile_script_counts(true)
+	var phys_entries: Array = []
+	for script_path in phys_counts:
+		phys_entries.append({"script": script_path, "count": int(phys_counts[script_path])})
+	phys_entries.sort_custom(self, "_profile_sort_desc")
+	var ptop: int = int(min(phys_entries.size(), 10))
+	print("[RemoteSimClient] profile _physics_process activo: ", phys_entries.size(),
+		" scripts, top ", ptop)
+	for i in range(ptop):
+		print("  ", phys_entries[i]["count"], " nodos  ", phys_entries[i]["script"])
 	# Tarea M: censo de vertices visibles del nivel, agrupado por hijo de primer nivel de
 	# current_scene. Una vez por ventana (no por frame): dice que parte del nivel pesa.
 	var verts_entries: Array = _profile_vertex_census()
@@ -907,6 +946,16 @@ func _flush_profile(now_ms: int) -> void:
 	for i in range(vtop):
 		print("[RemoteSimClient] profile verts: ", verts_entries[i]["verts"],
 			" ", verts_entries[i]["group"])
+	# Tarea P: ranking acumulado del A/B de visibilidad (mayor caida de vertices por hijo
+	# de primer nivel, incluida la geometria creada por RID que el censo por nodos no ve).
+	var ab_entries: Array = []
+	for group_name in _profile_ab_ranking:
+		ab_entries.append({"group": group_name, "verts": int(_profile_ab_ranking[group_name])})
+	ab_entries.sort_custom(self, "_profile_verts_sort_desc")
+	var abtop: int = int(min(ab_entries.size(), 10))
+	for i in range(abtop):
+		print("[RemoteSimClient] profile verts_ab rank: ", ab_entries[i]["verts"],
+			" ", ab_entries[i]["group"])
 
 # Tarea M: suma los vertices VISIBLES de MeshInstance y MultiMeshInstance por hijo de
 # primer nivel de current_scene. El conteo de cada Mesh se cachea porque
@@ -968,7 +1017,9 @@ func _mesh_vertex_count(mesh) -> int:
 
 # Cuenta nodos con _process activo por script (path del recurso; los nodos sin script se
 # agrupan bajo un rotulo). Pasada iterativa: sin recursion ni allocs por frame.
-func _profile_script_counts() -> Dictionary:
+# Tarea P: con physics=true cuenta los nodos con _physics_process activo (lo que sigue
+# corriendo en offload aunque el nivel este congelado).
+func _profile_script_counts(physics: bool = false) -> Dictionary:
 	var counts: Dictionary = {}
 	var tree = get_tree()
 	if tree == null:
@@ -978,7 +1029,8 @@ func _profile_script_counts() -> Dictionary:
 		var node = stack.pop_back()
 		if not is_instance_valid(node):
 			continue
-		if node.is_processing():
+		var active: bool = node.is_physics_processing() if physics else node.is_processing()
+		if active:
 			var label := "<sin script>"
 			var scr = node.get_script()
 			if scr != null:
@@ -993,6 +1045,79 @@ func _profile_sort_desc(a, b) -> bool:
 
 func _profile_verts_sort_desc(a, b) -> bool:
 	return int(a["verts"]) > int(b["verts"])
+
+# Tarea P: paso por frame del A/B de visibilidad (barato cuando el perfil esta apagado).
+# Fase 0: esperar la ventana y ocultar el proximo hijo de current_scene (baseline leido con
+# el hijo todavia visible). Fase 1 (frame siguiente): leer los vertices renderizados,
+# calcular la caida y restaurar la visibilidad SIEMPRE antes de volver a esperar.
+func _profile_ab_step(now_ms: int) -> void:
+	if not _profile_enabled:
+		return
+	if _profile_ab_pending:
+		_measure_profile_ab(now_ms)
+		return
+	if _profile_ab_last_ms <= 0:
+		_profile_ab_last_ms = now_ms
+		return
+	if now_ms - _profile_ab_last_ms < PROFILE_WINDOW_MS:
+		return
+	_profile_ab_last_ms = now_ms
+	_hide_next_ab_child()
+
+# Oculta UN hijo de primer nivel de current_scene, rotando por indice para cubrir todo el
+# nivel sin parpadear varios grupos en la misma ventana.
+func _hide_next_ab_child() -> void:
+	var tree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	var children: Array = tree.current_scene.get_children()
+	var count := children.size()
+	if count <= 0:
+		return
+	for _i in range(count):
+		var idx: int = _profile_ab_index % count
+		_profile_ab_index = idx + 1
+		var child = children[idx]
+		if not is_instance_valid(child):
+			continue
+		# Solo un Spatial visible en el arbol: ocultar algo ya invisible no produce
+		# caida y falsearia el ranking con ceros.
+		if not (child is Spatial) or not (child as Spatial).is_visible_in_tree():
+			continue
+		_profile_ab_child = child
+		_profile_ab_name = String(child.name)
+		_profile_ab_baseline_verts = _read_rendered_vertices()
+		(child as Spatial).visible = false
+		_profile_ab_pending = true
+		return
+
+# Lee el frame ya renderizado con el hijo oculto y cierra la medicion. Restaura la
+# visibilidad aunque no haya delta valido (p. ej. sin render disponible en headless).
+func _measure_profile_ab(now_ms: int) -> void:
+	_profile_ab_pending = false
+	var current: int = _read_rendered_vertices()
+	if _profile_ab_child != null and is_instance_valid(_profile_ab_child) \
+			and _profile_ab_baseline_verts >= 0 and current >= 0:
+		var delta: int = _profile_ab_baseline_verts - current
+		var best: int = int(_profile_ab_ranking.get(_profile_ab_name, 0))
+		if delta > best:
+			_profile_ab_ranking[_profile_ab_name] = delta
+		print("[RemoteSimClient] profile verts_ab: ", delta, " ", _profile_ab_name)
+	_restore_profile_ab_child()
+	_profile_ab_last_ms = now_ms
+
+func _read_rendered_vertices() -> int:
+	return int(VisualServer.get_render_info(VisualServer.INFO_VERTICES_IN_FRAME))
+
+# Restaura la visibilidad del hijo oculto por el A/B. Idempotente: se llama al medir, al
+# arrancar una sesion nueva y al salir del rol, para no dejar nunca un grupo oculto.
+func _restore_profile_ab_child() -> void:
+	if _profile_ab_child != null and is_instance_valid(_profile_ab_child):
+		_profile_ab_child.visible = true
+	_profile_ab_child = null
+	_profile_ab_name = ""
+	_profile_ab_baseline_verts = -1
+	_profile_ab_pending = false
 
 # Tarea M: sentinela de prioridad extrema. process_priority ordena los _process de TODO el
 # arbol, asi que la de inicio (prioridad minima) corre antes que cualquier script y la de

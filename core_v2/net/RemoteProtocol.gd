@@ -17,6 +17,30 @@ static func decode_json(json_str: String) -> Dictionary:
 		return parse_result.result
 	return {}
 
+# FD-316 (tarea P): los paquetes de alta frecuencia (sim_snapshot, sim_input) viajan en
+# binario nativo (var2bytes) en vez de JSON. Sobre un aarch64 lento, JSON.parse/print de
+# GDScript era el costo mas alto del frame del Anbernic. La marca y la version van en los
+# dos primeros bytes: un paquete que no las trae se decodifica como JSON, asi un peer viejo
+# (o un mensaje legacy) sigue funcionando. `allow_objects = false` en bytes2var para que un
+# peer no pueda instanciar clases arbitrarias con el payload.
+const PACKET_MAGIC := 0x4F # 'O' de Odisea
+const PACKET_VERSION := 1
+
+static func encode_packet(dict: Dictionary) -> PoolByteArray:
+	var payload: PoolByteArray = var2bytes(dict, false)
+	var out := PoolByteArray()
+	out.append(PACKET_MAGIC)
+	out.append(PACKET_VERSION)
+	out.append_array(payload)
+	return out
+
+static func decode_packet(bytes: PoolByteArray) -> Dictionary:
+	if bytes.size() >= 2 and bytes[0] == PACKET_MAGIC and bytes[1] == PACKET_VERSION:
+		var decoded = bytes2var(bytes.subarray(2, bytes.size() - 1), false)
+		return decoded if decoded is Dictionary else {}
+	# Fallback: paquete JSON de un peer viejo (o texto legacy).
+	return decode_json(bytes.get_string_from_utf8())
+
 # host_id identifica al proceso anunciante: un host con varias interfaces (cable + wifi)
 # llega desde mas de una IP, y listar por ip:puerto lo mostraba repetido.
 static func create_announce_payload(session_name: String, version: String, ws_port: int = DEFAULT_WS_PORT, sensor_port: int = DEFAULT_SENSOR_UDP_PORT, host_id: String = "", os_name: String = "") -> Dictionary:
@@ -355,11 +379,17 @@ static func encode_transform(t: Transform) -> Dictionary:
 		]
 	}
 
-static func decode_transform(d: Dictionary) -> Transform:
+# FD-316 (tarea P): en el camino binario las transforms viajan como Transform nativo (mas
+# barato que armar/desarmar dicts de arrays), asi que el decodificador acepta las dos
+# representaciones: la nativa y el dict legacy {"p": [...], "b": [...]} que todavia llega
+# por el fallback JSON.
+static func decode_transform(d) -> Transform:
+	if d is Transform:
+		return d
 	var t = Transform.IDENTITY
-	if d.has("p") and d["p"] is Array and d["p"].size() >= 3:
+	if d is Dictionary and d.has("p") and d["p"] is Array and d["p"].size() >= 3:
 		t.origin = Vector3(d["p"][0], d["p"][1], d["p"][2])
-	if d.has("b") and d["b"] is Array and d["b"].size() >= 9:
+	if d is Dictionary and d.has("b") and d["b"] is Array and d["b"].size() >= 9:
 		t.basis.x = Vector3(d["b"][0], d["b"][1], d["b"][2])
 		t.basis.y = Vector3(d["b"][3], d["b"][4], d["b"][5])
 		t.basis.z = Vector3(d["b"][6], d["b"][7], d["b"][8])

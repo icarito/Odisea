@@ -337,6 +337,12 @@ func set_camera_input_locked(locked: bool):
 		input_provider.hardware_input_enabled = not locked
 
 func force_camera_current(_reset_orientation := false):
+	# FD-316 (tarea K2): en render-esclavo la camara la impone el snapshot de la autoridad.
+	# Sistemas locales (airlock, teleport, SessionManager) pueden reclamar la camara del
+	# jugador durante una transicion; hacerlo peleaba con la vista replicada y hacia saltar
+	# la camara del handheld. Con el rol activo, el player no es dueno de la camara.
+	if _remote_interaction_authoritative:
+		return
 	if _cached_cam:
 		_cached_cam.current = true
 
@@ -1070,6 +1076,10 @@ func _find_camera(node: Node) -> Camera:
 	return null
 
 func _ensure_primary_camera_current() -> void:
+	# FD-316 (tarea K2): mismo dueno unico de la camara que force_camera_current: en
+	# render-esclavo no se re-arma la camara del jugador por logica local.
+	if _remote_interaction_authoritative:
+		return
 	if not _cached_cam or not is_instance_valid(_cached_cam):
 		return
 	var viewport_cam = get_viewport().get_camera() if get_viewport() else null

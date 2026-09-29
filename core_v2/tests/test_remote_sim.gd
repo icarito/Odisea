@@ -363,8 +363,9 @@ func test_sim_host_snapshot_paths_relative_to_sim_level():
 	assert_bool(host._attach_sim_level(level, {})).is_true()
 	var snap = host.capture_snapshot()
 	assert_bool(snap["entities"].has("CoolantPod")).is_true()
-	var enc: Dictionary = snap["entities"]["CoolantPod"]["t"]
-	assert_float(enc["p"][0]).is_equal_approx(4.0, 0.001)
+	# Tarea P: el snapshot binario lleva Transform nativo, no dict de arrays.
+	var enc: Transform = snap["entities"]["CoolantPod"]["t"]
+	assert_float(enc.origin.x).is_equal_approx(4.0, 0.001)
 	# El nivel (sin camara propia) no agrega cam_t: el esclavo conserva la suya.
 	assert_bool(snap["globals"].has("cam_t")).is_false()
 
@@ -2305,8 +2306,8 @@ func test_sim_host_captures_active_sim_camera_and_fov():
 	var snap: Dictionary = host.capture_snapshot()
 	assert_bool(snap["globals"].has("cam_t")).is_true()
 	assert_float(float(snap["globals"]["cam_fov"])).is_equal_approx(66.0, 0.001)
-	var enc: Dictionary = snap["globals"]["cam_t"]
-	var decoded: Transform = RemoteProtocolScript.decode_transform(enc)
+	# Tarea P: cam_t viaja como Transform nativo en el snapshot binario.
+	var decoded: Transform = RemoteProtocolScript.decode_transform(snap["globals"]["cam_t"])
 	assert_vector3(decoded.origin).is_equal_approx(Vector3(5.0, 6.0, 7.0), Vector3.ONE * 0.001)
 
 	host.stop_simulation()
@@ -2586,3 +2587,196 @@ func test_render_slave_screen_select_reaches_authority_focus():
 	rcm.is_render_slave_active = prev_active
 	rcm.is_host_active = prev_host_active
 	rcm.set_process(prev_processing)
+
+
+# FD-316 (tarea P): el snapshot y el sim_input viajan como paquete binario nativo
+# (var2bytes): Transform nativo, dicts y arrays sobreviven el roundtrip, y el byte de
+# version lo distingue de un paquete JSON legacy.
+func test_remote_protocol_binary_packet_roundtrip():
+	var t := Transform(Basis(Vector3.UP, 0.5), Vector3(1.5, -2.0, 3.25))
+	var snapshot = RemoteProtocolScript.create_sim_snapshot(7, 1234, {
+		"Pilot": {"t": t, "v": true, "vel": [1.0, 2.0, 3.0]}
+	}, {"snap_step": 2, "cam_t": t}, "tok", 4)
+	var bytes: PoolByteArray = RemoteProtocolScript.encode_packet(snapshot)
+	assert_int(bytes[0]).is_equal(RemoteProtocolScript.PACKET_MAGIC)
+	assert_int(bytes[1]).is_equal(RemoteProtocolScript.PACKET_VERSION)
+
+	var decoded: Dictionary = RemoteProtocolScript.decode_packet(bytes)
+	assert_str(String(decoded["type"])).is_equal("sim_snapshot")
+	assert_int(int(decoded["tick"])).is_equal(7)
+	assert_int(int(decoded["ack_seq"])).is_equal(4)
+	# Transform nativo (no dict de arrays) y anidado.
+	var back: Transform = decoded["entities"]["Pilot"]["t"]
+	assert_bool(back is Transform).is_true()
+	assert_vector3(back.origin).is_equal_approx(Vector3(1.5, -2.0, 3.25), Vector3.ONE * 0.001)
+	var cam_back: Transform = decoded["globals"]["cam_t"]
+	assert_vector3(cam_back.origin).is_equal_approx(Vector3(1.5, -2.0, 3.25), Vector3.ONE * 0.001)
+
+	# sim_input por el mismo camino.
+	var sim_input = RemoteProtocolScript.create_sim_input(
+		{"move_x": 0.5}, {"jump": true}, 9, "tok", {"x": 2.0}, 11)
+	var in_decoded: Dictionary = RemoteProtocolScript.decode_packet(
+		RemoteProtocolScript.encode_packet(sim_input))
+	assert_bool(bool(in_decoded["buttons"]["jump"])).is_true()
+	assert_float(float(in_decoded["axes"]["move_x"])).is_equal_approx(0.5, 0.001)
+	assert_int(int(in_decoded["seq"])).is_equal(11)
+
+
+# FD-316 (tarea P): un paquete sin la marca binaria se decodifica como JSON, para que un
+# peer viejo (o un mensaje legacy) siga funcionando. Payload basura no explota: {}.
+func test_remote_protocol_packet_falls_back_to_json():
+	var msg = RemoteProtocolScript.create_sim_input({"move_x": 1.0}, {}, 3, "tok", {}, 5)
+	var json_bytes: PoolByteArray = RemoteProtocolScript.encode_json(msg).to_utf8()
+	var decoded: Dictionary = RemoteProtocolScript.decode_packet(json_bytes)
+	assert_str(String(decoded["type"])).is_equal("sim_input")
+	assert_float(float(decoded["last_tick"])).is_equal(3.0)
+
+	var garbage := PoolByteArray()
+	garbage.append(1)
+	garbage.append(2)
+	garbage.append(3)
+	assert_int(RemoteProtocolScript.decode_packet(garbage).size()).is_equal(0)
+
+
+# FD-316 (tarea K2): durante una transicion la autoridad manda la camara de blend de
+# /root/CameraTransition, no la del jugador. Antes, en la vuelta a FREE (active_rig = null),
+# el snapshot caia a la camara del jugador a mitad del blend y el render-esclavo saltaba
+# entre dos camaras.
+func test_sim_host_captures_blend_camera_during_transition():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+	host.start_simulation("127.0.0.1", 0)
+
+	var level = _make_sim_level()
+	var player_cam = auto_free(Camera.new())
+	player_cam.name = "PlayerCam"
+	player_cam.fov = 70.0
+	level.add_child(player_cam)
+	var focus_rig = auto_free(FakeCinematicRig.new())
+	focus_rig.name = "FocusRigInside"
+	var focus_cam = auto_free(Camera.new())
+	focus_cam.name = "Camera"
+	focus_cam.fov = 55.0
+	focus_rig.camera = focus_cam
+	focus_rig.add_child(focus_cam)
+	level.add_child(focus_rig)
+
+	assert_bool(host._attach_sim_level(level, {})).is_true()
+	player_cam.current = true
+	focus_cam.global_transform = Transform(Basis(), Vector3(9, 0, 0))
+
+	var cinematic = get_node("/root/CinematicManager")
+	var prev_rig = cinematic.active_rig
+	var prev_transition: bool = cinematic._transition_active
+	# Vuelta a FREE: active_rig queda en null mientras el blend sigue en curso.
+	cinematic.active_rig = null
+	cinematic._start_dynamic_transition(focus_cam, player_cam, 5.0, "to_free")
+
+	var cam_transition = get_node("/root/CameraTransition")
+	var blend: Camera = cam_transition.camera3D
+	assert_bool(cinematic.get_active_camera() == blend).is_true()
+	var snap: Dictionary = host.capture_snapshot()
+	assert_bool(snap["globals"].has("cam_t")).is_true()
+	var decoded: Transform = RemoteProtocolScript.decode_transform(snap["globals"]["cam_t"])
+	assert_vector3(decoded.origin).is_equal_approx(blend.global_transform.origin, Vector3.ONE * 0.001)
+
+	# Restaurar el estado de la CinematicManager para no ensuciar otras suites.
+	cinematic._cancel_dynamic_transition("test_cleanup")
+	cinematic.active_rig = prev_rig
+	cinematic._transition_active = prev_transition
+	host.stop_simulation()
+
+
+# FD-316 (tarea K2): con el rol de render-esclavo el player no reclama la camara. Los
+# sistemas locales (airlock, teleport, SessionManager) llaman force_camera_current durante
+# las transiciones; hacerlo peleaba con la vista replicada del snapshot.
+func test_render_slave_player_does_not_steal_camera():
+	var holder := Spatial.new()
+	add_child(holder)
+	var cam := Camera.new()
+	holder.add_child(cam)
+
+	var player = PlayerScript.new() # sin arbol: no corre _ready ni sus onready
+	player._cached_cam = cam
+
+	# En rol: force_camera_current no reclama la camara.
+	player.set_remote_interaction_authoritative(true)
+	cam.current = false
+	player.force_camera_current()
+	assert_bool(cam.current).is_false()
+	player._ensure_primary_camera_current()
+	assert_bool(cam.current).is_false()
+
+	# Fuera del rol el camino normal sigue funcionando.
+	player.set_remote_interaction_authoritative(false)
+	player.force_camera_current()
+	assert_bool(cam.current).is_true()
+
+	cam.current = false
+	player.free()
+	holder.free()
+
+
+# FD-316 (tarea P): el A/B oculta UN hijo de primer nivel de current_scene durante un frame
+# y restaura su visibilidad al medir. Salir del rol con una medicion pendiente tampoco deja
+# un grupo oculto en el nivel.
+func test_render_slave_vertex_ab_hides_and_restores_child():
+	var level := Spatial.new()
+	level.name = "ABLevel"
+	var group_a := Spatial.new()
+	group_a.name = "GroupA"
+	var mesh_holder := MeshInstance.new()
+	mesh_holder.name = "Mesh"
+	mesh_holder.mesh = _make_test_mesh(4)
+	group_a.add_child(mesh_holder)
+	level.add_child(group_a)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+	client._profile_enabled = true
+
+	client._hide_next_ab_child()
+	assert_bool(client._profile_ab_pending).is_true()
+	assert_bool(group_a.visible).is_false()
+	assert_str(client._profile_ab_name).is_equal("GroupA")
+
+	client._measure_profile_ab(OS.get_ticks_msec())
+	assert_bool(group_a.visible).is_true()
+	assert_bool(client._profile_ab_pending).is_false()
+	assert_object(client._profile_ab_child).is_null()
+
+	# Medicion pendiente al salir del rol: se restaura igual.
+	client._hide_next_ab_child()
+	assert_bool(group_a.visible).is_false()
+	client.stop_render_slave()
+	assert_bool(group_a.visible).is_true()
+
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+	get_tree().root.remove_child(level)
+	level.free()
+
+
+# FD-316 (tarea P): el perfil lista por script los nodos con _physics_process activo; con
+# el nivel congelado son los que siguen sumando al physics_ms del esclavo en offload.
+func test_render_slave_profile_reports_physics_process_scripts():
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+	var holder: Spatial = auto_free(Spatial.new())
+	holder.name = "PhysicsHolder"
+	holder.set_process(false)
+	holder.set_physics_process(true)
+	client.add_child(holder)
+
+	var counts: Dictionary = client._profile_script_counts(true)
+	assert_int(int(counts.get("<sin script>", 0))).is_greater_equal(1)
+	# La pasada de _physics_process no cuenta el holder en la de _process.
+	var process_counts: Dictionary = client._profile_script_counts(false)
+	assert_int(int(process_counts.get("<sin script>", 0))).is_greater_equal(0)
+
+	client.stop_render_slave()

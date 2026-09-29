@@ -460,8 +460,8 @@ func _client_token_ok(input_dict: Dictionary) -> bool:
 func _poll_udp_input() -> void:
 	while _udp.get_available_packet_count() > 0:
 		var pkt = _udp.get_packet()
-		var pkt_str = pkt.get_string_from_utf8()
-		var dict = RemoteProtocol.decode_json(pkt_str)
+		# FD-316 (tarea P): binario nativo con fallback JSON (ver RemoteProtocol.decode_packet).
+		var dict = RemoteProtocol.decode_packet(pkt)
 		if dict.get("type", "") == "sim_input":
 			receive_sim_input(dict, "client")
 
@@ -648,7 +648,9 @@ func capture_snapshot() -> Dictionary:
 		if not (node is Spatial):
 			continue
 		var state = {
-			"t": RemoteProtocol.encode_transform(node.global_transform),
+			# FD-316 (tarea P): Transform nativo: el paquete es binario (var2bytes), sin
+			# dicts de arrays que armar y desarmar por entidad.
+			"t": node.global_transform,
 			"v": node.visible
 		}
 		if node is Light:
@@ -710,7 +712,8 @@ func capture_snapshot() -> Dictionary:
 	# sobre su camara actual y nunca la elige por logica local.
 	var camera: Camera = _resolve_active_sim_camera()
 	if camera != null and is_instance_valid(camera):
-		globals["cam_t"] = RemoteProtocol.encode_transform(camera.global_transform)
+		# FD-316 (tarea P): Transform nativo, como el resto del snapshot binario.
+		globals["cam_t"] = camera.global_transform
 		globals["cam_fov"] = camera.fov
 
 	var snap = RemoteProtocol.create_sim_snapshot(_current_tick, OS.get_ticks_msec(), entities, globals, _token, _last_applied_client_seq)
@@ -730,6 +733,17 @@ func capture_snapshot() -> Dictionary:
 func _resolve_active_sim_camera() -> Camera:
 	var cinematic = get_node_or_null("/root/CinematicManager")
 	if cinematic != null and cinematic.has_method("get_active_camera"):
+		# FD-316 (tarea K2): durante una transicion la camara realmente activa es la de
+		# blend de /root/CameraTransition, y active_rig puede ser null (vuelta a FREE).
+		# Si algun extremo del blend pertenece al nivel simulado, se manda la camara de
+		# blend: sin esto el snapshot caia a la camara del jugador a mitad de la
+		# transicion y el render-esclavo peleaba entre dos camaras (la vista saltaba).
+		if bool(cinematic.get("_transition_active")) \
+				and (_is_in_sim_level(cinematic.get("_transition_from_cam")) \
+					or _is_in_sim_level(cinematic.get("_transition_to_cam"))):
+			var blend = cinematic.call("get_active_camera")
+			if blend != null and is_instance_valid(blend):
+				return blend
 		var rig = cinematic.get("active_rig")
 		if rig != null and is_instance_valid(rig) and _is_in_sim_level(rig):
 			var active = cinematic.call("get_active_camera")
@@ -744,7 +758,9 @@ func _resolve_active_sim_camera() -> Camera:
 	# Sin nivel simulado (legacy): la camara del arbol, como antes.
 	return get_tree().root.get_viewport().get_camera() if get_tree() != null else null
 
-func _is_in_sim_level(node: Node) -> bool:
+func _is_in_sim_level(node) -> bool:
+	if node == null or not is_instance_valid(node):
+		return false
 	if _sim_level == null or not is_instance_valid(_sim_level):
 		return false
 	return _sim_level == node or _sim_level.is_a_parent_of(node)
@@ -758,7 +774,8 @@ func _capture_player_rig() -> Array:
 		return out
 	for path in RemoteProtocol.RIG_CHAIN:
 		var n = player.get_node_or_null(path)
-		out.append(RemoteProtocol.encode_transform(n.global_transform) if n is Spatial else null)
+		# FD-316 (tarea P): Transform nativo (paquete binario), no dict de arrays.
+		out.append(n.global_transform if n is Spatial else null)
 	return out
 
 func _capture_arm_length() -> float:
@@ -794,8 +811,8 @@ func _capture_interaction_state() -> Dictionary:
 func send_snapshot_udp(snapshot: Dictionary) -> void:
 	if target_ip == "" or target_port <= 0:
 		return
-	var json_str = RemoteProtocol.encode_json(snapshot)
-	var bytes = json_str.to_utf8()
+	# FD-316 (tarea P): paquete binario nativo (Transform incluido), no JSON.
+	var bytes = RemoteProtocol.encode_packet(snapshot)
 	# Instrumentacion (tarea E): tamanio real del datagrama del snapshot.
 	_stats.add("snap_bytes", float(bytes.size()))
 	_udp.set_dest_address(target_ip, target_port)
