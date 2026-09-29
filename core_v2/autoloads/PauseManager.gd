@@ -128,9 +128,10 @@ func _pause_on_focus_loss() -> void:
 		return
 	# FD-316: esta maquina es SIM HOST (autoridad de un render-esclavo): la simulacion
 	# alimenta a OTRO device en pantalla. Alternar de ventana (chat, terminal) no debe
-	# congelar la simulacion que el esclavo esta mostrando.
-	var rcm_sim = get_node_or_null("/root/RemoteControlManager")
-	if rcm_sim != null and "is_sim_host_active" in rcm_sim and rcm_sim.is_sim_host_active:
+	# congelar la simulacion que el esclavo esta mostrando. La decision vive en el manager
+	# (is_sim_host_holding_simulation cubre tambien la caida transitoria con el nivel
+	# conservado); aca solo se consulta.
+	if _sim_host_keeps_simulation():
 		return
 	if _controlled_from_this_machine():
 		return
@@ -142,6 +143,13 @@ func _pause_on_focus_loss() -> void:
 		_apply_menu_visibility()
 	else:
 		pause()
+
+# FD-316 (tarea F): la exencion de foco para el sim host se consulta en un solo lugar.
+func _sim_host_keeps_simulation() -> bool:
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	if rcm == null or not rcm.has_method("is_sim_host_holding_simulation"):
+		return false
+	return rcm.is_sim_host_holding_simulation()
 
 # Con un control remoto emparejado en ESTA misma maquina, alternar entre la ventana del
 # juego y la del control es parte de jugar: pausar al perder el foco estorba y no protege

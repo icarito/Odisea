@@ -42,6 +42,18 @@ var _sent_sim_paused: int = -1
 # se martilla el bind cada frame: se reintenta recien pasado este plazo.
 const RENDER_SLAVE_START_RETRY_MSEC := 2000
 var _render_slave_retry_at_ms: int = 0
+# FD-316 (tarea F): guard de foco del sim host. Con la ventana oculta u ocluida, un
+# compositor con vsync puede bloquear el swap y bajar el loop a ~1 fps; como la fisica
+# corre por frames, la simulacion que ve el render-esclavo se arrastra. Mientras seamos
+# sim host (o quede su nivel conservado) y la ventana no tenga foco se apaga vsync y se
+# fija target_fps al ritmo de fisica; al recuperar el foco o terminar el rol se restaura
+# el valor previo. Ver is_sim_host_holding_simulation / update_sim_host_focus_guard.
+var _sim_host_focus_guard_active: bool = false
+var _sim_host_saved_vsync: bool = true
+var _sim_host_saved_target_fps: int = 0
+var _sim_host_saved_low_proc: bool = false
+# Seam de test: -1 = consultar OS, 0 = sin foco, 1 = con foco. En produccion siempre -1.
+var _sim_host_focus_override: int = -1
 # El aviso de emparejamiento va por encima del menu de pausa (CanvasLayer 50): si la ventana
 # perdio el foco mientras llegaba la solicitud, al volver el menu lo tapaba y no se podia
 # aceptar. Ver tambien PauseManager, que se hace a un lado mientras este abierto.
@@ -144,6 +156,10 @@ func _process(_delta: float) -> void:
 	_sync_pause_to_controls()
 	_sync_sim_pause_to_authority()
 	update_offload_roles()
+	# FD-316 (tarea F): en corridas automatizadas no se toca el loop global; los tests
+	# ejercitan el guard llamando update_sim_host_focus_guard() con el override de foco.
+	if not _is_automated_session():
+		update_sim_host_focus_guard()
 
 func enable_low_tier_offload() -> void:
 	allow_low_tier_offload = true
@@ -319,6 +335,57 @@ func _soft_stop_sim_host_if_active() -> void:
 	if sim_host != null:
 		sim_host.stop_simulation(true)
 
+# FD-316 (tarea F): true mientras esta maquina deba mantener su simulacion a ritmo: es
+# sim host activo, o el nivel quedo conservado por un stop blando (reconexion en curso).
+# Cubre la caida transitoria de connection_lost al perder foco: mientras el nivel siga
+# conservado, PauseManager no pausa el arbol y el guard de foco mantiene el ritmo.
+func is_sim_host_holding_simulation() -> bool:
+	if is_sim_host_active:
+		return true
+	if sim_host == null or not is_instance_valid(sim_host):
+		return false
+	var level = sim_host.get("_sim_level")
+	return bool(sim_host.get("_soft_stopped")) and bool(sim_host.get("sim_ready")) \
+		and level != null and is_instance_valid(level)
+
+# FD-316 (tarea F): un solo lugar aplica y restaura el ritmo del loop cuando la ventana
+# del sim host pierde el foco. Fuera del rol (o con foco) no toca nada: vsync, target_fps
+# y el modo de bajo consumo vuelven a su valor previo.
+func update_sim_host_focus_guard() -> void:
+	var should_guard: bool = is_sim_host_holding_simulation() and not _sim_host_window_focused()
+	if should_guard == _sim_host_focus_guard_active:
+		return
+	_sim_host_focus_guard_active = should_guard
+	if should_guard:
+		_sim_host_saved_vsync = OS.vsync_enabled
+		_sim_host_saved_target_fps = Engine.target_fps
+		_sim_host_saved_low_proc = OS.low_processor_usage_mode
+		OS.vsync_enabled = false
+		OS.low_processor_usage_mode = false
+		var physics_fps: int = int(round(Engine.iterations_per_second))
+		Engine.target_fps = physics_fps if physics_fps > 0 else 60
+		print("[RemoteControlManager] sim host sin foco: vsync off, target_fps=", Engine.target_fps)
+	else:
+		_restore_sim_host_loop_state()
+
+func _restore_sim_host_loop_state() -> void:
+	OS.vsync_enabled = _sim_host_saved_vsync
+	Engine.target_fps = _sim_host_saved_target_fps
+	OS.low_processor_usage_mode = _sim_host_saved_low_proc
+
+# Sin esto, si el nodo sale del arbol con el guard activo (cierre de app o tests) la
+# ventana quedaria con vsync off.
+func _release_sim_host_focus_guard() -> void:
+	if not _sim_host_focus_guard_active:
+		return
+	_sim_host_focus_guard_active = false
+	_restore_sim_host_loop_state()
+
+func _sim_host_window_focused() -> bool:
+	if _sim_host_focus_override >= 0:
+		return _sim_host_focus_override == 1
+	return OS.is_window_focused()
+
 # El control remoto muestra cuando la partida esta en pausa aca (menu de pausa, perdida
 # de foco, dialogo de emparejamiento). Solo se manda al cambiar, y de nuevo a cada
 # control que se empareja o retoma (_on_server_client_connected).
@@ -351,6 +418,7 @@ func _sync_sim_pause_to_authority() -> void:
 # Cerrar la app (Salir, quit) tambien es cerrar la partida: el control recibe session_end
 # y se va en vez de reintentar 30 s. Si el sistema mata el proceso no hay aviso posible.
 func _exit_tree() -> void:
+	_release_sim_host_focus_guard()
 	stop_host_services()
 
 func _apply_settings() -> void:

@@ -8,6 +8,7 @@ const RemoteSimClientScript = preload("res://core_v2/net/RemoteSimClient.gd")
 const SimLogicFreezeScript = preload("res://core_v2/net/SimLogicFreeze.gd")
 const RemoteSimStatsScript = preload("res://core_v2/net/RemoteSimStats.gd")
 const PlayerScript = preload("res://core_v2/player/PlayerControllerV2.gd")
+const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManager.gd")
 
 func test_protocol_sim_messages_encode_decode():
 	var hello = RemoteProtocolScript.create_sim_hello("res://scenes/TestScene.tscn", 60, "tok123")
@@ -1153,4 +1154,90 @@ func test_sim_host_ack_seq_and_stats_flush():
 	assert_int(host._stats.count("tick")).is_equal(0)
 
 	host.stop_simulation()
+
+
+# FD-316 (tarea F): la exencion de foco del sim host cubre tambien la caida transitoria
+# con el nivel conservado por stop blando (connection_lost al perder foco), no solo el
+# rol activo. Sin esto, una caida transitoria apagaba la exencion y PauseManager pausaba.
+func test_sim_host_holding_simulation_covers_conserved_level():
+	var manager = auto_free(RemoteControlManagerScript.new())
+	add_child(manager)
+
+	manager.is_sim_host_active = true
+	assert_bool(manager.is_sim_host_holding_simulation()).is_true()
+
+	# Rol caido pero nivel conservado y listo: sigue siendo sim host a los efectos del foco.
+	manager.is_sim_host_active = false
+	var level := Spatial.new()
+	level.name = "SimLevel"
+	manager.add_child(level)
+	manager.sim_host._sim_level = level
+	manager.sim_host.sim_ready = true
+	manager.sim_host._soft_stopped = true
+	assert_bool(manager.is_sim_host_holding_simulation()).is_true()
+
+	# Sin nivel conservado no hay nada que mantener.
+	manager.sim_host._soft_stopped = false
+	assert_bool(manager.is_sim_host_holding_simulation()).is_false()
+
+
+# FD-316 (tarea F): con el rol activo y la ventana sin foco se saca el throttle (vsync off
+# + target_fps al ritmo de fisica, sin modo de bajo consumo); con foco o al terminar el rol
+# se restaura el estado previo.
+func test_sim_host_focus_guard_removes_throttle_only_while_unfocused():
+	var manager = auto_free(RemoteControlManagerScript.new())
+	add_child(manager)
+
+	var prev_vsync: bool = OS.vsync_enabled
+	var prev_fps: int = Engine.target_fps
+	var prev_low: bool = OS.low_processor_usage_mode
+	OS.vsync_enabled = true
+	Engine.target_fps = 0
+
+	manager.is_sim_host_active = true
+	manager._sim_host_focus_override = 0 # sin foco
+	manager.update_sim_host_focus_guard()
+	assert_bool(OS.vsync_enabled).is_false()
+	assert_bool(OS.low_processor_usage_mode).is_false()
+	assert_int(Engine.target_fps).is_equal(int(round(Engine.iterations_per_second)))
+
+	# Recupera el foco: vuelve el estado previo.
+	manager._sim_host_focus_override = 1
+	manager.update_sim_host_focus_guard()
+	assert_bool(OS.vsync_enabled).is_true()
+	assert_int(Engine.target_fps).is_equal(0)
+
+	# Termina el rol estando sin foco: tambien se restaura.
+	manager._sim_host_focus_override = 0
+	manager.update_sim_host_focus_guard()
+	assert_bool(OS.vsync_enabled).is_false()
+	manager.is_sim_host_active = false
+	manager.update_sim_host_focus_guard()
+	assert_bool(OS.vsync_enabled).is_true()
+	assert_int(Engine.target_fps).is_equal(0)
+
+	# Sin rol no hay guard aunque falte foco.
+	manager._sim_host_focus_override = 0
+	manager.update_sim_host_focus_guard()
+	assert_bool(OS.vsync_enabled).is_true()
+
+	OS.vsync_enabled = prev_vsync
+	Engine.target_fps = prev_fps
+	OS.low_processor_usage_mode = prev_low
+
+
+# FD-316 (tarea F): PauseManager consulta la decision en un solo lugar; con sim host
+# conservando la simulacion no pausa el arbol al perder el foco.
+func test_pause_manager_exempts_sim_host_on_focus_loss():
+	var rcm = get_node("/root/RemoteControlManager")
+	var pause_mgr = get_node("/root/PauseManager")
+	var prev_active: bool = rcm.is_sim_host_active
+
+	rcm.is_sim_host_active = true
+	assert_bool(pause_mgr._sim_host_keeps_simulation()).is_true()
+
+	rcm.is_sim_host_active = false
+	assert_bool(pause_mgr._sim_host_keeps_simulation()).is_false()
+
+	rcm.is_sim_host_active = prev_active
 
