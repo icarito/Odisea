@@ -32,7 +32,11 @@ func _ensure_viewport() -> void:
 	_viewport.name = "ConsoleViewport"
 	_viewport.size = view_size()
 	_viewport.transparent_bg = true
-	_viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	# FD-316 (tarea U): el Viewport comparte el World y con UPDATE_ALWAYS redibujaba el mundo
+	# entero en su render target aunque la consola estuviera cerrada (~12k vertices y 5 draw
+	# calls por frame medidos en la traza de replay de RingHub). Cerrada nace DISABLED; el
+	# update se prende solo mientras la consola esta visible (ver _set_viewport_updating).
+	_viewport.render_target_update_mode = Viewport.UPDATE_DISABLED
 	# El input lo maneja el overlay (surface_uv, absoluto). Sin esto el Viewport procesaba el mouse
 	# real por su cuenta ademas del cursor de la superficie (mismo estandar que HoloTerminalV2).
 	_viewport.gui_disable_input = true
@@ -98,17 +102,39 @@ func borrow_viewport() -> Viewport:
 		_viewport.set_hud_relative_cursor(true)
 	if has_method("set_process_input"):
 		set_process_input(false)
+	# FD-316 (tarea U): visible = el HUD la esta mostrando; recien ahi se redibuja.
+	_set_viewport_updating(true)
 	return _viewport
+
+# FD-316 (tarea U): cierra el prestamo del HUD. El Viewport vuelve a su estado de consola
+# cerrada (sin redibujar) y se suelta el cursor relativo del overlay.
+func release_viewport() -> void:
+	if is_instance_valid(_viewport) and _viewport.has_method("set_hud_relative_cursor"):
+		_viewport.set_hud_relative_cursor(false)
+	_set_viewport_updating(false)
+
+# FD-316 (tarea U): unico punto que toca el update del ConsoleViewport. Comparte el World,
+# asi que con UPDATE_ALWAYS cuesta ~12k vertices y 5 draw calls por frame aunque la consola
+# este cerrada; DISABLED cuando no se ve no dibuja nada.
+func _set_viewport_updating(on: bool) -> void:
+	if not is_instance_valid(_viewport):
+		return
+	var mode = Viewport.UPDATE_ALWAYS if on else Viewport.UPDATE_DISABLED
+	if _viewport.render_target_update_mode != mode:
+		_viewport.render_target_update_mode = mode
 
 func enter_focus_mode() -> void:
 	_ensure_viewport()
 	_viewport.set_ui_mode(true)
 	_viewport.set_use_system_mouse(false)
 	_viewport.call_deferred("focus_command_input")
+	# Consola en foco (pantalla completa de SuitOS): visible, se redibuja.
+	_set_viewport_updating(true)
 
 func exit_focus_mode() -> void:
 	if is_instance_valid(_viewport):
 		_viewport.set_ui_mode(false)
+	_set_viewport_updating(false)
 
 # surface_uv >= 0: el overlay resolvio donde cae el puntero real sobre la superficie de la
 # pantalla (modo Pantalla del HUD). Sin uv se mantiene el camino relativo de siempre.

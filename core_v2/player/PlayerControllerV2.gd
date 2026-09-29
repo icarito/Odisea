@@ -6,6 +6,10 @@ const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 const ZeroGravitySettingsV2 = preload("ZeroGravitySettings.gd")
 const TraversalLogicV2 = preload("traversal/TraversalLogicV2.gd")
+# FD-316 (tarea K2): guard central del dueno unico de la camara. El player lo consulta
+# ademas de su flag de interaccion autoritativa para cubrir la ventana de armado del
+# offload (ver RemoteControlManager.render_slave_owns_camera).
+const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManager.gd")
 
 const FIXED_DT := 1.0 / 60.0
 const UP := Vector3.UP
@@ -341,10 +345,20 @@ func force_camera_current(_reset_orientation := false):
 	# Sistemas locales (airlock, teleport, SessionManager) pueden reclamar la camara del
 	# jugador durante una transicion; hacerlo peleaba con la vista replicada y hacia saltar
 	# la camara del handheld. Con el rol activo, el player no es dueno de la camara.
-	if _remote_interaction_authoritative:
+	if _remote_camera_owner():
 		return
 	if _cached_cam:
 		_cached_cam.current = true
+
+# FD-316 (tarea K2): dueno unico de la camara. El flag de interaccion autoritativa se
+# aplica recien con el primer snapshot; en la ventana de armado del offload (tier LOW
+# emparejado, canal de snapshots todavia no arriba) el guard central ya marca que la vista
+# la impone la autoridad, y hay que respetarlo o la camara local pelea con el primer
+# snapshot. Mismo contrato que usan los terminales (TerminalCameraRig/HoloTerminalV2).
+func _remote_camera_owner() -> bool:
+	if _remote_interaction_authoritative:
+		return true
+	return RemoteControlManagerScript.render_slave_owns_camera()
 
 func sync_camera_to_rig() -> void:
 	if _cached_spring_arm:
@@ -1077,8 +1091,9 @@ func _find_camera(node: Node) -> Camera:
 
 func _ensure_primary_camera_current() -> void:
 	# FD-316 (tarea K2): mismo dueno unico de la camara que force_camera_current: en
-	# render-esclavo no se re-arma la camara del jugador por logica local.
-	if _remote_interaction_authoritative:
+	# render-esclavo (rol activo o ventana de armado del offload) no se re-arma la camara
+	# del jugador por logica local.
+	if _remote_camera_owner():
 		return
 	if not _cached_cam or not is_instance_valid(_cached_cam):
 		return

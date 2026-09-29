@@ -10,6 +10,8 @@ const RemoteSimStatsScript = preload("res://core_v2/net/RemoteSimStats.gd")
 const PlayerScript = preload("res://core_v2/player/PlayerControllerV2.gd")
 const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManager.gd")
 const HangingDisplayScene = preload("res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn")
+# FD-316 (tarea U): palancas de culling/LOD medidas con la traza de replay de RingHub.
+const GateScript = preload("res://core_v2/autoloads/GLES3VendorGate.gd")
 
 func test_protocol_sim_messages_encode_decode():
 	var hello = RemoteProtocolScript.create_sim_hello("res://scenes/TestScene.tscn", 60, "tok123")
@@ -3111,3 +3113,187 @@ func test_replay_viewports_sonda_lista_y_restaura():
 	session._viewports_sonda_pendientes = prev_pend
 	session._viewports_sonda_actual = prev_actual
 	session._viewports_sonda_guardados = prev_guardados
+
+
+# FD-316 (tarea K2): la pelea por la camara tambien existia en la VENTANA DE ARMADO del
+# offload. El flag de interaccion autoritativa del player se aplica recien con el primer
+# snapshot; mientras el tier LOW esta emparejado pero el canal de snapshots todavia no
+# arranco, un airlock/teleport llamaba a force_camera_current y el player le robaba la
+# camara a la vista replicada. El guard central ya marca al device como no-dueno y el
+# player debe respetarlo (mismo contrato que TerminalCameraRig/HoloTerminalV2).
+func test_render_slave_arming_window_player_does_not_steal_camera():
+	var rcm = get_node("/root/RemoteControlManager")
+	var prev_active: bool = rcm.is_render_slave_active
+	var prev_allow: bool = rcm.allow_low_tier_offload
+	var server = rcm.server
+	var injected_peer_id := 999998
+	var had_peer: bool = server != null and server._peers.has(injected_peer_id)
+
+	var holder := Spatial.new()
+	add_child(holder)
+	var cam := Camera.new()
+	holder.add_child(cam)
+
+	var player = PlayerScript.new() # sin arbol: no corre _ready ni sus onready
+	player._cached_cam = cam
+	cam.current = false
+
+	# Ventana de armado: rol todavia no promovido, pero tier LOW con control emparejado.
+	rcm.is_render_slave_active = false
+	rcm.allow_low_tier_offload = true
+	if server != null:
+		server._peers[injected_peer_id] = {"paired": true}
+	assert_bool(RemoteControlManagerScript.render_slave_owns_camera()).is_true()
+
+	player.force_camera_current()
+	assert_bool(cam.current).is_false()
+	player._ensure_primary_camera_current()
+	assert_bool(cam.current).is_false()
+
+	# Fuera de la ventana el camino normal sigue reclamando la camara del jugador.
+	if server != null:
+		server._peers.erase(injected_peer_id)
+	rcm.allow_low_tier_offload = false
+	player.force_camera_current()
+	assert_bool(cam.current).is_true()
+
+	if server != null and not had_peer:
+		server._peers.erase(injected_peer_id)
+	rcm.is_render_slave_active = prev_active
+	rcm.allow_low_tier_offload = prev_allow
+	cam.current = false
+	player.free()
+	get_tree().root.remove_child(holder)
+	holder.free()
+
+
+# FD-316 (tarea U): el ConsoleViewport comparte el World del root. Con UPDATE_ALWAYS
+# redibujaba el mundo entero en su render target aunque la consola estuviera cerrada
+# (~12k vertices y 5 draw calls por frame medidos en la traza de replay). Cerrada queda
+# UPDATE_DISABLED; visible (prestada al HUD o en foco de SuitOS) vuelve a UPDATE_ALWAYS.
+func test_debug_console_viewport_only_updates_while_visible():
+	var screen = get_node_or_null("/root/DebugConsoleManager")
+	if screen == null:
+		return
+
+	var vp: Viewport = screen.borrow_viewport()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+
+	screen.release_viewport()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+
+	screen.enter_focus_mode()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+
+	screen.exit_focus_mode()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+
+
+# FD-316 (tarea U): Godot 3.6 no tiene GeometryInstance.lod_max_distance, asi que la
+# distancia maxima de dibujo del andamio la hace un culler del gate: en tier LOW registra
+# los MeshInstance "Visual_NN" hijos directos de los grupos del andamio y les toca `visible`
+# segun la distancia de la camara al centro de su AABB (con histeresis). Un mesh fuera de
+# esos grupos no se registra ni se oculta.
+func test_low_tier_culls_scaffold_mesh_by_distance():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._lod_max_dist = 10.0
+	gate._lod_nodes.clear()
+
+	var cam := Camera.new()
+	cam.name = "LodCam"
+	add_child(cam)
+	cam.current = true
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+
+	var level := Spatial.new()
+	level.name = "LodLevel"
+	var stream := Spatial.new()
+	stream.name = "ScaffoldStreamRoot"
+	level.add_child(stream)
+	var group := Spatial.new()
+	group.name = "Group_SpiralWalkways"
+	stream.add_child(group)
+	var mi := MeshInstance.new()
+	mi.name = "Visual_00"
+	mi.mesh = _make_test_mesh(4) # AABB centrada en x=1.5
+	group.add_child(mi)
+	var fuere := MeshInstance.new()
+	fuere.name = "FueraDelAndamio"
+	fuere.mesh = _make_test_mesh(4)
+	level.add_child(fuere)
+	add_child(level)
+
+	assert_bool(gate._lod_nodes.has(mi)).is_true()
+	assert_bool(gate._lod_nodes.has(fuere)).is_false()
+
+	# Cerca de la camara: el trozo se dibuja; el mesh ajeno no lo toca el culler.
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(mi.visible).is_true()
+	assert_bool(fuere.visible).is_true()
+
+	# Lejos (mas alla de umbral + histeresis): el trozo se deja de dibujar.
+	cam.global_transform = Transform(Basis(), Vector3(100, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(mi.visible).is_false()
+	assert_bool(fuere.visible).is_true()
+
+	# Volver a acercarse lo muestra de nuevo.
+	cam.global_transform = Transform(Basis(), Vector3(0, 0, 0))
+	gate._update_scaffold_lod()
+	assert_bool(mi.visible).is_true()
+
+	cam.current = false
+	get_tree().root.remove_child(level)
+	level.free()
+	get_tree().root.remove_child(cam)
+	cam.free()
+
+
+# Fuera del tier LOW (desktop/CI/replay) el andamio no se registra ni se oculta: el gate no
+# toca geometria que en desktop se dibuja completa.
+func test_normal_tier_keeps_scaffold_lod_off():
+	var real_gate = get_node_or_null("/root/GLES3VendorGate")
+	if real_gate != null and real_gate.is_low_tier():
+		return # runner forzado a LOW: la asercion de desktop no aplica
+
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = false
+	add_child(gate)
+	gate._lod_nodes.clear()
+
+	var level := Spatial.new()
+	level.name = "LodLevelNormal"
+	var group := Spatial.new()
+	group.name = "Group_SpiralStairs"
+	level.add_child(group)
+	var mi := MeshInstance.new()
+	mi.name = "Visual_00"
+	mi.mesh = _make_test_mesh(4)
+	group.add_child(mi)
+	add_child(level)
+
+	assert_int(gate._lod_nodes.size()).is_equal(0)
+	assert_bool(mi.visible).is_true()
+
+	get_tree().root.remove_child(level)
+	level.free()
+
+
+# ODISEA_LOD_MAX_DIST ajusta el umbral sin rebuild; 0 o negativo lo apaga.
+func test_env_overrides_scaffold_lod_distance():
+	var prev := OS.get_environment(GateScript.LOD_MAX_DIST_ENV)
+	var gate = auto_free(GateScript.new())
+
+	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, "8.5")
+	assert_float(gate._read_lod_max_dist()).is_equal_approx(8.5, 0.001)
+
+	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, "0")
+	assert_float(gate._read_lod_max_dist()).is_equal_approx(0.0, 0.001)
+
+	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, "no-numero")
+	assert_float(gate._read_lod_max_dist()).is_equal_approx(GateScript.DEFAULT_LOD_MAX_DIST, 0.001)
+
+	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, prev)

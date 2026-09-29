@@ -59,10 +59,39 @@ const KEEP_FOG_ENV := "ODISEA_KEEP_FOG"
 # entonces. ODISEA_KEEP_GLOW=1 lo deja pasar para ver que cuesta y si sigue roto.
 const KEEP_GLOW_ENV := "ODISEA_KEEP_GLOW"
 
+# FD-316 (tarea U): primera palanca de culling medida con la traza de replay de RingHub
+# (ced6b800). En tier LOW la geometria del andamio mas pesada en frustum —Grupo de
+# pasarelas espirales (30k verts, hasta 21 m), escaleras (17k, hasta 34 m) y radios del hub
+# (26k, hasta 17 m)— se deja de dibujar pasado este radio.
+#
+# OJO ENGINE: Godot 3.6 NO tiene GeometryInstance.lod_max_distance/lod_max_hysteresis (solo
+# Spatial.lod_range, que es el umbral de hijos de un nodo LOD, no un corte por instancia).
+# El "lod_max_distance" de la tarea se implementa entonces como un culler de distancia del
+# gate: se registran los MeshInstance "Visual_NN" de los grupos del andamio y se les toca
+# `visible` segun la distancia de la camara al centro del AABB (misma semantica que el LOD
+# de instancia: distancia al CENTRO del AABB). El umbral se mide y se histeresa aca.
+#
+# Los MultiMeshInstance de los criopods son un anillo entero por instancia (el AABB mide al
+# centro del anillo), asi que NO entran: culling por distancia ahi exige partir la malla (no
+# en esta tarea; ver commit). ODISEA_LOD_MAX_DIST ajusta el umbral sin rebuild (0 lo apaga).
+const LOD_MAX_DIST_ENV := "ODISEA_LOD_MAX_DIST"
+const DEFAULT_LOD_MAX_DIST := 16.0
+# Histeresis chica: oculta pasado umbral+his, vuelve a mostrar por debajo del umbral, para
+# no parpadear justo en el borde al caminar.
+const LOD_MAX_HYSTERESIS := 2.0
+const LOD_SCAFFOLD_GROUPS := ["Group_SpiralWalkways", "Group_SpiralStairs", "Group_HubSpokes"]
+# Solo los trozos horneados directos del grupo; el contenido streamed vive bajo Chunk_NN y
+# lo maneja su propio streamer (no se le pelea la visibilidad).
+const LOD_SCAFFOLD_MESH_PREFIX := "Visual_"
+
 var _gated_active := false
 var _env_forced_low_tier := false
 var _env_keep_fog := false
 var _env_keep_glow := false
+# FD-316 (tarea U): umbral del culler de distancia de los grupos del andamio (< 0 = apagado)
+# y los nodos registrados (solo en tier LOW).
+var _lod_max_dist := DEFAULT_LOD_MAX_DIST
+var _lod_nodes: Array = []
 # Los tools de horneado (tools/bake_*.gd) instancian la escena fuente y guardan
 # los materiales recolectados. Si el gate corre en tier LOW, _low_tier_material
 # muta esos recursos COMPARTIDOS en memoria y el bake los persiste sin
@@ -101,6 +130,7 @@ func _ready() -> void:
 	_env_forced_low_tier = _read_env_forced_low_tier()
 	_env_keep_fog = OS.get_environment(KEEP_FOG_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_env_keep_glow = OS.get_environment(KEEP_GLOW_ENV).to_lower() in ["1", "true", "yes", "on"]
+	_lod_max_dist = _read_lod_max_dist()
 	_unshaded_mode = OS.get_environment("ODISEA_UNSHADED").strip_edges()
 	# El driver del fork ya resolvio el conflicto de unidad de Mali (§11.10): el
 	# lightmap NATIVO funciona en la Anbernic (y sigue LIT/DARK por el motor). El
@@ -320,15 +350,21 @@ func _hide_pilot_visual_for_billboard(pilot: Node) -> void:
 func _process(delta: float) -> void:
 	if _flashlight_mode:
 		_sync_flashlight(delta)
+	# FD-316 (tarea U): culler de distancia del andamio (solo hay nodos registrados en LOW).
+	if not _lod_nodes.empty():
+		_update_scaffold_lod()
 	if not _pilot_billboard:
-		if not _flashlight_mode:
+		if not _flashlight_mode and _lod_nodes.empty():
 			set_process(false)
 		return
 	var players := get_tree().get_nodes_in_group("player") if get_tree() != null else []
 	if players.empty():
 		return
 	_hide_pilot_visual_for_billboard(players[0])
-	set_process(false)
+	# El billboard es un ocultado de una sola vez: si no queda nada mas que sincronizar por
+	# frame, se apaga el procesamiento (el culler del andamio lo mantiene prendido).
+	if not _flashlight_mode and _lod_nodes.empty():
+		set_process(false)
 
 func _unshaded_shared_material() -> SpatialMaterial:
 	if _unshaded_mat == null:
@@ -796,6 +832,9 @@ func _low_tier_node(node: Node) -> void:
 		# el G31: sin sombras, la iluminacion queda por ambient + vertex.
 		node.shadow_enabled = false
 	elif node is GeometryInstance:
+		# FD-316 (tarea U): antes del material, registrar el trozo del andamio para el
+		# culler de distancia (solo tiene efecto en tier LOW; este camino ya lo garantiza).
+		_register_scaffold_lod_node(node)
 		node.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		var mesh: Mesh = null
 		if node is MeshInstance:
@@ -915,6 +954,82 @@ func _user_forced_low_end() -> bool:
 
 func _read_env_forced_low_tier() -> bool:
 	return OS.get_environment(FORCE_LOW_TIER_ENV).to_lower() in ["1", "true", "yes", "on"]
+
+# FD-316 (tarea U): umbral del LOD del andamio. ODISEA_LOD_MAX_DIST lo ajusta sin rebuild
+# (0 o negativo lo apaga); fuera del env queda el default medido en la traza de replay.
+func _read_lod_max_dist() -> float:
+	var raw := OS.get_environment(LOD_MAX_DIST_ENV).strip_edges()
+	if raw.is_valid_float():
+		return float(raw)
+	return DEFAULT_LOD_MAX_DIST
+
+# FD-316 (tarea U): registra un trozo horneado del andamio para el culler de distancia.
+# Corre una vez por nodo que entra al arbol (hook node_added del gate), no por frame.
+func _register_scaffold_lod_node(node: GeometryInstance) -> void:
+	if _lod_max_dist <= 0.0:
+		return
+	if not _is_scaffold_group_mesh(node):
+		return
+	if _lod_nodes.has(node):
+		return
+	_lod_nodes.append(node)
+	node.visible = true
+	set_process(true)
+
+# Trozo del andamio: MeshInstance "Visual_NN" hijo DIRECTO de uno de los grupos. El
+# contenido streamed (Chunk_NN y lo que cuelga de ahi) queda afuera para no pelearle la
+# visibilidad a su streamer.
+func _is_scaffold_group_mesh(node: Node) -> bool:
+	if not String(node.name).begins_with(LOD_SCAFFOLD_MESH_PREFIX):
+		return false
+	var parent := node.get_parent()
+	if parent == null:
+		return false
+	for group_name in LOD_SCAFFOLD_GROUPS:
+		if String(parent.name) == group_name:
+			return true
+	return false
+
+# Culler por frame (solo con nodos registrados). Distancia de la camara activa al centro del
+# AABB de cada trozo, con histeresis: oculta por encima de umbral+his, muestra por debajo
+# del umbral. Sin camara (menu, transicion) se muestra todo para no dejar el andamio vacio.
+func _update_scaffold_lod() -> void:
+	_prune_scaffold_lod_nodes()
+	if _lod_nodes.empty():
+		set_process(false)
+		return
+	var viewport := get_viewport()
+	var camera: Camera = viewport.get_camera() if viewport != null else null
+	if camera == null:
+		for node in _lod_nodes:
+			node.visible = true
+		return
+	var cam_pos := camera.global_transform.origin
+	var show_dist := _lod_max_dist
+	var hide_dist := _lod_max_dist + LOD_MAX_HYSTERESIS
+	for node in _lod_nodes:
+		var center: Vector3 = node.global_transform.xform(_lod_local_center(node))
+		var d := cam_pos.distance_to(center)
+		if node.visible:
+			if d > hide_dist:
+				node.visible = false
+		elif d < show_dist:
+			node.visible = true
+
+# Centro del AABB local del trozo, en su espacio (get_transformed_aabb no incluye a los
+# ancestros; los grupos del andamio llevan rotacion). Se transforma con el global del nodo.
+func _lod_local_center(node: GeometryInstance) -> Vector3:
+	if node is MeshInstance and node.mesh != null:
+		return node.mesh.get_aabb().get_center()
+	if node is MultiMeshInstance and node.multimesh != null:
+		return node.multimesh.get_aabb().get_center()
+	return Vector3.ZERO
+
+func _prune_scaffold_lod_nodes() -> void:
+	for i in range(_lod_nodes.size() - 1, -1, -1):
+		var node = _lod_nodes[i]
+		if node == null or not is_instance_valid(node):
+			_lod_nodes.remove(i)
 
 func _sync_manual_lightmap(gated: bool) -> void:
 	if gated and not _manual_lightmap_synced:
