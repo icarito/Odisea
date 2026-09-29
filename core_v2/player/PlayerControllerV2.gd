@@ -281,6 +281,17 @@ var _remote_anim_valid := false
 # wish_direction queda en cero y el animator no orienta el cuerpo hacia donde se camina
 # (la direccion "se reseteaba"). Llega en cada snapshot.
 var _remote_wish_direction := Vector3.ZERO
+# FD-316: el controlador no solo le pasa al animator una velocidad: tambien le manda
+# eventos one-shot por señal (jumped/acrobatic_jumped/hit_ceiling), de los que depende el
+# salto acrobatico y los aterrizajes. En el render-esclavo la fisica esta congelada y esas
+# señales nunca se emiten, asi que el backflip se veia como un salto normal. La autoridad
+# manda contadores de esos eventos y el esclavo re-emite la señal UNA vez por cambio (no en
+# cada snapshot).
+var _anim_event_jumped := 0
+var _anim_event_acrobatic := 0
+var _anim_event_hit_ceiling := 0
+var _remote_anim_events := {}
+var _remote_anim_events_applied := {}
 onready var interact_config = get_node_or_null("Logic/Interact")
 
 
@@ -2132,6 +2143,10 @@ func set_remote_interaction_authoritative(on: bool) -> void:
 		return
 	_remote_interaction_authoritative = on
 	_remote_anim_valid = false
+	# FD-316: sesion nueva de animacion remota: la referencia de one-shots se re-fija con
+	# el primer snapshot para no re-disparar eventos de la autoridad que ya pasaron.
+	_remote_anim_events = {}
+	_remote_anim_events_applied = {}
 	if on:
 		# El scan local no corre en render-esclavo: arrancamos limpio y el primer
 		# snapshot de la autoridad trae (o no) el prompt.
@@ -2152,8 +2167,65 @@ func set_remote_anim_state(p_velocity: Vector3, p_grounded: bool, p_wish: Vector
 func step_remote_animator(dt: float) -> void:
 	if not _remote_interaction_authoritative:
 		return
+	# One-shots de la autoridad (salto acrobatico incluido) antes de avanzar el animator:
+	# los consume el handler de la señal, que arma el latch acrobatico por el mismo camino
+	# que en la autoridad.
+	_apply_remote_anim_events()
 	if animator != null and animator.has_method("step_animator"):
 		animator.step_animator(dt, _remote_anim_velocity)
+
+# FD-316: contadores de los one-shots de animacion que el controlador le pasa a su
+# animator por señal. La autoridad los manda en el snapshot y el render-esclavo los usa
+# para re-disparar cada evento exactamente una vez.
+func get_anim_event_counters() -> Dictionary:
+	return {
+		"jumped": _anim_event_jumped,
+		"acrobatic": _anim_event_acrobatic,
+		"hit_ceiling": _anim_event_hit_ceiling
+	}
+
+# FD-316: estado de animacion que llega de la autoridad en el snapshot (bloque "anim").
+# Solo se guarda; los flancos se aplican al alimentar el animator (step_remote_animator).
+func set_remote_anim_events(events: Dictionary) -> void:
+	if not (events is Dictionary):
+		return
+	_remote_anim_events = events
+
+# FD-316: re-emite al animator local los one-shots que disparo la autoridad, solo cuando
+# su contador cambia. Replicamos lo que el controlador le pasa al animator (la señal), no
+# el estado interno del AnimationTree. El primer snapshot de la sesion solo fija la
+# referencia: no re-dispara eventos que ocurrieron antes de conectar el offload.
+func _apply_remote_anim_events() -> void:
+	if _remote_anim_events.empty():
+		return
+	if _remote_anim_events_applied.empty():
+		_remote_anim_events_applied = _remote_anim_events.duplicate()
+		return
+	var jumped := int(_remote_anim_events.get("jumped", 0))
+	if jumped != int(_remote_anim_events_applied.get("jumped", 0)):
+		_remote_anim_events_applied["jumped"] = jumped
+		emit_signal("jumped")
+	var acrobatic := int(_remote_anim_events.get("acrobatic", 0))
+	if acrobatic != int(_remote_anim_events_applied.get("acrobatic", 0)):
+		_remote_anim_events_applied["acrobatic"] = acrobatic
+		emit_signal("acrobatic_jumped")
+	var hit_ceiling := int(_remote_anim_events.get("hit_ceiling", 0))
+	if hit_ceiling != int(_remote_anim_events_applied.get("hit_ceiling", 0)):
+		_remote_anim_events_applied["hit_ceiling"] = hit_ceiling
+		emit_signal("hit_ceiling")
+
+# FD-316: unico punto por donde salen los one-shots de animacion del controlador. Ademas
+# de emitir la señal (lo que ya consumia el animator local), lleva su contador para el
+# snapshot: el render-esclavo re-dispara el mismo evento una sola vez por cambio.
+func _emit_anim_event(event: String) -> void:
+	match event:
+		"jumped":
+			_anim_event_jumped += 1
+		"acrobatic_jumped":
+			_anim_event_acrobatic += 1
+		"hit_ceiling":
+			_anim_event_hit_ceiling += 1
+	emit_signal(event)
 
 func is_remote_render_slave() -> bool:
 	return _remote_interaction_authoritative
@@ -2706,7 +2778,7 @@ func step(dt: float, input: InputDataV2) -> void:
 			_sync_movement_state_after_traversal(traversal_jump_velocity)
 			_begin_post_traversal_strafe_latch(traversal_surface_normal, input.move_vec)
 			global_transform.origin += detach_normal * traversal_jump_detach_distance + Vector3.UP * min(0.12, upward_force * dt)
-			emit_signal("jumped")
+			_emit_anim_event("jumped")
 
 		# Sync visual velocity for animator
 		var delta_pos = global_transform.origin - old_pos
@@ -2924,7 +2996,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Igual que el salto normal: MIN_JUMP_TIME protege el despegue del recorte variable
 		jump_logic._jump_time_tracker = 0.0
 		is_acrobatic_ready = false
-		emit_signal("acrobatic_jumped")
+		_emit_anim_event("acrobatic_jumped")
 	else:
 		# --- JUMP ---
 		var old_vy = velocity.y
@@ -2938,7 +3010,7 @@ func step(dt: float, input: InputDataV2) -> void:
 				elif is_acrobatic_ready:
 					motivo = "sin_jump_buffer"
 				print("[ACRO] rama=NORMAL force=%.1f snap_age=%d motivo=%s" % [jump_logic.jump_force, frames_since_last_snap, motivo])
-			emit_signal("jumped")
+			_emit_anim_event("jumped")
 	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.jump")
 	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.other")
 
@@ -3014,7 +3086,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		velocity.y = 0
 		if is_instance_valid(jump_logic):
 			jump_logic.set_internal_velocity(0.0)
-		emit_signal("hit_ceiling")
+		_emit_anim_event("hit_ceiling")
 
 	# Rigid body push
 	var touched_rigid = false
