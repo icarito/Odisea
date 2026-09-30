@@ -10,7 +10,8 @@ const TerminalCameraRigScript = preload("res://core_v2/components/TerminalCamera
 const TerminalHUDBridgeScript = preload("res://core_v2/components/TerminalHUDBridge.gd")
 const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 # FD-316 (tarea MM): ahorros de las pantallas de terminal en tier LOW (resolucion reducida
-# del Viewport y refresco visible a ~10 Hz), con A/B por ODISEA_LOW_UI_OPT.
+# del Viewport y refresco visible a ~10 Hz), con interruptores propios
+# ODISEA_LOW_UI_TERMINAL_RES / ODISEA_LOW_UI_VIEWPORT_HZ.
 const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 const LowHzTickScript = preload("res://core_v2/systems/LowHzTick.gd")
 # FD-316 (tarea K2): guard central del unico dueno de la camara (ver
@@ -657,13 +658,13 @@ func _update_visuals() -> void:
 				# DISABLED en el mismo tick (o uno muy cercano) corria el riesgo de
 				# pisar el pedido antes de que el render pass lo viera.
 				mode = viewport.render_target_update_mode
-		elif LowUiOptScript.enabled() and not _is_focused and mode == Viewport.UPDATE_WHEN_VISIBLE:
+		elif LowUiOptScript.viewport_hz() and not _is_focused and mode == Viewport.UPDATE_WHEN_VISIBLE:
 			# Tarea MM: una pantalla visible fuera de foco no necesita re-renderizar 60
-			# veces/s. Este es el Viewport que quedaba en UPDATE_WHEN_VISIBLE y que
-			# LowViewportOptimizer no tocaba (solo reconocia UPDATE_ALWAYS): a tasa
-			# completa costaba ~9.5 ms/frame en el Anbernic con la pantalla a 960x600.
-			# En LOW se espacia a ~10 Hz con UPDATE_ONCE pulsado; el foco, mas abajo, la
-			# devuelve a tasa completa. El HUD prestado ya salio arriba por
+			# veces/s (interruptor ODISEA_LOW_UI_VIEWPORT_HZ). Este es el Viewport que quedaba
+			# en UPDATE_WHEN_VISIBLE y que LowViewportOptimizer no tocaba (solo reconocia
+			# UPDATE_ALWAYS): a tasa completa costaba ~9.5 ms/frame en el Anbernic con la
+			# pantalla a 960x600. En LOW se espacia a ~10 Hz con UPDATE_ONCE pulsado; el foco,
+			# mas abajo, la devuelve a tasa completa. El HUD prestado ya salio arriba por
 			# forces_relative_cursor(), asi que su cursor suave no pasa por aca.
 			var current := int(viewport.render_target_update_mode)
 			var due: bool = _low_hz.step(max(0.0, _visual_delta)) >= 0.0
@@ -760,11 +761,11 @@ func _apply_viewport_settings() -> void:
 		return
 	_resolved_viewport_scale = _get_player_holo_viewport_scale()
 	# Tarea MM: en tier LOW la pantalla no necesita mas pixeles que los que ocupa en el
-	# display del handheld. El Viewport nominal (1280x800 en el criopod, mas grande que la
-	# pantalla entera del Anbernic) re-renderizado a 10 Hz sigue costando ~9.5 ms/frame;
-	# bajarlo a 1/3 recorta el fillrate ~9x. La UI se dibuja relativa a rect_size, asi que
-	# el layout y la lectura no cambian. El A/B es ODISEA_LOW_UI_OPT.
-	if LowUiOptScript.enabled():
+	# display del handheld (interruptor ODISEA_LOW_UI_TERMINAL_RES). El Viewport nominal
+	# (1280x800 en el criopod, mas grande que la pantalla entera del Anbernic) re-renderizado
+	# a 10 Hz sigue costando ~9.5 ms/frame; bajarlo a 1/3 recorta el fillrate ~9x. La UI se
+	# dibuja relativa a rect_size, asi que el layout y la lectura no cambian.
+	if LowUiOptScript.terminal_res():
 		_resolved_viewport_scale = min(_resolved_viewport_scale, LowUiOptScript.VIEWPORT_SCALE)
 	var target_size = _resolve_viewport_target_size(
 		OS.get_name(),

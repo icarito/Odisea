@@ -225,11 +225,20 @@ cosa apagada TODA la corrida (se leen al arrancar el playback y se restauran exa
 `ODISEA_BENCH_NO_UI=1` (todos los CanvasLayer/Controls de HUD), `ODISEA_BENCH_NO_3D=1`
 (cull_mask=0 en la cámara activa) y `ODISEA_BENCH_NO_ENV=1` (sin Environment).
 
-**Tarea GG — ahorros de UI en tier LOW.** `ODISEA_LOW_UI_OPT=0` apaga (A/B) los arreglos de UI
-del handheld; unset o `1` los deja activos solo en tier LOW: sin controles táctiles si la
-plataforma no tiene pantalla táctil, widgets/Viewports de HUD animados a ~10 Hz
-(`LowHzTick`/`LowHzViewportRedraw`), viñetas sin `SCREEN_TEXTURE` y subtítulos sin sombra.
-Fuera de LOW no cambia nada.
+**Tarea PP — interruptores de UI del tier LOW.** El maestro `ODISEA_LOW_UI_OPT` manda sobre
+todos: `=0` apaga, `=1` enciende (A/B de benchmark); sin definir rige el default de cada uno.
+Cada arreglo tiene su propia env y aplica solo en tier LOW:
+
+| Env | Qué hace | Default LOW |
+| --- | --- | --- |
+| `ODISEA_LOW_UI_TOUCH_LAZY` | controles táctiles recién tras el primer toque real (tarea II) | ON |
+| `ODISEA_LOW_UI_TERMINAL_RES` | pantallas de terminal a 1/3 de resolución (tarea MM) | OFF |
+| `ODISEA_LOW_UI_VIEWPORT_HZ` | Viewports/pantallas visibles a ~10 Hz (tareas KK/MM) | OFF |
+| `ODISEA_LOW_UI_IMGUI_NO_INPUT_REBUILD` | ImGui sin rearme por input (tarea NN) | OFF |
+
+Los ahorros base de GG (subtítulos sin sombra, viñeta sin `SCREEN_TEXTURE`, HUD a ~10 Hz y el
+Viewport animado del HUD) siguen al maestro; el panel de la criocapsula monta ImGui en todos
+los tiers. Fuera de LOW no cambia nada.
 
 ```bash
 # ODISEA_BENCH_NO_UI=1 / ODISEA_BENCH_NO_3D=1 / ODISEA_BENCH_NO_ENV=1 (opcional)

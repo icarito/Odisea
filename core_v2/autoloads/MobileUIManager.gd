@@ -1,8 +1,9 @@
 extends CanvasLayer
 
 const MobileUI = preload("res://core_v2/ui/MobileUI.tscn")
-# FD-316 (tarea GG): en tier LOW los controles tactiles no se dibujan si la plataforma no
-# tiene pantalla tactil (el Anbernic usa pad fisico). El A/B es ODISEA_LOW_UI_OPT.
+# FD-316 (tareas GG/II): en tier LOW los controles tactiles no se dibujan hasta el primer
+# toque real (el Anbernic usa pad fisico y el hint del SO mentia). Interruptor propio
+# ODISEA_LOW_UI_TOUCH_LAZY (default ON); el maestro ODISEA_LOW_UI_OPT sigue mandando.
 const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 # El modo tactil se prende con un toque y se apaga por inactividad (touch_idle_timeout). Lo escucha
@@ -294,7 +295,8 @@ func _is_script_cinematic_active() -> bool:
 
 func _refresh_mobile_ui_visibility() -> void:
 	# Tarea HH: en tier LOW sin un touch real visto los controles no se dibujan (ni interceptan
-	# toques). Fuera de LOW o con ODISEA_LOW_UI_OPT=0 se comporta como siempre.
+	# toques). Interruptor propio (ODISEA_LOW_UI_TOUCH_LAZY); fuera de LOW o apagado se comporta
+	# como siempre.
 	if _touch_ui_suppressed():
 		if is_instance_valid(_mobile_ui):
 			_mobile_ui.visible = false
@@ -368,9 +370,10 @@ func _is_ui_fade_enabled() -> bool:
 
 # Tarea HH: sin un InputEventScreenTouch real visto, los controles tactiles no se dibujan ni se
 # procesan (ni se instancian). Android/iOS se saben tactiles por plataforma y arrancan activos.
-# Fuera de LOW o con ODISEA_LOW_UI_OPT=0 no cambia nada. `_touch_seen` es el seam para tests.
+# Interruptor propio (ODISEA_LOW_UI_TOUCH_LAZY, default ON en LOW): no cambia el aspecto.
+# Fuera de LOW no cambia nada. `_touch_seen` es el seam para tests.
 func _touch_ui_suppressed() -> bool:
-	return LowUiOptScript.enabled() and not _is_mobile and not _touch_seen
+	return LowUiOptScript.touch_lazy() and not _is_mobile and not _touch_seen
 
 func _mobile_ui_container() -> Control:
 	if not is_instance_valid(_mobile_ui):

@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
 
-# FD-316 (tarea GG): ahorros de UI del tier LOW, con A/B por ODISEA_LOW_UI_OPT.
-# Lo critico: fuera de LOW (o con el A/B en 0) NADA cambia; en LOW, la UI animada se
-# refresca a 10 Hz, los controles tactiles no se dibujan sin pantalla tactil y los
-# subtitulos no pagan sombra.
+# FD-316 (tareas GG/II/KK/MM/NN): ahorros de UI del tier LOW, con un interruptor por arreglo
+# (ODISEA_LOW_UI_TOUCH_LAZY/TERMINAL_RES/VIEWPORT_HZ/IMGUI_NO_INPUT_REBUILD) y el maestro
+# ODISEA_LOW_UI_OPT. Lo critico: fuera de LOW NADA cambia; en LOW sin envs mandan los
+# defaults (tactil perezoso ON; los que cambian el aspecto OFF).
 
 const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 const LowHzTickScript = preload("res://core_v2/systems/LowHzTick.gd")
@@ -14,13 +14,20 @@ const LowViewportOptimizerScript = preload("res://core_v2/ui/hud/LowViewportOpti
 # Tarea MM: pantalla de terminal (HoloTerminalV2) con resolucion reducida y refresco visible
 # espaciado en tier LOW.
 const WallTerminalScene = preload("res://core_v2/props/controls/WallTerminal.tscn")
-# Tarea NN: el panel de la criocapsula (CryoPodUI) en LOW usa el camino clasico de _draw en
-# vez del canvas ImGui.
+# Tarea PP: el panel de la criocapsula (CryoPodUI) monta ImGuiCanvas en todos los tiers.
 const CryoPodUIScene = preload("res://core_v2/props/criopod/CryoPodUI.tscn")
 
 var _gate_prev := {}
 var _sm_prev := false
-var _env_prev := ""
+var _env_prev := {}
+
+const ENV_KEYS := [
+	"ODISEA_LOW_UI_OPT",
+	"ODISEA_LOW_UI_TOUCH_LAZY",
+	"ODISEA_LOW_UI_TERMINAL_RES",
+	"ODISEA_LOW_UI_VIEWPORT_HZ",
+	"ODISEA_LOW_UI_IMGUI_NO_INPUT_REBUILD",
+]
 
 
 func before() -> void:
@@ -34,8 +41,16 @@ func before() -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm and "low_end_forced" in sm:
 		_sm_prev = bool(sm.get("low_end_forced"))
-	_env_prev = OS.get_environment(LowUiOptScript.ENV)
-	OS.set_environment(LowUiOptScript.ENV, "")
+	_env_prev = {}
+	for key in ENV_KEYS:
+		_env_prev[key] = OS.get_environment(key)
+		OS.set_environment(key, "")
+
+
+# Cada test arranca sin envs de UI (las que ponga un test no se filtran al siguiente).
+func before_test() -> void:
+	for key in ENV_KEYS:
+		OS.set_environment(key, "")
 
 
 func after() -> void:
@@ -47,7 +62,8 @@ func after() -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm and "low_end_forced" in sm:
 		sm.set("low_end_forced", _sm_prev)
-	OS.set_environment(LowUiOptScript.ENV, _env_prev)
+	for key in ENV_KEYS:
+		OS.set_environment(key, String(_env_prev.get(key, "")))
 
 
 func _set_low(active: bool) -> void:
@@ -63,14 +79,51 @@ func _set_low(active: bool) -> void:
 		sm.set("low_end_forced", false)
 
 
-# El interruptor es "tier LOW y ODISEA_LOW_UI_OPT != 0".
-func test_low_ui_opt_gate_and_env() -> void:
+# Cada interruptor tiene su env y su default en LOW; el maestro ODISEA_LOW_UI_OPT manda sobre
+# todos: =0 los apaga, =1 los enciende, sin definir quedan los defaults.
+func test_switches_master_and_defaults() -> void:
 	_set_low(true)
+	# Sin envs: defaults del tier LOW.
+	assert_bool(LowUiOptScript.touch_lazy()).is_true()
+	assert_bool(LowUiOptScript.terminal_res()).is_false()
+	assert_bool(LowUiOptScript.viewport_hz()).is_false()
+	assert_bool(LowUiOptScript.imgui_no_input_rebuild()).is_false()
+	# Los ahorros base (tarea GG) siguen al maestro y quedan activos sin env.
 	assert_bool(LowUiOptScript.enabled()).is_true()
+
+	# Env propio: enciende/apaga solo el suyo (default ON -> 0 lo apaga).
+	OS.set_environment(LowUiOptScript.ENV_TOUCH_LAZY, "0")
+	OS.set_environment(LowUiOptScript.ENV_TERMINAL_RES, "1")
+	assert_bool(LowUiOptScript.touch_lazy()).is_false()
+	assert_bool(LowUiOptScript.terminal_res()).is_true()
+	assert_bool(LowUiOptScript.viewport_hz()).is_false()
+	OS.set_environment(LowUiOptScript.ENV_TOUCH_LAZY, "")
+	OS.set_environment(LowUiOptScript.ENV_TERMINAL_RES, "")
+
+	# Maestro =1: enciende todos, aunque su default sea OFF.
+	OS.set_environment(LowUiOptScript.ENV, "1")
+	assert_bool(LowUiOptScript.touch_lazy()).is_true()
+	assert_bool(LowUiOptScript.terminal_res()).is_true()
+	assert_bool(LowUiOptScript.viewport_hz()).is_true()
+	assert_bool(LowUiOptScript.imgui_no_input_rebuild()).is_true()
+
+	# Maestro =0: apaga todos, aunque su env propio pida encender.
 	OS.set_environment(LowUiOptScript.ENV, "0")
+	OS.set_environment(LowUiOptScript.ENV_TOUCH_LAZY, "1")
+	assert_bool(LowUiOptScript.touch_lazy()).is_false()
+	assert_bool(LowUiOptScript.terminal_res()).is_false()
+	assert_bool(LowUiOptScript.viewport_hz()).is_false()
+	assert_bool(LowUiOptScript.imgui_no_input_rebuild()).is_false()
 	assert_bool(LowUiOptScript.enabled()).is_false()
 	OS.set_environment(LowUiOptScript.ENV, "")
+	OS.set_environment(LowUiOptScript.ENV_TOUCH_LAZY, "")
+
+	# Fuera de LOW no hay ahorro, con o sin envs.
 	_set_low(false)
+	assert_bool(LowUiOptScript.touch_lazy()).is_false()
+	assert_bool(LowUiOptScript.terminal_res()).is_false()
+	assert_bool(LowUiOptScript.viewport_hz()).is_false()
+	assert_bool(LowUiOptScript.imgui_no_input_rebuild()).is_false()
 	assert_bool(LowUiOptScript.enabled()).is_false()
 
 
@@ -165,6 +218,7 @@ func test_viewport_animation_is_10hz_in_low() -> void:
 # restaurar (salir del rol o apagar el A/B).
 func test_viewport_optimizer_low_policy() -> void:
 	_set_low(true)
+	OS.set_environment(LowUiOptScript.ENV_VIEWPORT_HZ, "1")
 	var world := Spatial.new()
 	add_child(world)
 	var offscreen := Viewport.new()
@@ -216,6 +270,7 @@ func test_viewport_optimizer_low_policy() -> void:
 # optimizador cede: le saca su driver y no vuelve a pisarlo en la sesion.
 func test_viewport_optimizer_yields_to_external_always() -> void:
 	_set_low(true)
+	OS.set_environment(LowUiOptScript.ENV_VIEWPORT_HZ, "1")
 	var world := Spatial.new()
 	add_child(world)
 	var container := ViewportContainer.new()
@@ -261,8 +316,12 @@ func test_viewport_optimizer_noop_outside_low() -> void:
 	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
 	assert_object(vp.get_node_or_null("LowHzRedraw")).is_null()
 
-	# Con el tier LOW pero el A/B en 0 tampoco.
+	# En tier LOW el interruptor propio arranca apagado: tampoco toca nada.
 	_set_low(true)
+	assert_bool(optimizer.scan_now()).is_false()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+
+	# Ni con el maestro en 0.
 	OS.set_environment(LowUiOptScript.ENV, "0")
 	assert_bool(optimizer.scan_now()).is_false()
 	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
@@ -278,6 +337,7 @@ func test_viewport_optimizer_noop_outside_low() -> void:
 # refresco por frame. Fuera de LOW se respeta el modo original.
 func test_viewport_optimizer_spaces_when_visible_in_low() -> void:
 	_set_low(true)
+	OS.set_environment(LowUiOptScript.ENV_VIEWPORT_HZ, "1")
 	var world := Spatial.new()
 	add_child(world)
 	var container := ViewportContainer.new()
@@ -319,6 +379,8 @@ func test_viewport_optimizer_spaces_when_visible_in_low() -> void:
 # ~0.1 s. Con foco vuelve a tasa completa (UPDATE_ALWAYS) y fuera de LOW queda como siempre.
 func test_terminal_viewport_reduced_and_spaced_in_low() -> void:
 	_set_low(true)
+	OS.set_environment(LowUiOptScript.ENV_TERMINAL_RES, "1")
+	OS.set_environment(LowUiOptScript.ENV_VIEWPORT_HZ, "1")
 	var terminal = WallTerminalScene.instance()
 	add_child(terminal)
 	yield(get_tree(), "idle_frame")
@@ -367,45 +429,96 @@ func test_terminal_viewport_reduced_and_spaced_in_low() -> void:
 	terminal.queue_free()
 
 
-# Tarea NN: en LOW la criocapsula no monta el canvas ImGui: queda el camino clasico de
-# _draw a 10 Hz (mismo contenido, sin el frame de ImGui por tick). Fuera de LOW se monta
-# CryoPodImGui como siempre (con ImGuiCanvas en el motor).
-func test_cryopod_ui_uses_classic_path_in_low() -> void:
+# Verificacion de la tarea PP: sin envs, en LOW, el aspecto por default se conserva: la
+# criocapsula monta ImGuiCanvas, el terminal queda a su resolucion original y los controles
+# tactiles siguen perezosos (solo aparecen tras el primer toque).
+func test_low_defaults_keep_aspect() -> void:
+	_set_low(true)
+
+	var ui = CryoPodUIScene.instance()
+	add_child(ui)
+	yield(get_tree(), "idle_frame")
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(ui.get("_imgui_screen")).is_not_null()
+	else:
+		assert_object(ui.get("_imgui_screen")).is_null()
+	var canvas = get_node_or_null("CryoPodImGui")
+	if canvas != null:
+		canvas.free()
+	ui.free()
+
+	var terminal = WallTerminalScene.instance()
+	add_child(terminal)
+	yield(get_tree(), "idle_frame")
+	var vp: Viewport = terminal.get_node("Viewport")
+	var nominal: Vector2 = terminal.screen_resolution
+	terminal._apply_viewport_settings()
+	assert_vector2(vp.size).is_equal(nominal)
+
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	assert_object(mobile).is_not_null()
+	if mobile != null:
+		var prev_touch: bool = mobile._touch_seen
+		var prev_mobile: bool = mobile._is_mobile
+		mobile._touch_seen = false
+		mobile._is_mobile = false
+		assert_bool(mobile._touch_ui_suppressed()).is_true()
+		mobile._touch_seen = prev_touch
+		mobile._is_mobile = prev_mobile
+
+	terminal.queue_free()
+
+
+# Estandarizado: la criocapsula usa ImGui en TODOS los tiers. En LOW, sin envs, se monta
+# CryoPodImGui si el motor trae ImGuiCanvas; sin el modulo cae al camino clasico igual que
+# fuera de LOW.
+func test_cryopod_ui_uses_imgui_in_low() -> void:
 	_set_low(true)
 	var ui = CryoPodUIScene.instance()
 	add_child(ui)
 	yield(get_tree(), "idle_frame")
-	assert_object(ui.get("_imgui_screen")).is_null()
-	assert_object(get_node_or_null("CryoPodImGui")).is_null()
-	assert_bool(ui.get_node("HatchButton").visible).is_true()
-	ui.free()
-
-	if not ClassDB.class_exists("ImGuiCanvas"):
-		_set_low(false)
-		return
-
-	_set_low(false)
-	var ui_imgui = CryoPodUIScene.instance()
-	add_child(ui_imgui)
-	yield(get_tree(), "idle_frame")
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(ui.get("_imgui_screen")).is_not_null()
+		assert_object(get_node_or_null("CryoPodImGui")).is_not_null()
+		assert_bool(ui.get_node("HatchButton").visible).is_false()
+	else:
+		assert_object(ui.get("_imgui_screen")).is_null()
+		assert_object(get_node_or_null("CryoPodImGui")).is_null()
+		assert_bool(ui.get_node("HatchButton").visible).is_true()
 	var canvas = get_node_or_null("CryoPodImGui")
-	assert_object(ui_imgui.get("_imgui_screen")).is_not_null()
-	assert_object(canvas).is_not_null()
-	assert_bool(ui_imgui.get_node("HatchButton").visible).is_false()
 	if canvas != null:
 		canvas.free()
-	ui_imgui.free()
+	ui.free()
+
+	# Y fuera de LOW se comporta igual: mismo montaje.
+	_set_low(false)
+	var ui_desktop = CryoPodUIScene.instance()
+	add_child(ui_desktop)
+	yield(get_tree(), "idle_frame")
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(ui_desktop.get("_imgui_screen")).is_not_null()
+	else:
+		assert_object(ui_desktop.get("_imgui_screen")).is_null()
+	var canvas_desktop = get_node_or_null("CryoPodImGui")
+	if canvas_desktop != null:
+		canvas_desktop.free()
+	ui_desktop.free()
 
 
-# Tarea NN: el input deja de rearmar el frame de ImGui en LOW (lo unico que lo arma es
-# update_hz); fuera de LOW conserva la tasa pedida.
+# Tarea NN: con el interruptor propio, el input deja de rearmar el frame de ImGui en LOW (lo
+# unico que lo arma es update_hz); por default queda apagado y conserva la tasa pedida.
 func test_imgui_input_hz_throttled_in_low() -> void:
 	_set_low(true)
+	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(30.0)
+	assert_float(LowUiOptScript.imgui_input_hz(15.0)).is_equal(15.0)
+	OS.set_environment(LowUiOptScript.ENV_IMGUI_NO_INPUT_REBUILD, "1")
 	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(0.0)
 	assert_float(LowUiOptScript.imgui_input_hz(15.0)).is_equal(0.0)
 	OS.set_environment(LowUiOptScript.ENV, "0")
 	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(30.0)
 	OS.set_environment(LowUiOptScript.ENV, "")
+	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(0.0)
+	OS.set_environment(LowUiOptScript.ENV_IMGUI_NO_INPUT_REBUILD, "")
 	_set_low(false)
 	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(30.0)
 	assert_float(LowUiOptScript.imgui_input_hz(15.0)).is_equal(15.0)

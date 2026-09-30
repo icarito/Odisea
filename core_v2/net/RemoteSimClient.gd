@@ -326,7 +326,7 @@ func stop_render_slave() -> void:
 func _install_vp_optimizer() -> void:
 	if _vp_optimizer != null and is_instance_valid(_vp_optimizer):
 		return
-	if not LowUiOptScript.enabled():
+	if not LowUiOptScript.viewport_hz():
 		return
 	_vp_optimizer = LowViewportOptimizerScript.new()
 	_vp_optimizer.name = "LowViewportOptimizer"

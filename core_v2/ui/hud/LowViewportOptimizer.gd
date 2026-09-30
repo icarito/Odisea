@@ -12,8 +12,8 @@ extends Node
 #   - no visible: ningun nodo visible muestra su textura -> UPDATE_DISABLED;
 #   - visible: refresco a ~10 Hz (UPDATE_ONCE periodico via LowHzViewportRedraw).
 # El piso de 10 Hz es obligatorio: nunca se deja una pantalla VISIBLE congelada, aunque su
-# contenido sea estatico. Fuera de LOW (o con ODISEA_LOW_UI_OPT=0) no se toca nada y se
-# restaura el modo exacto de lo que se haya tocado.
+# contenido sea estatico. Fuera de LOW (o con ODISEA_LOW_UI_VIEWPORT_HZ=0) no se toca nada y
+# se restaura el modo exacto de lo que se haya tocado.
 #
 # "Visible" = su ViewportTexture la referencia un CanvasItem/Spatial que esta visible en el
 # arbol (propiedad `texture`, albedo de material o un ViewportContainer), incluidos los
@@ -56,8 +56,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not LowUiOptScript.enabled():
-		# El A/B apago el ahorro (o se salio del tier): devolver todo como estaba.
+	if not LowUiOptScript.viewport_hz():
+		# El interruptor se apago (o se salio del tier): devolver todo como estaba.
 		if not _managed.empty():
 			restore_all()
 		return
@@ -81,7 +81,7 @@ func _root():
 # Aplica la politica al arbol completo. Publica para los tests (no depende del _process).
 # No-op si el ahorro esta apagado. Devuelve true si barrio.
 func scan_now() -> bool:
-	if not LowUiOptScript.enabled():
+	if not LowUiOptScript.viewport_hz():
 		return false
 	var root = _root()
 	if root == null:
