@@ -50,6 +50,9 @@ var _is_replaying_fail_loop := false # Flag para evitar loops infinitos si falla
 var _should_snapshot := false
 var _current_replay_path := ""
 var _current_replay_data := {} # To persist data from OYS or JSON during execution
+# FD-316 (tarea DD): grabador de la traza binaria de snapshots del render-esclavo.
+# Activo solo con ODISEA_SNAPSHOT_RECORD durante un replay (ver _begin_snapshot_recording).
+var _snapshot_recorder = null
 var event_timeline := {}
 var oys_variables := {}
 var _peak_y := -999.0
@@ -2018,6 +2021,10 @@ func _physics_process(_dt):
 			CinematicManager.step(step_dt)
 			if _perf_fino: pm.perfil_fin("SM.cinematic")
 
+		# FD-316 (tarea DD): captura el snapshot de este tick para la traza del benchmark.
+		if _snapshot_recorder != null:
+			_snapshot_recorder.capture(_replay_frame)
+
 		_replay_frame += 1
 		_total_replay_frames = _replay_frame
 		
@@ -2370,6 +2377,7 @@ func load_and_play(path: String, perf_label: String = ""):
 			player.force_camera_current()
 	
 	_current_replay_path = path
+	_begin_snapshot_recording()
 	var ext = path.get_extension().to_lower()
 	if ext == "oys" or ext == "json":
 		is_replaying = true
@@ -3413,6 +3421,36 @@ func _volcar_perf(etiqueta: String) -> void:
 	_print_sonda_viewports()
 
 
+# FD-316 (tarea DD): grabacion de la traza de snapshots para el benchmark del render-esclavo.
+# Solo con ODISEA_SNAPSHOT_RECORD=<ruta>: durante el replay se captura, por tick, el mismo
+# dict que mandaria el sim host y al terminar se vuelca un .bin (SnapshotTrace). Asi el
+# Anbernic reproduce esa traza solo-render sin simular (ver RemoteSimClient.start_snapshot_playback).
+func _begin_snapshot_recording() -> void:
+	_end_snapshot_recording()
+	var record_path := OS.get_environment("ODISEA_SNAPSHOT_RECORD").strip_edges()
+	if record_path == "":
+		return
+	var recorder_script = load("res://core_v2/net/SnapshotRecorder.gd")
+	if recorder_script == null:
+		printerr("[SessionManager] no se pudo cargar SnapshotRecorder; sin traza")
+		return
+	_snapshot_recorder = recorder_script.new()
+	_snapshot_recorder.name = "SnapshotRecorder"
+	add_child(_snapshot_recorder)
+	if not _snapshot_recorder.begin(record_path):
+		_snapshot_recorder.queue_free()
+		_snapshot_recorder = null
+
+# Vuelca y libera el grabador, si habia uno. Idempotente.
+func _end_snapshot_recording() -> void:
+	if _snapshot_recorder == null:
+		return
+	var recorder = _snapshot_recorder
+	_snapshot_recorder = null
+	recorder.finish()
+	recorder.queue_free()
+
+
 # FD-316 (tarea T2): resumen de la sonda ordenado por caida de vertices (el Viewport que mas
 # aporta al render primero). El root se imprime aparte: es lo que queda con todo apagado.
 func _print_sonda_viewports() -> void:
@@ -3473,6 +3511,8 @@ func _print_censo_top(censos: Array) -> void:
 
 
 func _finish_and_validate():
+	# FD-316 (tarea DD): cierra la traza de snapshots al terminar el replay.
+	_end_snapshot_recording()
 	if _replay_perf_on:
 		_volcar_perf(_replay_perf_label)
 	if _is_validating or _drift_validated:
