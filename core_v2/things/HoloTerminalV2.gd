@@ -760,23 +760,40 @@ func _apply_viewport_settings() -> void:
 	if not viewport:
 		return
 	_resolved_viewport_scale = _get_player_holo_viewport_scale()
-	# Tarea MM: en tier LOW la pantalla no necesita mas pixeles que los que ocupa en el
-	# display del handheld (interruptor ODISEA_LOW_UI_TERMINAL_RES). El Viewport nominal
-	# (1280x800 en el criopod, mas grande que la pantalla entera del Anbernic) re-renderizado
-	# a 10 Hz sigue costando ~9.5 ms/frame; bajarlo a 1/3 recorta el fillrate ~9x. La UI se
-	# dibuja relativa a rect_size, asi que el layout y la lectura no cambian.
+	# Tareas MM/RR: en tier LOW la pantalla se dibuja a la MITAD de su resolucion resuelta
+	# (p.ej. 1280x800 con holo_scale 0.75 -> 960x600 nominal -> 480x300, por debajo de la
+	# pantalla entera del Anbernic 640x480). La UI se dibuja relativa a rect_size, asi que
+	# el layout y la lectura no cambian; el contenido ImGui ademas escala sus fuentes por
+	# el mismo factor (metadata de abajo), para que el texto no quede gigante sobre el
+	# layout reducido. Interruptor ODISEA_LOW_UI_TERMINAL_RES.
+	var player_scale := _resolved_viewport_scale
 	if LowUiOptScript.terminal_res():
-		_resolved_viewport_scale = min(_resolved_viewport_scale, LowUiOptScript.VIEWPORT_SCALE)
-	var target_size = _resolve_viewport_target_size(
+		_resolved_viewport_scale = player_scale * LowUiOptScript.VIEWPORT_SCALE
+	var target_size = _resolve_target_size_for_scale(_resolved_viewport_scale)
+	# La escala que publica la metadata es la reduccion REAL (viewport reducido / viewport
+	# nominal), no el factor pedido: si el clamp de tamaño pisa la reduccion, el contenido
+	# no debe encoger sus fuentes de mas.
+	var ui_scale := 1.0
+	if LowUiOptScript.terminal_res():
+		var nominal_size = _resolve_target_size_for_scale(player_scale)
+		if nominal_size.x > 0.0 and target_size.x < nominal_size.x:
+			ui_scale = target_size.x / nominal_size.x
+	viewport.size = target_size
+	# El contenido del Viewport (ImGui) lee esta escala en su _ready para escalar fuentes.
+	viewport.set_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META, ui_scale)
+	# Avoid duplicated events: viewport input is injected explicitly via HoloTerminalViewportInput.
+	viewport.gui_disable_input = true
+
+
+# Tamaño del Viewport para una escala dada (mismo camino que usa _apply_viewport_settings).
+func _resolve_target_size_for_scale(scale: float) -> Vector2:
+	return _resolve_viewport_target_size(
 		OS.get_name(),
 		OS.has_touchscreen_ui_hint(),
 		OS.get_environment(MOBILE_WEB_SAFETY_ENV),
 		OS.get_environment(MOBILE_WEB_HOLO_SCALE_ENV),
-		_resolved_viewport_scale
+		scale
 	)
-	viewport.size = target_size
-	# Avoid duplicated events: viewport input is injected explicitly via HoloTerminalViewportInput.
-	viewport.gui_disable_input = true
 
 func _resolve_viewport_target_size(
 	os_name: String,

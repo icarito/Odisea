@@ -45,6 +45,9 @@ var big_font := 0
 var heading_font := 0
 var _time := 0.0
 var _scale := Vector2.ONE
+# Tarea RR: factor con el que este canvas escala sus fuentes cuando el Viewport del terminal
+# fue reducido en LOW (metadata publicada por HoloTerminalV2). 1.0 = sin reduccion.
+var ui_font_scale := 1.0
 
 
 func _ready() -> void:
@@ -56,10 +59,16 @@ func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS  # el pulso del ECG sigue vivo con el arbol pausado
 	set_update_hz(10.0)
 	set_input_hz(LowUiOptScript.imgui_input_hz())
+	# Tarea RR: si el Viewport del terminal fue reducido en LOW, las posiciones (que ya se
+	# escalan con _p(), vp/DESIGN) quedan mas chicas: las fuentes tienen que escalar por el
+	# mismo factor o el texto queda gigante sobre el layout. El factor lo publica
+	# HoloTerminalV2 en la metadata del Viewport; sin reduccion vale 1.0.
+	ui_font_scale = _read_viewport_ui_scale()
 	# Titulo Sixtyfour 36px (igual que CryoPodUI.HeadingFont); cuerpo/numeros a
 	# ProggyClean (default de ImGui) en el motor que lo soporte, Silkscreen si no -- ver
 	# ImGuiOdiseaFonts.gd. body=20 (rotulos), numbers=56 (BPM grande).
-	var fonts := ImGuiOdiseaFonts.setup(self, 20.0, 56.0, 36.0)
+	var fonts := ImGuiOdiseaFonts.setup(
+		self, 20.0 * ui_font_scale, 56.0 * ui_font_scale, 36.0 * ui_font_scale)
 	body_font = fonts.body
 	big_font = fonts.numbers
 	heading_font = fonts.title
@@ -89,6 +98,17 @@ func _announce_shader_cursor() -> void:
 			node.enable_shader_cursor()
 			return
 		node = node.get_parent()
+
+
+# Tarea RR: escala de UI publicada por HoloTerminalV2 en el Viewport reducido en LOW. Sin
+# metadata (fuera de LOW, o un Viewport propio del HUD a resolucion de diseño) vale 1.0.
+func _read_viewport_ui_scale() -> float:
+	var vp = get_viewport()
+	if vp != null and vp.has_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META):
+		var s := float(vp.get_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META))
+		if s > 0.0:
+			return s
+	return 1.0
 
 
 # El contenido cambio (ImGuiCanvas armo un frame de verdad): un solo UPDATE_ONCE al

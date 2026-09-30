@@ -9,8 +9,8 @@ extends Reference
 #     sin definir manda el env de cada interruptor y, si tampoco esta, su default.
 #   - ODISEA_LOW_UI_TOUCH_LAZY (tarea II): controles tactiles solo tras el primer toque real
 #     (el hint del SO mentia en el Anbernic FRT/SDL). Default ON; no cambia el aspecto.
-#   - ODISEA_LOW_UI_TERMINAL_RES (tarea MM): pantallas de terminal a 1/3 de resolucion.
-#     Default OFF.
+#   - ODISEA_LOW_UI_TERMINAL_RES (tareas MM/RR): pantallas de terminal a la mitad de su
+#     resolucion resuelta. Default ON.
 #   - ODISEA_LOW_UI_VIEWPORT_HZ (tareas KK/MM): Viewports/pantallas visibles a ~10 Hz en vez
 #     de cada frame. Default OFF.
 #   - ODISEA_LOW_UI_IMGUI_NO_INPUT_REBUILD (tarea NN): ImGui sin rearme por input (solo lo
@@ -27,9 +27,11 @@ const ENV_VIEWPORT_HZ := "ODISEA_LOW_UI_VIEWPORT_HZ"
 const ENV_IMGUI_NO_INPUT_REBUILD := "ODISEA_LOW_UI_IMGUI_NO_INPUT_REBUILD"
 
 # Defaults de cada interruptor en tier LOW, sin env ni maestro. Los que cambian el aspecto
-# quedan apagados; el tactil perezoso (invisible) queda prendido.
+# quedan apagados; el tactil perezoso (invisible) queda prendido. La resolucion del terminal
+# quedo ON por default en RR: la mitad de pixeles y el contenido ImGui escala sus fuentes
+# por el mismo factor (VIEWPORT_UI_SCALE_META), asi que la lectura no cambia.
 const TOUCH_LAZY_DEFAULT := true
-const TERMINAL_RES_DEFAULT := false
+const TERMINAL_RES_DEFAULT := true
 const VIEWPORT_HZ_DEFAULT := false
 const IMGUI_NO_INPUT_REBUILD_DEFAULT := false
 
@@ -37,13 +39,17 @@ const IMGUI_NO_INPUT_REBUILD_DEFAULT := false
 const HZ := 10.0
 const INTERVAL := 1.0 / HZ
 
-# FD-316 (tarea MM): escala de la resolucion del Viewport de las pantallas de terminal en
-# tier LOW. El Viewport nominal (p.ej. 1280x800) es mas grande que la pantalla entera del
-# handheld y re-renderizarlo cuesta ~9.5 ms por frame aun a 10 Hz. Dibujar a un tercio
-# (~426x266, o ~320x200 si el nominal es chico) recorta el fillrate ~9x y la UI, que se
-# dibuja relativa a rect_size, se lee igual. El clamp historico de movil/web (0.35) la
-# lleva a ese orden; queda como constante para el A/B y los tests.
-const VIEWPORT_SCALE := 1.0 / 3.0
+# FD-316 (tareas MM/RR): factor de reduccion de la resolucion del Viewport de las pantallas
+# de terminal en tier LOW. Se aplica SOBRE la escala que ya resolvio el jugador (p.ej.
+# 1280x800 con holo_scale 0.75 -> 960x600; a la mitad -> 480x300, por debajo de la pantalla
+# del Anbernic 640x480). La UI se dibuja relativa a rect_size, asi que el layout no cambia;
+# el contenido ImGui ademas escala sus fuentes por este factor para que el texto no quede
+# gigante sobre un layout chico (la mitad de pixeles, la misma lectura).
+const VIEWPORT_SCALE := 0.5
+
+# Metadata que HoloTerminalV2 publica en el Viewport reducido con la escala con la que el
+# contenido (ImGui) debe escalar sus fuentes y estilo. 1.0 = sin reduccion.
+const VIEWPORT_UI_SCALE_META := "holo_viewport_ui_scale"
 
 # ImGuiCanvas (CryoPodImGui, Flashlight*, Protocol*, DebugHud*): update_hz ya espacia el
 # frame de ImGui, pero input_hz > 0 lo vuelve a armar mientras haya input reciente (250 ms);
@@ -86,7 +92,7 @@ static func _switch(env: String, default_on: bool) -> bool:
 static func touch_lazy() -> bool:
 	return _switch(ENV_TOUCH_LAZY, TOUCH_LAZY_DEFAULT)
 
-# Tarea MM: pantallas de terminal a 1/3 de resolucion en LOW.
+# Tareas MM/RR: pantallas de terminal a la mitad de resolucion en LOW.
 static func terminal_res() -> bool:
 	return _switch(ENV_TERMINAL_RES, TERMINAL_RES_DEFAULT)
 

@@ -232,7 +232,7 @@ Cada arreglo tiene su propia env y aplica solo en tier LOW:
 | Env | Qué hace | Default LOW |
 | --- | --- | --- |
 | `ODISEA_LOW_UI_TOUCH_LAZY` | controles táctiles recién tras el primer toque real (tarea II) | ON |
-| `ODISEA_LOW_UI_TERMINAL_RES` | pantallas de terminal a 1/3 de resolución (tarea MM) | OFF |
+| `ODISEA_LOW_UI_TERMINAL_RES` | pantallas de terminal a la mitad de su resolución resuelta (tareas MM/RR; el contenido ImGui escala sus fuentes) | ON |
 | `ODISEA_LOW_UI_VIEWPORT_HZ` | Viewports/pantallas visibles a ~10 Hz (tareas KK/MM) | OFF |
 | `ODISEA_LOW_UI_IMGUI_NO_INPUT_REBUILD` | ImGui sin rearme por input (tarea NN) | OFF |
 

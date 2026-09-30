@@ -16,6 +16,9 @@ const LowViewportOptimizerScript = preload("res://core_v2/ui/hud/LowViewportOpti
 const WallTerminalScene = preload("res://core_v2/props/controls/WallTerminal.tscn")
 # Tarea PP: el panel de la criocapsula (CryoPodUI) monta ImGuiCanvas en todos los tiers.
 const CryoPodUIScene = preload("res://core_v2/props/criopod/CryoPodUI.tscn")
+# Tareas RR: pantalla ImGui del criopod (fuentes escaladas) y click por superficie.
+const CryoPodTerminalScene = preload("res://core_v2/props/criopod/CryoPodTerminal.tscn")
+const CriopodScene = preload("res://core_v2/props/criopod/Criopod_vert.tscn")
 
 var _gate_prev := {}
 var _sm_prev := false
@@ -85,20 +88,22 @@ func test_switches_master_and_defaults() -> void:
 	_set_low(true)
 	# Sin envs: defaults del tier LOW.
 	assert_bool(LowUiOptScript.touch_lazy()).is_true()
-	assert_bool(LowUiOptScript.terminal_res()).is_false()
+	assert_bool(LowUiOptScript.terminal_res()).is_true()
 	assert_bool(LowUiOptScript.viewport_hz()).is_false()
 	assert_bool(LowUiOptScript.imgui_no_input_rebuild()).is_false()
 	# Los ahorros base (tarea GG) siguen al maestro y quedan activos sin env.
 	assert_bool(LowUiOptScript.enabled()).is_true()
 
-	# Env propio: enciende/apaga solo el suyo (default ON -> 0 lo apaga).
+	# Env propio: apaga solo el suyo (los que arrancan ON) y enciende uno que arranca OFF.
 	OS.set_environment(LowUiOptScript.ENV_TOUCH_LAZY, "0")
-	OS.set_environment(LowUiOptScript.ENV_TERMINAL_RES, "1")
+	OS.set_environment(LowUiOptScript.ENV_TERMINAL_RES, "0")
+	OS.set_environment(LowUiOptScript.ENV_VIEWPORT_HZ, "1")
 	assert_bool(LowUiOptScript.touch_lazy()).is_false()
-	assert_bool(LowUiOptScript.terminal_res()).is_true()
-	assert_bool(LowUiOptScript.viewport_hz()).is_false()
+	assert_bool(LowUiOptScript.terminal_res()).is_false()
+	assert_bool(LowUiOptScript.viewport_hz()).is_true()
 	OS.set_environment(LowUiOptScript.ENV_TOUCH_LAZY, "")
 	OS.set_environment(LowUiOptScript.ENV_TERMINAL_RES, "")
+	OS.set_environment(LowUiOptScript.ENV_VIEWPORT_HZ, "")
 
 	# Maestro =1: enciende todos, aunque su default sea OFF.
 	OS.set_environment(LowUiOptScript.ENV, "1")
@@ -390,7 +395,10 @@ func test_terminal_viewport_reduced_and_spaced_in_low() -> void:
 	terminal._apply_viewport_settings()
 	assert_float(vp.size.x).is_less(nominal.x)
 	assert_float(vp.size.y).is_less(nominal.y)
-	assert_float(vp.size.x).is_less_equal(ceil(nominal.x * 0.5))
+	# Tarea RR: el default es la MITAD exacta de la resolucion resuelta.
+	assert_vector2(vp.size).is_equal(nominal * LowUiOptScript.VIEWPORT_SCALE)
+	assert_float(float(vp.get_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META))) \
+		.is_equal(LowUiOptScript.VIEWPORT_SCALE)
 	# El cursor vive en pixeles del Viewport: quedo reencuadrado al tamaño reducido.
 	if vp.has_method("get_cursor_position"):
 		var cursor: Vector2 = vp.get_cursor_position()
@@ -425,14 +433,15 @@ func test_terminal_viewport_reduced_and_spaced_in_low() -> void:
 	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_WHEN_VISIBLE)
 	terminal._apply_viewport_settings()
 	assert_vector2(vp.size).is_equal(nominal)
+	assert_float(float(vp.get_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META))).is_equal(1.0)
 
 	terminal.queue_free()
 
 
-# Verificacion de la tarea PP: sin envs, en LOW, el aspecto por default se conserva: la
-# criocapsula monta ImGuiCanvas, el terminal queda a su resolucion original y los controles
+# Tarea RR: sin envs, en LOW el terminal arranca a la MITAD de su resolucion resuelta (y
+# publica la escala de UI para que el contenido ImGui escale sus fuentes); los controles
 # tactiles siguen perezosos (solo aparecen tras el primer toque).
-func test_low_defaults_keep_aspect() -> void:
+func test_low_defaults_reduce_terminal_resolution() -> void:
 	_set_low(true)
 
 	var ui = CryoPodUIScene.instance()
@@ -453,7 +462,9 @@ func test_low_defaults_keep_aspect() -> void:
 	var vp: Viewport = terminal.get_node("Viewport")
 	var nominal: Vector2 = terminal.screen_resolution
 	terminal._apply_viewport_settings()
-	assert_vector2(vp.size).is_equal(nominal)
+	assert_vector2(vp.size).is_equal(nominal * LowUiOptScript.VIEWPORT_SCALE)
+	assert_float(float(vp.get_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META))) \
+		.is_equal(LowUiOptScript.VIEWPORT_SCALE)
 
 	var mobile = get_node_or_null("/root/MobileUIManager")
 	assert_object(mobile).is_not_null()
@@ -522,3 +533,119 @@ func test_imgui_input_hz_throttled_in_low() -> void:
 	_set_low(false)
 	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(30.0)
 	assert_float(LowUiOptScript.imgui_input_hz(15.0)).is_equal(15.0)
+
+
+# Tarea RR: el mapeo punto-de-superficie -> pixeles del Viewport usa el tamaño REAL del
+# Viewport (no el de diseño). Cubre esquinas y centro con el Viewport reducido y con el
+# original.
+func test_terminal_surface_mapping_uses_real_viewport_size() -> void:
+	_set_low(true)
+	var terminal = WallTerminalScene.instance()
+	add_child(terminal)
+	yield(get_tree(), "idle_frame")
+	var vp: Viewport = terminal.get_node("Viewport")
+	terminal._apply_viewport_settings()
+	var reduced: Vector2 = vp.size
+	assert_float(reduced.x).is_less(terminal.screen_resolution.x)
+	vp.set_ui_mode(true)
+
+	# El cursor virtual del Viewport esta creado y visible en modo UI (se dibuja adentro de
+	# la textura del Viewport, en pixeles reales).
+	var cursor_visual = vp.get_node_or_null("VirtualCursorLayer/VirtualCursor")
+	assert_object(cursor_visual).is_not_null()
+	if cursor_visual != null:
+		assert_bool(cursor_visual.visible).is_true()
+
+	var probes := [
+		[Vector2(0.0, 0.0), Vector2(0.0, 0.0)],
+		[Vector2(1.0, 0.0), Vector2(reduced.x, 0.0)],
+		[Vector2(0.0, 1.0), Vector2(0.0, reduced.y)],
+		[Vector2(1.0, 1.0), reduced],
+		[Vector2(0.5, 0.5), reduced * 0.5],
+	]
+	for probe in probes:
+		vp.process_surface_motion(probe[0])
+		assert_vector2(vp.get_cursor_position()).is_equal(probe[1])
+
+	# Con el tamaño original (fuera de LOW) mapea igual, contra el tamaño real.
+	_set_low(false)
+	terminal._apply_viewport_settings()
+	assert_vector2(vp.size).is_equal(terminal.screen_resolution)
+	vp.process_surface_motion(Vector2(1.0, 1.0))
+	assert_vector2(vp.get_cursor_position()).is_equal(vp.size)
+	vp.process_surface_motion(Vector2(0.5, 0.5))
+	assert_vector2(vp.get_cursor_position()).is_equal(vp.size * 0.5)
+
+	terminal.queue_free()
+
+
+# Tarea RR: el contenido ImGui escala sus fuentes por el mismo factor con el que se redujo
+# el Viewport, para que la lectura no cambie. La metadata del Viewport y el canvas coinciden.
+func test_cryopod_imgui_fonts_scale_with_reduced_viewport() -> void:
+	if not ClassDB.class_exists("ImGuiCanvas"):
+		return
+	_set_low(true)
+	var terminal = CryoPodTerminalScene.instance()
+	add_child(terminal)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var vp: Viewport = terminal.get_node("Viewport")
+	var canvas = vp.get_node_or_null("CryoPodImGui")
+	assert_object(canvas).is_not_null()
+	assert_vector2(vp.size).is_equal(terminal.screen_resolution * LowUiOptScript.VIEWPORT_SCALE)
+	assert_float(float(vp.get_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META))) \
+		.is_equal(LowUiOptScript.VIEWPORT_SCALE)
+	if canvas != null:
+		assert_float(float(canvas.get("ui_font_scale"))).is_equal(LowUiOptScript.VIEWPORT_SCALE)
+
+	# Fuera de LOW: la metadata vuelve a 1.0 (fuentes sin escalar en el proximo montaje).
+	_set_low(false)
+	terminal._apply_viewport_settings()
+	assert_float(float(vp.get_meta(LowUiOptScript.VIEWPORT_UI_SCALE_META))).is_equal(1.0)
+
+	terminal.queue_free()
+
+
+# Tarea RR: con el Viewport reducido, un click en la posición del botón de escotilla de
+# ImGui (dibujado por CryoPodImGui) lo activa. La UV del botón sale del layout fijo del
+# canvas (_p(Vector2(28,570)), _p(Vector2(300,50)) sobre DESIGN 1024x640): es la misma en
+# cualquier resolución porque _p escala posición y tamaño por igual. Se ejerce en modo
+# Pantalla del HUD (Viewport prestado) y release restaura el estado real.
+func test_imgui_hatch_click_lands_with_reduced_viewport() -> void:
+	if not ClassDB.class_exists("ImGuiCanvas"):
+		return
+	_set_low(true)
+	var pod = CriopodScene.instance()
+	add_child(pod)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var hatch = pod.get_node("RotatingObjectV2")
+	var terminal = pod.get_node("RotatingObjectV2/CryoPodTerminal")
+	var vp: Viewport = terminal.get_node("Viewport")
+	var hudable = terminal.get_node("CryoPodHUDable")
+	assert_object(vp.get_node_or_null("CryoPodImGui")).is_not_null()
+	assert_bool(hatch.is_active).is_false()
+	assert_float(vp.size.x).is_less(terminal.screen_resolution.x)
+
+	hudable.borrow_viewport()
+	assert_bool(vp.forces_relative_cursor()).is_true()
+	var before_size: Vector2 = vp.size
+	var button_uv := Vector2((28.0 + 150.0) / 1024.0, (570.0 + 25.0) / 640.0)
+	vp.process_surface_click(button_uv, BUTTON_LEFT, true, false)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	vp.process_surface_click(button_uv, BUTTON_LEFT, false, false)
+	for _i in range(12):
+		if hatch.is_active:
+			break
+		yield(get_tree(), "idle_frame")
+	assert_bool(hatch.is_active).override_failure_message(
+		"el click en el boton ImGui no abrio la escotilla con el Viewport reducido").is_true()
+
+	# release devuelve el Viewport al terminal: mismo tamaño, sin cursor relativo.
+	hudable.release_viewport()
+	assert_bool(vp.forces_relative_cursor()).is_false()
+	assert_vector2(vp.size).is_equal(before_size)
+
+	pod.queue_free()
+
