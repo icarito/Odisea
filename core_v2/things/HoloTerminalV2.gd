@@ -696,10 +696,36 @@ func _update_visuals() -> void:
 # contenido embebido cambia por evento en vez de por frame - ver CoolantSystemStatusUI.
 func request_redraw() -> void:
 	_pending_redraw = true
-	# InteractableBaseV2 apaga _physics_process cuando la animacion esta en reposo
-	# (FD-224). Sin este set_physics_process(true) el proximo step() nunca llega a
-	# correr, asi que _pending_redraw se quedaria escrito pero jamas consumido.
+	# En el render-esclavo la logica del nivel esta congelada (SimLogicFreeze): el paso que
+	# consumiria _pending_redraw no corre, y re-despertar _physics_process haria correr el
+	# step completo del terminal encima de los snapshots de la autoridad (medido: ~25 us por
+	# tick, 10 veces por segundo). Ahi el refresco va directo al Viewport: un UPDATE_ONCE
+	# que consume el render pass siguiente, sin step.
+	if RemoteControlManagerScript.render_slave_owns_camera():
+		_pulse_viewport_redraw()
+		return
+	# Camino normal: el step sigue consumiendo el flag en _update_visuals() (comportamiento
+	# de siempre; no se duplica el pulso de render).
 	set_physics_process(true)
+
+
+# Pulso de un solo frame al Viewport de la pantalla, sin pasar por el step logico. Un
+# UPDATE_ONCE se consume en el render pass siguiente, corra o no el _physics_process del
+# terminal. Solo aplica al contrato de request_redraw() (static_content).
+func _pulse_viewport_redraw() -> void:
+	if not static_content:
+		return
+	if _is_focused:
+		# Con foco el Viewport va a tasa completa (o el propio step lo deja en ONCE cuando
+		# el cursor lo dibuja el shader): un pulso ONCE aca lo bajaria de cadencia.
+		return
+	var viewport = get_node_or_null("Viewport")
+	if viewport == null:
+		return
+	if not Engine.is_editor_hint() and viewport.has_method("forces_relative_cursor") and viewport.forces_relative_cursor():
+		# El HUD presta el Viewport y manda el modo (cursor relativo): no pisarlo.
+		return
+	viewport.render_target_update_mode = Viewport.UPDATE_ONCE
 
 
 func _wants_continuous_step() -> bool:

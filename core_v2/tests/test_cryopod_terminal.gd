@@ -391,3 +391,63 @@ func test_terminal_detects_shader_cursor_from_imgui_content() -> void:
 
 	_drop(terminal)
 	yield (get_tree(), "idle_frame")
+
+# Tarea OO: el refresco del Viewport de una pantalla static_content no debe depender del
+# step logico en el render-esclavo. Con SimLogicFreeze congelando la logica del nivel,
+# request_redraw solo debe pulsar UPDATE_ONCE; reactivar _physics_process volveria a
+# correr el terminal encima de los snapshots de la autoridad.
+func test_request_redraw_pulses_viewport_without_waking_frozen_logic() -> void:
+	var terminal = _mount(CryoPodTerminalScene)
+	yield (get_tree(), "idle_frame")
+	var viewport = terminal.get_node("Viewport")
+	# Pantalla visible (anim_progress = 1): es el estado en el que el Viewport esta en
+	# UPDATE_WHEN_VISIBLE y el contenido pide redibujados.
+	terminal.set_active(true, true)
+	terminal.set_physics_process(false)
+	viewport.render_target_update_mode = Viewport.UPDATE_DISABLED
+
+	var manager = get_node("/root/RemoteControlManager")
+	var previous_slave: bool = manager.is_render_slave_active
+	manager.is_render_slave_active = true
+	terminal.request_redraw()
+	assert_bool(terminal.is_physics_processing()).override_failure_message(
+		"request_redraw desperto la logica congelada del render-esclavo").is_false()
+	assert_int(viewport.render_target_update_mode).override_failure_message(
+		"el Viewport no se refresco con UPDATE_ONCE").is_equal(Viewport.UPDATE_ONCE)
+	# Un segundo request sigue refrescando aunque el primero ya se haya consumido.
+	viewport.render_target_update_mode = Viewport.UPDATE_DISABLED
+	terminal.request_redraw()
+	assert_int(viewport.render_target_update_mode).is_equal(Viewport.UPDATE_ONCE)
+	manager.is_render_slave_active = previous_slave
+
+	# Fuera del render-esclavo el camino es el de siempre: se reactiva el step y es su
+	# _update_visuals() el que consume el flag (sin un pulso extra en request_redraw).
+	viewport.render_target_update_mode = Viewport.UPDATE_DISABLED
+	terminal.request_redraw()
+	assert_bool(terminal.is_physics_processing()).is_true()
+	assert_int(viewport.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+	terminal._physics_process(1.0 / 60.0)
+	assert_int(viewport.render_target_update_mode).is_equal(Viewport.UPDATE_ONCE)
+	assert_bool(terminal._pending_redraw).is_false()
+
+	_drop(terminal)
+	yield (get_tree(), "idle_frame")
+
+# La tabla del trazo ECG reemplaza el calculo por punto en _draw_vitals. Debe ser _ecg
+# muestreada parejo en [0,1) y el lookup interpolado no debe separarse de la funcion exacta.
+func test_ecg_lut_matches_the_exact_waveform() -> void:
+	var ui = auto_free(CryoPodUI.new())
+	ui._ensure_ecg_lut()
+	assert_int(ui._ecg_lut.size()).is_equal(CryoPodUI.ECG_LUT_N)
+	var max_err := 0.0
+	for i in range(CryoPodUI.ECG_LUT_N):
+		assert_float(ui._ecg_lut[i]).is_equal_approx(
+			CryoPodUI._ecg(float(i) / float(CryoPodUI.ECG_LUT_N)), 0.0001)
+	for i in range(2000):
+		var p := float(i) / 2000.0
+		var lx := p * float(CryoPodUI.ECG_LUT_N)
+		var i0 := int(lx) % CryoPodUI.ECG_LUT_N
+		var i1 := (i0 + 1) % CryoPodUI.ECG_LUT_N
+		var v: float = ui._ecg_lut[i0] + (ui._ecg_lut[i1] - ui._ecg_lut[i0]) * (lx - floor(lx))
+		max_err = max(max_err, abs(v - CryoPodUI._ecg(p)))
+	assert_float(max_err).is_less(0.03)
