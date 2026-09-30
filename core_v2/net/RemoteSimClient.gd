@@ -10,6 +10,9 @@ var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
 var RemoteSimStats = load("res://core_v2/net/RemoteSimStats.gd")
 const SnapshotTraceScript = preload("res://core_v2/net/SnapshotTrace.gd")
 const PlaybackProbesScript = preload("res://core_v2/net/PlaybackProbes.gd")
+# Tarea KK: politica LOW de los Viewports de UI en UPDATE_ALWAYS (10 Hz / DISABLED).
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
+const LowViewportOptimizerScript = preload("res://core_v2/ui/hud/LowViewportOptimizer.gd")
 
 export var is_render_slave: bool = false
 
@@ -160,6 +163,8 @@ var _playback_samples: Array = []
 # corrida completa. Solo existen durante el playback (PlaybackProbes desactiva las sondas
 # solo; los toggles ODISEA_BENCH_* aplican aunque el intercalado no este pedido).
 var _probes = null
+# Tarea KK: optimizador de Viewports de UI del render-esclavo (solo tier LOW).
+var _vp_optimizer = null
 var _playback_started_ms: int = 0
 # Tramos del frame del ultimo _process, para la muestra de perf (ver _sample_playback).
 var _last_script_us: int = 0
@@ -268,6 +273,9 @@ func start_snapshot_playback(path: String) -> bool:
 	_playback_samples = []
 	_playback_started_ms = OS.get_ticks_msec()
 	_reset_render_session()
+	# Tarea KK: en tier LOW los Viewports de UI en UPDATE_ALWAYS pasan a 10 Hz si su
+	# textura se muestra y a DISABLED si esta offscreen. Se instala junto con el playback.
+	_install_vp_optimizer()
 	# Tarea FF: sondas A/B del costo de render (no-op si el env no las pide).
 	_probes = PlaybackProbesScript.new(get_tree())
 	# Tarea JJ: toggles de corrida completa (ODISEA_BENCH_NO_UI/NO_3D/NO_ENV), leidos recien
@@ -308,12 +316,35 @@ func stop_render_slave() -> void:
 	_sent_seq_order.clear()
 	# Tarea P: salir del rol no puede dejar un hijo del nivel oculto por el A/B.
 	_restore_profile_ab_child()
+	# Tarea KK: devolver los Viewports de UI a su modo original al soltar el rol.
+	_remove_vp_optimizer()
+
+# Tarea KK: crea el optimizador de Viewports de UI solo en tier LOW y si no existe ya.
+func _install_vp_optimizer() -> void:
+	if _vp_optimizer != null and is_instance_valid(_vp_optimizer):
+		return
+	if not LowUiOptScript.enabled():
+		return
+	_vp_optimizer = LowViewportOptimizerScript.new()
+	_vp_optimizer.name = "LowViewportOptimizer"
+	add_child(_vp_optimizer)
+
+# Tarea KK: restaura los Viewports tocados y libera el optimizador. Idempotente.
+func _remove_vp_optimizer() -> void:
+	if _vp_optimizer == null:
+		return
+	if is_instance_valid(_vp_optimizer):
+		_vp_optimizer.restore_all()
+		_vp_optimizer.queue_free()
+	_vp_optimizer = null
 
 # Primer snapshot valido de la autoridad: recien aca el esclavo deja de simular.
 func _engage_offload() -> void:
 	if _engaged:
 		return
 	_engaged = true
+	# Tarea KK: el rol de render-esclavo es exactamente donde corre el ahorro de UI.
+	_install_vp_optimizer()
 	# Disable physics server or local physics stepping to free CPU
 	_disable_local_physics()
 	_freeze_local_simulation()
@@ -794,6 +825,8 @@ func _stop_playback() -> void:
 	_playback_active = false
 	_playback_accum = 0.0
 	_playback_parity = -1
+	# Tarea KK: al cortar el playback el optimizador ya no tiene que tocar los Viewports.
+	_remove_vp_optimizer()
 	if _probes != null:
 		# Corte a mitad de una ventana: restaurar SIEMPRE lo que la sonda haya tocado.
 		_probes.restore_all()

@@ -9,6 +9,8 @@ const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 const LowHzTickScript = preload("res://core_v2/systems/LowHzTick.gd")
 const SubtitlesOverlayScript = preload("res://core_v2/ui/retro/SubtitlesOverlay.gd")
 const HudViewMountScript = preload("res://core_v2/ui/hud/HudViewMount.gd")
+# Tarea KK: politica LOW de los Viewports de UI en UPDATE_ALWAYS.
+const LowViewportOptimizerScript = preload("res://core_v2/ui/hud/LowViewportOptimizer.gd")
 
 var _gate_prev := {}
 var _sm_prev := false
@@ -150,3 +152,115 @@ func test_viewport_animation_is_10hz_in_low() -> void:
 
 	vp.free()
 	vp_desktop.free()
+
+
+# Tarea KK: en LOW un Viewport UPDATE_ALWAYS sin textura visible queda DISABLED, y uno que SI
+# se muestra (ViewportContainer) queda con el driver de 10 Hz. El modo EXACTO vuelve al
+# restaurar (salir del rol o apagar el A/B).
+func test_viewport_optimizer_low_policy() -> void:
+	_set_low(true)
+	var world := Spatial.new()
+	add_child(world)
+	var offscreen := Viewport.new()
+	offscreen.name = "Offscreen"
+	world.add_child(offscreen)
+	offscreen.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	var container := ViewportContainer.new()
+	container.name = "Container"
+	world.add_child(container)
+	var visible_vp := Viewport.new()
+	visible_vp.name = "Visible"
+	container.add_child(visible_vp)
+	visible_vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+
+	var optimizer = LowViewportOptimizerScript.new()
+	optimizer.tree = get_tree()
+	add_child(optimizer)
+	assert_bool(optimizer.scan_now()).is_true()
+
+	assert_int(offscreen.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+	assert_object(offscreen.get_node_or_null("LowHzRedraw")).is_null()
+	assert_int(visible_vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+	var driver = visible_vp.get_node_or_null("LowHzRedraw")
+	assert_object(driver).is_not_null()
+	# El driver despierta el Viewport a ~10 Hz, no en cada frame.
+	if driver != null:
+		visible_vp.render_target_update_mode = Viewport.UPDATE_DISABLED
+		driver.call("_process", 0.03)
+		assert_int(visible_vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+		driver.call("_process", 0.03)
+		assert_int(visible_vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+		driver.call("_process", 0.05)
+		assert_int(visible_vp.render_target_update_mode).is_equal(Viewport.UPDATE_ONCE)
+
+	# El censo lista los dos con su veredicto.
+	var censo: Array = optimizer.report()
+	assert_int(censo.size()).is_equal(2)
+
+	optimizer.restore_all()
+	assert_int(offscreen.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+	assert_int(visible_vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+	assert_object(visible_vp.get_node_or_null("LowHzRedraw")).is_null()
+
+	optimizer.queue_free()
+	world.queue_free()
+
+
+# Tarea KK: si un dueno externo (terminal con foco) vuelve a pedir UPDATE_ALWAYS, el
+# optimizador cede: le saca su driver y no vuelve a pisarlo en la sesion.
+func test_viewport_optimizer_yields_to_external_always() -> void:
+	_set_low(true)
+	var world := Spatial.new()
+	add_child(world)
+	var container := ViewportContainer.new()
+	world.add_child(container)
+	var vp := Viewport.new()
+	container.add_child(vp)
+	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+
+	var optimizer = LowViewportOptimizerScript.new()
+	optimizer.tree = get_tree()
+	add_child(optimizer)
+	optimizer.scan_now()
+	assert_object(vp.get_node_or_null("LowHzRedraw")).is_not_null()
+
+	# El dueno externo lo vuelve a poner en ALWAYS (cursor suave del terminal con foco).
+	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	optimizer.scan_now()
+	assert_object(vp.get_node_or_null("LowHzRedraw")).is_null()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+	# Y no se re-gestiona en el barrido siguiente.
+	optimizer.scan_now()
+	assert_object(vp.get_node_or_null("LowHzRedraw")).is_null()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+
+	optimizer.queue_free()
+	world.queue_free()
+
+
+# Tarea KK: fuera del tier LOW (o con el A/B en 0) el optimizador no toca NADA: los Viewports
+# siguen en UPDATE_ALWAYS y sin driver.
+func test_viewport_optimizer_noop_outside_low() -> void:
+	_set_low(false)
+	var world := Spatial.new()
+	add_child(world)
+	var vp := Viewport.new()
+	world.add_child(vp)
+	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+
+	var optimizer = LowViewportOptimizerScript.new()
+	optimizer.tree = get_tree()
+	add_child(optimizer)
+	assert_bool(optimizer.scan_now()).is_false()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+	assert_object(vp.get_node_or_null("LowHzRedraw")).is_null()
+
+	# Con el tier LOW pero el A/B en 0 tampoco.
+	_set_low(true)
+	OS.set_environment(LowUiOptScript.ENV, "0")
+	assert_bool(optimizer.scan_now()).is_false()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+	OS.set_environment(LowUiOptScript.ENV, "")
+
+	optimizer.queue_free()
+	world.queue_free()

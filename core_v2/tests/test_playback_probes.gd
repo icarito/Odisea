@@ -294,14 +294,81 @@ func test_subtree_probe_hides_canvas_layer():
 	assert_bool(layer.visible).is_true()
 	layer.queue_free()
 
-# Tarea GG: el descubrimiento etiqueta los subarboles con el prefijo "subtree:".
+# Tarea GG/KK: el descubrimiento etiqueta los subarboles con el prefijo "subtree:" y, en la
+# tarea KK, agrega una sonda por CanvasLayer ("layer:") y por overlay con shader ("overlay:").
 func test_discover_subtrees_labels():
 	var probes = PlaybackProbesScript.new(get_tree(), true)
 	probes.include_subtrees = false
 	var labels: Array = probes.discover_subtrees()
 	assert_bool(labels.empty()).is_false()
 	for label in labels:
-		assert_bool(String(label).begins_with("subtree:")).is_true()
+		var l := String(label)
+		assert_bool(l.begins_with("subtree:") or l.begins_with("layer:") \
+			or l.begins_with("overlay:")).is_true()
+
+
+# Tarea KK: cada CanvasLayer del arbol entra como "layer:<ruta>" (etiqueta = ruta) y ocultarlo
+# durante su bloque lo restaura exacto. Los CanvasLayer ya cubiertos por una sonda nombrada
+# (MobileUIManager, OverlayUIManager...) no se duplican.
+func test_discover_canvas_layer_probe_and_restore():
+	var world := Spatial.new()
+	add_child(world)
+	var layer := CanvasLayer.new()
+	layer.name = "TestCanvasLayer"
+	world.add_child(layer)
+	var control := Control.new()
+	layer.add_child(control)
+
+	var probes = PlaybackProbesScript.new(get_tree(), true)
+	probes.block_frames = 2
+	probes.discard_frames = 0
+	probes.include_subtrees = false
+	probes.sequence = []
+	var label := PlaybackProbesScript.LAYER_PREFIX + String(layer.get_path())
+	probes.add_subtree_probe(label, layer)
+
+	assert_bool(_advance_to(probes, label)).is_true()
+	assert_bool(layer.visible).is_false()
+	probes.finish()
+	assert_bool(layer.visible).is_true()
+	world.queue_free()
+
+
+# Tarea KK: un overlay a pantalla completa con shader entra como "overlay:<ruta>" y se mide
+# ocultandolo (mismo mecanismo que una sonda de subarbol).
+func test_overlay_probe_hides_and_restores():
+	var probe_scene = load("res://core_v2/ui/overlay/FrostVignette.tscn")
+	assert_object(probe_scene).is_not_null()
+	if probe_scene == null:
+		return
+	var overlay = probe_scene.instance()
+	add_child(overlay)
+	assert_bool(_overlay_script_matches(overlay)).is_true()
+
+	var probes = PlaybackProbesScript.new(get_tree(), true)
+	probes.block_frames = 2
+	probes.discard_frames = 0
+	probes.include_subtrees = false
+	probes.sequence = []
+	var label := PlaybackProbesScript.OVERLAY_PREFIX + String(overlay.get_path())
+	probes.add_subtree_probe(label, overlay)
+
+	assert_bool(_advance_to(probes, label)).is_true()
+	assert_bool(overlay.visible).is_false()
+	probes.finish()
+	assert_bool(overlay.visible).is_true()
+	overlay.queue_free()
+
+# Helper del test: la misma condicion de script que usa PlaybackProbes._is_overlay_script.
+func _overlay_script_matches(node) -> bool:
+	var script = node.get_script()
+	if script == null:
+		return false
+	var path := String(script.resource_path)
+	for name in PlaybackProbesScript.OVERLAY_SCRIPTS:
+		if path.ends_with(String(name)):
+			return true
+	return false
 
 
 # Tarea JJ: los toggles de corrida completa apagan UI/3D/Environment por TODA la corrida, aun

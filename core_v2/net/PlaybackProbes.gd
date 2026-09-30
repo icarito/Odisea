@@ -31,6 +31,14 @@ extends Reference
 const PROBES_ENV := "ODISEA_PLAYBACK_PROBES"
 const REFERENCE_LABEL := "base"
 const VP_ALWAYS_LABEL := "subtree:vpalways"
+# Tarea KK: sondas por CanvasLayer (etiqueta = ruta) y por overlay a pantalla completa con
+# shader. Cierran el desglose de los ~7 ms que las sondas de subarbol nombradas no cubrian.
+const LAYER_PREFIX := "layer:"
+const OVERLAY_PREFIX := "overlay:"
+# Scripts de overlay a pantalla completa que la tarea KK quiere medir uno por uno.
+const OVERLAY_SCRIPTS := [
+	"HeatVignette.gd", "SubtitlesOverlay.gd", "ScreenEffectsOverlay.gd", "InfoOverlay.gd",
+]
 const BENCH_NO_UI_ENV := "ODISEA_BENCH_NO_UI"
 const BENCH_NO_3D_ENV := "ODISEA_BENCH_NO_3D"
 const BENCH_NO_ENV_ENV := "ODISEA_BENCH_NO_ENV"
@@ -285,7 +293,7 @@ func _apply_probe(probe: String) -> void:
 		"vsync":
 			_apply_vsync()
 		_:
-			if probe.begins_with("subtree:"):
+			if _is_subtree_probe(probe):
 				_apply_subtree(probe)
 
 func _restore_current() -> void:
@@ -305,7 +313,7 @@ func _restore_current() -> void:
 		"vsync":
 			_restore_vsync()
 		_:
-			if _active.begins_with("subtree:"):
+			if _is_subtree_probe(_active):
 				_restore_subtree()
 	_saved = {}
 	_active = ""
@@ -543,7 +551,70 @@ func discover_subtrees() -> Array:
 	_add_subtree("subtree:debugconsole", console_viewport, labels)
 	# Viewport(s) de widget con UPDATE_ALWAYS: caso especial, se apagan en _apply_subtree.
 	_add_subtree(VP_ALWAYS_LABEL, null, labels)
+	# Tarea KK: una sonda por CADA CanvasLayer del arbol (etiqueta = ruta) y por los
+	# overlays de pantalla completa con shader. Cierran el desglose que las sondas de
+	# nombre fijo no cubrian (los ~7 ms restantes).
+	_discover_canvas_layers(labels)
+	_discover_overlays(labels)
 	return labels
+
+# Recorre el arbol y agrega una sonda "layer:<ruta>" por cada CanvasLayer que no este ya
+# cubierto por una sonda de subarbol (MobileUIManager, OverlayUIManager, cursor virtual...).
+func _discover_canvas_layers(labels: Array) -> void:
+	if _tree == null or _tree.root == null:
+		return
+	var stack: Array = [_tree.root]
+	while not stack.empty():
+		var node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		for child in node.get_children():
+			stack.append(child)
+		if not (node is CanvasLayer):
+			continue
+		if _is_probe_node(node):
+			continue
+		_add_subtree(LAYER_PREFIX + String(node.get_path()), node, labels)
+
+# Overlays de pantalla completa con shader (viñetas, subtitulos, efectos, info). Se
+# identifican por el script: no entran al arbol con un grupo comun.
+func _discover_overlays(labels: Array) -> void:
+	if _tree == null or _tree.root == null:
+		return
+	var stack: Array = [_tree.root]
+	while not stack.empty():
+		var node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		for child in node.get_children():
+			stack.append(child)
+		if not (node is Control) or not _is_overlay_script(node):
+			continue
+		if _is_probe_node(node):
+			continue
+		_add_subtree(OVERLAY_PREFIX + String(node.get_path()), node, labels)
+
+func _is_overlay_script(node) -> bool:
+	var script = node.get_script()
+	if script == null:
+		return false
+	var path := String(script.resource_path)
+	for name in OVERLAY_SCRIPTS:
+		if path.ends_with(String(name)):
+			return true
+	return false
+
+# True si el nodo ya es el objetivo de una sonda de subarbol registrada.
+func _is_probe_node(node) -> bool:
+	for label in _subtree_probes:
+		if _subtree_probes[label] == node:
+			return true
+	return false
+
+# Sondas que se aplican ocultando el nodo (subarbol nombrado, CanvasLayer u overlay).
+func _is_subtree_probe(probe: String) -> bool:
+	return probe.begins_with("subtree:") or probe.begins_with(LAYER_PREFIX) \
+		or probe.begins_with(OVERLAY_PREFIX)
 
 func _add_subtree(label: String, node, labels: Array) -> void:
 	if _subtree_probes.has(label):
