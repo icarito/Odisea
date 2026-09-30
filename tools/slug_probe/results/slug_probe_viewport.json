@@ -1,0 +1,28 @@
+{
+  "mode": "viewport",
+  "engine": "3.6.4-rc (custom_build)",
+  "os": "Unix",
+  "video_driver": "GLES2",
+  "video_driver_index": 1,
+  "driver_constants": {
+    "gles2": 1,
+    "gles3": 0
+  },
+  "adapter": "Mali-G31",
+  "window_size": [
+    640,
+    480
+  ],
+  "warmup_s": 5,
+  "sample_s": 20,
+  "frames": 2584,
+  "sample_count": 2086,
+  "sampled_total_s": 20.003856,
+  "screenshot": "/storage/roms/ports/odisea/conf/godot/app_userdata/SlugProbe/slug_probe_viewport.png",
+  "avg_fps": 104.279894,
+  "median_ms": 9.523811,
+  "p95_ms": 11.111112,
+  "p99_ms": 12.803999,
+  "min_ms": 7.66308,
+  "max_ms": 15.888002
+}

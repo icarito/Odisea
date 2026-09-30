@@ -1,0 +1,41 @@
+{
+  "mode": "slug",
+  "engine": "3.6.4-rc (custom_build)",
+  "os": "Unix",
+  "video_driver": "GLES2",
+  "video_driver_index": 1,
+  "driver_constants": {
+    "gles2": 1,
+    "gles3": 0
+  },
+  "adapter": "Mali-G31",
+  "window_size": [
+    640,
+    480
+  ],
+  "warmup_s": 5,
+  "sample_s": 20,
+  "frames": 2740,
+  "sample_count": 2221,
+  "sampled_total_s": 20.007651,
+  "screenshot": "/storage/roms/ports/odisea/conf/godot/app_userdata/SlugProbe/slug_probe_slug.png",
+  "avg_fps": 111.007533,
+  "median_ms": 9.09091,
+  "p95_ms": 10.416667,
+  "p99_ms": 11.791001,
+  "min_ms": 3.491677,
+  "max_ms": 16.666666,
+  "slug": {
+    "module_available": true,
+    "heading_valid": true,
+    "body_valid": true,
+    "fallback_active": true,
+    "fallback_font_set": true,
+    "heading_glyphs": 190,
+    "body_glyphs": 191,
+    "heading_build_us": 99456,
+    "body_build_us": 16871,
+    "heading_max_curves_per_band": 42,
+    "body_max_curves_per_band": 12
+  }
+}
