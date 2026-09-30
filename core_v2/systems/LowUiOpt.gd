@@ -17,6 +17,13 @@ const ENV := "ODISEA_LOW_UI_OPT"
 # Frecuencia de refresco de la UI animada en LOW (la "receta de 10 Hz" del HUD).
 const HZ := 10.0
 const INTERVAL := 1.0 / HZ
+# FD-316 (tarea MM): escala de la resolucion del Viewport de las pantallas de terminal en
+# tier LOW. El Viewport nominal (p.ej. 1280x800) es mas grande que la pantalla entera del
+# handheld y re-renderizarlo cuesta ~9.5 ms por frame aun a 10 Hz. Dibujar a un tercio
+# (~426x266, o ~320x200 si el nominal es chico) recorta el fillrate ~9x y la UI, que se
+# dibuja relativa a rect_size, se lee igual. El clamp historico de movil/web (0.35) la
+# lleva a ese orden; queda como constante para el A/B y los tests.
+const VIEWPORT_SCALE := 1.0 / 3.0
 
 # El A/B por entorno manda sobre el tier: 0 apaga aunque el gate este en LOW.
 static func env_off() -> bool:

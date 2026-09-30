@@ -11,6 +11,9 @@ const SubtitlesOverlayScript = preload("res://core_v2/ui/retro/SubtitlesOverlay.
 const HudViewMountScript = preload("res://core_v2/ui/hud/HudViewMount.gd")
 # Tarea KK: politica LOW de los Viewports de UI en UPDATE_ALWAYS.
 const LowViewportOptimizerScript = preload("res://core_v2/ui/hud/LowViewportOptimizer.gd")
+# Tarea MM: pantalla de terminal (HoloTerminalV2) con resolucion reducida y refresco visible
+# espaciado en tier LOW.
+const WallTerminalScene = preload("res://core_v2/props/controls/WallTerminal.tscn")
 
 var _gate_prev := {}
 var _sm_prev := false
@@ -264,3 +267,98 @@ func test_viewport_optimizer_noop_outside_low() -> void:
 
 	optimizer.queue_free()
 	world.queue_free()
+
+
+# Tarea MM: un Viewport que un dueno dejo en UPDATE_WHEN_VISIBLE (la pantalla de un terminal
+# visible fuera de foco) tambien entra en la politica LOW: DISABLED + driver de 10 Hz, y si el
+# dueno lo vuelve a poner en WHEN_VISIBLE el optimizador lo re-coerciona en vez de dejarlo al
+# refresco por frame. Fuera de LOW se respeta el modo original.
+func test_viewport_optimizer_spaces_when_visible_in_low() -> void:
+	_set_low(true)
+	var world := Spatial.new()
+	add_child(world)
+	var container := ViewportContainer.new()
+	world.add_child(container)
+	var vp := Viewport.new()
+	container.add_child(vp)
+	vp.render_target_update_mode = Viewport.UPDATE_WHEN_VISIBLE
+
+	var optimizer = LowViewportOptimizerScript.new()
+	optimizer.tree = get_tree()
+	add_child(optimizer)
+	optimizer.scan_now()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+	assert_object(vp.get_node_or_null("LowHzRedraw")).is_not_null()
+
+	# El dueno lo devuelve a WHEN_VISIBLE: el optimizador no lo deja al refresco por frame.
+	vp.render_target_update_mode = Viewport.UPDATE_WHEN_VISIBLE
+	optimizer.scan_now()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+	assert_object(vp.get_node_or_null("LowHzRedraw")).is_not_null()
+
+	# Restaurar devuelve el modo EXACTO con el que entro (WHEN_VISIBLE).
+	optimizer.restore_all()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_WHEN_VISIBLE)
+	assert_object(vp.get_node_or_null("LowHzRedraw")).is_null()
+
+	# Fuera de LOW no se toca.
+	_set_low(false)
+	vp.render_target_update_mode = Viewport.UPDATE_WHEN_VISIBLE
+	assert_bool(optimizer.scan_now()).is_false()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_WHEN_VISIBLE)
+
+	optimizer.queue_free()
+	world.queue_free()
+
+
+# Tarea MM: en LOW la pantalla del terminal (HoloTerminalV2) baja la resolucion de su Viewport
+# y, visible fuera de foco, no se redibuja en frames consecutivos: solo pulsa UPDATE_ONCE cada
+# ~0.1 s. Con foco vuelve a tasa completa (UPDATE_ALWAYS) y fuera de LOW queda como siempre.
+func test_terminal_viewport_reduced_and_spaced_in_low() -> void:
+	_set_low(true)
+	var terminal = WallTerminalScene.instance()
+	add_child(terminal)
+	yield(get_tree(), "idle_frame")
+	var vp: Viewport = terminal.get_node("Viewport")
+	assert_object(vp).is_not_null()
+	var nominal: Vector2 = terminal.screen_resolution
+	terminal._apply_viewport_settings()
+	assert_float(vp.size.x).is_less(nominal.x)
+	assert_float(vp.size.y).is_less(nominal.y)
+	assert_float(vp.size.x).is_less_equal(ceil(nominal.x * 0.5))
+	# El cursor vive en pixeles del Viewport: quedo reencuadrado al tamaño reducido.
+	if vp.has_method("get_cursor_position"):
+		var cursor: Vector2 = vp.get_cursor_position()
+		assert_float(cursor.x).is_less_equal(vp.size.x)
+		assert_float(cursor.y).is_less_equal(vp.size.y)
+
+	# Visible fuera de foco en LOW: un pulso y despues no vuelve a redibujar solo.
+	terminal.is_active = true
+	terminal.anim_progress = 1.0
+	terminal.target_progress = 1.0
+	terminal._is_focused = false
+	terminal._visual_delta = 0.0
+	terminal._update_visuals()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ONCE)
+	terminal._update_visuals()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ONCE)
+	# Pasado el intervalo, el proximo tick vuelve a pedir un unico render.
+	terminal._visual_delta = 0.2
+	terminal._update_visuals()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ONCE)
+
+	# Con foco: tasa completa.
+	terminal._is_focused = true
+	terminal._visual_delta = 0.0
+	terminal._update_visuals()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
+
+	# Fuera de LOW vuelve el refresco por frame y la resolucion nominal.
+	terminal._is_focused = false
+	_set_low(false)
+	terminal._update_visuals()
+	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_WHEN_VISIBLE)
+	terminal._apply_viewport_settings()
+	assert_vector2(vp.size).is_equal(nominal)
+
+	terminal.queue_free()

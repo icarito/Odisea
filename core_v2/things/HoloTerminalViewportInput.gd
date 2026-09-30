@@ -44,6 +44,24 @@ func _ready() -> void:
 	_cursor_position = get_visible_rect().size * 0.5
 	_ensure_cursor_visual()
 	_update_cursor_visual()
+	# Tarea MM: la terminal puede redimensionar el Viewport (resolucion LOW / escala movil-web)
+	# despues de este _ready; el cursor vive en pixeles de este Viewport y hay que reencuadrarlo.
+	if not is_connected("size_changed", self, "_on_viewport_size_changed"):
+		connect("size_changed", self, "_on_viewport_size_changed")
+
+
+# El Viewport cambio de tamaño: centrar el cursor si todavia no se usa, o recortarlo al nuevo
+# borde si el jugador lo estaba moviendo.
+func _on_viewport_size_changed() -> void:
+	var size = get_visible_rect().size
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	if _ui_mode_active:
+		_cursor_position.x = clamp(_cursor_position.x, 0.0, size.x)
+		_cursor_position.y = clamp(_cursor_position.y, 0.0, size.y)
+	else:
+		_cursor_position = size * 0.5
+	_update_cursor_visual()
 
 func set_ui_mode(active: bool) -> void:
 	_ui_mode_active = active

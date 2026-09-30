@@ -1,11 +1,14 @@
 extends Node
 
-# LowViewportOptimizer.gd - FD-316 (tarea KK): recorta el costo de los Viewports que quedan
-# en render_target_update_mode = UPDATE_ALWAYS en el render-esclavo del handheld.
+# LowViewportOptimizer.gd - FD-316 (tareas KK/MM): recorta el costo de los Viewports que un
+# dueno dejo en refresco por frame (render_target_update_mode = UPDATE_ALWAYS o
+# UPDATE_WHEN_VISIBLE) en el render-esclavo del handheld.
 #
 # El playback midio ~5 ms solo en Viewports con UPDATE_ALWAYS (sonda subtree:vpalways): cada
 # uno re-renderiza su contenido (2D o el World 3D compartido) cada frame aunque nadie lo vea
-# o aunque su contenido no cambie. En tier LOW se aplica una politica conservadora:
+# o aunque su contenido no cambie. La tarea MM sumo el caso UPDATE_WHEN_VISIBLE, que la
+# pantalla de un terminal visible fuera de foco re-ponia cada tick y que este optimizador
+# antes ignoraba (solo reconocia ALWAYS). En tier LOW se aplica una politica conservadora:
 #   - no visible: ningun nodo visible muestra su textura -> UPDATE_DISABLED;
 #   - visible: refresco a ~10 Hz (UPDATE_ONCE periodico via LowHzViewportRedraw).
 # El piso de 10 Hz es obligatorio: nunca se deja una pantalla VISIBLE congelada, aunque su
@@ -103,9 +106,12 @@ func scan_now() -> bool:
 		var shown := _is_shown(vp, displayed)
 		var first_sight := false
 		if not _managed.has(path):
-			# Solo se toca lo que alguien dejo en UPDATE_ALWAYS: un Viewport ya espaciado
-			# (ONCE/DISABLED) es de otro sistema y se respeta.
-			if vp.render_target_update_mode != Viewport.UPDATE_ALWAYS:
+			# Solo se toca lo que un dueno dejo en refresco por frame: UPDATE_ALWAYS o
+			# UPDATE_WHEN_VISIBLE (una pantalla de terminal visible fuera de foco se quedaba
+			# asi y re-renderizaba cada frame, que es justo lo que esta tarea mide). Un
+			# Viewport ya espaciado (ONCE/DISABLED) es de otro sistema y se respeta.
+			if vp.render_target_update_mode != Viewport.UPDATE_ALWAYS \
+					and vp.render_target_update_mode != Viewport.UPDATE_WHEN_VISIBLE:
 				continue
 			_managed[path] = {
 				"vp": vp,
@@ -119,7 +125,8 @@ func scan_now() -> bool:
 			_managed.erase(path)
 			continue
 		# Si ya lo gestionamos (nunca le ponemos ALWAYS nosotros: nuestro reposo es DISABLED
-		# y el driver emite ONCE) y ahora esta en ALWAYS, lo pidio un dueno externo: ceder.
+		# y el driver emite ONCE) y ahora esta en ALWAYS, lo pidio un dueno externo con un
+		# contrato de tasa completa (foco de terminal, HUD prestando el Viewport): ceder.
 		if not first_sight and vp.render_target_update_mode == Viewport.UPDATE_ALWAYS:
 			_yield_external(vp, entry)
 			continue
@@ -151,9 +158,14 @@ func _apply(vp: Viewport, entry: Dictionary, shown: bool) -> void:
 			driver.viewport = vp
 			vp.add_child(driver)
 			entry["driver"] = driver
-		elif vp.render_target_update_mode == Viewport.UPDATE_DISABLED:
-			# El piso de 10 Hz lo re-despierta el driver; DISABLED es su estado de reposo.
+		elif vp.render_target_update_mode == Viewport.UPDATE_DISABLED \
+				or vp.render_target_update_mode == Viewport.UPDATE_ONCE:
+			# DISABLED es el reposo del driver; ONCE es el pulso ya pedido. Cualquier otro
+			# modo (WHEN_VISIBLE/ALWAYS) lo re-puso un dueno y volveria al refresco por
+			# frame: el driver manda la cadencia de 10 Hz mientras el Viewport este visible.
 			pass
+		else:
+			vp.render_target_update_mode = Viewport.UPDATE_DISABLED
 	else:
 		if driver != null and is_instance_valid(driver):
 			_drop_driver(driver)
@@ -223,6 +235,7 @@ func report() -> Array:
 				"has_3d": _viewport_has_3d(vp),
 				"shown": bool(entry.get("shown", false)),
 				"update_mode": int(vp.render_target_update_mode),
+				"original_mode": int(entry.get("original_mode", Viewport.UPDATE_ALWAYS)),
 				"driver_10hz": entry.get("driver", null) != null,
 			}
 		)
@@ -247,7 +260,7 @@ func _print_census_once() -> void:
 		return
 	_reported = true
 	print(
-		"[LowViewportOptimizer] Viewports UPDATE_ALWAYS en tier LOW (",
+		"[LowViewportOptimizer] Viewports por frame (ALWAYS/WHEN_VISIBLE) en tier LOW (",
 		_managed.size(),
 		"), politica: visible=10 Hz / no visible=DISABLED"
 	)
@@ -261,6 +274,8 @@ func _print_census_once() -> void:
 			info["has_3d"],
 			" textura_visible=",
 			info["shown"],
+			" original=",
+			info["original_mode"],
 			" -> ",
 			"10 Hz" if info["driver_10hz"] else "DISABLED"
 		)
