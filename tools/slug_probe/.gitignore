@@ -1,0 +1,5 @@
+# Excluir la build, el cache de imports y los artefactos de import locales del
+# probe; el proyecto es aislado. results/ si se commitea (json + capturas).
+build/
+.import/
+*.import
