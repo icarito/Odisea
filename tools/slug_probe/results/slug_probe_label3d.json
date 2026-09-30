@@ -2,8 +2,8 @@
   "mode": "label3d",
   "engine": "3.6.4-rc (custom_build)",
   "os": "Unix",
-  "video_driver": "GLES2",
-  "video_driver_index": 1,
+  "video_driver": "GLES3",
+  "video_driver_index": 0,
   "driver_constants": {
     "gles2": 1,
     "gles3": 0
@@ -15,14 +15,14 @@
   ],
   "warmup_s": 5,
   "sample_s": 20,
-  "frames": 2764,
-  "sample_count": 2232,
-  "sampled_total_s": 20.002095,
+  "frames": 2719,
+  "sample_count": 2201,
+  "sampled_total_s": 19.999455,
   "screenshot": "/storage/roms/ports/odisea/conf/godot/app_userdata/SlugProbe/slug_probe_label3d.png",
-  "avg_fps": 111.58831,
-  "median_ms": 8.771,
-  "p95_ms": 10.762001,
-  "p99_ms": 12.682091,
-  "min_ms": 7.166585,
-  "max_ms": 17.053742
+  "avg_fps": 110.052999,
+  "median_ms": 9.09091,
+  "p95_ms": 10.832196,
+  "p99_ms": 14.395001,
+  "min_ms": 7.329,
+  "max_ms": 27.604003
 }
