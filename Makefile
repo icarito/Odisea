@@ -126,6 +126,10 @@ bake-ringhub-hub:
 	ODISEA_BAKE_SOURCE=res://core_v2/levels/interiors/RingHub_HubTowerSource.tscn \
 	ODISEA_BAKE_PREFIX=RingHub ODISEA_BAKE_VISUAL_CHUNKS=3 \
 		$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_dome_intro_hub_floors.gd
+	# FD-316 tarea Z: las variantes LOW derivan de los tercios recien horneados
+	# (leen los _third_K y escriben los _low_K), asi que van encadenadas para que
+	# un cambio de geometria no deje los LOW viejos.
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_hub_floor_low.gd
 
 # Valida el producto de bake-ringhub-hub tal como lo consume RingHub_Level.tscn
 # (tres tercios con AABB propio/UV2, una colisión por piso). Ver

@@ -94,6 +94,14 @@ export(bool) var collapse_to_single_mesh := true
 # enable temporarily after changing generator parameters.
 export(bool) var rebuild_baked_items := false
 
+# FD-316 (tarea Z): variantes LOW horneadas de los tercios visibles del piso, en el
+# mismo orden que los hijos MeshInstance "CombinedMesh*". En tier LOW el piso se
+# dibuja con estas mallas de una sola superficie (3 draws por piso en vez de 15) en
+# una COPIA del recurso: los .mesh de alta que referencia la escena nunca se tocan y
+# fuera del tier LOW no cambia nada. Vacio = no-op (Dome_Base/Dome_Intro no las
+# setean). Producto de tools/bake_hub_floor_low.gd.
+export(Array, Mesh) var low_tier_meshes := []
+
 var _build_queued := false
 
 func _ready() -> void:
@@ -110,8 +118,34 @@ func _ready() -> void:
 			_queue_build()
 		return
 	if get_child_count() != 0 and not rebuild_baked_items:
+		_apply_low_tier_meshes()
 		return  # segments already baked into the scene
 	build()
+	_apply_low_tier_meshes()
+
+# FD-316 (tarea Z): cambia la malla de los tercios horneados por la variante LOW en
+# una copia (el .mesh en disco queda intacto), solo en tier LOW. Mismo criterio que
+# LightPathV2._apply_low_tier_fixture_mesh. Los hijos se recorren en orden: la escena
+# los lista CombinedMesh, CombinedMesh_Third_1, CombinedMesh_Third_2.
+func _apply_low_tier_meshes() -> void:
+	if low_tier_meshes.empty():
+		return
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null or not gate.has_method("is_low_tier") or not bool(gate.is_low_tier()):
+		return
+	var index := 0
+	for child in get_children():
+		if not (child is MeshInstance) or not String(child.name).begins_with("CombinedMesh"):
+			continue
+		if index >= low_tier_meshes.size():
+			break
+		var low: Mesh = low_tier_meshes[index]
+		index += 1
+		if low == null:
+			continue
+		var copy := low.duplicate() as Mesh
+		if copy != null:
+			(child as MeshInstance).mesh = copy
 
 func set_sides(value: int) -> void:
 	sides = clamp(value, 3, 32)
