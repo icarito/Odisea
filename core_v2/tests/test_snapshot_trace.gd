@@ -108,3 +108,58 @@ func test_snapshot_playback_applies_without_network_and_freezes():
 	level.queue_free()
 	var dir := Directory.new()
 	dir.remove(TRACE_PATH)
+
+# Al agotarse el archivo el playback vuelca la traza de perf (fps, frame_ms, script/render/
+# apply/interp, draw_calls, vertices, objetos por muestra) en user://replay_perf.json.
+func test_snapshot_playback_writes_perf_trace_at_end():
+	var level := Spatial.new()
+	level.name = "PerfLevel"
+	var player := Spatial.new()
+	player.name = "Pilot"
+	player.add_to_group("player")
+	level.add_child(player)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+
+	var snaps: Array = []
+	for i in range(3):
+		snaps.append(RemoteProtocolScript.create_sim_snapshot(i * 2, i * 32, {}, {"snap_step": 2}))
+	SnapshotTraceScript.write(TRACE_PATH, snaps)
+
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	assert_bool(client.start_snapshot_playback(TRACE_PATH)).is_true()
+
+	# Dos frames del reloj de playback: cada uno alimenta un snapshot y arma su muestra.
+	client._process(1.0 / 30.0)
+	client._process(1.0 / 30.0)
+	assert_int(client._playback_samples.size()).is_greater_equal(1)
+
+	# Fin de la traza (quit_game=false no mata el runner de tests).
+	client._finish_playback(false)
+	assert_bool(client._playback_active).is_false()
+	assert_bool(client._playback_finished).is_true()
+
+	var f := File.new()
+	assert_int(f.open(RemoteSimClientScript.PLAYBACK_PERF_PATH, File.READ)).is_equal(OK)
+	var data = JSON.parse(f.get_as_text()).result
+	f.close()
+	assert_bool(data is Dictionary).is_true()
+	assert_str(String(data["modo"])).is_equal("snapshot_playback")
+	assert_int(int(data["total"])).is_equal(client._playback_samples.size())
+	assert_int(int(data["total"])).is_greater_equal(1)
+	var sample: Dictionary = data["muestras"][0]
+	for key in ["fps", "frame_ms", "script_ms", "render_ms", "apply_ms", "interp_ms",
+			"draw_calls", "vertices", "objects"]:
+		assert_bool(sample.has(key)).is_true()
+
+	client.stop_render_slave()
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+	level.queue_free()
+	var dir := Directory.new()
+	dir.remove(TRACE_PATH)
+	dir.remove(RemoteSimClientScript.PLAYBACK_PERF_PATH)
+

@@ -772,7 +772,6 @@ func _finish_playback(quit_game: bool = true) -> void:
 
 func _stop_playback() -> void:
 	_playback_active = false
-	_playback_finished = false
 	_playback_accum = 0.0
 	_playback_parity = -1
 	if _playback_reader != null:

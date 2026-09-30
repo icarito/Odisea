@@ -128,6 +128,9 @@ func _ready():
 			sim_client = RemoteSimClient.new()
 			sim_client.name = "RemoteSimClient"
 			add_child(sim_client)
+		# Mismo dueno unico de la camara que el offload real: ninguna logica local
+		# (terminales, cinematicas) pelea la vista replicada por el snapshot.
+		is_render_slave_active = true
 		set_process(false)
 		return
 	# Tier LOW (handheld lento): solo se cae el HOST. Nadie va a manejar el handheld

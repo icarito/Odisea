@@ -189,6 +189,25 @@ tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn --no-launch --un
 Documentación completa (requisitos del device, gotchas de spawn/escena, medición en serie):
 `.agents/skills/run-odisea/SKILL.md`, sección "Push an ad hoc scene to a running game".
 
+## Benchmark del render-esclavo (traza de snapshots)
+
+Aísla el costo de render del offload (FD-316, tarea DD): graba en desktop una traza de
+snapshots durante un replay y la reproduce solo-render en el Anbernic (sin red ni física
+propia, mismo congelado del offload).
+
+```bash
+# Grabar (desktop): replay normal; al terminar vuelca la traza binaria.
+ODISEA_SNAPSHOT_RECORD=user://snapshot_trace.bin \
+  tools/godot --no-window -- --replay user://replay_1790487798.json
+# Reproducir (Anbernic): copiar el .bin al user:// del device y, en dev.sh, arrancar el
+# nivel grabado con el playback. Al agotar el archivo escribe user://replay_perf.json
+# (fps, frame_ms, script/render/apply/interp, draw_calls, vertices, objetos por muestra)
+# y sale. Leerlo: adb exec-out run-as org.odisea.game cat files/replay_perf.json
+# (o vía peer ANNAV2).
+export ODISEA_SNAPSHOT_PLAYBACK=user://snapshot_trace.bin
+export ODISEA_BOOT_SCENE=res://core_v2/levels/RingHub_Level.tscn
+```
+
 ## Props
 
 Validar y capturar estados:
