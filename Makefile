@@ -131,6 +131,15 @@ bake-ringhub-hub:
 	# un cambio de geometria no deje los LOW viejos.
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_hub_floor_low.gd
 
+# FD-316 tarea EE: variantes LOW de los andamios de RingHub. Derivan de los
+# RingHub_<Grupo>_sector_NN.mesh de alta (hay que tenerlos horneados con
+# ODISEA_BAKE_SOURCE=res://core_v2/levels/interiors/RingHub_ScaffoldSource.tscn
+# ODISEA_BAKE_PREFIX=RingHub ODISEA_BAKE_SECTOR_BODIES=1) y escriben los
+# _low_sector_NN.mesh que consume el gate a distancia. Idempotente.
+bake-scaffold-low:
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_scaffold_low_variants.gd
+	python3 scripts/check_tracked_imports.py
+
 # Valida el producto de bake-ringhub-hub tal como lo consume RingHub_Level.tscn
 # (tres tercios con AABB propio/UV2, una colisión por piso). Ver
 # docs/agents/dome_source_mapping.md.
@@ -491,4 +500,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake bake-dome-geometry bake-ringhub-hub verify-ringhub-hub dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export portmaster portmaster-install export-web-threads bake-shader-cache deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-dome-geometry bake-ringhub-hub bake-scaffold-low verify-ringhub-hub dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export portmaster portmaster-install export-web-threads bake-shader-cache deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release

@@ -12,6 +12,10 @@ const RemoteControlManagerScript = preload("res://core_v2/net/RemoteControlManag
 const HangingDisplayScene = preload("res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn")
 # FD-316 (tarea U): palancas de culling/LOD medidas con la traza de replay de RingHub.
 const GateScript = preload("res://core_v2/autoloads/GLES3VendorGate.gd")
+# FD-316 (tarea EE): occluders estaticos del hub y variantes LOW del andamio.
+const OccluderScript = preload("res://core_v2/levels/RingHubOccluders.gd")
+const ScaffoldHighMeshPath := "res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_00.mesh"
+const ScaffoldLowMeshPath := "res://core_v2/levels/interiors/RingHub_SpiralWalkways_low_sector_00.mesh"
 # FD-316 (tarea V): LOD de los apliques de pared prebaked.
 const LightPathScript = preload("res://core_v2/components/LightPathV2.gd")
 
@@ -3545,6 +3549,155 @@ func test_env_overrides_scaffold_lod_distance():
 	assert_float(gate._read_lod_max_dist()).is_equal_approx(GateScript.DEFAULT_LOD_MAX_DIST, 0.001)
 
 	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, prev)
+
+
+# FD-316 (tarea EE): por defecto (sin env) el ocultamiento por distancia queda APAGADO. Un
+# trozo del andamio lejos de la camara sigue VISIBLE: ya no desaparece por distancia.
+func test_nothing_hidden_by_distance_by_default():
+	var prev := OS.get_environment(GateScript.LOD_MAX_DIST_ENV)
+	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, "")
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	assert_float(gate._lod_max_dist).is_equal_approx(0.0, 0.001)
+
+	var cam := Camera.new()
+	cam.name = "DefaultLodCam"
+	add_child(cam)
+	cam.current = true
+	cam.global_transform = Transform(Basis(), Vector3(100, 0, 0))
+
+	var level := Spatial.new()
+	level.name = "DefaultLodLevel"
+	var group := Spatial.new()
+	group.name = "Group_SpiralStairs"
+	level.add_child(group)
+	var mi := MeshInstance.new()
+	mi.name = "Visual_00"
+	# Malla real del andamio: se registra por el LOD por malla, pero el ocultamiento por
+	# distancia (0) no debe ocultarla nunca.
+	mi.mesh = load(ScaffoldHighMeshPath)
+	group.add_child(mi)
+	add_child(level)
+
+	assert_bool(gate._lod_nodes.has(mi)).is_true()
+	gate._update_scaffold_lod()
+	assert_bool(mi.visible).is_true()
+	assert_int(gate._lod_hidden.size()).is_equal(0)
+
+	cam.current = false
+	get_tree().root.remove_child(level)
+	level.free()
+	get_tree().root.remove_child(cam)
+	cam.free()
+	OS.set_environment(GateScript.LOD_MAX_DIST_ENV, prev)
+
+
+# FD-316 (tarea EE): a distancia el trozo del andamio cambia a la MALLA LOW horneada; cerca
+# vuelve a la de alta. La visibilidad nunca cambia (nada desaparece) y la histeresis mantiene
+# la eleccion dentro de la banda umbral..umbral+his.
+func test_low_tier_scaffold_lod_swaps_mesh_not_visibility():
+	var high: Mesh = load(ScaffoldHighMeshPath)
+	var low: Mesh = load(ScaffoldLowMeshPath)
+	assert_object(high).is_not_null()
+	assert_object(low).is_not_null()
+	var high_verts := _count_mesh_vertices(high)
+	var low_verts := _count_mesh_vertices(low)
+	assert_int(low_verts).is_less(high_verts)
+
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._lod_max_dist = 0.0
+	gate._scaffold_lod_enabled = true
+	gate._scaffold_lod_dist = 10.0
+
+	var cam := Camera.new()
+	cam.name = "ScaffoldLodCam"
+	add_child(cam)
+	cam.current = true
+
+	var level := Spatial.new()
+	level.name = "ScaffoldLodLevel"
+	var group := Spatial.new()
+	group.name = "Group_SpiralWalkways"
+	level.add_child(group)
+	var mi := MeshInstance.new()
+	mi.name = "Visual_00"
+	mi.mesh = high
+	group.add_child(mi)
+	add_child(level)
+
+	# Registrarse encuentra la variante horneada por convencion de nombre.
+	assert_bool(gate._scaffold_lod_low.has(mi)).is_true()
+	var center: Vector3 = mi.global_transform.xform(gate._lod_local_center(mi))
+
+	# Cerca: malla de alta.
+	cam.global_transform = Transform(Basis(), center)
+	gate._update_scaffold_lod()
+	assert_bool(mi.mesh == high).is_true()
+	assert_bool(mi.visible).is_true()
+
+	# Lejos (pasado umbral+his): malla LOW y SIGUE VISIBLE.
+	cam.global_transform = Transform(Basis(), center + Vector3(0, 0, 20))
+	gate._update_scaffold_lod()
+	assert_bool(mi.mesh != high).is_true()
+	assert_int(_count_mesh_vertices(mi.mesh)).is_equal(low_verts)
+	assert_bool(mi.visible).is_true()
+
+	# En la banda de histeresis con la LOW puesta: se queda en LOW.
+	cam.global_transform = Transform(Basis(), center + Vector3(0, 0, 11))
+	gate._update_scaffold_lod()
+	assert_int(_count_mesh_vertices(mi.mesh)).is_equal(low_verts)
+
+	# Bien cerca: vuelve a la de alta.
+	cam.global_transform = Transform(Basis(), center + Vector3(0, 0, 5))
+	gate._update_scaffold_lod()
+	assert_bool(mi.mesh == high).is_true()
+
+	# En la banda con la alta puesta: se queda en alta (histeresis simetrica).
+	cam.global_transform = Transform(Basis(), center + Vector3(0, 0, 11))
+	gate._update_scaffold_lod()
+	assert_bool(mi.mesh == high).is_true()
+	cam.global_transform = Transform(Basis(), center + Vector3(0, 0, 14))
+	gate._update_scaffold_lod()
+	assert_bool(mi.mesh != high).is_true()
+
+	# El recurso en disco queda intacto: la variante se copia en runtime.
+	assert_str(String((load(ScaffoldHighMeshPath) as Mesh).resource_path)).is_equal(ScaffoldHighMeshPath)
+	assert_str(String((load(ScaffoldLowMeshPath) as Mesh).resource_path)).is_equal(ScaffoldLowMeshPath)
+
+	cam.current = false
+	get_tree().root.remove_child(level)
+	level.free()
+	get_tree().root.remove_child(cam)
+	cam.free()
+
+
+# FD-316 (tarea EE): el hub agrega un occluder por piso mas los del nucleo central. La
+# cantidad es determinista a partir de la geometria conocida (5 pisos + 4 lados del nucleo).
+func test_low_tier_occluders_built_with_expected_count():
+	var prev := OS.get_environment(OccluderScript.OCCLUDERS_ENV)
+	OS.set_environment(OccluderScript.OCCLUDERS_ENV, "1")
+	var occluders = auto_free(OccluderScript.new())
+	add_child(occluders)
+	assert_bool(occluders._built).is_true()
+	assert_int(occluders.occluder_count()).is_equal(occluders.expected_occluder_count())
+	assert_int(occluders.expected_occluder_count()).is_equal(9)
+	for child in occluders.get_children():
+		assert_object(child.shape).is_not_null()
+	OS.set_environment(OccluderScript.OCCLUDERS_ENV, prev)
+
+
+# ODISEA_OCCLUDERS=0 apaga los occluders aunque el tier sea LOW (A/B en el device).
+func test_occluders_disabled_by_env():
+	var prev := OS.get_environment(OccluderScript.OCCLUDERS_ENV)
+	OS.set_environment(OccluderScript.OCCLUDERS_ENV, "0")
+	var occluders = auto_free(OccluderScript.new())
+	add_child(occluders)
+	assert_bool(occluders._built).is_false()
+	assert_int(occluders.occluder_count()).is_equal(0)
+	OS.set_environment(OccluderScript.OCCLUDERS_ENV, prev)
 
 
 # FD-316 (tarea V): los apliques de pared prebaked del domo (16 instancias de

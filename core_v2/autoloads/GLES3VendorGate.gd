@@ -74,8 +74,12 @@ const KEEP_GLOW_ENV := "ODISEA_KEEP_GLOW"
 # Los MultiMeshInstance de los criopods son un anillo entero por instancia (el AABB mide al
 # centro del anillo), asi que NO entran: culling por distancia ahi exige partir la malla (no
 # en esta tarea; ver commit). ODISEA_LOD_MAX_DIST ajusta el umbral sin rebuild (0 lo apaga).
+#
+# FD-316 (tarea EE): el ocultamiento por distancia queda APAGADO por defecto (0). El andamio
+# entero desaparecia y el pop-in se notaba; ahora lo reemplaza el LOD por malla de abajo.
+# El culler sigue vivo para A/B (ODISEA_LOD_MAX_DIST=16) y respeta lo que otro sistema oculto.
 const LOD_MAX_DIST_ENV := "ODISEA_LOD_MAX_DIST"
-const DEFAULT_LOD_MAX_DIST := 16.0
+const DEFAULT_LOD_MAX_DIST := 0.0
 # Histeresis chica: oculta pasado umbral+his, vuelve a mostrar por debajo del umbral, para
 # no parpadear justo en el borde al caminar.
 const LOD_MAX_HYSTERESIS := 2.0
@@ -83,6 +87,24 @@ const LOD_SCAFFOLD_GROUPS := ["Group_SpiralWalkways", "Group_SpiralStairs", "Gro
 # Solo los trozos horneados directos del grupo; el contenido streamed vive bajo Chunk_NN y
 # lo maneja su propio streamer (no se le pelea la visibilidad).
 const LOD_SCAFFOLD_MESH_PREFIX := "Visual_"
+
+# FD-316 (tarea EE): LOD de distancia que cambia la MALLA, no la visibilidad. Los trozos
+# lejanos del andamio (Group_SpiralWalkways/Group_SpiralStairs) pasan a una variante LOW
+# horneada (tools/bake_scaffold_low_variants.gd: mismo split angular y mismos materiales,
+# sin las barandas, que son el grueso de los vertices y la menor silueta a distancia). La
+# malla de alta en disco nunca se toca: se cambia a una COPIA runtime y se restaura al
+# acercarse, con histeresis, asi que nunca desaparece nada, solo se simplifica.
+#
+# Las variantes viven junto a los sectores de alta con el token "_low" delante de
+# "_sector_" (..._sector_04.mesh -> ..._low_sector_04.mesh). ODISEA_SCAFFOLD_LOD=0 lo
+# apaga; ODISEA_SCAFFOLD_LOD_DIST ajusta el umbral (default 20 m).
+const SCAFFOLD_LOD_ENV := "ODISEA_SCAFFOLD_LOD"
+const SCAFFOLD_LOD_DIST_ENV := "ODISEA_SCAFFOLD_LOD_DIST"
+const DEFAULT_SCAFFOLD_LOD_DIST := 20.0
+const SCAFFOLD_LOD_HYSTERESIS := 3.0
+const SCAFFOLD_LOD_GROUPS := ["Group_SpiralWalkways", "Group_SpiralStairs"]
+const LOD_LOW_MARKER := "_sector_"
+const LOD_LOW_REPLACEMENT := "_low_sector_"
 
 var _gated_active := false
 var _env_forced_low_tier := false
@@ -98,6 +120,14 @@ var _lod_nodes: Array = []
 # que la escena/streamer dejo oculto, o que otro sistema oculto mientras el culler lo tenia
 # visible, nunca se re-muestra desde aca.
 var _lod_hidden := {}
+# FD-316 (tarea EE): estado del LOD por malla (solo trozos con variante horneada). _low es la
+# copia runtime de la variante, _high la malla original de la escena y _is_low si el nodo la
+# esta mostrando ahora. Se indexa por nodo.
+var _scaffold_lod_enabled := false
+var _scaffold_lod_dist := DEFAULT_SCAFFOLD_LOD_DIST
+var _scaffold_lod_low := {}
+var _scaffold_lod_high := {}
+var _scaffold_lod_is_low := {}
 # Los tools de horneado (tools/bake_*.gd) instancian la escena fuente y guardan
 # los materiales recolectados. Si el gate corre en tier LOW, _low_tier_material
 # muta esos recursos COMPARTIDOS en memoria y el bake los persiste sin
@@ -137,6 +167,8 @@ func _ready() -> void:
 	_env_keep_fog = OS.get_environment(KEEP_FOG_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_env_keep_glow = OS.get_environment(KEEP_GLOW_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_lod_max_dist = _read_lod_max_dist()
+	_scaffold_lod_enabled = _read_env_flag(SCAFFOLD_LOD_ENV, true)
+	_scaffold_lod_dist = _read_scaffold_lod_dist()
 	_unshaded_mode = OS.get_environment("ODISEA_UNSHADED").strip_edges()
 	# El driver del fork ya resolvio el conflicto de unidad de Mali (§11.10): el
 	# lightmap NATIVO funciona en la Anbernic (y sigue LIT/DARK por el motor). El
@@ -969,16 +1001,38 @@ func _read_lod_max_dist() -> float:
 		return float(raw)
 	return DEFAULT_LOD_MAX_DIST
 
-# FD-316 (tarea U): registra un trozo horneado del andamio para el culler de distancia.
-# Corre una vez por nodo que entra al arbol (hook node_added del gate), no por frame.
-# Tarea X: NO fuerza `visible`; si la escena o el streamer ya lo dejaron oculto, se respeta
-# (antes el registro lo encendia y subia los draw calls del device).
+# Lee un flag de entorno booleano ("1"/"true"/... = si, "0"/"false"/... = no). Vacio = default.
+func _read_env_flag(name: String, default_value: bool) -> bool:
+	var raw := OS.get_environment(name).strip_edges().to_lower()
+	if raw in ["1", "true", "yes", "on"]:
+		return true
+	if raw in ["0", "false", "no", "off"]:
+		return false
+	return default_value
+
+# FD-316 (tarea EE): umbral del LOD por malla. ODISEA_SCAFFOLD_LOD_DIST lo ajusta sin rebuild.
+func _read_scaffold_lod_dist() -> float:
+	var raw := OS.get_environment(SCAFFOLD_LOD_DIST_ENV).strip_edges()
+	if raw.is_valid_float():
+		return max(0.0, float(raw))
+	return DEFAULT_SCAFFOLD_LOD_DIST
+
+# FD-316 (tarea U): registra un trozo horneado del andamio para el culler de distancia y,
+# en la tarea EE, para el cambio de malla a distancia. Corre una vez por nodo que entra al
+# arbol (hook node_added del gate), no por frame. Tarea X: NO fuerza `visible`; si la escena
+# o el streamer ya lo dejaron oculto, se respeta.
 func _register_scaffold_lod_node(node: GeometryInstance) -> void:
-	if _lod_max_dist <= 0.0:
-		return
 	if not _is_scaffold_group_mesh(node):
 		return
 	if _lod_nodes.has(node):
+		return
+	var hide_wanted := _lod_max_dist > 0.0
+	var lod_wanted := false
+	if _scaffold_lod_enabled and _is_scaffold_lod_group(node):
+		lod_wanted = _prepare_scaffold_low_variant(node)
+	# Sin palanca activa para este trozo no se registra: no se le calcula la distancia por
+	# frame a algo que no se va a tocar.
+	if not hide_wanted and not lod_wanted:
 		return
 	_lod_nodes.append(node)
 	set_process(true)
@@ -997,10 +1051,47 @@ func _is_scaffold_group_mesh(node: Node) -> bool:
 			return true
 	return false
 
+# Trozo que participa del cambio de malla (solo pasarelas y escaleras: los radios del hub no
+# tienen variante horneada).
+func _is_scaffold_lod_group(node: Node) -> bool:
+	var parent := node.get_parent()
+	if parent == null:
+		return false
+	for group_name in SCAFFOLD_LOD_GROUPS:
+		if String(parent.name) == group_name:
+			return true
+	return false
+
+# Carga la variante LOW del trozo por convencion de nombre y la guarda como COPIA runtime
+# (el .mesh en disco queda intacto, igual que la malla de alta). Devuelve true solo si quedo
+# lista; sin variante horneada el trozo solo participa del culler de visibilidad de la tarea U.
+func _prepare_scaffold_low_variant(node: GeometryInstance) -> bool:
+	if not (node is MeshInstance):
+		return false
+	var high: Mesh = (node as MeshInstance).mesh
+	if high == null:
+		return false
+	var path: String = high.resource_path
+	if path.empty() or path.find(LOD_LOW_MARKER) == -1:
+		return false
+	var low_path: String = path.replace(LOD_LOW_MARKER, LOD_LOW_REPLACEMENT)
+	if not ResourceLoader.exists(low_path):
+		return false
+	var low: Mesh = load(low_path) as Mesh
+	if low == null:
+		return false
+	var low_copy := low.duplicate() as Mesh
+	if low_copy == null:
+		return false
+	_scaffold_lod_low[node] = low_copy
+	_scaffold_lod_high[node] = high
+	_scaffold_lod_is_low[node] = false
+	return true
+
 # Culler por frame (solo con nodos registrados). Distancia de la camara activa al centro del
-# AABB de cada trozo, con histeresis: oculta por encima de umbral+his, muestra por debajo
-# del umbral. Sin camara (menu, transicion) se restaura solo lo que el culler habia ocultado,
-# para no dejar el andamio vacio sin re-mostrar lo que otro sistema escondio.
+# AABB de cada trozo. En la tarea U, por encima de umbral+his el trozo se ocultaba; en la EE
+# eso quedo apagado por defecto y en su lugar se cambia la MALLA con histeresis (nunca se
+# oculta). Sin camara (menu, transicion) se restaura solo lo que el culler habia ocultado.
 func _update_scaffold_lod() -> void:
 	_prune_scaffold_lod_nodes()
 	if _lod_nodes.empty():
@@ -1015,24 +1106,45 @@ func _update_scaffold_lod() -> void:
 				_lod_hidden.erase(node)
 		return
 	var cam_pos := camera.global_transform.origin
+	var hide_enabled := _lod_max_dist > 0.0
 	var show_dist := _lod_max_dist
 	var hide_dist := _lod_max_dist + LOD_MAX_HYSTERESIS
+	var swap_near := _scaffold_lod_dist
+	var swap_far := _scaffold_lod_dist + SCAFFOLD_LOD_HYSTERESIS
 	for node in _lod_nodes:
 		var center: Vector3 = node.global_transform.xform(_lod_local_center(node))
 		var d := cam_pos.distance_to(center)
-		if _lod_hidden.has(node):
-			# Lo oculto el culler: si otro sistema lo volvio a mostrar, el estado ya no es
-			# nuestro (se suelta sin pelear); si sigue oculto y vuelve a rango, se restaura.
-			if node.visible:
-				_lod_hidden.erase(node)
-			elif d < show_dist:
-				node.visible = true
-				_lod_hidden.erase(node)
-		elif node.visible and d > hide_dist:
-			# Solo se oculta lo que estaba visible; lo que ya estaba oculto (escena,
-			# streamer u otro sistema) no se toca.
-			node.visible = false
-			_lod_hidden[node] = true
+		if hide_enabled:
+			if _lod_hidden.has(node):
+				# Lo oculto el culler: si otro sistema lo volvio a mostrar, el estado ya no es
+				# nuestro (se suelta sin pelear); si sigue oculto y vuelve a rango, se restaura.
+				if node.visible:
+					_lod_hidden.erase(node)
+				elif d < show_dist:
+					node.visible = true
+					_lod_hidden.erase(node)
+			elif node.visible and d > hide_dist:
+				# Solo se oculta lo que estaba visible; lo que ya estaba oculto (escena,
+				# streamer u otro sistema) no se toca.
+				node.visible = false
+				_lod_hidden[node] = true
+		# LOD por malla: nunca toca `visible`. Un trozo oculto por otro sistema se deja como
+		# esta (no se le cambia la malla debajo).
+		if _scaffold_lod_enabled and _scaffold_lod_low.has(node) and node.visible:
+			if bool(_scaffold_lod_is_low.get(node, false)):
+				if d < swap_near:
+					_apply_scaffold_mesh(node, false)
+			elif d > swap_far:
+				_apply_scaffold_mesh(node, true)
+
+# Cambia la malla del trozo entre alta y variante LOW. use_low=true pone la copia runtime de
+# la variante; false restaura la malla original de la escena.
+func _apply_scaffold_mesh(node: GeometryInstance, use_low: bool) -> void:
+	var mesh: Mesh = _scaffold_lod_low.get(node) if use_low else _scaffold_lod_high.get(node)
+	if mesh == null:
+		return
+	node.mesh = mesh
+	_scaffold_lod_is_low[node] = use_low
 
 # Centro del AABB local del trozo, en su espacio (get_transformed_aabb no incluye a los
 # ancestros; los grupos del andamio llevan rotacion). Se transforma con el global del nodo.
@@ -1049,6 +1161,9 @@ func _prune_scaffold_lod_nodes() -> void:
 		if node == null or not is_instance_valid(node):
 			_lod_nodes.remove(i)
 			_lod_hidden.erase(node)
+			_scaffold_lod_low.erase(node)
+			_scaffold_lod_high.erase(node)
+			_scaffold_lod_is_low.erase(node)
 
 func _sync_manual_lightmap(gated: bool) -> void:
 	if gated and not _manual_lightmap_synced:
