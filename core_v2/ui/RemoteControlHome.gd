@@ -489,6 +489,14 @@ func _exit_tree() -> void:
 	var hints = get_node_or_null("/root/PlayerHintManager")
 	if hints != null and hints.has_method("show_remote_hint"):
 		hints.show_remote_hint("")
+	# El cliente es un autoload y sobrevive a esta escena: sin desconectar, un session_ended
+	# al cerrar el control (p.ej. tras cerrar el render-esclavo) llega a un nodo que ya salio.
+	if is_instance_valid(_remote_control_manager) and is_instance_valid(_remote_control_manager.client):
+		var client = _remote_control_manager.client
+		for pair in [["session_ended", "_on_session_ended"], ["connection_lost", "_on_connection_lost"],
+				["connection_restored", "_on_connection_restored"], ["ui_directive_received", "_on_ui_directive"]]:
+			if client.is_connected(pair[0], self, pair[1]):
+				client.disconnect(pair[0], self, pair[1])
 
 # El widget ampliado de un hudable sin Pantalla, si es lo que se esta viendo.
 func _widget_view_widget() -> Control:
@@ -510,14 +518,20 @@ func send_remote_action(screen_id: String, op: String, args: Dictionary = {}) ->
 		})
 
 func _on_session_ended(reason: String) -> void:
+	if not is_inside_tree():
+		return
 	set_process(false)
 	set_physics_process(false)
 	exit_confirm.hide()
 	# Tampoco aca se muestra el nativo: el cursor virtual queda visible durante el aviso y el
 	# cambio al menu (que tambien usa el virtual).
 	VirtualMouseScript.set_pointer_released(true)
-	$Title.text = tr("LA PARTIDA TERMINÓ")
-	$Hint.text = tr("%s Volviendo al menú...") % reason
+	var title = get_node_or_null("Title")
+	if title != null:
+		title.text = tr("LA PARTIDA TERMINÓ")
+	var hint = get_node_or_null("Hint")
+	if hint != null:
+		hint.text = tr("%s Volviendo al menú...") % reason
 	get_tree().create_timer(SESSION_ENDED_NOTICE_SEC).connect("timeout", self, "_go_to_menu")
 
 func _go_to_menu() -> void:
