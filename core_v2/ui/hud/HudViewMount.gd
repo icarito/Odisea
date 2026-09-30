@@ -10,6 +10,10 @@ extends Reference
 
 const PresenterScene = preload("res://core_v2/ui/hud/HudViewPresenter.tscn")
 const HoloScreen2DShader = preload("res://core_v2/visual/HoloScreen2D.shader")
+# Tarea GG: en tier LOW la vista animada del HUD va a ~10 Hz (UPDATE_ONCE periodico) en vez
+# de UPDATE_ALWAYS cada frame; el A/B es ODISEA_LOW_UI_OPT.
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
+const LowHzViewportRedrawScript = preload("res://core_v2/ui/hud/LowHzViewportRedraw.gd")
 # Widget ampliado de un hudable sin pantalla completa. Era 3.0: se veia demasiado grande.
 const WIDGET_ZOOM := 1.8
 # Sin posicion de origen, el presentador arranca a esta distancia frente a la camara.
@@ -188,7 +192,7 @@ func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, h
 	if snap_to_camera:
 		mesh.visible = false
 		if shared_viewport == null:
-			viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+			_enable_viewport_animation(viewport)
 		else:
 			viewport.render_target_update_mode = Viewport.UPDATE_DISABLED
 		presenter.set_physics_process(false)
@@ -206,6 +210,19 @@ func _origin(snapshot: Dictionary, host: Control) -> Vector3:
 	if camera == null:
 		return Vector3.ZERO
 	return camera.global_transform.origin - camera.global_transform.basis.z * FRONT_DISTANCE
+
+# Tarea GG: en tier LOW el Viewport animado del HUD se redibuja a ~10 Hz (UPDATE_ONCE
+# periodico) para no re-renderizar su contenido 60 veces por segundo en el handheld.
+# Fuera de LOW o con ODISEA_LOW_UI_OPT=0 queda en UPDATE_ALWAYS como siempre.
+func _enable_viewport_animation(viewport: Viewport) -> void:
+	if LowUiOptScript.enabled():
+		viewport.render_target_update_mode = Viewport.UPDATE_DISABLED
+		var driver := LowHzViewportRedrawScript.new()
+		driver.name = "LowHzRedraw"
+		driver.viewport = viewport
+		viewport.add_child(driver)
+	else:
+		viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
 
 func _open_view_2d(scene: PackedScene, screen: Object, snapshot: Dictionary, host: Control) -> bool:
 	var design: Vector2 = screen.view_size() if screen.has_method("view_size") else Vector2.ZERO
@@ -227,7 +244,7 @@ func _open_view_2d(scene: PackedScene, screen: Object, snapshot: Dictionary, hos
 	viewport.size = design
 	viewport.usage = Viewport.USAGE_2D
 	viewport.transparent_bg = true
-	viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	_enable_viewport_animation(viewport)
 	frame.add_child(container)
 	container.add_child(viewport)
 	var view: Control = scene.instance()

@@ -1,6 +1,9 @@
 extends Control
 
 const FALLBACK_SUBTITLE_FONT = preload("res://TinyFont.tres")
+# FD-316 (tarea GG): en tier LOW los subtitulos no pagan la sombra dinamica del panel (blur
+# de StyleBoxFlat por cuadro). El A/B es ODISEA_LOW_UI_OPT.
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 export(float) var default_duration := 2.5
 export(float) var fade_in_sec := 0.2
@@ -138,7 +141,7 @@ func _build_stylebox(is_hint: bool = false) -> StyleBoxFlat:
 	sb.corner_radius_bottom_left = 6
 	sb.corner_radius_bottom_right = 6
 	sb.shadow_color = Color(0, 0, 0, 0.35)
-	sb.shadow_size = 4
+	sb.shadow_size = 0 if LowUiOptScript.enabled() else 4
 	sb.shadow_offset = Vector2(0, 1)
 	return sb
 

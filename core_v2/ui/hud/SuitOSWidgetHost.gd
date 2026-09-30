@@ -17,6 +17,9 @@ const ZoomRulerScript = preload("res://core_v2/ui/hud/ZoomRuler.gd")
 const InteractableSlotScreenScript = preload("res://core_v2/ui/hud/InteractableSlotScreen.gd")
 const InteractableSlotWidgetScript = preload("res://core_v2/ui/hud/InteractableSlotWidget.gd")
 const Haptics = preload("res://core_v2/ui/Haptics.gd")
+# Tarea GG: el fade de inactividad de los widgets es animacion de presentacion; en tier LOW
+# se actualiza a ~10 Hz en vez de cada frame.
+const LowHzTickScript = preload("res://core_v2/systems/LowHzTick.gd")
 
 # Cada slot tiene su lugar FIJO (HudSlots.slot_position): 1 y 2 arriba a la izquierda, 3 y 4
 # arriba a la derecha. Ninguno se corre cuando otro esta vacio.
@@ -107,6 +110,8 @@ var _visibility_scene_id := 0
 # B4: inactividad acumulada (segundos) y alpha actual del fade del root de widgets.
 var _idle_seconds: float = 0.0
 var _idle_alpha: float = 1.0
+# Tarea GG: espaciador de 10 Hz del fade en tier LOW (fuera de LOW devuelve el delta entero).
+var _low_hz = LowHzTickScript.new()
 # De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
 # lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
 var backend: Node = null
@@ -342,7 +347,11 @@ func _process(delta: float) -> void:
 	if scene_id != _visibility_scene_id:
 		_visibility_scene_id = scene_id
 		refresh_visibility()
-	_tick_idle_fade(delta)
+	# Tarea GG: el fade por inactividad es animacion de presentacion; a 10 Hz alcanza y libera
+	# el tick de GDScript por frame en el handheld. Fuera de LOW step() devuelve el mismo delta.
+	var fade_delta: float = _low_hz.step(delta)
+	if fade_delta >= 0.0:
+		_tick_idle_fade(fade_delta)
 
 func _tick_idle_fade(delta: float) -> void:
 	if not _idle_fade_enabled():

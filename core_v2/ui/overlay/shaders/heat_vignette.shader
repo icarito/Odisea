@@ -20,12 +20,18 @@ uniform float distortion : hint_range(0.0, 0.02) = 0.0;
 // Dirección del daño en pantalla (-1..1). Cero conserva la viñeta radial clásica.
 uniform vec2 damage_direction = vec2(0.0);
 uniform float directionality : hint_range(0.0, 1.0) = 0.0;
+// Tarea GG: en tier LOW (cheap=1) no se lee SCREEN_TEXTURE (copia de pantalla completa):
+// la viñeta mezcla su color directo. Fuera de LOW el look no cambia.
+uniform float cheap : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
 	float wave_x = sin(UV.y * 68.0 + UV.x * 6.0 + TIME * 4.2);
 	float wave_y = sin(UV.x * 47.0 - UV.y * 5.0 - TIME * 3.1) * 0.32;
-	vec2 heat_uv = clamp(SCREEN_UV + vec2(wave_x, wave_y) * distortion, vec2(0.001), vec2(0.999));
-	vec3 screen_color = texture(SCREEN_TEXTURE, heat_uv).rgb;
+	vec3 screen_color = heat_color.rgb;
+	if (cheap < 0.5) {
+		vec2 heat_uv = clamp(SCREEN_UV + vec2(wave_x, wave_y) * distortion, vec2(0.001), vec2(0.999));
+		screen_color = texture(SCREEN_TEXTURE, heat_uv).rgb;
+	}
 	vec2 centered = (UV - vec2(0.5)) * vec2(aspect, 1.0) * 2.0;
 	float dist = length(centered) / max(aspect, 0.001);
 

@@ -31,6 +31,9 @@ const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 # project.godot. Los hijos hacen `extends "res://core_v2/ui/hud/HudWidget.gd"` y heredan
 # esta constante, asi que OdiseaOSTheme queda disponible en todos sin repetir el preload.
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
+# Tarea GG: el pulso de urgencia de la cabecera es animacion de presentacion; en tier LOW
+# se actualiza a ~10 Hz en vez de cada frame.
+const LowHzTickScript = preload("res://core_v2/systems/LowHzTick.gd")
 
 # Los tres nodos que comparten todos los widgets con escena. get_node_or_null: un widget
 # puede no tener cabecera (CryoPodWidget dibuja la suya) y eso no es un error.
@@ -55,6 +58,8 @@ var _screen_id: String = ""
 #   urgency_pulse_alpha(elapsed) -> float  alpha del pulso en ese instante (1.0 = sin pulso)
 var _urgency: String = OdiseaOSTheme.URGENCY_QUIET
 var _urgency_clock: float = 0.0
+# Tarea GG: espaciador de 10 Hz del pulso en tier LOW (fuera de LOW devuelve el delta entero).
+var _low_hz = LowHzTickScript.new()
 # Badge opcional: solo los widgets que lo declaran en su escena lo ven; si falta, no es error.
 onready var _urgency_badge: Label = get_node_or_null("Margin/VBox/Header/UrgencyBadge")
 
@@ -156,7 +161,11 @@ func _process(delta: float) -> void:
 	if float(urgency_token().get("pulse_hz", 0.0)) <= 0.0:
 		set_process(false)
 		return
-	_urgency_clock += delta
+	# Tarea GG: a 10 Hz en tier LOW el pulso sigue leyendose; fuera de LOW step() pasa el delta.
+	var step: float = _low_hz.step(delta)
+	if step < 0.0:
+		return
+	_urgency_clock += step
 	if _status_dot != null:
 		_status_dot.modulate.a = urgency_pulse_alpha(_urgency_clock)
 

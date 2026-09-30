@@ -10,6 +10,9 @@ uniform float aspect = 1.7777;
 uniform float creep : hint_range(0.0, 1.0) = 0.0;
 uniform vec2 damage_direction = vec2(0.0);
 uniform float directionality : hint_range(0.0, 1.0) = 0.0;
+// Tarea GG: la viñeta de escarcha comparte el script de HeatVignette; se declara el uniform
+// `cheap` (no hace falta: no lee SCREEN_TEXTURE) para que set_shader_param no avise fuera de LOW.
+uniform float cheap : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
 	vec2 centered = (UV - vec2(0.5)) * vec2(aspect, 1.0) * 2.0;

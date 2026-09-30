@@ -18,17 +18,31 @@ extends Reference
 #   scale - SettingsManager.render_scale a 1.0 (quita el upscale del viewport escalado).
 #   vsync - OS.vsync_enabled=false: deja de esperar el swap (mide el costo real de GPU/CPU).
 #
+# Tarea GG: despues de las fijas, una sonda por subarbol del HUD (una ventana cada una):
+# oculta SOLO ese subarbol y mide el delta contra la base. Cubre los widgets de SuitOS, la UI
+# tactil (MobileUI), los overlays (InfoOverlay/vignetas), el cursor virtual (VirtualMouse), la
+# consola de debug y TODOS los Viewports con render_target_update_mode=ALWAYS (que comparten el
+# World y redibujan el mundo entero cada frame). Al terminar imprime el ranking por delta.
+#
 # Se activa con ODISEA_PLAYBACK_PROBES=1. Es solo perf: no entra a replay_sync ni cambia
 # la simulacion; toda mutacion se guarda y se revierte.
 
 const PROBES_ENV := "ODISEA_PLAYBACK_PROBES"
+const VP_ALWAYS_LABEL := "subtree:vpalways"
 
 # Frames por ventana. Con la traza del benchmark (~400 muestras alimentadas) entran la
 # base y las 5 sondas sin cortar la comparacion.
 var window_frames: int = 60
 
-# Una ventana por elemento. Orden fijo para que la base quede primero.
+# Una ventana por elemento. Orden fijo para que la base quede primero; las sondas de
+# subarbol se agregan cuando arranca el playback (ver _ensure_sequence).
 var sequence: Array = ["base", "3d", "ui", "env", "scale", "vsync"]
+
+# Tarea GG: sondas por subarbol de HUD. `include_subtrees` las descubre del arbol la primera
+# vez que corre un step; `_subtree_probes` mapea etiqueta -> nodo (tests y overrides).
+var include_subtrees: bool = true
+var _subtree_probes: Dictionary = {}
+var _subtrees_built := false
 
 var _tree = null
 var _enabled := false
@@ -66,6 +80,9 @@ func active_probe() -> String:
 func step(frame_ms: float, render_ms: float) -> String:
 	if not _enabled or _closed:
 		return ""
+	# Tarea GG: las sondas de subarbol se descubren del arbol vivo en el primer step (recien
+	# ahi la escena esta armada) y se agregan al final de la secuencia.
+	_ensure_sequence()
 	if _window_index >= sequence.size():
 		# Ya pasaron todas las sondas: todo restaurado, frames sin etiqueta.
 		return ""
@@ -139,7 +156,8 @@ func _apply_current() -> void:
 		"vsync":
 			_apply_vsync()
 		_:
-			pass
+			if probe.begins_with("subtree:"):
+				_apply_subtree(probe)
 
 func _restore_current() -> void:
 	if _active == "" or _saved.empty():
@@ -158,7 +176,8 @@ func _restore_current() -> void:
 		"vsync":
 			_restore_vsync()
 		_:
-			pass
+			if _active.begins_with("subtree:"):
+				_restore_subtree()
 	_saved = {}
 	_active = ""
 
@@ -287,6 +306,111 @@ func _restore_vsync() -> void:
 	if _saved.has("vsync"):
 		OS.vsync_enabled = bool(_saved["vsync"])
 
+# --- tarea GG: sondas por subarbol de HUD ---
+
+# Descubre una vez los subarboles del HUD y los agrega a la secuencia. Idempotente.
+func _ensure_sequence() -> void:
+	if _subtrees_built:
+		return
+	_subtrees_built = true
+	if include_subtrees:
+		discover_subtrees()
+
+# Registra una sonda de subarbol manualmente (tests u overrides). El nodo tiene que ser un
+# CanvasItem (CanvasLayer/Control) o el marcador VP_ALWAYS_LABEL para los Viewports ALWAYS.
+func add_subtree_probe(label: String, node) -> void:
+	if label == VP_ALWAYS_LABEL:
+		_subtree_probes[label] = null
+	else:
+		_subtree_probes[label] = node
+	if not sequence.has(label):
+		sequence.append(label)
+
+# Recorre el arbol buscando los subarboles de HUD que la tarea GG quiere desglosar. Cada uno
+# se agrega con una etiqueta "subtree:<rol>". Devuelve las etiquetas nuevas.
+func discover_subtrees() -> Array:
+	var labels: Array = []
+	if _tree == null or _tree.root == null:
+		return labels
+	var root: Node = _tree.root
+	# Widgets de SuitOS: el root de la capa propia del host (widgets + shouldiers + ruler).
+	for host in _tree.get_nodes_in_group("hud_widget_host"):
+		if is_instance_valid(host) and host.has_method("get_widget_root"):
+			var widget_root = host.call("get_widget_root")
+			_add_subtree("subtree:widgets", widget_root, labels)
+	# MobileUI: joystick/botones tactiles. Es una CanvasLayer hija de la raiz.
+	_add_subtree("subtree:mobileui", root.get_node_or_null("MobileUIManager"), labels)
+	# Overlays (InfoOverlay y viñetas) viven en OverlayUIManager (CanvasLayer 115).
+	_add_subtree("subtree:overlays", root.get_node_or_null("OverlayUIManager"), labels)
+	# Cursor virtual: la capa que lo contiene (grupo virtual_mouse).
+	for cursor in _tree.get_nodes_in_group("virtual_mouse"):
+		if is_instance_valid(cursor):
+			_add_subtree("subtree:virtualmouse", cursor.get_parent(), labels)
+			break
+	# Consola de debug: su Viewport comparte el World (Node sin `visible`, se apaga por modo).
+	var console = root.get_node_or_null("DebugConsoleManager")
+	var console_viewport = console.get("_viewport") if console != null else null
+	_add_subtree("subtree:debugconsole", console_viewport, labels)
+	# Viewport(s) de widget con UPDATE_ALWAYS: caso especial, se apagan en _apply_subtree.
+	_add_subtree(VP_ALWAYS_LABEL, null, labels)
+	return labels
+
+func _add_subtree(label: String, node, labels: Array) -> void:
+	if _subtree_probes.has(label):
+		return
+	if label != VP_ALWAYS_LABEL and not (_is_hideable(node) or (is_instance_valid(node) and node is Viewport)):
+		return
+	_subtree_probes[label] = node
+	sequence.append(label)
+	labels.append(label)
+
+# CanvasLayer (MobileUIManager, VirtualMouseLayer) no es CanvasItem en Godot 3, pero tiene
+# `visible`: se acepta igual que Control/Node2D. Viewport no tiene `visible` y se apaga por modo.
+func _is_hideable(node) -> bool:
+	return is_instance_valid(node) and (node is CanvasLayer or node is CanvasItem)
+
+# "subtree:vpalways" lista los Viewport del arbol en UPDATE_ALWAYS y los deja DISABLED; el
+# resto oculta su CanvasLayer/CanvasItem (o apaga su Viewport, que no tiene `visible`).
+func _apply_subtree(label: String) -> void:
+	if label == VP_ALWAYS_LABEL:
+		_disable_always_viewports()
+		return
+	var node = _subtree_probes.get(label, null)
+	if not is_instance_valid(node):
+		return
+	if node is Viewport:
+		_saved["vps"] = [[node, node.render_target_update_mode]]
+		node.render_target_update_mode = Viewport.UPDATE_DISABLED
+		return
+	if _is_hideable(node):
+		_saved["nodes"] = [[node, node.visible]]
+		node.visible = false
+
+func _disable_always_viewports() -> void:
+	var touched: Array = []
+	if _tree == null or _tree.root == null:
+		return
+	var stack: Array = [_tree.root]
+	while not stack.empty():
+		var node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		for child in node.get_children():
+			stack.append(child)
+		if node is Viewport and node != _tree.root \
+				and node.render_target_update_mode == Viewport.UPDATE_ALWAYS:
+			touched.append([node, node.render_target_update_mode])
+			node.render_target_update_mode = Viewport.UPDATE_DISABLED
+	_saved["vps"] = touched
+
+func _restore_subtree() -> void:
+	for entry in _saved.get("nodes", []):
+		if is_instance_valid(entry[0]):
+			entry[0].visible = bool(entry[1])
+	for entry in _saved.get("vps", []):
+		if is_instance_valid(entry[0]):
+			entry[0].render_target_update_mode = int(entry[1])
+
 # --- reporte ---
 
 func _median(values: Array) -> float:
@@ -318,3 +442,15 @@ func _print_report(summary: Dictionary) -> void:
 			" (d=", "%.2f" % p["frame_ms_p50_delta"], ")",
 			" render_ms_p50=", "%.2f" % p["render_ms_p50"],
 			" (d=", "%.2f" % p["render_ms_p50_delta"], ")")
+	# Tarea GG: ranking por lo que cuesta CADA subarbol (delta de frame al ocultarlo). Mas
+	# negativo = mas caro. Es la lista que decide donde atacar primero.
+	var ranked: Array = []
+	for label in probes:
+		ranked.append([label, float(probes[label]["frame_ms_p50_delta"])])
+	ranked.sort_custom(self, "_rank_by_frame_delta")
+	print("[PlaybackProbes] ranking por frame_ms_p50_delta (mas negativo = mas caro ocultarlo):")
+	for entry in ranked:
+		print("[PlaybackProbes]   ", entry[0], " d=", "%.2f" % float(entry[1]))
+
+func _rank_by_frame_delta(a, b) -> bool:
+	return float(a[1]) < float(b[1])

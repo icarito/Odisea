@@ -139,6 +139,9 @@ func test_mobile_ui_no_fade_in_low_tier() -> void:
 	get_tree().root.add_child(mgr)
 	mgr._is_mobile = true
 	mgr._is_touch_active = true
+	# Tarea GG: en tier LOW la UI tactil no se instancia sin pantalla tactil. Este test mide el
+	# fade instantaneo de LOW en un aparato CON touch, asi que declara la pantalla tactil.
+	mgr._has_touchscreen = true
 	mgr._spawn_mobile_ui()
 	mgr._refresh_mobile_ui_visibility()
 	assert_float(mgr._ui_alpha).is_equal(1.0)

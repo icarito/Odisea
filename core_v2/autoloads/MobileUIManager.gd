@@ -1,6 +1,9 @@
 extends CanvasLayer
 
 const MobileUI = preload("res://core_v2/ui/MobileUI.tscn")
+# FD-316 (tarea GG): en tier LOW los controles tactiles no se dibujan si la plataforma no
+# tiene pantalla tactil (el Anbernic usa pad fisico). El A/B es ODISEA_LOW_UI_OPT.
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 # El modo tactil se prende con un toque y se apaga por inactividad (touch_idle_timeout). Lo escucha
 # quien se oculta junto con los controles tactiles (los widgets del HUD, SuitOSWidgetHost).
@@ -30,6 +33,8 @@ var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
 var _is_mobile := false
 var _is_touch_active := false
+# Tarea GG: la plataforma tiene pantalla tactil (seam para tests: se puede pisar).
+var _has_touchscreen := false
 var _touch_idle_timer := 0.0
 var _touch_pointer_until := 0
 var _touch_trackers := [] # controles tactiles que llevan su propio _touch_index
@@ -49,6 +54,7 @@ var _ui_fade_speed := 0.0
 
 func _ready() -> void:
 	layer = 100
+	_has_touchscreen = OS.has_touchscreen_ui_hint()
 	
 	# En desktop con pantalla tactil (ej. un notebook con touch), has_touchscreen_ui_hint()
 	# ya da true al arrancar y la UI movil aparecia sin que el jugador tocara nada. Solo
@@ -133,6 +139,9 @@ func _activate_touch() -> void:
 	# Esto tambien lo llama _process cuando joystick o botones consumieron el evento antes de
 	# que este autoload lo viera: si ya los estan usando, deben reaparecer en ese mismo frame.
 	_touch_idle_timer = 0.0
+	if _touch_ui_suppressed():
+		_is_touch_active = false
+		return
 	if _is_touch_active:
 		_refresh_mobile_ui_visibility()
 		return
@@ -207,7 +216,9 @@ func _notify_input_provider_touch_active(active: bool) -> void:
 func _spawn_mobile_ui() -> void:
 	if _mobile_ui:
 		return
-	
+	if _touch_ui_suppressed():
+		# Tarea GG: sin pantalla tactil en tier LOW no se instancia siquiera la escena.
+		return
 	_mobile_ui = MobileUI.instance()
 	add_child(_mobile_ui)
 	# El root del .tscn nace visible=true; la visibilidad real la decide el refresh.
@@ -247,6 +258,13 @@ func _is_script_cinematic_active() -> bool:
 	return false
 
 func _refresh_mobile_ui_visibility() -> void:
+	# Tarea GG: en tier LOW sin pantalla tactil los controles no se dibujan (ni interceptan
+	# toques). Fuera de LOW o con ODISEA_LOW_UI_OPT=0 se comporta como siempre.
+	if _touch_ui_suppressed():
+		if is_instance_valid(_mobile_ui):
+			_mobile_ui.visible = false
+			_snap_ui_alpha(0.0)
+		return
 	# Also hide while paused: the touch controls (CanvasLayer 10/100) render above
 	# the PauseMenu (CanvasLayer 50) and would otherwise intercept the touches meant
 	# for the pause buttons, leaving the player unable to operate the menu on Android.
@@ -312,6 +330,12 @@ func _is_ui_fade_enabled() -> bool:
 	if gate == null:
 		return true
 	return not bool(gate.is_low_tier())
+
+# Tarea GG: en tier LOW sobre una plataforma sin pantalla tactil (el Anbernic con pad fisico),
+# los controles tactiles son overdraw puro: no se dibujan ni se instancian. Fuera de LOW o con
+# ODISEA_LOW_UI_OPT=0 siguen como siempre. `_has_touchscreen` es el seam para tests.
+func _touch_ui_suppressed() -> bool:
+	return LowUiOptScript.enabled() and not _has_touchscreen
 
 func _mobile_ui_container() -> Control:
 	if not is_instance_valid(_mobile_ui):

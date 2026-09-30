@@ -6,6 +6,10 @@ extends Control
 # No entra al snapshot: en un replay se recomputa idéntica desde el ratio, que sí es
 # determinista.
 
+# FD-316 (tarea GG): en tier LOW la viñeta usa la variante barata del shader (sin leer
+# SCREEN_TEXTURE). El A/B es ODISEA_LOW_UI_OPT.
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
+
 # Pulso base mientras hay contacto de calor.
 export(float) var base_pulse := 0.22
 # Cuánto pesa la degradación del traje en la intensidad.
@@ -41,6 +45,9 @@ func _ready() -> void:
 	_rect = get_node_or_null("Vignette")
 	if is_instance_valid(_rect) and _rect.material is ShaderMaterial:
 		_material = _rect.material
+	# Tarea GG: variante barata del shader en LOW (sin SCREEN_TEXTURE).
+	if is_instance_valid(_material):
+		_material.set_shader_param("cheap", 1.0 if LowUiOptScript.enabled() else 0.0)
 	_apply_to_shader(0.0, 0.0)
 	var _err = get_viewport().connect("size_changed", self, "_on_viewport_resized")
 	_on_viewport_resized()

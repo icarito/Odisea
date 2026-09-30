@@ -218,6 +218,22 @@ sin tocar. Cada muestra de `replay_perf.json` sale con la etiqueta `sonda` y el 
 `{"sondas": {"probes": {<sonda>: {n, frame_ms_p50, render_ms_p50, *_delta}}}}` compara la
 mediana contra la base.
 
+**Tarea GG — sondas por subárbol de HUD.** Después de las fijas, una ventana de 60 frames por
+subárbol: `subtree:widgets` (capa de `SuitOSWidgetHost`: widgets + shouldiers + ruler),
+`subtree:mobileui` (`MobileUIManager`, controles táctiles), `subtree:overlays`
+(`OverlayUIManager`: InfoOverlay y viñetas), `subtree:virtualmouse` (capa del cursor virtual),
+`subtree:debugconsole` (Viewport de la consola) y `subtree:vpalways` (todos los `Viewport` con
+`render_target_update_mode = ALWAYS`, que comparten el World y lo redibujan entero cada frame).
+Cada una oculta SOLO ese subárbol y mide el delta contra la base. Al terminar, además del
+resumen, se imprime el **ranking** por `frame_ms_p50_delta` (más negativo = más caro). Los
+subárboles ausentes se omiten.
+
+**Tarea GG — ahorros de UI en tier LOW.** `ODISEA_LOW_UI_OPT=0` apaga (A/B) los arreglos de UI
+del handheld; unset o `1` los deja activos solo en tier LOW: sin controles táctiles si la
+plataforma no tiene pantalla táctil, widgets/Viewports de HUD animados a ~10 Hz
+(`LowHzTick`/`LowHzViewportRedraw`), viñetas sin `SCREEN_TEXTURE` y subtítulos sin sombra.
+Fuera de LOW no cambia nada.
+
 ```bash
 ODISEA_SNAPSHOT_PLAYBACK=user://snapshot_trace.bin \
 ODISEA_PLAYBACK_PROBES=1 \

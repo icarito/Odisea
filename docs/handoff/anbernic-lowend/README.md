@@ -46,6 +46,7 @@ Opciones activada.
 | Dither de props apagado por defecto (el toggle de Opciones lo reactiva) | `PropDitherManager._resolve_occlusion_dither()` | tier LOW, salvo que el jugador lo haya tocado |
 | Sombras falsas (blob/quad) apagadas por env | `GLES3VendorGate._sync_low_tier_env_hints()` | tier LOW |
 | Control remoto: **host** desactivado (sin announcer/server/bridge ni `_process`); el **cliente** sigue vivo, el handheld puede usarse de mando | `RemoteControlManager._ready()` / `_is_low_tier()` | tier LOW |
+| UI: sin controles tactiles sin pantalla tactil; widgets/Viewports de HUD animados a ~10 Hz; viñetas sin `SCREEN_TEXTURE`; subtitulos sin sombra (A/B `ODISEA_LOW_UI_OPT=0`) | `MobileUIManager._touch_ui_suppressed`, `LowHzTick`, `HudViewMount._enable_viewport_animation`, `HeatVignette`, `SubtitlesOverlay` | tier LOW |
 | Animator del player a 12 Hz **solo en idle**; al moverse avanza al paso de física (30 Hz) | `PilotAnimatorV2._advance_animation_tree_if_manual()` | tier LOW (idle) |
 | Auto-fit del shaft del ascensor cada 3 ticks | `ElevatorDoor` + `LowTierTickStride` | tier LOW |
 | Lightmap manual (evita la colisión de unidad del lightmap nativo) | `GLES3VendorGate._sync_manual_lightmap()` + `IOSLightmapFallback` | solo Mali-G31 detectado |
