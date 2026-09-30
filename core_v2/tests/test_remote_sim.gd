@@ -3700,6 +3700,82 @@ func test_occluders_disabled_by_env():
 	OS.set_environment(OccluderScript.OCCLUDERS_ENV, prev)
 
 
+# Tarea FF: las bases de los occluders tienen que ser rotaciones propias (determinante +1).
+# Basis(tangent, UP, radial) del nucleo daba un eje Z espejado (det -1) y el culler de
+# occlusion descartaba esos poligonos: el A/B ODISEA_OCCLUDERS=0/1 del playback no cambiaba
+# nada. Los pisos ya eran dextrogiros (Basis(RIGHT, -PI/2)); el nucleo ahora tambien.
+func test_occluders_bases_are_right_handed():
+	var prev := OS.get_environment(OccluderScript.OCCLUDERS_ENV)
+	OS.set_environment(OccluderScript.OCCLUDERS_ENV, "1")
+	var occluders = auto_free(OccluderScript.new())
+	add_child(occluders)
+	var pisos := 0
+	var nucleo := 0
+	for child in occluders.get_children():
+		var basis: Basis = child.transform.basis
+		assert_float(basis.determinant()).is_greater(0.0)
+		if String(child.name).begins_with("FloorOccluder"):
+			pisos += 1
+			# Piso horizontal: la normal local (Z) cae sobre +/-UP.
+			assert_float(abs(basis.z.dot(Vector3.UP))).is_equal_approx(1.0, 0.001)
+		else:
+			nucleo += 1
+			# Lado vertical del nucleo: X tangencial, Y hacia arriba, normal horizontal.
+			assert_float(basis.y.dot(Vector3.UP)).is_equal_approx(1.0, 0.001)
+			assert_float(basis.z.y).is_equal_approx(0.0, 0.001)
+	assert_int(pisos).is_equal(5)
+	assert_int(nucleo).is_equal(4)
+	OS.set_environment(OccluderScript.OCCLUDERS_ENV, prev)
+
+
+# Tarea FF: el mecanismo de oclusion del fork (Occluder + OccluderShapePolygon, sin Rooms ni
+# Portals) culla de verdad: un MeshInstance detras de un poligono deja de contarse en
+# INFO_OBJECTS_IN_FRAME. El binario headless de CI usa el rasterizer dummy, que devuelve 0
+# para todo: en ese caso no hay nada medible y el test valida la configuracion (presupuesto
+# de poligonos activos > 0). Con renderer real (--show) corre el A/B completo.
+func test_occluder_culls_mesh_behind_when_renderer_reports():
+	var setting := int(ProjectSettings.get_setting("rendering/misc/occlusion_culling/max_active_polygons"))
+	assert_int(setting).is_greater_equal(9)
+
+	var world := Spatial.new()
+	add_child(world)
+	var cam := Camera.new()
+	cam.fov = 70.0
+	world.add_child(cam)
+	cam.global_transform = Transform(Basis(), Vector3.ZERO)
+	cam.make_current()
+
+	var target := MeshInstance.new()
+	var box := CubeMesh.new()
+	box.size = Vector3(1, 1, 1)
+	target.mesh = box
+	world.add_child(target)
+	target.global_transform = Transform(Basis(), Vector3(0, 0, -10))
+
+	var occ := Occluder.new()
+	var shape := OccluderShapePolygon.new()
+	shape.two_way = true
+	shape.polygon_points = PoolVector2Array([
+		Vector2(-2, -2), Vector2(2, -2), Vector2(2, 2), Vector2(-2, 2)])
+	occ.shape = shape
+	world.add_child(occ)
+	occ.global_transform = Transform(Basis(), Vector3(0, 0, -5))
+
+	for _i in range(4):
+		yield(get_tree(), "idle_frame")
+	var con_occluder := int(VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME))
+	occ.visible = false
+	for _i in range(4):
+		yield(get_tree(), "idle_frame")
+	var sin_occluder := int(VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME))
+
+	world.queue_free()
+	if con_occluder <= 0 and sin_occluder <= 0:
+		# Rasterizer dummy (CI headless): no hay objetos en frame que medir.
+		return
+	assert_int(con_occluder).is_less(sin_occluder)
+
+
 # FD-316 (tarea V): los apliques de pared prebaked del domo (16 instancias de
 # ~1465 verts) se dibujan enteros en tier LOW porque el nodo llega con
 # auto_build=false y sin fixture_lod_mesh, asi que la ruta adaptativa no corre. En

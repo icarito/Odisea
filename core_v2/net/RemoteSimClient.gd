@@ -9,6 +9,7 @@ var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
 var RemoteSimStats = load("res://core_v2/net/RemoteSimStats.gd")
 const SnapshotTraceScript = preload("res://core_v2/net/SnapshotTrace.gd")
+const PlaybackProbesScript = preload("res://core_v2/net/PlaybackProbes.gd")
 
 export var is_render_slave: bool = false
 
@@ -155,6 +156,9 @@ var _playback_path: String = ""
 var _playback_parity: int = -1
 # Traza de perf por muestra, volcada a PLAYBACK_PERF_PATH al terminar el archivo.
 var _playback_samples: Array = []
+# FD-316 (tarea FF): sondas A/B del costo fijo de render. Solo existen durante el
+# playback y solo si ODISEA_PLAYBACK_PROBES=1 (PlaybackProbes las desactiva solo).
+var _probes = null
 var _playback_started_ms: int = 0
 # Tramos del frame del ultimo _process, para la muestra de perf (ver _sample_playback).
 var _last_script_us: int = 0
@@ -263,6 +267,8 @@ func start_snapshot_playback(path: String) -> bool:
 	_playback_samples = []
 	_playback_started_ms = OS.get_ticks_msec()
 	_reset_render_session()
+	# Tarea FF: sondas A/B del costo de render (no-op si el env no las pide).
+	_probes = PlaybackProbesScript.new(get_tree())
 	set_process(true)
 	print("[RemoteSimClient] playback solo-render: ", path, " (", reader.count(), " snapshots)")
 	return true
@@ -570,7 +576,11 @@ func _process(delta: float) -> void:
 	# Tarea P: A/B de visibilidad, una medicion por ventana (rotando los hijos).
 	_profile_ab_step(now_ms)
 	if _playback_active:
-		_playback_samples.append(_build_playback_sample(delta))
+		var sample: Dictionary = _build_playback_sample(delta)
+		# Tarea FF: cada muestra queda etiquetada con la sonda activa ("" sin sondas).
+		if _probes != null:
+			sample["sonda"] = _probes.step(float(sample["frame_ms"]), float(sample["render_ms"]))
+		_playback_samples.append(sample)
 
 # FD-316 (tarea N): acciones discretas del InputMap que no viajan en el frame del sim_input
 # (move/jump/interact/sprint/crouch/camara). El flanco viaja por el WS confiable a la
@@ -764,7 +774,13 @@ func _finish_playback(quit_game: bool = true) -> void:
 	if _playback_finished:
 		return
 	_playback_finished = true
-	_write_playback_perf()
+	# Tarea FF: cierra las sondas (restaura el estado exacto + reporte de medianas) antes
+	# de volcar la traza, para que el resumen viaje con las muestras.
+	var probe_summary: Dictionary = {}
+	if _probes != null:
+		probe_summary = _probes.finish()
+		_probes = null
+	_write_playback_perf(probe_summary)
 	_stop_playback()
 	if quit_game:
 		print("[RemoteSimClient] playback terminado: saliendo")
@@ -774,24 +790,32 @@ func _stop_playback() -> void:
 	_playback_active = false
 	_playback_accum = 0.0
 	_playback_parity = -1
+	if _probes != null:
+		# Corte a mitad de una ventana: restaurar SIEMPRE lo que la sonda haya tocado.
+		_probes.restore_all()
+		_probes = null
 	if _playback_reader != null:
 		_playback_reader.close()
 	_playback_reader = null
 
 # Vuelca la traza de perf por muestra del playback (fps, frame_ms, script/render/apply/
-# interp, draw_calls, vertices, objetos) en user://replay_perf.json.
-func _write_playback_perf() -> void:
+# interp, draw_calls, vertices, objetos) en user://replay_perf.json. `probe_summary` es el
+# resumen de sondas A/B de la tarea FF (vacio si no corrieron).
+func _write_playback_perf(probe_summary: Dictionary = {}) -> void:
 	var f := File.new()
 	if f.open(PLAYBACK_PERF_PATH, File.WRITE) != OK:
 		printerr("[RemoteSimClient] no se pudo escribir ", PLAYBACK_PERF_PATH)
 		return
-	f.store_string(JSON.print({
+	var payload: Dictionary = {
 		"modo": "snapshot_playback",
 		"traza": _playback_path,
 		"duracion_ms": OS.get_ticks_msec() - _playback_started_ms,
 		"total": _playback_samples.size(),
 		"muestras": _playback_samples
-	}))
+	}
+	if not probe_summary.empty():
+		payload["sondas"] = probe_summary
+	f.store_string(JSON.print(payload))
 	f.close()
 	print("[RemoteSimClient] traza de perf del playback: ", PLAYBACK_PERF_PATH,
 		" (", _playback_samples.size(), " muestras)")

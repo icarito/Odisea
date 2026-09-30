@@ -208,6 +208,22 @@ export ODISEA_SNAPSHOT_PLAYBACK=user://snapshot_trace.bin
 export ODISEA_BOOT_SCENE=res://core_v2/levels/RingHub_Level.tscn
 ```
 
+### Sondas A/B del costo fijo (tarea FF)
+
+`ODISEA_PLAYBACK_PROBES=1` parte la traza en ventanas de 60 frames y en cada una apaga UNA
+cosa, restaurando el estado exacto al cerrarla: `3d` (cull_mask=0 en la cámara), `ui`
+(CanvasLayer + Controls ocultos), `env` (Environment del World/WorldEnvironment quitado),
+`scale` (render_scale 1.0) y `vsync` (OS.vsync_enabled=false), contra una ventana `base`
+sin tocar. Cada muestra de `replay_perf.json` sale con la etiqueta `sonda` y el resumen
+`{"sondas": {"probes": {<sonda>: {n, frame_ms_p50, render_ms_p50, *_delta}}}}` compara la
+mediana contra la base.
+
+```bash
+ODISEA_SNAPSHOT_PLAYBACK=user://snapshot_trace.bin \
+ODISEA_PLAYBACK_PROBES=1 \
+ODISEA_BOOT_SCENE=res://core_v2/levels/RingHub_Level.tscn
+```
+
 ## Props
 
 Validar y capturar estados:

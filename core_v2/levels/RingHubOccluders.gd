@@ -87,9 +87,11 @@ func build() -> void:
 		var tangent := Vector3(-sin(angle), 0.0, cos(angle))
 		var side := Occluder.new()
 		side.name = "CoreOccluder_%d" % i
-		# El poligono vive en el plano XY local; esta base lo para vertical, con la
-		# cara mirando hacia afuera del prisma. El ancho es la cuerda del lado.
-		side.transform = Transform(Basis(tangent, Vector3.UP, radial), radial * core_radius + Vector3.UP * core_mid_y)
+		# El poligono vive en el plano XY local; esta base lo para vertical. Tiene que ser
+		# una rotacion propia (determinante +1): Basis(tangent, UP, radial) da un eje Z
+		# espejado y el culler de occlusion descartaba el poligono (el A/B no cambiaba
+		# nada). Con -radial como Z la mano queda derecha y el plano es el mismo.
+		side.transform = Transform(Basis(tangent, Vector3.UP, -radial), radial * core_radius + Vector3.UP * core_mid_y)
 		var core_shape := OccluderShapePolygon.new()
 		core_shape.two_way = true
 		core_shape.polygon_points = PoolVector2Array([
