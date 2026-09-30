@@ -247,10 +247,11 @@ func test_render_slave_engages_on_first_valid_snapshot():
 
 # FD-316 (tarea S): en offload el esclavo apaga el DRIVER de audio, no solo el bus. El mute
 # de bus dejaba corriendo el hilo Pulse/SDL y su mezclado (~9% del CPU medido en device).
-# Con el fork (AudioServer.set_enabled) el driver pasa a Dummy y al salir del offload se
-# restaura el valor previo; en un Godot stock sin el metodo el rol sigue funcionando con el
-# mute de bus (la guarda has_method evita romper).
+# Con el fork (AudioServer.set_enabled) el driver pasa a Dummy y al salir del offload SIEMPRE
+# se fuerza el flag de usuario a ON (set_enabled(true)) + se desmutea el render-esclavo; en un
+# Godot stock sin el metodo el rol sigue funcionando con el mute de bus (has_method evita romper).
 func test_render_slave_offload_toggles_audio_driver_when_available():
+	var audio = get_node("/root/AudioManager")
 	var has_toggle: bool = AudioServer.has_method("set_enabled")
 	var can_read: bool = AudioServer.has_method("is_enabled")
 	var prev_enabled: bool = true
@@ -265,20 +266,25 @@ func test_render_slave_offload_toggles_audio_driver_when_available():
 	assert_bool(client.is_engaged()).is_true()
 	if has_toggle and can_read:
 		assert_bool(AudioServer.is_enabled()).is_false()
+	assert_bool(audio._render_slave_audio_muted).is_true()
 
 	client.stop_render_slave()
 	if has_toggle and can_read:
 		assert_bool(AudioServer.is_enabled()).is_true()
+	assert_bool(audio._render_slave_audio_muted).is_false()
 
-	# Valor previo apagado: el esclavo lo conserva al salir (no lo prende de mas).
+	# FD-316: aunque el driver ya estuviera apagado al entrar al offload, al soltar el rol se
+	# fuerza el flag de usuario a ON. is_enabled() pudo devolver false por flags ajenos al
+	# offload (FOCUS_LOSS / SILENCE) y restaurar ese false dejaba el Anbernic mudo.
 	if has_toggle:
 		AudioServer.set_enabled(false)
 	client.start_render_slave(0)
 	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(1, 100, {}))
 	client.stop_render_slave()
 	if has_toggle and can_read:
-		assert_bool(AudioServer.is_enabled()).is_false()
-	if has_toggle:
+		assert_bool(AudioServer.is_enabled()).is_true()
+	assert_bool(audio._render_slave_audio_muted).is_false()
+	if has_toggle and can_read:
 		AudioServer.set_enabled(prev_enabled)
 
 

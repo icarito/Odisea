@@ -723,6 +723,49 @@ func test_update_offload_roles_never_promotes_outside_gameplay():
 		gate.force_gate = prev_gate
 
 
+# FD-316: el server conserva el peer emparejado y su token como sesion "resumible". Un stall
+# del control (wifi caido, app matada sin close) no borra el peer, asi que has_paired_client()
+# sigue true y el rol quedaria pegado: el handler del stall debe soltarlo igual o el Anbernic
+# no recupera su simulacion ni su audio. Una reconexion lo vuelve a habilitar.
+func test_client_stalled_releases_render_slave_role_even_if_peer_stays_paired():
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	var prev_gate = false
+	if gate:
+		prev_gate = gate.force_gate
+		gate.force_gate = true
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+
+	manager.server._peers[1] = {"device_name": "control", "paired": true, "token": "tok"}
+	manager._start_render_slave_role()
+	assert_bool(manager.is_render_slave_active).is_true()
+
+	# Un disconnect de OTRO peer sin emparejar no suelta el rol: el control sigue vivo.
+	manager.server._peers[2] = {"device_name": "otro", "paired": false, "token": ""}
+	manager._on_server_client_disconnected("otro")
+	assert_bool(manager.is_render_slave_active).is_true()
+	assert_bool(manager._control_link_down).is_false()
+
+	# El stall del control SI: el peer queda emparejado (resumible) pero ya no hay control.
+	assert_bool(manager.server.has_paired_client()).is_true()
+	manager._on_server_client_stalled("control")
+	assert_bool(manager.is_render_slave_active).is_false()
+	assert_bool(manager._control_link_down).is_true()
+
+	# Con el enlace caido, update_offload_roles no lo vuelve a promover.
+	manager.update_offload_roles()
+	assert_bool(manager.is_render_slave_active).is_false()
+
+	# La reconexion (emparejamiento nuevo o resume por token) habilita otra vez la promocion.
+	manager._on_server_client_connected("control")
+	assert_bool(manager._control_link_down).is_false()
+
+	manager._stop_render_slave_role("fin de test")
+	manager.server._peers.clear()
+	if gate:
+		gate.force_gate = prev_gate
+
+
 # FD-316 paso 5: el interruptor solo va en true con el ciclo completo hecho y testado
 # (handshake -> carga sin render -> sim_ready -> engagement por snapshot -> salida limpia).
 func test_render_slave_offload_flag_is_contract_complete():

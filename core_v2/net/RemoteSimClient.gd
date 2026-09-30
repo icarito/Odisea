@@ -59,9 +59,8 @@ var _physics_was_active: bool = true
 # True solo si este componente apago el PhysicsServer: evita tocar el estado global del
 # motor cuando el offload nunca se comprometio.
 var _physics_disabled_by_offload: bool = false
-# FD-316 (tarea S): estado del driver de audio ANTES de apagarlo en el offload. Se restaura
-# el mismo al salir: si otro sistema ya lo tenia apagado, no se prende de mas.
-var _audio_driver_was_enabled: bool = true
+# FD-316 (tarea S): el driver de audio se apaga en offload y SIEMPRE vuelve a ON al salir
+# (el flag de usuario de set_enabled(true)), para no depender de flags ajenos al offload.
 # True solo si este componente apago el driver de audio: mismo criterio que la fisica.
 var _audio_driver_disabled_by_offload: bool = false
 # El aviso del driver (perfil opt-in) se imprime UNA vez por sesion de offload.
@@ -213,6 +212,9 @@ func stop_render_slave() -> void:
 	_thaw_local_simulation()
 	_set_player_interaction_authoritative(false)
 	_set_local_audio_muted(false)
+	# FD-316: salir del rol SIEMPRE deja rastro (antes solo se veia el aviso del driver en
+	# modo perfil). Es la linea que confirma en device que fisica y audio locales volvieron.
+	print("[RemoteSimClient] offload liberado: fisica y audio locales restaurados (audio_enabled=", _read_audio_enabled(), ")")
 	# La cache de estados por path se descarta al salir del rol: si no, una re-promocion
 	# en otro nivel con los mismos paths no re-aplicaria el estado (review FD-316).
 	_last_actor_states.clear()
@@ -249,12 +251,15 @@ func _set_local_audio_muted(muted: bool) -> void:
 	# AudioServer.set_enabled(); en un Godot stock sin el metodo queda solo el mute de bus.
 	if AudioServer.has_method("set_enabled"):
 		if muted and not _audio_driver_disabled_by_offload:
-			_audio_driver_was_enabled = _read_audio_enabled()
 			_audio_driver_disabled_by_offload = true
 			AudioServer.set_enabled(false)
 		elif not muted and _audio_driver_disabled_by_offload:
+			# FD-316: al soltar el rol se fuerza el flag de usuario a ON, no se restaura el
+			# valor leido al entrar. is_enabled() puede haber devuelto false porque el driver
+			# ya estaba en Dummy por flags ajenos al offload (FOCUS_LOSS, SILENCE >10 s sin
+			# audio); restaurar ese false dejaba el Anbernic mudo tras desconectar el control.
 			_audio_driver_disabled_by_offload = false
-			AudioServer.set_enabled(_audio_driver_was_enabled)
+			AudioServer.set_enabled(true)
 	if muted and not _audio_driver_logged:
 		_audio_driver_logged = true
 		if _profile_enabled:
@@ -263,8 +268,9 @@ func _set_local_audio_muted(muted: bool) -> void:
 			else:
 				print("[RemoteSimClient] sin set_enabled: solo mute de bus")
 
-# El fork expone is_enabled() junto de set_enabled(); sin getter se asume encendido (el
-# arranque normal del proyecto) para no apagarlo de mas al restaurar.
+# El fork expone is_enabled() junto de set_enabled(). Se usa para el log de liberacion del
+# rol (y para saber si un sistema ajeno ya tenia el driver apagado); sin getter se asume
+# encendido, que es el arranque normal del proyecto.
 func _read_audio_enabled() -> bool:
 	if AudioServer.has_method("is_enabled"):
 		return AudioServer.is_enabled()

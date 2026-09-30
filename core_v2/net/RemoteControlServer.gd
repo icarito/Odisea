@@ -152,7 +152,10 @@ func is_local_address(address: String) -> bool:
 
 func _broadcast_to_paired(json_str: String) -> void:
 	for peer_id in _peers:
-		if _peers[peer_id].get("paired", false):
+		# Un peer emparejado puede haberse ido del socket antes de que _peers se limpie
+		# (y los tests inyectan peers sin socket): sin el guard, get_peer devuelve null y
+		# put_packet revienta con SCRIPT ERROR.
+		if _peers[peer_id].get("paired", false) and _ws_server.has_peer(peer_id):
 			_ws_server.get_peer(peer_id).put_packet(json_str.to_utf8())
 
 func _process(delta: float) -> void:

@@ -26,6 +26,12 @@ var is_host_active: bool = false
 var allow_low_tier_offload: bool = false
 var is_sim_host_active: bool = false
 var is_render_slave_active: bool = false
+# FD-316: el server conserva el peer emparejado y su token como "sesion resumible" aunque
+# el control se haya caido (stall) o haya cerrado. Mientras este flag este en true no se
+# promueve el rol de render-esclavo, aunque has_paired_client() siga devolviendo true: el
+# peer vivo no es lo mismo que el control conectado. Se limpia cuando el control vuelve
+# (client_connected, emparejamiento nuevo o resume por token).
+var _control_link_down: bool = false
 var remote_control_enabled: bool = true
 var _paused_for_pairing: bool = false
 var _mouse_mode_before_pairing: int = Input.MOUSE_MODE_VISIBLE
@@ -169,7 +175,7 @@ func _ready():
 		server.connect("client_pair_requested", self, "_on_server_pair_requested")
 		server.connect("input_received", self, "_on_server_input_received")
 		server.connect("client_disconnected", self, "_on_server_client_disconnected")
-		server.connect("client_stalled", self, "_on_server_client_disconnected")
+		server.connect("client_stalled", self, "_on_server_client_stalled")
 		server.connect("client_connected", self, "_on_server_client_connected")
 		server.connect("ui_directive_received", self, "_on_server_ui_directive")
 
@@ -206,7 +212,7 @@ func enable_low_tier_offload() -> void:
 		server.connect("client_pair_requested", self, "_on_server_pair_requested")
 		server.connect("input_received", self, "_on_server_input_received")
 		server.connect("client_disconnected", self, "_on_server_client_disconnected")
-		server.connect("client_stalled", self, "_on_server_client_disconnected")
+		server.connect("client_stalled", self, "_on_server_client_stalled")
 		server.connect("client_connected", self, "_on_server_client_connected")
 		server.connect("ui_directive_received", self, "_on_server_ui_directive")
 	if bridge == null and SuitOSRemoteBridge != null:
@@ -224,7 +230,7 @@ func update_offload_roles() -> void:
 	# allow_low_tier_offload), asi que el offload nunca arrancaba.
 	if is_low_host and not allow_low_tier_offload and remote_control_enabled:
 		enable_low_tier_offload()
-	var has_paired: bool = (server != null and server.has_paired_client())
+	var has_paired: bool = (server != null and server.has_paired_client()) and not _control_link_down
 	var scene = get_tree().current_scene
 	var in_gameplay: bool = scene != null and _is_gameplay_scene(scene.filename)
 
@@ -237,7 +243,7 @@ func update_offload_roles() -> void:
 			_start_render_slave_role()
 	else:
 		if is_render_slave_active:
-			_stop_render_slave_role()
+			_stop_render_slave_role("sin control activo o fuera de gameplay")
 
 func _start_render_slave_role() -> void:
 	if sim_client == null:
@@ -309,12 +315,14 @@ func _capture_level_states(scene: Node) -> Dictionary:
 		states[String(scene.get_path_to(node))] = node.call("get_snapshot")
 	return states
 
-func _stop_render_slave_role() -> void:
+func _stop_render_slave_role(reason: String = "") -> void:
 	is_render_slave_active = false
 	if sim_client != null:
 		sim_client.stop_render_slave()
 	if server != null:
 		server.send_ui_directive("stop_sim_host", {})
+	print("[RemoteControlManager] rol render-esclavo liberado: ",
+		reason if reason != "" else "motivo no especificado")
 
 # Locale propio del host, guardado al aplicar el idioma del control (para restaurarlo
 # cuando la sesion termina). "" = no hay idioma remoto aplicado.
@@ -536,6 +544,11 @@ func _sync_pause_to_controls() -> void:
 
 func _on_server_client_connected(_device_name: String) -> void:
 	_sent_paused = -1
+	# FD-316: un control (re)conectado, ya sea con emparejamiento nuevo o resume por token,
+	# vuelve a habilitar la promocion a render-esclavo (update_offload_roles la levanta).
+	if _control_link_down:
+		_control_link_down = false
+		print("[RemoteControlManager] control remoto reconectado: rol de render-esclavo habilitado")
 
 # FD-316 (review bug 5): el handheld render-esclavo avisa a la autoridad cuando su arbol
 # queda pausado (menu/pausa rapida), para que el sim host congele la logica del nivel en
@@ -779,6 +792,28 @@ func _on_server_client_disconnected(_device_name: String) -> void:
 	if _remote_locale_applied != "":
 		TranslationServer.set_locale(_remote_locale_applied)
 		_remote_locale_applied = ""
+	# FD-316: cierre limpio. Si ya no queda ningun control emparejado, la sesion no tiene a
+	# nadie del otro lado: soltar el rol para que el handheld recupere simulacion y audio.
+	# El server conserva el token, asi que una reconexion por resume lo vuelve a promover.
+	if server == null or not server.has_paired_client():
+		_mark_control_link_down("desconexion limpia")
+
+# FD-316: un control emparejado dejo de hablar sin cerrar la conexion (wifi caido, app
+# matada). El server conserva el peer y su token (sesion resumible), asi que
+# has_paired_client() sigue true y el rol quedaria pegado: hay que soltarlo igual o el
+# Anbernic se queda sin simulacion ni audio propios hasta que el control vuelva.
+func _on_server_client_stalled(_device_name: String) -> void:
+	_release_remote_inputs()
+	_mark_control_link_down("control sin senal (stall)")
+
+# Marca el enlace caido y suelta el rol de render-esclavo una sola vez por caida. El motivo
+# viaja al log de _stop_render_slave_role.
+func _mark_control_link_down(reason: String) -> void:
+	if not _control_link_down:
+		print("[RemoteControlManager] control remoto caido (", reason, "): se libera el rol")
+	_control_link_down = true
+	if is_render_slave_active:
+		_stop_render_slave_role(reason)
 
 # Aplica el idioma efectivo del control al host. La primera vez guarda el locale propio
 # para restaurarlo al desemparejar.
