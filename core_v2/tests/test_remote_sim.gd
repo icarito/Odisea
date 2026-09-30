@@ -3733,6 +3733,10 @@ func test_occluders_bases_are_right_handed():
 # INFO_OBJECTS_IN_FRAME. El binario headless de CI usa el rasterizer dummy, que devuelve 0
 # para todo: en ese caso no hay nada medible y el test valida la configuracion (presupuesto
 # de poligonos activos > 0). Con renderer real (--show) corre el A/B completo.
+# Tarea HH: que el mecanismo funcione NO alcanza para RingHub. El andamio viaja como
+# MultiMeshInstance con un AABB por sector (9-13 m) y el culler solo descarta una instancia
+# cuyo AABB ENTERO entra en la silueta, asi que el A/B del playback queda plano. El detalle
+# medido y el tope por-instancia viven en test_ringhub_occlusion_render.gd.
 func test_occluder_culls_mesh_behind_when_renderer_reports():
 	var setting := int(ProjectSettings.get_setting("rendering/misc/occlusion_culling/max_active_polygons"))
 	assert_int(setting).is_greater_equal(9)
