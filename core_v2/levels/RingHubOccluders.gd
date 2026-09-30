@@ -9,11 +9,33 @@ extends Spatial
 # 6 m, un piso cada 4.5 m desde y=4.5) con un nucleo central del que salen los
 # HubSpokes. Los poligonos de este nodo son las superficies opacas REALES del
 # nivel, aproximadas a partir de esa geometria conocida: un anillo horizontal por
-# piso y el prisma del nucleo. El motor descarta lo que quede detras de ellos.
+# piso (con el agujero del atrio) y el prisma del nucleo.
 #
 # Godot 3.6 usa los Occluder en runtime sin horneado previo (OccluderShapePolygon
 # es una primitiva); el presupuesto de formas activas vive en
 # rendering/misc/occlusion_culling/max_active_polygons y se sube en project.godot.
+#
+# ALCANCE REAL MEDIDO (tarea HH, renderer GLES3 real; ver
+# core_v2/tests/test_ringhub_occlusion_render.gd). El A/B ODISEA_OCCLUDERS=0/1 del
+# playback del render-esclavo daba draw calls, vertices y objetos IDENTICOS en el
+# Anbernic (56 / 160k / 37): no es que el culler este roto, es que desde la vista
+# que mide el benchmark NO HAY nada que cullar.
+#   - El mecanismo standalone SI funciona: mirando el atrio desde arriba, los
+#     anillos de piso cullan ~mitad de los objetos (41 -> 20; 171k -> 75k verts).
+#   - Desde la caminata a nivel de piso (la traza: ojo en el piso 2, y~7.5,
+#     pitch -18 grados a -27) los anillos quedan de canto, el atrio esta abierto y
+#     el nucleo (r=1.2) subtende un angulo minimo: culla 2 objetos de 47, y el
+#     nucleo 0. El A/B del playback mide 41.0 vs 41.2 objetos promedio.
+#   - El andamio pesado y los anillos de criopods viajan como MultiMeshInstance con
+#     un AABB por SECTOR (9-13 m medidos). El culler de oclusion descarta una
+#     instancia solo cuando TODO su AABB cae dentro de la silueta del occluder: un
+#     AABB del tamano del sector nunca entra. Un occluder de pantalla completa
+#     (200x200 a 1 m) frente a la camara real quita solo 8 de 44 objetos, y un muro
+#     vertical por el centro del hub solo 3.
+# Por eso la oclusion standalone (per-instance) no puede bajar los draw calls del
+# andamio batcheado en un atrio abierto. La alternativa para eso es Rooms&Portals
+# minimos por piso (propuesta, sin implementar). Los occluders se conservan porque
+# si pagan cuando la camara mira el atrio desde arriba/abajo.
 #
 # Se construye SOLO en tier LOW por defecto (es donde hacia falta), pero el env
 # ODISEA_OCCLUDERS lo fuerza o lo niega para el A/B: ODISEA_OCCLUDERS=1 en

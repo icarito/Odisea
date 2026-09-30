@@ -240,6 +240,35 @@ ODISEA_PLAYBACK_PROBES=1 \
 ODISEA_BOOT_SCENE=res://core_v2/levels/RingHub_Level.tscn
 ```
 
+### Oclusión de RingHub (tarea HH): renderer real y tope por instancia
+
+Los occluders standalone (`Occluder` + `OccluderShapePolygon`, sin Rooms&Portals) del fork
+funcionan, pero **el A/B `ODISEA_OCCLUDERS=0/1` del playback es plano por diseño de nivel, no
+por un bug del culler**. Verificado con el renderer real (no un mock):
+
+```bash
+# Renderer GLES3 real (ventana X11). Sin --show usa el Server headless (dummy): se saltea.
+./runtest.sh --show -a ./core_v2/tests/test_ringhub_occlusion_render.gd
+```
+
+`core_v2/tests/test_ringhub_occlusion_render.gd` fija con `VisualServer.force_draw()` +
+`INFO_OBJECTS_IN_FRAME`:
+
+- Un `Occluder` detrás de un `MeshInstance` y de un `MultiMeshInstance` (AABB chico) **sí** los
+  culla.
+- Un `MultiMeshInstance` con AABB grande (el andamio va batcheado por sector, 9–13 m medidos
+  en el nivel) **no se puede rechazar**: el culler sólo descarta una instancia cuando TODO su
+  AABB cae dentro de la silueta. Un occluder de pantalla completa frente a la cámara real quita
+  8 de 44 objetos; un muro vertical por el centro del hub, 3.
+- Los anillos de piso del hub cullan mirando el atrio desde arriba (41→20 objetos, 171k→75k
+  verts) y respetan el agujero del atrio (un objetivo bajo el anillo desaparece; uno bajo el
+  atrio no). Desde la caminata a nivel de piso (la traza) los anillos quedan de canto y el
+  atrio está abierto: culla 2 objetos de 47.
+
+Conclusión registrada en `core_v2/levels/RingHubOccluders.gd`: para bajar los draw calls del
+andamio batcheado en un atrio abierto la vía es Rooms&Portals mínimos por piso (propuesta, sin
+implementar); la oclusión per-instance no puede.
+
 ## Props
 
 Validar y capturar estados:
