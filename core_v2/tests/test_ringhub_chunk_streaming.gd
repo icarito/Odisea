@@ -337,3 +337,232 @@ func _find_pod_shape(body: Node, pod: int):
 		for child in current.get_children():
 			pending.append(child)
 	return null
+
+
+# ---------------------------------------------------------------------------
+# Regresion: un pod sin colision por anillo.
+#
+# El body de CADA anillo traia horneado el path fijo `../../Criopods_Visual`, el
+# visual del anillo de DESPERTAR. Al cargar su chunk leia el bloqueo de ese anillo
+# (slot 37) y liberaba la caja de ESE slot en todos los pisos: con el slot fijo 37,
+# Criopods4 y Criopods5 perdian un pod; 3 y 6 zafaban solo porque en su layout ese
+# slot no tenia pod. El body tiene que leer el visual de SU anillo: los de arriba
+# tienen blocked_slot=-1 y no liberan nada.
+# ---------------------------------------------------------------------------
+
+const LEVEL_RINGS := [
+	{"chunk": "Chunk_Criopods", "visual": "Criopods_Visual"},
+	{"chunk": "Chunk_Criopods3", "visual": "Criopods_Visual_Criopods3"},
+	{"chunk": "Chunk_Criopods4", "visual": "Criopods_Visual_Criopods4"},
+	{"chunk": "Chunk_Criopods5", "visual": "Criopods_Visual_Criopods5"},
+	{"chunk": "Chunk_Criopods6", "visual": "Criopods_Visual_Criopods6"},
+]
+
+func test_cada_anillo_libera_solo_su_propio_slot_bloqueado() -> void:
+	var level = auto_free(RingHubScene.instance())
+	add_child(level)
+	yield(get_tree(), "idle_frame")
+	_load_all_chunks(level)
+	for _i in range(8):
+		yield(get_tree(), "idle_frame")
+
+	var stream: Node = level.get_node_or_null("ScaffoldStreamRoot")
+	assert_object(stream).is_not_null()
+	for entry in LEVEL_RINGS:
+		var chunk: Node = stream.get_node_or_null(entry["chunk"])
+		assert_object(chunk).is_not_null()
+		var body: Node = chunk.get_node_or_null("CriopodRingCollision")
+		assert_object(body).is_not_null()
+		var visual: Node = stream.get_node_or_null(entry["visual"])
+		assert_object(visual).is_not_null()
+		# El provider del body es el visual del MISMO anillo: con el path del
+		# despertar los pisos superiores leian un bloqueo ajeno.
+		var provider = body.get_node_or_null(body.slot_provider_path)
+		assert_object(provider).is_not_null()
+		assert_bool(provider == visual).is_true()
+
+		var slot_to_pod: Array = body.slot_to_pod
+		var nonneg := 0
+		for pod in slot_to_pod:
+			if int(pod) >= 0:
+				nonneg += 1
+		var blocked := int(provider.get_blocked_slot()) if provider.has_method("get_blocked_slot") else -1
+		var expected := nonneg
+		if blocked >= 0 and blocked < slot_to_pod.size() and int(slot_to_pod[blocked]) >= 0:
+			expected -= 1
+		assert_int(_count_pod_shapes(body)).is_equal(expected)
+
+
+func _load_all_chunks(root: Node) -> void:
+	var pending := [root]
+	while not pending.empty():
+		var current = pending.pop_back()
+		if current.get_script() != null and current.has_method("request_load"):
+			current.request_load()
+		for child in current.get_children():
+			pending.append(child)
+
+
+# ---------------------------------------------------------------------------
+# Cada pod que el anillo DIBUJA tiene su caja en el mismo angulo, en los dos
+# caminos de representacion (pods instanciados en normal, capas MultiMesh en LOW):
+# la colision no depende de cual este activo.
+# ---------------------------------------------------------------------------
+
+const RING_SCENES := [
+	{
+		"ring": "Criopods1",
+		"visual_node": "Criopods_Visual",
+		"visual_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods_visual.tscn",
+		"body_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods_body.tscn",
+	},
+	{
+		"ring": "Criopods3",
+		"visual_node": "Criopods_Visual_Criopods3",
+		"visual_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods3_visual.tscn",
+		"body_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods3_body.tscn",
+	},
+	{
+		"ring": "Criopods4",
+		"visual_node": "Criopods_Visual_Criopods4",
+		"visual_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods4_visual.tscn",
+		"body_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods4_body.tscn",
+	},
+	{
+		"ring": "Criopods5",
+		"visual_node": "Criopods_Visual_Criopods5",
+		"visual_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods5_visual.tscn",
+		"body_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods5_body.tscn",
+	},
+	{
+		"ring": "Criopods6",
+		"visual_node": "Criopods_Visual_Criopods6",
+		"visual_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods6_visual.tscn",
+		"body_scene": "res://core_v2/levels/chunks/ringhub/RingHub_Criopods6_body.tscn",
+	},
+]
+
+func test_colision_de_cada_anillo_cubre_los_pods_visibles_mismos_angulos() -> void:
+	# ODISEA_CRIOPOD_RING_INSTANCED: "1" fuerza pods instanciados (tier normal),
+	# "0" fuerza las capas MultiMesh (tier LOW). La caja de colision es la misma.
+	var previous := OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED")
+	for entry in RING_SCENES:
+		for mode in ["1", "0"]:
+			OS.set_environment("ODISEA_CRIOPOD_RING_INSTANCED", mode)
+			var root := _spawn_ring_pair(entry)
+			add_child(root)
+			auto_free(root)
+			yield(get_tree(), "idle_frame")
+			_assert_ring_coverage(entry, root)
+	OS.set_environment("ODISEA_CRIOPOD_RING_INSTANCED", previous)
+
+
+# Replica el cableado de RingHub_Level alrededor del body: `ScaffoldStreamRoot` con
+# el visual hermano (nombre real del nivel) y el body a dos niveles, asi el
+# `slot_provider_path` horneado resuelve igual que en el nivel.
+func _spawn_ring_pair(entry: Dictionary) -> Node:
+	var root := Spatial.new()
+	root.name = "ScaffoldStreamRoot"
+	var visual: Node = (load(entry["visual_scene"]) as PackedScene).instance()
+	visual.name = entry["visual_node"]
+	root.add_child(visual)
+	var chunk := Spatial.new()
+	chunk.name = "Chunk_%s" % entry["ring"]
+	root.add_child(chunk)
+	var body: Node = (load(entry["body_scene"]) as PackedScene).instance()
+	chunk.add_child(body)
+	return root
+
+
+func _assert_ring_coverage(entry: Dictionary, root: Node) -> void:
+	var visual: Node = root.get_node_or_null(entry["visual_node"])
+	assert_object(visual).is_not_null()
+	var chunk: Node = root.get_node_or_null("Chunk_%s" % entry["ring"])
+	assert_object(chunk).is_not_null()
+	var body: Node = chunk.get_node_or_null("CriopodRingCollision")
+	assert_object(body).is_not_null()
+	var provider = body.get_node_or_null(body.slot_provider_path)
+	assert_object(provider).is_not_null()
+	assert_bool(provider == visual).is_true()
+
+	# El body mapea slot -> instancia igual que el visual: la caja del slot S cae
+	# donde el pod del slot S. Un corrimiento de slot delataria el bug.
+	var slot_to_pod: Array = body.slot_to_pod
+	var slot_to_instance: Array = visual.slot_to_instance
+	assert_int(slot_to_pod.size()).is_equal(slot_to_instance.size())
+	var limit: int = min(slot_to_pod.size(), slot_to_instance.size())
+	for k in range(limit):
+		assert_int(int(slot_to_pod[k])).is_equal(int(slot_to_instance[k]))
+
+	# Cada pod que el visual dibuja tiene su caja en el MISMO angulo (tolerancia
+	# 0.5 grados). Las posiciones de las instancias se leen del .tscn: en el binario
+	# headless de CI (platform=server) el buffer del MultiMesh no expone transforms.
+	var origins := _visual_instance_origins(entry)
+	var pod_shapes := 0
+	var seen_angles := []
+	for slot in range(slot_to_pod.size()):
+		var pod := int(slot_to_pod[slot])
+		if pod < 0:
+			continue
+		var shape = body.get_node_or_null("%s/Pod_%02d" % [String(body.body_path), pod])
+		assert_object(shape).is_not_null()
+		if shape == null:
+			continue
+		pod_shapes += 1
+		var shape_origin := Vector2(shape.transform.origin.x, shape.transform.origin.z)
+		assert_bool(origins.has(pod)).is_true()
+		if not origins.has(pod):
+			continue
+		var vis_origin: Vector2 = origins[pod]
+		var diff := _angle_diff_deg(
+			rad2deg(atan2(shape_origin.y, shape_origin.x)),
+			rad2deg(atan2(vis_origin.y, vis_origin.x)))
+		assert_float(diff).is_less(0.5)
+		for other in seen_angles:
+			assert_float(_angle_diff_deg(rad2deg(atan2(shape_origin.y, shape_origin.x)), other)).is_greater(0.5)
+		seen_angles.append(rad2deg(atan2(shape_origin.y, shape_origin.x)))
+	assert_int(pod_shapes).is_equal(_count_pod_shapes(body))
+
+
+# Origen local (x,z) de cada instancia de la capa Shell del visual, leido de la
+# `transform_array` del .tscn (12 floats por instancia en TRANSFORM_3D). Devuelve
+# indice de instancia -> Vector2. Vacio si no encuentra la capa.
+func _visual_instance_origins(entry: Dictionary) -> Dictionary:
+	var f := File.new()
+	if f.open(ProjectSettings.globalize_path(entry["visual_scene"]), File.READ) != OK:
+		return {}
+	var txt: String = f.get_as_text()
+	f.close()
+	var shell_at := txt.find('name="Shell"')
+	if shell_at == -1:
+		return {}
+	var ref_at := txt.find("multimesh = SubResource(", shell_at)
+	if ref_at == -1:
+		return {}
+	var id_start := ref_at + String("multimesh = SubResource(").length()
+	var mm_id := txt.substr(id_start, txt.find(")", id_start) - id_start).strip_edges()
+	var block_at := txt.find('[sub_resource type="MultiMesh" id=%s]' % mm_id)
+	if block_at == -1:
+		return {}
+	var arr_at := txt.find("transform_array = PoolVector3Array(", block_at)
+	if arr_at == -1:
+		return {}
+	var arr_start := arr_at + String("transform_array = PoolVector3Array(").length()
+	var arr_end := txt.find(")", arr_start)
+	var values := []
+	for token in txt.substr(arr_start, arr_end - arr_start).split(","):
+		var t: String = String(token).strip_edges()
+		if t != "":
+			values.append(float(t))
+	var out := {}
+	var i := 0
+	while i + 11 < values.size():
+		out[i / 12] = Vector2(values[i + 9], values[i + 11])
+		i += 12
+	return out
+
+
+func _angle_diff_deg(a: float, b: float) -> float:
+	var d: float = abs(fmod(a - b, 360.0))
+	return d if d <= 180.0 else 360.0 - d
+

@@ -23,7 +23,6 @@ const CHUNK_DIR := "res://core_v2/levels/chunks/ringhub/"
 const PREFIX := "RingHub"
 const VISUAL_SCRIPT := "res://core_v2/levels/chunks/ringhub/CriopodRingVisualV2.gd"
 const BODY_SCRIPT := "res://core_v2/levels/chunks/ringhub/CriopodRingCollisionV2.gd"
-const SLOT_PROVIDER_PATH := NodePath("../../Criopods_Visual")
 
 const LAYER_SHELL := {"path": ".", "name": "shell", "node": "Shell"}
 const LAYER_GLASS := {"path": "Interior/Glass", "name": "glass", "node": "Glass"}
@@ -166,7 +165,7 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform, slot_to_in
 	var collision_root := Spatial.new()
 	collision_root.name = "CriopodRingCollision"
 	collision_root.set_script(load(BODY_SCRIPT))
-	collision_root.set("slot_provider_path", SLOT_PROVIDER_PATH)
+	collision_root.set("slot_provider_path", _slot_provider_path())
 	collision_root.set("body_path", _output_ring_name + "/StaticBody")
 	collision_root.set("slot_to_pod", slot_to_index)
 	var ring_node := Spatial.new()
@@ -214,6 +213,20 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform, slot_to_in
 
 func _output_path(kind: String) -> String:
 	return CHUNK_DIR + "RingHub_Criopods%s_%s.tscn" % [_output_suffix, kind]
+
+
+# Path del visual del PROPIO anillo, que el body lee al entrar para liberar la
+# caja del slot de despertar. Se usa el nombre que ese visual tiene en
+# RingHub_Level: `Criopods_Visual` para el anillo de despertar (suffix vacio) y
+# `Criopods_Visual_<anillo>` para los pisos superiores. Antes era fijo
+# `../../Criopods_Visual`, asi que CADA anillo leia el bloqueo del piso de
+# despertar y liberaba la caja de ese mismo slot: un pod atravesable por anillo.
+# El path debe apuntar al visual del mismo anillo (que en los pisos superiores
+# tiene blocked_slot=-1 y por lo tanto no libera nada).
+func _slot_provider_path() -> NodePath:
+	if _output_suffix.empty():
+		return NodePath("../../Criopods_Visual")
+	return NodePath("../../Criopods_Visual_" + _output_ring_name)
 
 
 # Transform del anillo horneado: el de la fuente mas el offset de deck (ver
