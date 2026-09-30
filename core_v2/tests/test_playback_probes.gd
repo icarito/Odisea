@@ -432,6 +432,77 @@ func test_full_run_toggles_apply_and_restore():
 	world.queue_free()
 
 
+# Tarea LL: ODISEA_BENCH_HIDE oculta SOLO lo que matchea el patron (y su subarbol), deja el
+# resto intacto, tambien oculta los nodos que entran despues (node_added) y restaura la
+# visibilidad exacta al salir.
+func test_bench_hide_pattern_hides_only_matches():
+	var prev := OS.get_environment(PlaybackProbesScript.BENCH_HIDE_ENV)
+	OS.set_environment(PlaybackProbesScript.BENCH_HIDE_ENV, "Banner")
+
+	var world := Spatial.new()
+	add_child(world)
+	var layer := CanvasLayer.new()
+	layer.name = "BannerLayer"
+	world.add_child(layer)
+	var banner_child := Control.new()
+	layer.add_child(banner_child)
+	banner_child.visible = true
+
+	var keep_layer := CanvasLayer.new()
+	keep_layer.name = "KeepLayer"
+	world.add_child(keep_layer)
+	var keep_child := Control.new()
+	keep_layer.add_child(keep_child)
+	keep_child.visible = true
+
+	var probes = PlaybackProbesScript.new(get_tree(), false)
+	probes.apply_full_run_toggles()
+	assert_bool(layer.visible).is_false()
+	assert_bool(keep_layer.visible).is_true()
+	assert_bool(keep_child.visible).is_true()
+	# Solo la capa que matchea quedo registrada (el subarbol no se recorre de nuevo).
+	assert_int(probes.bench_hide_paths().size()).is_equal(1)
+
+	# Nodos que entran DESPUES del arranque: solo se oculta el que matchea.
+	var late_match := CanvasLayer.new()
+	late_match.name = "LateBanner"
+	world.add_child(late_match)
+	assert_bool(late_match.visible).is_false()
+	var late_keep := CanvasLayer.new()
+	late_keep.name = "LateKeep"
+	world.add_child(late_keep)
+	assert_bool(late_keep.visible).is_true()
+	assert_int(probes.bench_hide_paths().size()).is_equal(2)
+
+	# El resumen trae las rutas ocultadas aunque las sondas intercaladas esten apagadas.
+	assert_bool(probes.finish().has("bench_hide")).is_true()
+	assert_bool(layer.visible).is_true()
+	assert_bool(late_match.visible).is_true()
+	assert_bool(keep_layer.visible).is_true()
+
+	OS.set_environment(PlaybackProbesScript.BENCH_HIDE_ENV, prev)
+	world.queue_free()
+
+# Tarea LL: el inventario lista los CanvasLayer y los CanvasItem fullscreen/con material, y
+# queda guardado con las claves que viajan a la traza.
+func test_ui_inventory_lists_layers_and_overlays():
+	var world := Spatial.new()
+	add_child(world)
+	var layer := CanvasLayer.new()
+	layer.name = "InventoryLayer"
+	world.add_child(layer)
+	var control := Control.new()
+	layer.add_child(control)
+	control.visible = true
+
+	var probes = PlaybackProbesScript.new(get_tree(), false)
+	var inventory: Dictionary = probes.capture_ui_inventory()
+	assert_bool(inventory.has("canvas_layers")).is_true()
+	assert_bool(inventory.has("canvas_items")).is_true()
+	assert_bool(probes.summary().has("ui_inventario")).is_true()
+	world.queue_free()
+
+
 # Tarea HH: el medidor cuenta UPDATE_ALWAYS por frame y los PULSOS de UPDATE_ONCE una sola vez
 # por flag (asi el driver de 10 Hz se lee como ~10/s y un Viewport en ALWAYS como ~60/s).
 func test_redraw_meter_counts_always_and_pulses():

@@ -42,6 +42,10 @@ const OVERLAY_SCRIPTS := [
 const BENCH_NO_UI_ENV := "ODISEA_BENCH_NO_UI"
 const BENCH_NO_3D_ENV := "ODISEA_BENCH_NO_3D"
 const BENCH_NO_ENV_ENV := "ODISEA_BENCH_NO_ENV"
+# Tarea LL: toggle generico de ocultacion por patron para biseccionar el costo de UI con
+# corridas completas. Formato: "patron1,patron2,..."; oculta todo CanvasLayer/CanvasItem cuyo
+# nombre o ruta contenga algun patron. Se registra la lista de rutas ocultadas en la traza.
+const BENCH_HIDE_ENV := "ODISEA_BENCH_HIDE"
 # Tarea HH: medidor de refresco de los Viewports de widget. Responde por que el ahorro a 10 Hz
 # de los widgets no baja su costo (composicion del canvas vs. otro sistema en UPDATE_ALWAYS).
 const HudRedrawMeterScript = preload("res://core_v2/net/HudRedrawMeter.gd")
@@ -86,6 +90,16 @@ var _saved: Dictionary = {}
 var _full_run_saved: Dictionary = {}
 var _full_run_applied := false
 var _full_run_labels: Array = []
+# Tarea LL: estado del toggle generico ODISEA_BENCH_HIDE. Los patrones se leen al arrancar el
+# playback; `node_added` oculta los nodos que entren despues. `_bench_hide_paths` sobrevive al
+# restore para que las rutas viajen en el resumen/traza del fin de corrida.
+var _bench_hide_patterns: Array = []
+var _bench_hide_saved: Array = []
+var _bench_hide_paths: Array = []
+var _bench_hide_active := false
+var _hide_connected := false
+# Tarea LL: inventario de UI impreso una vez al arrancar el playback y volcado a la traza.
+var _ui_inventory: Dictionary = {}
 # Camara forzada para la sonda 3d (tests con un viewport sin camara activa detectable;
 # en runtime se resuelve la camara real via CinematicManager).
 var camera_override = null
@@ -149,7 +163,10 @@ func finish() -> Dictionary:
 		_close_window()
 	restore_all()
 	_closed = true
-	if not _enabled:
+	# Tarea LL: la ocultacion por patron y el inventario de UI son de corrida completa y viajan
+	# en la traza aunque las sondas intercaladas no esten pedidas.
+	var has_bench := not _ui_inventory.empty() or not _bench_hide_paths.empty()
+	if not _enabled and not has_bench:
 		return {}
 	var summary := summary()
 	_print_report(summary)
@@ -184,6 +201,10 @@ func apply_full_run_toggles() -> void:
 	if _env_bool(BENCH_NO_ENV_ENV):
 		_apply_env()
 		_full_run_labels.append(BENCH_NO_ENV_ENV)
+	var hide_patterns := _parse_hide_patterns()
+	if not hide_patterns.empty():
+		_apply_bench_hide(hide_patterns)
+		_full_run_labels.append(BENCH_HIDE_ENV)
 	_full_run_saved = _saved
 	_saved = prev_saved
 
@@ -197,6 +218,7 @@ func restore_full_run_toggles() -> void:
 	_restore_ui()
 	_restore_3d()
 	_restore_env()
+	_restore_bench_hide()
 	_saved = prev_saved
 	_full_run_saved = {}
 	_full_run_labels = []
@@ -204,47 +226,250 @@ func restore_full_run_toggles() -> void:
 func full_run_labels() -> Array:
 	return _full_run_labels.duplicate()
 
-# Resumen de medianas por sonda con delta pareado contra los bloques base adyacentes. Vacio si
-# no hay muestras.
-func summary() -> Dictionary:
-	if _samples.empty():
-		return {}
-	var raw_base_frame := _median(_samples.get(REFERENCE_LABEL, {}).get("frame_ms", []))
-	var raw_base_render := _median(_samples.get(REFERENCE_LABEL, {}).get("render_ms", []))
-	var deltas := _paired_deltas()
-	var probes: Dictionary = {}
-	for label in _samples:
-		var frame_ms := _median(_samples[label]["frame_ms"])
-		var render_ms := _median(_samples[label]["render_ms"])
-		var fd: Array = deltas.get(label, {}).get("frame", [])
-		var rd: Array = deltas.get(label, {}).get("render", [])
-		var fd_sorted: Array = fd.duplicate()
-		var rd_sorted: Array = rd.duplicate()
-		fd_sorted.sort()
-		rd_sorted.sort()
-		probes[label] = {
-			"n": _samples[label]["frame_ms"].size(),
-			"blocks": _count_blocks(label),
-			"frame_ms_p50": frame_ms,
-			"render_ms_p50": render_ms,
-			"frame_ms_p50_delta": _median(fd) if not fd.empty() else 0.0,
-			"render_ms_p50_delta": _median(rd) if not rd.empty() else 0.0,
-			"frame_ms_delta_p25": _quantile(fd_sorted, 0.25),
-			"frame_ms_delta_p75": _quantile(fd_sorted, 0.75),
-			"render_ms_delta_p25": _quantile(rd_sorted, 0.25),
-			"render_ms_delta_p75": _quantile(rd_sorted, 0.75),
-		}
-	var out := {
-		"block_frames": block_frames,
-		"discard_frames": discard_frames,
-		"base_frame_ms_p50": raw_base_frame,
-		"base_render_ms_p50": raw_base_render,
-		"probes": probes,
+# --- tarea LL: toggle generico de ocultacion por patron ---
+
+# Lee ODISEA_BENCH_HIDE y devuelve la lista de patrones no vacios (separados por coma).
+func _parse_hide_patterns() -> Array:
+	var raw := OS.get_environment(BENCH_HIDE_ENV).strip_edges()
+	var out: Array = []
+	if raw == "":
+		return out
+	for part in raw.split(","):
+		var pattern := String(part).strip_edges()
+		if pattern != "" and not out.has(pattern):
+			out.append(pattern)
+	return out
+
+# Oculta (visible=false) todo CanvasLayer/CanvasItem cuyo nombre o ruta contenga algun patron.
+# El subarbol de un nodo ocultado no se recorre de nuevo: alcanza con ocultar el ancestro.
+# Conecta `node_added` para que los nodos que entren despues tambien se oculten. Idempotente.
+func _apply_bench_hide(patterns: Array) -> void:
+	if _bench_hide_active:
+		return
+	_bench_hide_patterns = patterns.duplicate()
+	_bench_hide_active = true
+	_bench_hide_saved = []
+	_bench_hide_paths = []
+	if _tree != null and _tree.root != null:
+		var stack: Array = [_tree.root]
+		while not stack.empty():
+			var node = stack.pop_back()
+			if not is_instance_valid(node):
+				continue
+			if _hide_if_matches(node):
+				continue
+			for child in node.get_children():
+				stack.append(child)
+	if _tree != null and not _hide_connected:
+		_tree.connect("node_added", self, "_on_node_added")
+		_hide_connected = true
+
+# Devuelve la visibilidad exacta y desconecta `node_added`. Idempotente.
+func _restore_bench_hide() -> void:
+	if _hide_connected and _tree != null:
+		_tree.disconnect("node_added", self, "_on_node_added")
+	_hide_connected = false
+	for entry in _bench_hide_saved:
+		if is_instance_valid(entry[0]):
+			entry[0].visible = bool(entry[1])
+	_bench_hide_saved = []
+	_bench_hide_active = false
+	_bench_hide_patterns = []
+
+# Oculta el nodo si es ocultable y matchea algun patron. Devuelve true si quedo oculto.
+func _hide_if_matches(node) -> bool:
+	if not _is_hideable(node):
+		return false
+	if _is_bench_hidden(node) or _has_bench_hidden_ancestor(node):
+		return false
+	if not _matches_hide_pattern(node):
+		return false
+	var path := String(node.get_path())
+	_bench_hide_saved.append([node, node.visible, path])
+	_bench_hide_paths.append(path)
+	node.visible = false
+	return true
+
+func _on_node_added(node) -> void:
+	if _bench_hide_active:
+		_hide_if_matches(node)
+
+func _matches_hide_pattern(node) -> bool:
+	var path := String(node.get_path())
+	var node_name := String(node.name)
+	for pattern in _bench_hide_patterns:
+		var p := String(pattern)
+		if path.find(p) != -1 or node_name.find(p) != -1:
+			return true
+	return false
+
+func _is_bench_hidden(node) -> bool:
+	for entry in _bench_hide_saved:
+		if entry[0] == node:
+			return true
+	return false
+
+func _has_bench_hidden_ancestor(node) -> bool:
+	var parent = node.get_parent()
+	while parent != null:
+		if _is_bench_hidden(parent):
+			return true
+		parent = parent.get_parent()
+	return false
+
+# Rutas de los nodos ocultados por ODISEA_BENCH_HIDE (sobrevive al restore para la traza).
+func bench_hide_paths() -> Array:
+	return _bench_hide_paths.duplicate()
+
+# --- tarea LL: inventario de UI al arrancar el playback ---
+
+# Imprime UNA vez el inventario de UI y lo guarda para la traza: cada CanvasLayer (ruta, layer,
+# CanvasItems visibles) y cada CanvasItem visible a pantalla completa o con material/shader
+# (ruta, tamano, ruta del shader). Devuelve el inventario.
+func capture_ui_inventory() -> Dictionary:
+	_ui_inventory = {}
+	if _tree == null or _tree.root == null:
+		return _ui_inventory
+	var vp_size := _viewport_size()
+	var layers: Array = []
+	var items: Array = []
+	var stack: Array = [_tree.root]
+	while not stack.empty():
+		var node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		for child in node.get_children():
+			stack.append(child)
+		if node is CanvasLayer:
+			layers.append(_canvas_layer_entry(node))
+		elif node is CanvasItem:
+			var entry := _canvas_item_entry(node, vp_size)
+			if not entry.empty():
+				items.append(entry)
+	_ui_inventory = {"canvas_layers": layers, "canvas_items": items}
+	_print_ui_inventory()
+	return _ui_inventory
+
+func _viewport_size() -> Vector2:
+	if _tree != null and _tree.root is Viewport:
+		return _tree.root.get_visible_rect().size
+	return Vector2.ZERO
+
+func _canvas_layer_entry(node) -> Dictionary:
+	var visible_items := 0
+	for item in _canvas_item_descendants(node):
+		if item.visible:
+			visible_items += 1
+	return {
+		"path": String(node.get_path()),
+		"layer": int(node.layer),
+		"canvas_items_visibles": visible_items,
 	}
-	if not _full_run_labels.empty():
-		out["full_run"] = _full_run_labels.duplicate()
-	if _redraw_meter != null:
-		out["redraw"] = _redraw_meter.report()
+
+func _canvas_item_descendants(node) -> Array:
+	var out: Array = []
+	var stack: Array = [node]
+	while not stack.empty():
+		var current = stack.pop_back()
+		if not is_instance_valid(current):
+			continue
+		for child in current.get_children():
+			stack.append(child)
+		if current != node and current is CanvasItem:
+			out.append(current)
+	return out
+
+# Entrada del inventario para un CanvasItem visible solo si es a pantalla completa o tiene
+# material/shader; el resto no es candidato a costo de post-process.
+func _canvas_item_entry(node, vp_size: Vector2) -> Dictionary:
+	if not node.visible:
+		return {}
+	var size := Vector2.ZERO
+	if node is Control:
+		size = node.rect_size
+	var fullscreen := vp_size != Vector2.ZERO and node is Control \
+		and size.x >= vp_size.x - 1.0 and size.y >= vp_size.y - 1.0
+	var shader_path := _shader_path(node)
+	var material_class := ""
+	var material = node.get("material")
+	if material != null:
+		material_class = material.get_class()
+	if not fullscreen and shader_path == "" and material_class == "":
+		return {}
+	return {
+		"path": String(node.get_path()),
+		"size": [size.x, size.y],
+		"fullscreen": fullscreen,
+		"shader": shader_path,
+		"material": material_class,
+	}
+
+func _shader_path(node) -> String:
+	var material = node.get("material")
+	if material is ShaderMaterial and material.shader != null:
+		return String(material.shader.resource_path)
+	return ""
+
+func _print_ui_inventory() -> void:
+	var layers: Array = _ui_inventory.get("canvas_layers", [])
+	var items: Array = _ui_inventory.get("canvas_items", [])
+	print("[PlaybackProbes] inventario UI: ", layers.size(), " CanvasLayer, ",
+		items.size(), " CanvasItem fullscreen/con material")
+	for layer in layers:
+		print("[PlaybackProbes]   layer ", layer["path"], " layer=", layer["layer"],
+			" items_visibles=", layer["canvas_items_visibles"])
+	for item in items:
+		print("[PlaybackProbes]   item ", item["path"], " size=", item["size"],
+			" fullscreen=", item["fullscreen"], " shader=", item["shader"],
+			" material=", item["material"])
+
+# Resumen de medianas por sonda con delta pareado contra los bloques base adyacentes. Incluye la
+# ocultacion por patron y el inventario de UI (tarea LL) aunque no haya muestras. Vacio si no hay
+# nada que reportar.
+func summary() -> Dictionary:
+	var out: Dictionary = {}
+	if not _samples.empty():
+		var raw_base_frame := _median(_samples.get(REFERENCE_LABEL, {}).get("frame_ms", []))
+		var raw_base_render := _median(_samples.get(REFERENCE_LABEL, {}).get("render_ms", []))
+		var deltas := _paired_deltas()
+		var probes: Dictionary = {}
+		for label in _samples:
+			var frame_ms := _median(_samples[label]["frame_ms"])
+			var render_ms := _median(_samples[label]["render_ms"])
+			var fd: Array = deltas.get(label, {}).get("frame", [])
+			var rd: Array = deltas.get(label, {}).get("render", [])
+			var fd_sorted: Array = fd.duplicate()
+			var rd_sorted: Array = rd.duplicate()
+			fd_sorted.sort()
+			rd_sorted.sort()
+			probes[label] = {
+				"n": _samples[label]["frame_ms"].size(),
+				"blocks": _count_blocks(label),
+				"frame_ms_p50": frame_ms,
+				"render_ms_p50": render_ms,
+				"frame_ms_p50_delta": _median(fd) if not fd.empty() else 0.0,
+				"render_ms_p50_delta": _median(rd) if not rd.empty() else 0.0,
+				"frame_ms_delta_p25": _quantile(fd_sorted, 0.25),
+				"frame_ms_delta_p75": _quantile(fd_sorted, 0.75),
+				"render_ms_delta_p25": _quantile(rd_sorted, 0.25),
+				"render_ms_delta_p75": _quantile(rd_sorted, 0.75),
+			}
+		out = {
+			"block_frames": block_frames,
+			"discard_frames": discard_frames,
+			"base_frame_ms_p50": raw_base_frame,
+			"base_render_ms_p50": raw_base_render,
+			"probes": probes,
+		}
+		if not _full_run_labels.empty():
+			out["full_run"] = _full_run_labels.duplicate()
+		if _redraw_meter != null:
+			out["redraw"] = _redraw_meter.report()
+	var hidden := bench_hide_paths()
+	if not hidden.empty():
+		out["bench_hide"] = hidden
+	if not _ui_inventory.empty():
+		out["ui_inventario"] = _ui_inventory
 	return out
 
 # --- ventana y acumulacion ---
@@ -701,6 +926,12 @@ func _quantile(sorted_values: Array, q: float) -> float:
 
 func _print_report(summary: Dictionary) -> void:
 	if summary.empty():
+		return
+	# Tarea LL: la corrida completa puede traer solo ocultacion/inventario, sin sondas.
+	if summary.has("bench_hide"):
+		print("[PlaybackProbes] bench_hide: ", summary["bench_hide"].size(),
+			" nodos ocultos por patron")
+	if not summary.has("probes"):
 		return
 	var probes: Dictionary = summary["probes"]
 	var base: Dictionary = probes.get(REFERENCE_LABEL, {})

@@ -278,8 +278,11 @@ func start_snapshot_playback(path: String) -> bool:
 	_install_vp_optimizer()
 	# Tarea FF: sondas A/B del costo de render (no-op si el env no las pide).
 	_probes = PlaybackProbesScript.new(get_tree())
-	# Tarea JJ: toggles de corrida completa (ODISEA_BENCH_NO_UI/NO_3D/NO_ENV), leidos recien
-	# aca; PlaybackProbes los revierte al terminar o cortar el playback.
+	# Tarea LL: inventario de UI (CanvasLayers + overlays fullscreen/con shader) impreso una vez
+	# al arrancar, ANTES de los toggles, para describir la UI real que se va a medir.
+	_probes.capture_ui_inventory()
+	# Tarea JJ: toggles de corrida completa (ODISEA_BENCH_NO_UI/NO_3D/NO_ENV/ODISEA_BENCH_HIDE),
+	# leidos recien aca; PlaybackProbes los revierte al terminar o cortar el playback.
 	_probes.apply_full_run_toggles()
 	set_process(true)
 	print("[RemoteSimClient] playback solo-render: ", path, " (", reader.count(), " snapshots)")
