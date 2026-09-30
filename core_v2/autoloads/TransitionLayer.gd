@@ -50,6 +50,15 @@ func _ready() -> void:
 	_loading_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.add_child(_loading_root)
 
+	# Label/subtitle/progress usan tamanos de fuente fijos en pixeles sobre anchors
+	# porcentuales: a render_scale < 1 el viewport interno se achica y ese texto ya
+	# no entra en su banda, pisando la barra de abajo. Mismo compensador que usa
+	# Menu.tscn (nodo "UIScale") para este problema.
+	var ui_scale := Control.new()
+	ui_scale.name = "UIScale"
+	ui_scale.set_script(load("res://core_v2/ui/UIScaleCompensator.gd"))
+	_loading_root.add_child(ui_scale)
+
 	_loading_label = Label.new()
 	_loading_label.name = "LoadingLabel"
 	_loading_label.align = Label.ALIGN_CENTER
