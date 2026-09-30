@@ -30,6 +30,10 @@ var _jump_latch: int = 0
 var _interact_latch: int = 0
 var _buffer: Array = [] # Dos snapshots mas nuevos, ordenados por tick
 var _latest_applied_tick: int = -1
+# FD-316: instante (OS.get_ticks_msec) del ultimo snapshot aceptado de la autoridad, -1 si
+# no llego ninguno en la sesion. Es la salud REAL del canal de simulacion (UDP): el stall
+# del peer WS (last_rx) es otro canal y un hipo de su latido no debe soltar el rol.
+var _last_snapshot_ms: int = -1
 # FD-316 (tarea G): el cliente solo parsea los 2 paquetes mas recientes del drenaje UDP.
 # Parsear cada datagrama JSON del frame costaba los ~15 ms por frame medidos en device
 # (snap_hz 60, fps 10): los intermedios ya no hacen falta con interpolacion.
@@ -160,6 +164,7 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_audio_driver_logged = false
 	_buffer.clear()
 	_latest_applied_tick = -1
+	_last_snapshot_ms = -1
 	# Tarea G: par de interpolacion y reloj de render en cero para la sesion nueva.
 	_snap_from = {}
 	_snap_to = {}
@@ -205,6 +210,7 @@ func stop_render_slave() -> void:
 	_to_tick = -1
 	_render_tick = -1.0
 	_has_new_snapshot = false
+	_last_snapshot_ms = -1
 	set_process(false)
 	if _listening_port > 0:
 		_udp.close()
@@ -240,6 +246,14 @@ func _engage_offload() -> void:
 
 func is_engaged() -> bool:
 	return _engaged
+
+# FD-316: milisegundos desde el ultimo snapshot aceptado de la autoridad; -1 si esta sesion
+# no recibio ninguno. Es la salud del canal UDP de simulacion, distinta del last_rx del peer
+# WS: el latido del control puede fallar un instante sin que el canal de snapshots se corte.
+func ms_since_last_snapshot() -> int:
+	if _last_snapshot_ms < 0:
+		return -1
+	return OS.get_ticks_msec() - _last_snapshot_ms
 
 func _set_local_audio_muted(muted: bool) -> void:
 	var audio = get_node_or_null("/root/AudioManager")
@@ -360,6 +374,9 @@ func receive_snapshot(snapshot: Dictionary, p_packet_bytes: int = 0, p_expected_
 	if tick <= _latest_applied_tick:
 		return
 	_latest_applied_tick = tick
+	# FD-316: canal de simulacion vivo. El manager lo usa para no soltar el rol por un
+	# stall del peer WS (otro canal) mientras la autoridad sigue emitiendo.
+	_last_snapshot_ms = OS.get_ticks_msec()
 
 	# Insert snapshot in sorted order by tick
 	var inserted = false

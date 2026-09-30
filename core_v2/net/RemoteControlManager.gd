@@ -48,6 +48,11 @@ var _sent_sim_paused: int = -1
 # se martilla el bind cada frame: se reintenta recien pasado este plazo.
 const RENDER_SLAVE_START_RETRY_MSEC := 2000
 var _render_slave_retry_at_ms: int = 0
+# FD-316: salud del canal de simulacion del render-esclavo. El stall del peer WS (last_rx)
+# NO es esa salud: un hipo del latido del control no debe soltar el rol mientras el esclavo
+# siga recibiendo snapshots, o el rol flamea (release -> resume -> promote) y el animator del
+# Pilot queda alimentado a saltos. Sin snapshots por este plazo, si se suelta.
+const RENDER_SLAVE_SNAPSHOT_TIMEOUT_MSEC := 4000
 # FD-316 (tarea F): guard de foco del sim host. Con la ventana oculta u ocluida, un
 # compositor con vsync puede bloquear el swap y bajar el loop a ~1 fps; como la fisica
 # corre por frames, la simulacion que ve el render-esclavo se arrastra. Mientras seamos
@@ -230,6 +235,12 @@ func update_offload_roles() -> void:
 	# allow_low_tier_offload), asi que el offload nunca arrancaba.
 	if is_low_host and not allow_low_tier_offload and remote_control_enabled:
 		enable_low_tier_offload()
+	# FD-316: si la autoridad dejo de emitir snapshots, el enlace real cayo aunque el peer
+	# WS siga "emparejado" (sesion resumible). El stall del latido ya pudo haberse disparado
+	# una vez e ignorado por sano, asi que el corte de snapshots es el que manda.
+	if is_render_slave_active and sim_client != null and is_instance_valid(sim_client) \
+			and sim_client.is_engaged() and not _render_slave_snapshot_link_alive():
+		_mark_control_link_down("sin snapshots de la autoridad")
 	var has_paired: bool = (server != null and server.has_paired_client()) and not _control_link_down
 	var scene = get_tree().current_scene
 	var in_gameplay: bool = scene != null and _is_gameplay_scene(scene.filename)
@@ -804,7 +815,24 @@ func _on_server_client_disconnected(_device_name: String) -> void:
 # Anbernic se queda sin simulacion ni audio propios hasta que el control vuelva.
 func _on_server_client_stalled(_device_name: String) -> void:
 	_release_remote_inputs()
+	# FD-316: mientras el render-esclavo siga recibiendo snapshots, el latido del WS no es
+	# la salud del canal de simulacion. Soltar el rol aca lo dejaba flameando (release ->
+	# resume -> promote) y al Pilot se le cortaba la alimentacion del animator. El control
+	# caido de verdad se detecta aparte por el corte de snapshots (ver update_offload_roles).
+	if _render_slave_snapshot_link_alive():
+		print("[RemoteControlManager] stall del control ignorado: el render-esclavo sigue recibiendo snapshots")
+		return
 	_mark_control_link_down("control sin senal (stall)")
+
+# FD-316: true si el render-esclavo esta comprometido y su canal UDP recibio un snapshot
+# dentro del plazo. Es la fuente de verdad para no soltar el rol por el stall del peer WS.
+func _render_slave_snapshot_link_alive() -> bool:
+	if not is_render_slave_active or sim_client == null or not is_instance_valid(sim_client):
+		return false
+	if not sim_client.is_engaged():
+		return false
+	var age: int = sim_client.ms_since_last_snapshot()
+	return age >= 0 and age <= RENDER_SLAVE_SNAPSHOT_TIMEOUT_MSEC
 
 # Marca el enlace caido y suelta el rol de render-esclavo una sola vez por caida. El motivo
 # viaja al log de _stop_render_slave_role.

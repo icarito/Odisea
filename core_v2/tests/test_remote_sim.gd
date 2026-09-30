@@ -1011,8 +1011,10 @@ func test_render_slave_applies_remote_anim_events():
 
 class FakeStepAnimator extends Spatial:
 	var steps := 0
-	func step_animator(_dt: float, _velocity: Vector3) -> void:
+	var last_vel := Vector3.ZERO
+	func step_animator(_dt: float, velocity: Vector3) -> void:
 		steps += 1
+		last_vel = velocity
 
 
 # FD-316 (tarea Q): la autoridad contabiliza los one-shots que le pasa al animator por
@@ -1057,6 +1059,51 @@ func test_remote_acrobatic_one_shot_replicated_once():
 	slave_player.free()
 	anim.free()
 	authority.free()
+
+
+# FD-316 (regresion tarea AA): con el offload comprometido, RemoteSimClient._process alimenta
+# al animator del Pilot en CADA frame con la velocidad de la autoridad. Si el rol se suelta por
+# un stall espureo del latido del control, deja de alimentarlo y el cuerpo queda clavado en la
+# ultima pose (idle) aunque el jugador se mueva.
+func test_engaged_render_slave_steps_remote_animator_every_frame():
+	var level = auto_free(Spatial.new())
+	level.name = "AnimSlaveLevel"
+	var player = PlayerScript.new()
+	player.name = "Pilot"
+	player.add_to_group("player")
+	var anim = FakeStepAnimator.new()
+	anim.name = "PilotAnim"
+	player.add_child(anim)
+	level.add_child(player)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+	# El onready $Visual/Pivot pisa el animator al entrar al arbol: el falso se conecta despues.
+	player.animator = anim
+
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	client.start_render_slave(0)
+	client.receive_snapshot(RemoteProtocolScript.create_sim_snapshot(1, 0, {
+		"Pilot": {"vel": [0.0, 0.0, 3.0], "g": true, "anim": {"jumped": 0, "acrobatic": 0, "hit_ceiling": 0}}
+	}))
+	assert_bool(client.is_engaged()).is_true()
+	assert_bool(player.is_remote_render_slave()).is_true()
+
+	# Frames sucesivos: el animator avanza con la velocidad replicada, no con la local.
+	client._process(1.0 / 60.0)
+	assert_int(anim.steps).is_equal(1)
+	assert_vector3(anim.last_vel).is_equal_approx(Vector3(0, 0, 3), Vector3.ONE * 0.001)
+
+	client._process(1.0 / 60.0)
+	assert_int(anim.steps).is_equal(2)
+	assert_vector3(anim.last_vel).is_equal_approx(Vector3(0, 0, 3), Vector3.ONE * 0.001)
+
+	client.stop_render_slave()
+	assert_bool(player.is_remote_render_slave()).is_false()
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
 
 
 # FD-316 (D2): el estado logico de un replay_sync NO Spatial (RingHubLightState es un

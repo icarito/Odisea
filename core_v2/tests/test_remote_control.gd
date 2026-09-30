@@ -7,6 +7,7 @@ var RemoteDiscovery = load("res://core_v2/net/RemoteDiscovery.gd")
 var RemoteControlServer = load("res://core_v2/net/RemoteControlServer.gd")
 var RemoteControlClient = load("res://core_v2/net/RemoteControlClient.gd")
 var RemoteControlManager = load("res://core_v2/net/RemoteControlManager.gd")
+var PlayerScript = load("res://core_v2/player/PlayerControllerV2.gd")
 var RemotePairingDialogScene = load("res://core_v2/ui/RemotePairingDialog.tscn")
 var RemoteControlHomeScene = load("res://core_v2/ui/RemoteControlHome.tscn")
 var RemoteControlMenuScene = load("res://core_v2/ui/RemoteControlMenu.tscn")
@@ -762,6 +763,67 @@ func test_client_stalled_releases_render_slave_role_even_if_peer_stays_paired():
 
 	manager._stop_render_slave_role("fin de test")
 	manager.server._peers.clear()
+	if gate:
+		gate.force_gate = prev_gate
+
+
+# FD-316 (regresion tarea AA): el stall del peer WS es un canal distinto del de snapshots.
+# Con el render-esclavo comprometido y snapshots frescos, un stall espureo NO debe soltar el
+# rol: soltarlo lo dejaba flameando (release -> resume -> promote) y al Pilot se le cortaba la
+# alimentacion del animator (quedaba clavado en la ultima pose). Sin snapshots por el plazo,
+# en cambio, el enlace si cayo y se suelta.
+func test_spurious_stall_does_not_flame_engaged_render_slave():
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	var prev_gate = false
+	if gate:
+		prev_gate = gate.force_gate
+		gate.force_gate = true
+
+	var level := Spatial.new()
+	level.name = "OffloadLevel"
+	level.filename = "res://core_v2/levels/RingHub_Level.tscn"
+	var player = PlayerScript.new()
+	player.name = "Pilot"
+	player.add_to_group("player")
+	level.add_child(player)
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+	manager.server._peers[1] = {"device_name": "control", "paired": true, "token": "tok", "stalled": false}
+	manager._start_render_slave_role()
+
+	manager.sim_client.receive_snapshot(RemoteProtocol.create_sim_snapshot(1, 0, {
+		"Pilot": {"vel": [0.0, 0.0, 3.0], "g": true, "anim": {"jumped": 0, "acrobatic": 0, "hit_ceiling": 0}}
+	}, {}, "tok"))
+	assert_bool(manager.sim_client.is_engaged()).is_true()
+	assert_bool(player.is_remote_render_slave()).is_true()
+	assert_bool(player.is_physics_processing()).is_false()
+
+	# Stall del latido con el canal de snapshots sano: el rol no se suelta.
+	manager._on_server_client_stalled("control")
+	assert_bool(manager.is_render_slave_active).is_true()
+	assert_bool(manager._control_link_down).is_false()
+	assert_bool(manager.sim_client.is_engaged()).is_true()
+	assert_bool(player.is_remote_render_slave()).is_true()
+	assert_bool(player.is_physics_processing()).is_false()
+
+	# Corte real: sin snapshots por el plazo, update_offload_roles suelta el rol.
+	manager.sim_client._last_snapshot_ms = OS.get_ticks_msec() \
+		- RemoteControlManager.RENDER_SLAVE_SNAPSHOT_TIMEOUT_MSEC - 1
+	manager.update_offload_roles()
+	assert_bool(manager.is_render_slave_active).is_false()
+	assert_bool(manager._control_link_down).is_true()
+	assert_bool(player.is_remote_render_slave()).is_false()
+	assert_bool(player.is_physics_processing()).is_true()
+
+	manager.server._peers.clear()
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+	get_tree().root.remove_child(level)
+	level.free()
 	if gate:
 		gate.force_gate = prev_gate
 
