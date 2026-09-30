@@ -1,37 +1,104 @@
 extends GdUnitTestSuite
 
-# test_playback_probes.gd - FD-316 (tarea FF): sondas A/B del costo fijo de render del
-# playback de snapshots (ODISEA_PLAYBACK_PROBES). Lo critico es que cada sonda se aplique
-# durante su ventana y que el estado exacto se restaure SIEMPRE al cerrarla.
+# test_playback_probes.gd - FD-316 (tareas FF/GG/JJ): sondas A/B del costo fijo de render del
+# playback de snapshots (ODISEA_PLAYBACK_PROBES). Lo critico es que las sondas se INTERCALEN en
+# bloques base/sonda (descartando los frames de transicion), que cada bloque de sonda se mida
+# contra los bloques base ADYACENTES, que el estado exacto se restaure SIEMPRE al cerrar, y que
+# los toggles de corrida completa (ODISEA_BENCH_*) se apliquen y no dejen estado al salir.
 
 const PlaybackProbesScript = preload("res://core_v2/net/PlaybackProbes.gd")
 const HudRedrawMeterScript = preload("res://core_v2/net/HudRedrawMeter.gd")
 const PROBES_ENV := PlaybackProbesScript.PROBES_ENV
+const REFERENCE_LABEL := PlaybackProbesScript.REFERENCE_LABEL
 
-# El etiquetado avanza una sonda por ventana y el resumen trae la mediana por sonda.
-func test_probes_label_windows_and_report_median():
+# El intercalado etiqueta bloques base/sonda, descarta los frames de transicion y reporta el
+# delta PAREADO contra las bases adyacentes (mediana y p25-p75).
+func test_interleave_blocks_and_paired_delta():
 	var probes = PlaybackProbesScript.new(get_tree(), true)
-	probes.window_frames = 2
+	probes.block_frames = 2
+	probes.discard_frames = 1
+	probes.loop_schedule = false
 	probes.include_subtrees = false
 	probes.sequence = ["base", "3d"]
 
+	# Bloque base: 1 frame de descarte + 2 medidos.
+	assert_str(probes.step(1.0, 1.0)).is_equal("")
 	assert_str(probes.step(10.0, 5.0)).is_equal("base")
 	assert_str(probes.step(10.0, 5.0)).is_equal("base")
+	# Bloque 3d: descarte + 2 medidos.
+	assert_str(probes.step(1.0, 1.0)).is_equal("")
 	assert_str(probes.step(20.0, 6.0)).is_equal("3d")
 	assert_str(probes.step(20.0, 6.0)).is_equal("3d")
+	# Bloque base de cierre (adorno del 3d): descarte + 2 medidos.
+	assert_str(probes.step(1.0, 1.0)).is_equal("")
+	assert_str(probes.step(12.0, 7.0)).is_equal("base")
+	assert_str(probes.step(12.0, 7.0)).is_equal("base")
 	# Agotada la secuencia: todo restaurado y las muestras salen sin etiqueta.
-	assert_str(probes.step(30.0, 7.0)).is_equal("")
+	assert_str(probes.step(30.0, 8.0)).is_equal("")
 
 	var summary: Dictionary = probes.finish()
 	assert_bool(summary.has("probes")).is_true()
-	# Tarea HH: el medidor de refresco viaja en el resumen.
 	assert_bool(summary.has("redraw")).is_true()
+	assert_int(int(summary["block_frames"])).is_equal(2)
+	assert_int(int(summary["discard_frames"])).is_equal(1)
 	var probes_dict: Dictionary = summary["probes"]
-	assert_int(int(probes_dict["base"]["n"])).is_equal(2)
+	# Los frames de descarte no se cuentan (6 frames alimentados, 4 base + 2 de la sonda).
+	assert_int(int(probes_dict["base"]["n"])).is_equal(4)
 	assert_int(int(probes_dict["3d"]["n"])).is_equal(2)
-	assert_float(float(probes_dict["base"]["frame_ms_p50"])).is_equal_approx(10.0, 0.001)
+	assert_int(int(probes_dict["3d"]["blocks"])).is_equal(1)
+	# Base cruda: mediana de [10, 10, 12, 12] = 11.
+	assert_float(float(probes_dict["base"]["frame_ms_p50"])).is_equal_approx(11.0, 0.001)
 	assert_float(float(probes_dict["3d"]["frame_ms_p50"])).is_equal_approx(20.0, 0.001)
-	assert_float(float(probes_dict["3d"]["render_ms_p50_delta"])).is_equal_approx(1.0, 0.001)
+	# Delta pareado: 20 - promedio de bases adyacentes (10, 12) = 20 - 11 = 9.
+	assert_float(float(probes_dict["3d"]["frame_ms_p50_delta"])).is_equal_approx(9.0, 0.001)
+	assert_float(float(probes_dict["3d"]["frame_ms_delta_p25"])).is_equal_approx(9.0, 0.001)
+	assert_float(float(probes_dict["3d"]["frame_ms_delta_p75"])).is_equal_approx(9.0, 0.001)
+	# La base es la referencia: su delta contra si misma es cero.
+	assert_float(float(probes_dict["base"]["frame_ms_p50_delta"])).is_equal_approx(0.0, 0.001)
+
+# Los frames de descarte no llevan etiqueta ni entran a las muestras; el bloque "activo" recien
+# aparece despues del descarte.
+func test_interleave_discards_transition_frames():
+	var probes = PlaybackProbesScript.new(get_tree(), true)
+	probes.block_frames = 3
+	probes.discard_frames = 2
+	probes.include_subtrees = false
+	probes.sequence = ["3d"]
+
+	# Primer bloque (base): 2 descartes sin etiqueta.
+	assert_str(probes.step(1.0, 1.0)).is_equal("")
+	assert_str(probes.step(1.0, 1.0)).is_equal("")
+	assert_str(probes.active_probe()).is_equal("")
+	assert_str(probes.step(10.0, 5.0)).is_equal("base")
+	assert_str(probes.step(10.0, 5.0)).is_equal("base")
+	assert_str(probes.step(10.0, 5.0)).is_equal("base")
+	# Bloque 3d: otros 2 descartes que no se cuentan.
+	assert_str(probes.step(1.0, 1.0)).is_equal("")
+	assert_str(probes.step(1.0, 1.0)).is_equal("")
+	assert_str(probes.active_probe()).is_equal("")
+	assert_str(probes.step(20.0, 6.0)).is_equal("3d")
+	assert_str(probes.step(20.0, 6.0)).is_equal("3d")
+	assert_str(probes.step(20.0, 6.0)).is_equal("3d")
+
+	var probes_dict: Dictionary = probes.finish()["probes"]
+	assert_int(int(probes_dict["base"]["n"])).is_equal(3)
+	assert_int(int(probes_dict["3d"]["n"])).is_equal(3)
+
+# La rotacion recorre TODO el playback: con loop la secuencia se repite y cada sonda junta
+# varios bloques (distribucion para la mediana y el p25-p75).
+func test_interleave_rotates_over_route():
+	var probes = PlaybackProbesScript.new(get_tree(), true)
+	probes.block_frames = 1
+	probes.discard_frames = 0
+	probes.loop_schedule = true
+	probes.include_subtrees = false
+	probes.sequence = ["3d", "ui"]
+	# Secuencia: base, 3d, base, ui, base (+ loop). Dos ciclos completos.
+	for i in range(10):
+		probes.step(float(i), float(i))
+	var probes_dict: Dictionary = probes.finish()["probes"]
+	assert_int(int(probes_dict["3d"]["blocks"])).is_greater_equal(2)
+	assert_int(int(probes_dict["ui"]["blocks"])).is_greater_equal(2)
 
 # Sin ODISEA_PLAYBACK_PROBES=1 las sondas no tocan nada ni etiquetan muestras.
 func test_probes_disabled_without_env():
@@ -43,7 +110,16 @@ func test_probes_disabled_without_env():
 	assert_bool(probes.finish().empty()).is_true()
 	OS.set_environment(PROBES_ENV, prev)
 
-# Cada sonda muta lo suyo durante la ventana y restaura el valor EXACTO al cerrar:
+# Avanza un probes hasta que la sonda pedida quede aplicada (bloque abierto). Devuelve false si
+# no la alcanza en `max_steps`.
+func _advance_to(probes, label: String, max_steps: int = 64) -> bool:
+	for i in range(max_steps):
+		probes.step(1.0, 1.0)
+		if probes.active_probe() == label:
+			return true
+	return false
+
+# Cada sonda muta lo suyo durante su bloque y restaura el valor EXACTO al cerrar/cortar:
 # cull_mask de la camara, visible de CanvasLayer/Control, Environment, render_scale y vsync.
 func test_probes_restore_exact_state():
 	var world := Spatial.new()
@@ -77,19 +153,23 @@ func test_probes_restore_exact_state():
 	# 3d: cull_mask=0 y vuelve el valor original. El suite corre en un viewport donde
 	# get_camera() no resuelve, asi que se usa el seam camera_override.
 	var p3 = PlaybackProbesScript.new(get_tree(), true)
+	p3.block_frames = 2
+	p3.discard_frames = 0
 	p3.include_subtrees = false
 	p3.sequence = ["3d"]
 	p3.camera_override = cam
-	p3.step(1.0, 1.0)
+	assert_bool(_advance_to(p3, "3d")).is_true()
 	assert_int(cam.cull_mask).is_equal(0)
 	p3.finish()
 	assert_int(cam.cull_mask).is_equal(0xABCD)
 
 	# ui: se ocultan CanvasLayer y Controls; los ya ocultos siguen ocultos.
 	var pu = PlaybackProbesScript.new(get_tree(), true)
+	pu.block_frames = 2
+	pu.discard_frames = 0
 	pu.include_subtrees = false
 	pu.sequence = ["ui"]
-	pu.step(1.0, 1.0)
+	assert_bool(_advance_to(pu, "ui")).is_true()
 	assert_bool(layer.visible).is_false()
 	assert_bool(control.visible).is_false()
 	pu.finish()
@@ -99,9 +179,11 @@ func test_probes_restore_exact_state():
 
 	# env: se quita el Environment y vuelve el mismo recurso.
 	var pe = PlaybackProbesScript.new(get_tree(), true)
+	pe.block_frames = 2
+	pe.discard_frames = 0
 	pe.include_subtrees = false
 	pe.sequence = ["env"]
-	pe.step(1.0, 1.0)
+	assert_bool(_advance_to(pe, "env")).is_true()
 	assert_bool(wenv.environment == null).is_true()
 	pe.finish()
 	assert_bool(wenv.environment == env).is_true()
@@ -109,18 +191,22 @@ func test_probes_restore_exact_state():
 	# scale: render_scale pasa a 1.0 y vuelve al valor previo.
 	if sm != null:
 		var ps = PlaybackProbesScript.new(get_tree(), true)
+		ps.block_frames = 2
+		ps.discard_frames = 0
 		ps.include_subtrees = false
 		ps.sequence = ["scale"]
-		ps.step(1.0, 1.0)
+		assert_bool(_advance_to(ps, "scale")).is_true()
 		assert_float(sm.render_scale).is_equal_approx(1.0, 0.001)
 		ps.finish()
 		assert_float(sm.render_scale).is_equal_approx(0.6, 0.001)
 
 	# vsync: se apaga y vuelve el valor previo.
 	var pv = PlaybackProbesScript.new(get_tree(), true)
+	pv.block_frames = 2
+	pv.discard_frames = 0
 	pv.include_subtrees = false
 	pv.sequence = ["vsync"]
-	pv.step(1.0, 1.0)
+	assert_bool(_advance_to(pv, "vsync")).is_true()
 	assert_bool(OS.vsync_enabled).is_false()
 	pv.finish()
 	assert_bool(OS.vsync_enabled).is_true()
@@ -138,7 +224,7 @@ func test_probes_restore_exact_state():
 	world.queue_free()
 
 # Tarea GG: una sonda de subarbol oculta SOLO ese subarbol, la etiqueta entra al resumen y la
-# visibilidad exacta vuelve al cerrar la ventana.
+# visibilidad exacta vuelve al cerrar el bloque.
 func test_subtree_probe_hides_and_restores():
 	var world := Spatial.new()
 	add_child(world)
@@ -149,29 +235,27 @@ func test_subtree_probe_hides_and_restores():
 	control.visible = true
 
 	var probes = PlaybackProbesScript.new(get_tree(), true)
-	probes.window_frames = 1
+	probes.block_frames = 2
+	probes.discard_frames = 0
 	probes.include_subtrees = false
 	probes.sequence = ["base"]
 	probes.add_subtree_probe("subtree:test", control)
 
-	assert_str(probes.step(10.0, 5.0)).is_equal("base")
-	assert_bool(control.visible).is_true()
-	assert_str(probes.step(20.0, 6.0)).is_equal("subtree:test")
+	# Bloque base (descarte/base) y luego el bloque de la sonda.
+	assert_bool(_advance_to(probes, "subtree:test")).is_true()
 	assert_bool(control.visible).is_false()
-	# Agotada la secuencia: todo restaurado y las muestras salen sin etiqueta.
-	assert_str(probes.step(30.0, 7.0)).is_equal("")
+
+	# Se completa el bloque y la visibilidad vuelve exacta.
+	assert_str(probes.step(20.0, 6.0)).is_equal("subtree:test")
 	assert_bool(control.visible).is_true()
 
-	var summary: Dictionary = probes.finish()
-	var p: Dictionary = summary["probes"]
+	var p: Dictionary = probes.finish()["probes"]
 	assert_bool(p.has("subtree:test")).is_true()
-	assert_float(float(p["base"]["frame_ms_p50"])).is_equal_approx(10.0, 0.001)
-	assert_float(float(p["subtree:test"]["frame_ms_p50"])).is_equal_approx(20.0, 0.001)
-	assert_float(float(p["subtree:test"]["frame_ms_p50_delta"])).is_equal_approx(10.0, 0.001)
+	assert_int(int(p["subtree:test"]["blocks"])).is_equal(1)
 	world.queue_free()
 
 # Tarea GG: la sonda vpalways apaga TODOS los Viewports en UPDATE_ALWAYS (comparten el World)
-# dentro de su ventana y restaura el modo exacto al cerrarla.
+# dentro de su bloque y restaura el modo exacto al cerrarla.
 func test_subtree_probe_disables_always_viewports():
 	var world := Spatial.new()
 	add_child(world)
@@ -180,12 +264,13 @@ func test_subtree_probe_disables_always_viewports():
 	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
 
 	var probes = PlaybackProbesScript.new(get_tree(), true)
-	probes.window_frames = 1
+	probes.block_frames = 3
+	probes.discard_frames = 0
 	probes.include_subtrees = false
 	probes.sequence = []
 	probes.add_subtree_probe(PlaybackProbesScript.VP_ALWAYS_LABEL, null)
 
-	assert_str(probes.step(10.0, 5.0)).is_equal(PlaybackProbesScript.VP_ALWAYS_LABEL)
+	assert_bool(_advance_to(probes, PlaybackProbesScript.VP_ALWAYS_LABEL)).is_true()
 	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
 	probes.finish()
 	assert_int(vp.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
@@ -197,12 +282,13 @@ func test_subtree_probe_hides_canvas_layer():
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var probes = PlaybackProbesScript.new(get_tree(), true)
-	probes.window_frames = 1
+	probes.block_frames = 3
+	probes.discard_frames = 0
 	probes.include_subtrees = false
 	probes.sequence = []
 	probes.add_subtree_probe("subtree:layertest", layer)
 
-	assert_str(probes.step(1.0, 1.0)).is_equal("subtree:layertest")
+	assert_bool(_advance_to(probes, "subtree:layertest")).is_true()
 	assert_bool(layer.visible).is_false()
 	probes.finish()
 	assert_bool(layer.visible).is_true()
@@ -216,6 +302,67 @@ func test_discover_subtrees_labels():
 	assert_bool(labels.empty()).is_false()
 	for label in labels:
 		assert_bool(String(label).begins_with("subtree:")).is_true()
+
+
+# Tarea JJ: los toggles de corrida completa apagan UI/3D/Environment por TODA la corrida, aun
+# sin ODISEA_PLAYBACK_PROBES, y restore_all (o finish) devuelve el estado EXACTO.
+func test_full_run_toggles_apply_and_restore():
+	var prev_ui := OS.get_environment(PlaybackProbesScript.BENCH_NO_UI_ENV)
+	var prev_3d := OS.get_environment(PlaybackProbesScript.BENCH_NO_3D_ENV)
+	var prev_env := OS.get_environment(PlaybackProbesScript.BENCH_NO_ENV_ENV)
+	var prev_probes := OS.get_environment(PROBES_ENV)
+	OS.set_environment(PROBES_ENV, "")
+	OS.set_environment(PlaybackProbesScript.BENCH_NO_UI_ENV, "1")
+	OS.set_environment(PlaybackProbesScript.BENCH_NO_3D_ENV, "1")
+	OS.set_environment(PlaybackProbesScript.BENCH_NO_ENV_ENV, "1")
+
+	var world := Spatial.new()
+	add_child(world)
+	var cam := Camera.new()
+	world.add_child(cam)
+	cam.cull_mask = 0x1234
+	var layer := CanvasLayer.new()
+	world.add_child(layer)
+	var control := Control.new()
+	layer.add_child(control)
+	control.visible = true
+	var wenv := WorldEnvironment.new()
+	var env := Environment.new()
+	wenv.environment = env
+	world.add_child(wenv)
+
+	var probes = PlaybackProbesScript.new(get_tree(), false)
+	probes.camera_override = cam
+	assert_bool(probes.is_enabled()).is_false()
+	probes.apply_full_run_toggles()
+	assert_bool(layer.visible).is_false()
+	assert_bool(control.visible).is_false()
+	assert_int(cam.cull_mask).is_equal(0)
+	assert_bool(wenv.environment == null).is_true()
+	assert_int(probes.full_run_labels().size()).is_equal(3)
+
+	probes.restore_all()
+	assert_bool(layer.visible).is_true()
+	assert_bool(control.visible).is_true()
+	assert_int(cam.cull_mask).is_equal(0x1234)
+	assert_bool(wenv.environment == env).is_true()
+	# Idempotente: no queda nada aplicado.
+	probes.restore_all()
+	assert_int(cam.cull_mask).is_equal(0x1234)
+
+	# finish() tambien restaura los toggles aunque las sondas intercaladas esten apagadas.
+	var probes2 = PlaybackProbesScript.new(get_tree(), false)
+	probes2.camera_override = cam
+	probes2.apply_full_run_toggles()
+	assert_int(cam.cull_mask).is_equal(0)
+	assert_bool(probes2.finish().empty()).is_true()
+	assert_int(cam.cull_mask).is_equal(0x1234)
+
+	OS.set_environment(PlaybackProbesScript.BENCH_NO_UI_ENV, prev_ui)
+	OS.set_environment(PlaybackProbesScript.BENCH_NO_3D_ENV, prev_3d)
+	OS.set_environment(PlaybackProbesScript.BENCH_NO_ENV_ENV, prev_env)
+	OS.set_environment(PROBES_ENV, prev_probes)
+	world.queue_free()
 
 
 # Tarea HH: el medidor cuenta UPDATE_ALWAYS por frame y los PULSOS de UPDATE_ONCE una sola vez

@@ -208,25 +208,22 @@ export ODISEA_SNAPSHOT_PLAYBACK=user://snapshot_trace.bin
 export ODISEA_BOOT_SCENE=res://core_v2/levels/RingHub_Level.tscn
 ```
 
-### Sondas A/B del costo fijo (tarea FF)
+### Sondas A/B del costo fijo (tareas FF/GG/JJ)
 
-`ODISEA_PLAYBACK_PROBES=1` parte la traza en ventanas de 60 frames y en cada una apaga UNA
-cosa, restaurando el estado exacto al cerrarla: `3d` (cull_mask=0 en la cámara), `ui`
-(CanvasLayer + Controls ocultos), `env` (Environment del World/WorldEnvironment quitado),
-`scale` (render_scale 1.0) y `vsync` (OS.vsync_enabled=false), contra una ventana `base`
-sin tocar. Cada muestra de `replay_perf.json` sale con la etiqueta `sonda` y el resumen
-`{"sondas": {"probes": {<sonda>: {n, frame_ms_p50, render_ms_p50, *_delta}}}}` compara la
-mediana contra la base.
+`ODISEA_PLAYBACK_PROBES=1` **intercala** bloques cortos base/sonda (10 frames cada uno, con 2
+frames de descarte tras cada cambio) y rota las sondas a lo largo de TODO el recorrido, de modo
+que cada bloque de sonda se compara contra los bloques base ADYACENTES (delta pareado) y no
+contra una ventana fija que confundía variación de ruta con costo. Sondas: `3d` (cull_mask=0),
+`ui`, `env`, `scale`, `vsync` y una por subárbol de HUD (`subtree:widgets`, `subtree:mobileui`,
+`subtree:overlays`, `subtree:virtualmouse`, `subtree:debugconsole`, `subtree:vpalways`). Cada
+muestra de `replay_perf.json` sale con la etiqueta `sonda` y el resumen trae por sonda `n`,
+`blocks`, `frame_ms_p50`, `frame_ms_p50_delta` (mediana pareada) y `frame_ms_delta_p25/p75` (idem
+`render_ms`); al terminar se imprime el ranking por `frame_ms_p50_delta`.
 
-**Tarea GG — sondas por subárbol de HUD.** Después de las fijas, una ventana de 60 frames por
-subárbol: `subtree:widgets` (capa de `SuitOSWidgetHost`: widgets + shouldiers + ruler),
-`subtree:mobileui` (`MobileUIManager`, controles táctiles), `subtree:overlays`
-(`OverlayUIManager`: InfoOverlay y viñetas), `subtree:virtualmouse` (capa del cursor virtual),
-`subtree:debugconsole` (Viewport de la consola) y `subtree:vpalways` (todos los `Viewport` con
-`render_target_update_mode = ALWAYS`, que comparten el World y lo redibujan entero cada frame).
-Cada una oculta SOLO ese subárbol y mide el delta contra la base. Al terminar, además del
-resumen, se imprime el **ranking** por `frame_ms_p50_delta` (más negativo = más caro). Los
-subárboles ausentes se omiten.
+**Toggles de corrida completa (tarea JJ).** Para A/B verdaderos contra la mediana global, una
+cosa apagada TODA la corrida (se leen al arrancar el playback y se restauran exacto al salir):
+`ODISEA_BENCH_NO_UI=1` (todos los CanvasLayer/Controls de HUD), `ODISEA_BENCH_NO_3D=1`
+(cull_mask=0 en la cámara activa) y `ODISEA_BENCH_NO_ENV=1` (sin Environment).
 
 **Tarea GG — ahorros de UI en tier LOW.** `ODISEA_LOW_UI_OPT=0` apaga (A/B) los arreglos de UI
 del handheld; unset o `1` los deja activos solo en tier LOW: sin controles táctiles si la
@@ -235,6 +232,7 @@ plataforma no tiene pantalla táctil, widgets/Viewports de HUD animados a ~10 Hz
 Fuera de LOW no cambia nada.
 
 ```bash
+# ODISEA_BENCH_NO_UI=1 / ODISEA_BENCH_NO_3D=1 / ODISEA_BENCH_NO_ENV=1 (opcional)
 ODISEA_SNAPSHOT_PLAYBACK=user://snapshot_trace.bin \
 ODISEA_PLAYBACK_PROBES=1 \
 ODISEA_BOOT_SCENE=res://core_v2/levels/RingHub_Level.tscn

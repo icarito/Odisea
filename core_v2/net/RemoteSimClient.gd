@@ -156,8 +156,9 @@ var _playback_path: String = ""
 var _playback_parity: int = -1
 # Traza de perf por muestra, volcada a PLAYBACK_PERF_PATH al terminar el archivo.
 var _playback_samples: Array = []
-# FD-316 (tarea FF): sondas A/B del costo fijo de render. Solo existen durante el
-# playback y solo si ODISEA_PLAYBACK_PROBES=1 (PlaybackProbes las desactiva solo).
+# FD-316 (tareas FF/JJ): sondas A/B del costo fijo de render (intercaladas) y toggles de
+# corrida completa. Solo existen durante el playback (PlaybackProbes desactiva las sondas
+# solo; los toggles ODISEA_BENCH_* aplican aunque el intercalado no este pedido).
 var _probes = null
 var _playback_started_ms: int = 0
 # Tramos del frame del ultimo _process, para la muestra de perf (ver _sample_playback).
@@ -269,6 +270,9 @@ func start_snapshot_playback(path: String) -> bool:
 	_reset_render_session()
 	# Tarea FF: sondas A/B del costo de render (no-op si el env no las pide).
 	_probes = PlaybackProbesScript.new(get_tree())
+	# Tarea JJ: toggles de corrida completa (ODISEA_BENCH_NO_UI/NO_3D/NO_ENV), leidos recien
+	# aca; PlaybackProbes los revierte al terminar o cortar el playback.
+	_probes.apply_full_run_toggles()
 	set_process(true)
 	print("[RemoteSimClient] playback solo-render: ", path, " (", reader.count(), " snapshots)")
 	return true
