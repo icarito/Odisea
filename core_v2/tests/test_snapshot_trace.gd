@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 
 const RemoteProtocolScript = preload("res://core_v2/net/RemoteProtocol.gd")
 const SnapshotTraceScript = preload("res://core_v2/net/SnapshotTrace.gd")
+const RemoteSimClientScript = preload("res://core_v2/net/RemoteSimClient.gd")
 
 const TRACE_PATH := "user://test_snapshot_trace.bin"
 
@@ -50,5 +51,60 @@ func test_snapshot_trace_reader_decodes_incrementally():
 	assert_bool(reader.has_next()).is_false()
 	reader.close()
 
+	var dir := Directory.new()
+	dir.remove(TRACE_PATH)
+
+# Playback solo-render: el cliente alimenta el nivel desde el archivo (sin red), compromete
+# el mismo congelado del offload y aplica el transform del snapshot mas nuevo.
+func test_snapshot_playback_applies_without_network_and_freezes():
+	var level := Spatial.new()
+	level.name = "PlaybackLevel"
+	var box := Spatial.new()
+	box.name = "Box"
+	level.add_child(box)
+	var player := Spatial.new()
+	player.name = "Pilot"
+	player.add_to_group("player")
+	level.add_child(player)
+
+	var previous_scene = get_tree().current_scene
+	get_tree().root.add_child(level)
+	get_tree().current_scene = level
+
+	var snaps: Array = []
+	snaps.append(RemoteProtocolScript.create_sim_snapshot(0, 0, {
+		"Box": {"t": Transform(Basis(), Vector3(0, 0, 0))}}, {"snap_step": 2}))
+	snaps.append(RemoteProtocolScript.create_sim_snapshot(1, 16, {
+		"Box": {"t": Transform(Basis(), Vector3(3, 0, 0))}}, {"snap_step": 2}))
+	snaps.append(RemoteProtocolScript.create_sim_snapshot(2, 32, {
+		"Box": {"t": Transform(Basis(), Vector3(6, 0, 0))}}, {"snap_step": 2}))
+	SnapshotTraceScript.write(TRACE_PATH, snaps)
+
+	var client = auto_free(RemoteSimClientScript.new())
+	add_child(client)
+	assert_bool(client.start_snapshot_playback(TRACE_PATH)).is_true()
+	# Sin red: no escucha UDP ni tiene destino al que mandar input.
+	assert_bool(client.is_render_slave).is_true()
+	assert_bool(client._playback_active).is_true()
+	assert_int(client._listening_port).is_equal(0)
+	assert_str(client._target_ip).is_equal("")
+
+	# Se alimentan los ticks 0 y 2; el tick 1 se salta por el paso de la traza.
+	assert_bool(client._feed_next_playback_snapshot()).is_true()
+	assert_bool(client._feed_next_playback_snapshot()).is_true()
+	assert_bool(client.is_engaged()).is_true()
+	assert_bool(client._freezer.frozen_root_is(level)).is_true()
+
+	# El snapshot mas nuevo se aplica al nivel (alpha 1 sobre el tick 2).
+	client._render_tick = 2.0
+	client._render_interpolated()
+	assert_vector3(box.global_transform.origin).is_equal_approx(
+		Vector3(6, 0, 0), Vector3.ONE * 0.001)
+
+	client.stop_render_slave()
+	assert_bool(client._freezer.is_frozen()).is_false()
+	if previous_scene != null:
+		get_tree().current_scene = previous_scene
+	level.queue_free()
 	var dir := Directory.new()
 	dir.remove(TRACE_PATH)

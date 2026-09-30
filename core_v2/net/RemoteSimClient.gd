@@ -8,6 +8,7 @@ signal snapshot_applied(tick)
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 var SimLogicFreeze = load("res://core_v2/net/SimLogicFreeze.gd")
 var RemoteSimStats = load("res://core_v2/net/RemoteSimStats.gd")
+const SnapshotTraceScript = preload("res://core_v2/net/SnapshotTrace.gd")
 
 export var is_render_slave: bool = false
 
@@ -132,12 +133,46 @@ var _profile_ab_last_ms: int = 0
 # Ranking acumulado: name -> mayor caida de vertices medida en cualquier ventana.
 var _profile_ab_ranking: Dictionary = {}
 
+# FD-316 (tarea DD): playback solo-render de una traza de snapshots (ODISEA_SNAPSHOT_PLAYBACK).
+# El esclavo entra al mismo estado del offload (SimLogicFreeze + fisica apagada + audio del
+# rol) pero, en vez de UDP, se alimenta del archivo a PLAYBACK_HZ de reloj con la
+# interpolacion existente. No hay red: _target_ip queda vacio y no se escucha ningun puerto.
+const PLAYBACK_HZ := 30.0
+# La traza graba cada tick (60 Hz); el playback alimenta uno de cada PLAYBACK_TRACE_STEP para
+# respetar el par de interpolacion de 2 ticks del offload real.
+const PLAYBACK_TRACE_STEP := 2
+# Tope de snapshots alimentados por frame si un frame salio larguisimo (no colgar el loop).
+const PLAYBACK_MAX_PER_FRAME := 4
+const PLAYBACK_PERF_PATH := "user://replay_perf.json"
+# Ruta pedida por env; se resuelve cuando el nivel ya tiene jugador (ver _process).
+var _playback_requested: String = ""
+var _playback_reader = null
+var _playback_active: bool = false
+var _playback_finished: bool = false
+var _playback_accum: float = 0.0
+var _playback_path: String = ""
+# Paridad del primer tick leido, para tomar un tick de cada PLAYBACK_TRACE_STEP.
+var _playback_parity: int = -1
+# Traza de perf por muestra, volcada a PLAYBACK_PERF_PATH al terminar el archivo.
+var _playback_samples: Array = []
+var _playback_started_ms: int = 0
+# Tramos del frame del ultimo _process, para la muestra de perf (ver _sample_playback).
+var _last_script_us: int = 0
+var _last_apply_us: int = 0
+var _last_interp_us: int = 0
+
 func _ready() -> void:
 	# Aplicar el snapshot DESPUES de cualquier otro _process del frame (camara incluida):
 	# la autoridad manda sobre lo que quede corriendo en local.
 	process_priority = 1000
 	set_process(false)
 	_profile_enabled = OS.get_environment("ODISEA_SLAVE_PROFILE") == "1"
+	# FD-316 (tarea DD): playback de la traza de snapshots (benchmark del render-esclavo).
+	# Se arranca solo cuando el nivel ya tiene jugador (ver _process): al bootear, la
+	# escena todavia no existe.
+	_playback_requested = OS.get_environment("ODISEA_SNAPSHOT_PLAYBACK").strip_edges()
+	if _playback_requested != "":
+		set_process(true)
 	# Tarea M: el inicio corre antes que cualquier _process del arbol (prioridad minima) y
 	# el fin despues del propio cliente (prioridad maxima): la resta es el tramo de scripts.
 	_probe_start = _FrameProbe.new(self, false)
@@ -158,6 +193,18 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 			printerr("[RemoteSimClient] UDP listen failed on port ", _listening_port, " err=", err)
 			return false
 
+	_reset_render_session()
+
+	# El rol se abre solo para ESCUCHAR: fisica, audio e interaccion siguen locales
+	# hasta que llegue el primer snapshot valido (FD-316 paso 3).
+
+	set_process(true)
+	return true
+
+# Estado de una sesion nueva de render-esclavo: par de interpolacion, reloj de render,
+# stats y latches. Compartido por el rol de red (start_render_slave) y el playback local
+# (start_snapshot_playback), para que no diverjan.
+func _reset_render_session() -> void:
 	is_render_slave = true
 	_engaged = false
 	# Sesion nueva: el aviso del driver de audio sale una vez por offload.
@@ -193,13 +240,35 @@ func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_
 	_stats_last_recv_tick = -1
 	_stats_last_recv_ms = 0
 
-	# El rol se abre solo para ESCUCHAR: fisica, audio e interaccion siguen locales
-	# hasta que llegue el primer snapshot valido (FD-316 paso 3).
-
+# FD-316 (tarea DD): reproduce una traza de snapshots SIN red. Mismo congelado que el
+# offload real (lo dispara el primer snapshot al comprometerse), pero la fuente es el
+# archivo: no se escucha UDP ni se manda input. El nivel ya tiene que estar cargado
+# (ODISEA_BOOT_SCENE o el flujo normal); _process espera a que exista jugador.
+func start_snapshot_playback(path: String) -> bool:
+	var reader = SnapshotTraceScript.Reader.new(path)
+	if not reader.is_open() or reader.count() <= 0:
+		printerr("[RemoteSimClient] playback: traza invalida o vacia: ", path)
+		return false
+	# Sin red: no hay puerto que escuchar ni destino al que mandar sim_input.
+	_listening_port = 0
+	_target_ip = ""
+	_target_port = 0
+	_token = ""
+	_playback_reader = reader
+	_playback_active = true
+	_playback_finished = false
+	_playback_accum = 0.0
+	_playback_parity = -1
+	_playback_path = path
+	_playback_samples = []
+	_playback_started_ms = OS.get_ticks_msec()
+	_reset_render_session()
 	set_process(true)
+	print("[RemoteSimClient] playback solo-render: ", path, " (", reader.count(), " snapshots)")
 	return true
 
 func stop_render_slave() -> void:
+	_stop_playback()
 	is_render_slave = false
 	_engaged = false
 	# Tarea G: sin par de snapshots ni reloj de render que sigan corriendo.
@@ -429,6 +498,10 @@ func _update_interp_pair() -> void:
 		_render_tick = target
 
 func _process(delta: float) -> void:
+	# FD-316 (tarea DD): el playback pedido por env arranca cuando el nivel ya tiene
+	# jugador (en el menu todavia no hay escena que congelar).
+	if _playback_requested != "" and not is_render_slave:
+		_try_start_requested_playback()
 	if not is_render_slave:
 		return
 
@@ -445,7 +518,10 @@ func _process(delta: float) -> void:
 	_stats.add("vertices_in_frame", float(Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME)))
 	_stats.add("node_count", float(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)))
 	var poll_started_us := OS.get_ticks_usec()
-	_poll_udp()
+	if _playback_active:
+		_poll_playback(delta)
+	else:
+		_poll_udp()
 	var poll_us := OS.get_ticks_usec() - poll_started_us
 
 	# El player pudo cambiar de escena (o no existir al arrancar el rol): reintentar
@@ -463,6 +539,7 @@ func _process(delta: float) -> void:
 	# velocidad/wish del animator, linterna) se aplica solo del snapshot mas nuevo, una
 	# vez por snapshot. Las transforms (entidades, rig, camara) se interpolan por frame.
 	var apply_started_us := OS.get_ticks_usec()
+	var interp_us := 0
 	if _has_new_snapshot and not _snap_to.empty():
 		_has_new_snapshot = false
 		_apply_snapshot_globals(_snap_to)
@@ -471,9 +548,14 @@ func _process(delta: float) -> void:
 		_advance_render_clock(delta)
 		var interp_started_us := OS.get_ticks_usec()
 		_render_interpolated()
-		_stats.add("interp_us", float(OS.get_ticks_usec() - interp_started_us))
-	_stats.add("apply_us", float(poll_us + (OS.get_ticks_usec() - apply_started_us)))
+		interp_us = OS.get_ticks_usec() - interp_started_us
+		_stats.add("interp_us", float(interp_us))
+	var apply_us := poll_us + (OS.get_ticks_usec() - apply_started_us)
+	_stats.add("apply_us", float(apply_us))
 	_stats.tally("apply_count")
+	# Tramos del frame del playback para la muestra de perf (ver _build_playback_sample).
+	_last_interp_us = interp_us
+	_last_apply_us = apply_us
 	# El _physics_process del Pilot esta congelado: el animator se alimenta aca con la
 	# velocidad de la autoridad que llego en el snapshot (si no, se queda en idle).
 	if _engaged:
@@ -487,6 +569,8 @@ func _process(delta: float) -> void:
 	_flush_profile(now_ms)
 	# Tarea P: A/B de visibilidad, una medicion por ventana (rotando los hijos).
 	_profile_ab_step(now_ms)
+	if _playback_active:
+		_playback_samples.append(_build_playback_sample(delta))
 
 # FD-316 (tarea N): acciones discretas del InputMap que no viajan en el frame del sim_input
 # (move/jump/interact/sprint/crouch/camara). El flanco viaja por el WS confiable a la
@@ -634,6 +718,96 @@ func _poll_udp() -> void:
 		var expected_packets: int = (skipped + 1) if i == 0 else 1
 		var dict = RemoteProtocol.decode_packet(batch[i]["pkt"])
 		_handle_udp_packet(String(batch[i]["ip"]), dict, batch[i]["pkt"].size(), expected_packets)
+
+# FD-316 (tarea DD): alimenta el playback desde el archivo de a PLAYBACK_HZ de reloj.
+# Consume el archivo de a un snapshot por intervalo (tomando uno de cada
+# PLAYBACK_TRACE_STEP) y lo pasa por receive_snapshot, asi el congelado, la aplicacion de
+# globals y la interpolacion son exactamente las del offload real. Al agotarse el archivo,
+# cierra la reproduccion.
+func _poll_playback(delta: float) -> void:
+	_playback_accum += delta
+	var interval := 1.0 / PLAYBACK_HZ
+	var fed := 0
+	while _playback_accum >= interval and fed < PLAYBACK_MAX_PER_FRAME:
+		_playback_accum -= interval
+		fed += 1
+		if not _feed_next_playback_snapshot():
+			_finish_playback()
+			return
+
+# Toma el proximo snapshot de la traza con la paridad de tick del playback (paso 2). Los
+# ticks intermedios se descartan: el par de interpolacion queda con span de 2 ticks, igual
+# que con el host emitiendo a 30 Hz. Devuelve false cuando el archivo se agoto.
+func _feed_next_playback_snapshot() -> bool:
+	if _playback_reader == null:
+		return false
+	while _playback_reader.has_next():
+		var snap: Dictionary = _playback_reader.next()
+		if snap.empty() or not snap.has("tick"):
+			continue
+		var tick := int(snap["tick"])
+		if _playback_parity < 0:
+			_playback_parity = tick % PLAYBACK_TRACE_STEP
+		if tick % PLAYBACK_TRACE_STEP != _playback_parity:
+			continue
+		# Contrato del playback: la interpolacion espera un intervalo de 2 ticks.
+		var globals = snap.get("globals", null)
+		if globals is Dictionary:
+			globals["snap_step"] = PLAYBACK_TRACE_STEP
+		receive_snapshot(snap)
+		return true
+	return false
+
+# Fin de la traza: vuelca la traza de perf y sale del juego. quit_game=false es el seam de
+# los tests (no pueden matar el runner).
+func _finish_playback(quit_game: bool = true) -> void:
+	if _playback_finished:
+		return
+	_playback_finished = true
+	_write_playback_perf()
+	_stop_playback()
+	if quit_game:
+		print("[RemoteSimClient] playback terminado: saliendo")
+		get_tree().quit(0)
+
+func _stop_playback() -> void:
+	_playback_active = false
+	_playback_finished = false
+	_playback_accum = 0.0
+	_playback_parity = -1
+	if _playback_reader != null:
+		_playback_reader.close()
+	_playback_reader = null
+
+# Vuelca la traza de perf por muestra del playback (fps, frame_ms, script/render/apply/
+# interp, draw_calls, vertices, objetos) en user://replay_perf.json.
+func _write_playback_perf() -> void:
+	var f := File.new()
+	if f.open(PLAYBACK_PERF_PATH, File.WRITE) != OK:
+		printerr("[RemoteSimClient] no se pudo escribir ", PLAYBACK_PERF_PATH)
+		return
+	f.store_string(JSON.print({
+		"modo": "snapshot_playback",
+		"traza": _playback_path,
+		"duracion_ms": OS.get_ticks_msec() - _playback_started_ms,
+		"total": _playback_samples.size(),
+		"muestras": _playback_samples
+	}))
+	f.close()
+	print("[RemoteSimClient] traza de perf del playback: ", PLAYBACK_PERF_PATH,
+		" (", _playback_samples.size(), " muestras)")
+
+# Se arranca el playback pedido por env recien cuando el nivel esta cargado y tiene
+# jugador: en el arranque (menu) no hay nada que congelar ni a quien aplicar el snapshot.
+func _try_start_requested_playback() -> void:
+	var tree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	if _get_player() == null:
+		return
+	if not start_snapshot_playback(_playback_requested):
+		# Traza invalida: no reintentar en loop cada frame.
+		_playback_requested = ""
 
 # FD-316: un snapshot sin el token de la sesion se descarta por completo: no se aplica
 # ni se adopta su IP de origen como destino (suplantacion del sim host, riesgo "Sin auth").
@@ -896,7 +1070,30 @@ func _stats_ack(seq: int) -> void:
 func _on_frame_probe(script_us: int) -> void:
 	if script_us < 0:
 		return
+	_last_script_us = script_us
 	_stats.add("script_us", float(script_us))
+
+# FD-316 (tarea DD): muestra de perf de un frame del playback. frame_ms sale del delta
+# real; script_ms del probe de scripts; render_ms es el remanente (render/swap/driver),
+# acotado a >= 0 igual que en _flush_client_stats; apply/interp son los tramos medidos en
+# _process; los contadores del motor son el ultimo valor del frame.
+func _build_playback_sample(delta: float) -> Dictionary:
+	var frame_ms := delta * 1000.0
+	var script_ms := float(_last_script_us) / 1000.0
+	var physics_ms := float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000.0
+	return {
+		"tick": _latest_applied_tick,
+		"frame_ms": frame_ms,
+		"fps": 1000.0 / max(frame_ms, 0.001),
+		"script_ms": script_ms,
+		"physics_ms": physics_ms,
+		"render_ms": max(0.0, frame_ms - script_ms - physics_ms),
+		"apply_ms": float(_last_apply_us) / 1000.0,
+		"interp_ms": float(_last_interp_us) / 1000.0,
+		"draw_calls": float(Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)),
+		"vertices": float(Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME)),
+		"objects": float(Performance.get_monitor(Performance.RENDER_OBJECTS_IN_FRAME))
+	}
 
 # Cierra la ventana cada RemoteSimStats.WINDOW_MS con UNA linea, publica el dict en
 # last_stats (telemetria ANNAV2) y resetea los acumuladores para la ventana siguiente.

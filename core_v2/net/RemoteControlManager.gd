@@ -118,6 +118,18 @@ func _ready():
 		remote_control_enabled = false
 		set_process(false)
 		return
+	# FD-316 (tarea DD): modo benchmark del render-esclavo. Sin red ni roles: el cliente
+	# reproduce solo-render la traza de snapshots en este mismo device (ver
+	# RemoteSimClient.start_snapshot_playback). No se levantan announcer/server/discovery.
+	if OS.get_environment("ODISEA_SNAPSHOT_PLAYBACK").strip_edges() != "":
+		print("[RemoteControlManager] ODISEA_SNAPSHOT_PLAYBACK: modo playback local (sin red)")
+		remote_control_enabled = false
+		if RemoteSimClient != null:
+			sim_client = RemoteSimClient.new()
+			sim_client.name = "RemoteSimClient"
+			add_child(sim_client)
+		set_process(false)
+		return
 	# Tier LOW (handheld lento): solo se cae el HOST. Nadie va a manejar el handheld
 	# desde otro equipo, y announcer/server/bridge cuestan _process por frame mas el
 	# broadcast UDP y los puertos. El CLIENTE si va: el handheld es un mando comodo
