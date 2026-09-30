@@ -6,6 +6,7 @@ class_name CryoPodUI
 # placeholders vectoriales). La animacion es pura funcion de _time, sin buffer de muestras.
 
 const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 const HeadingFont = preload("res://assets/fonts/Heading_Font.tres")
 const SmallFontTemplate = preload("res://assets/fonts/Silkscreen_Regular_20.tres")
 
@@ -60,6 +61,11 @@ var _hatch_busy := false
 # _build_imgui_screen() de abajo nunca llegue a llamarse) — medido: hacia fallar
 # test_pod_has_a_single_interactable_covering_the_capsule por corrupcion silenciosa del
 # arbol de escena. load() diferido evita compilarlo salvo que el modulo ya este.
+#
+# FD-316 (tarea NN): en el tier LOW (A/B ODISEA_LOW_UI_OPT) no se monta ImGuiCanvas: se
+# queda el camino clasico de este _draw() a 10 Hz. El frame de ImGui (armar + subir la
+# geometria de todos los widgets/fuentes) costaba ~9 ms/frame en el Anbernic, medido con
+# el playback reproducible, y el contenido clasico es el mismo. Fuera de LOW nada cambia.
 const CryoPodImGuiPath := "res://core_v2/props/criopod/CryoPodImGui.gd"
 var _imgui_screen = null
 
@@ -69,7 +75,7 @@ func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS  # el modo HUD pausa el arbol; el pulso sigue vivo
 	_body_font = small_font(20)
 	_big_font = small_font(56)
-	if ClassDB.class_exists("ImGuiCanvas"):
+	if ClassDB.class_exists("ImGuiCanvas") and not LowUiOptScript.enabled():
 		_build_imgui_screen()
 	if _hatch_button != null and not _hatch_button.is_connected("pressed", self, "_on_hatch_pressed"):
 		_hatch_button.connect("pressed", self, "_on_hatch_pressed")

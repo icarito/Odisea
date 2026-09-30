@@ -27,6 +27,8 @@ const DESIGN := Vector2(1024.0, 640.0)
 
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
+# FD-316 (tarea NN): en LOW el input no rearma el frame de ImGui (ver LowUiOpt.imgui_input_hz).
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 # Estilo diegetico del ECG (Paso 12b, monitor de fosforo): gateado a v0.5.4-nightly2
 # (ImGuiOdiseaTheme.supported() == has_method("implot_set_next_line_style")). Sin esa
@@ -53,7 +55,7 @@ func _ready() -> void:
 	call_deferred("_announce_shader_cursor")
 	pause_mode = Node.PAUSE_MODE_PROCESS  # el pulso del ECG sigue vivo con el arbol pausado
 	set_update_hz(10.0)
-	set_input_hz(30.0)
+	set_input_hz(LowUiOptScript.imgui_input_hz())
 	# Titulo Sixtyfour 36px (igual que CryoPodUI.HeadingFont); cuerpo/numeros a
 	# ProggyClean (default de ImGui) en el motor que lo soporte, Silkscreen si no -- ver
 	# ImGuiOdiseaFonts.gd. body=20 (rotulos), numbers=56 (BPM grande).

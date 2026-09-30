@@ -14,6 +14,9 @@ const LowViewportOptimizerScript = preload("res://core_v2/ui/hud/LowViewportOpti
 # Tarea MM: pantalla de terminal (HoloTerminalV2) con resolucion reducida y refresco visible
 # espaciado en tier LOW.
 const WallTerminalScene = preload("res://core_v2/props/controls/WallTerminal.tscn")
+# Tarea NN: el panel de la criocapsula (CryoPodUI) en LOW usa el camino clasico de _draw en
+# vez del canvas ImGui.
+const CryoPodUIScene = preload("res://core_v2/props/criopod/CryoPodUI.tscn")
 
 var _gate_prev := {}
 var _sm_prev := false
@@ -362,3 +365,47 @@ func test_terminal_viewport_reduced_and_spaced_in_low() -> void:
 	assert_vector2(vp.size).is_equal(nominal)
 
 	terminal.queue_free()
+
+
+# Tarea NN: en LOW la criocapsula no monta el canvas ImGui: queda el camino clasico de
+# _draw a 10 Hz (mismo contenido, sin el frame de ImGui por tick). Fuera de LOW se monta
+# CryoPodImGui como siempre (con ImGuiCanvas en el motor).
+func test_cryopod_ui_uses_classic_path_in_low() -> void:
+	_set_low(true)
+	var ui = CryoPodUIScene.instance()
+	add_child(ui)
+	yield(get_tree(), "idle_frame")
+	assert_object(ui.get("_imgui_screen")).is_null()
+	assert_object(get_node_or_null("CryoPodImGui")).is_null()
+	assert_bool(ui.get_node("HatchButton").visible).is_true()
+	ui.free()
+
+	if not ClassDB.class_exists("ImGuiCanvas"):
+		_set_low(false)
+		return
+
+	_set_low(false)
+	var ui_imgui = CryoPodUIScene.instance()
+	add_child(ui_imgui)
+	yield(get_tree(), "idle_frame")
+	var canvas = get_node_or_null("CryoPodImGui")
+	assert_object(ui_imgui.get("_imgui_screen")).is_not_null()
+	assert_object(canvas).is_not_null()
+	assert_bool(ui_imgui.get_node("HatchButton").visible).is_false()
+	if canvas != null:
+		canvas.free()
+	ui_imgui.free()
+
+
+# Tarea NN: el input deja de rearmar el frame de ImGui en LOW (lo unico que lo arma es
+# update_hz); fuera de LOW conserva la tasa pedida.
+func test_imgui_input_hz_throttled_in_low() -> void:
+	_set_low(true)
+	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(0.0)
+	assert_float(LowUiOptScript.imgui_input_hz(15.0)).is_equal(0.0)
+	OS.set_environment(LowUiOptScript.ENV, "0")
+	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(30.0)
+	OS.set_environment(LowUiOptScript.ENV, "")
+	_set_low(false)
+	assert_float(LowUiOptScript.imgui_input_hz()).is_equal(30.0)
+	assert_float(LowUiOptScript.imgui_input_hz(15.0)).is_equal(15.0)

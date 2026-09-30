@@ -12,6 +12,8 @@ const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const ProtocolModel = preload("res://core_v2/ui/hud/ProtocolModel.gd")
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
+# FD-316 (tarea NN): en LOW el input no rearma el frame de ImGui (ver LowUiOpt.imgui_input_hz).
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 const DESIGN := Vector2(520.0, 420.0)
 const ROW_STEP := 46.0
@@ -28,7 +30,7 @@ var _white_tex: ImageTexture = null
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	set_update_hz(10.0)
-	set_input_hz(30.0)
+	set_input_hz(LowUiOptScript.imgui_input_hz())
 	# Titulo en Sixtyfour (rol titulo); cuerpo a ProggyClean/Silkscreen -- ver
 	# ImGuiOdiseaFonts.gd. Igual escala que la Linterna (20/20).
 	var fonts := ImGuiOdiseaFonts.setup(self, 20.0, -1.0, 20.0)

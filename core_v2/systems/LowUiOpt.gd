@@ -29,6 +29,16 @@ const VIEWPORT_SCALE := 1.0 / 3.0
 static func env_off() -> bool:
 	return OS.get_environment(ENV).strip_edges() == "0"
 
+# ImGuiCanvas (CryoPodImGui, Flashlight*, Protocol*, DebugHud*): update_hz ya espacia el
+# frame de ImGui, pero input_hz > 0 lo vuelve a armar mientras haya input reciente (250 ms);
+# en el handheld hay input casi continuo (stick/pad), asi que a 30 Hz el frame se rearma
+# casi cada tick y sube geometria igual. En LOW se apaga (0): el unico refresco es el
+# periodico de update_hz. Fuera de LOW queda el valor pedido.
+const IMGUI_INPUT_HZ := 30.0
+
+static func imgui_input_hz(base: float = IMGUI_INPUT_HZ) -> float:
+	return 0.0 if enabled() else base
+
 # Resuelve el gate por el arbol (mismo camino que HudViewMount.widget_alpha) para poder
 # usarse tambien desde scripts que no son Node.
 static func gate_low() -> bool:

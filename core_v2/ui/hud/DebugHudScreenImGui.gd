@@ -12,6 +12,8 @@ extends ImGuiCanvas
 const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
+# FD-316 (tarea NN): en LOW el input no rearma el frame de ImGui (ver LowUiOpt.imgui_input_hz).
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 const DESIGN := Vector2(640.0, 460.0)
 const SERIES_LEN := 90 # ~45s a 2 Hz de resampleo (ver DebugMetrics), de sobra para ver tendencia
@@ -36,7 +38,7 @@ var small_font := -1
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	set_update_hz(4.0) # metricas de sobra a menos de la mitad del framerate: no es un juego de reflejos
-	set_input_hz(15.0)
+	set_input_hz(LowUiOptScript.imgui_input_hz(15.0))
 	# "DIAGNOSTICO DE TRAJE" en Sixtyfour (rol titulo); resto (subtitulo, labels de
 	# curvas, tabla) a ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
 	var fonts := ImGuiOdiseaFonts.setup(self, 18.0, -1.0, 18.0)

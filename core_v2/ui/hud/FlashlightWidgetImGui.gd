@@ -18,6 +18,8 @@ const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 const HudViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
 const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
+# FD-316 (tarea NN): en LOW el input no rearma el frame de ImGui (ver LowUiOpt.imgui_input_hz).
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 const PANEL_SIZE := Vector2(210.0, 80.0)
 
@@ -54,7 +56,7 @@ static func _format_battery_bar(val: float, max_val: float) -> String:
 
 func _ready() -> void:
 	set_update_hz(10.0)
-	set_input_hz(30.0)
+	set_input_hz(LowUiOptScript.imgui_input_hz())
 	# Titulo ("Linterna") en Sixtyfour, igual escala que el resto del widget compacto;
 	# cuerpo (bateria/estado) a ProggyClean/Silkscreen -- ver ImGuiOdiseaFonts.gd.
 	var fonts := ImGuiOdiseaFonts.setup(self, ImGuiOdiseaFonts.WIDGET_FONT_PX, -1.0, ImGuiOdiseaFonts.WIDGET_FONT_PX)
