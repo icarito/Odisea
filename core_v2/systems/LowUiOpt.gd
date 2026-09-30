@@ -5,7 +5,8 @@ extends Reference
 # El HUD 2D cuesta ~15 ms por frame en el Anbernic (render-esclavo, medido con las sondas de
 # PlaybackProbes). Estos arreglos solo aplican al perfil LOW y se pueden apagar en el mismo
 # device para el A/B:
-#   - controles tactiles que no se dibujan si la plataforma no tiene pantalla tactil,
+#   - controles tactiles que no se dibujan hasta el primer toque real (el hint del SO mentia
+#     en el Anbernic FRT/SDL y los instanciaba igual),
 #   - widgets y Viewports de HUD animados a ~10 Hz (UPDATE_ONCE periodico) en vez de cada frame,
 #   - shaders de CanvasItem caros (viñetas de pantalla completa) con la variante sin SCREEN_TEXTURE,
 #   - fuentes con sombra dinamica (subtitulos) sin sombra.

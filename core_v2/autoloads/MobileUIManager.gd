@@ -33,8 +33,11 @@ var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
 var _is_mobile := false
 var _is_touch_active := false
-# Tarea GG: la plataforma tiene pantalla tactil (seam para tests: se puede pisar).
-var _has_touchscreen := false
+# Tarea HH: llego al menos un InputEventScreenTouch real. No se usa OS.has_touchscreen_ui_hint()
+# como gate porque miente: en el Anbernic (FRT/SDL, RG351V sin pantalla tactil) devuelve true y
+# los controles tactiles quedaban instanciados como overdraw puro en tier LOW. Seam para tests:
+# se puede pisar para simular que ya hubo un toque.
+var _touch_seen := false
 var _touch_idle_timer := 0.0
 var _touch_pointer_until := 0
 var _touch_trackers := [] # controles tactiles que llevan su propio _touch_index
@@ -54,12 +57,12 @@ var _ui_fade_speed := 0.0
 
 func _ready() -> void:
 	layer = 100
-	_has_touchscreen = OS.has_touchscreen_ui_hint()
 	
-	# En desktop con pantalla tactil (ej. un notebook con touch), has_touchscreen_ui_hint()
-	# ya da true al arrancar y la UI movil aparecia sin que el jugador tocara nada. Solo
-	# Android/iOS arrancan mobile de una; el resto de plataformas tactiles se activan
-	# recien con el primer touch real, via _input() mas abajo.
+	# Solo Android/iOS son tactiles por plataforma y arrancan mobile de una. El resto de
+	# plataformas con pantalla tactil —o que MIENTEN diciendo que la tienen, como el Anbernic
+	# FRT/SDL— se activan recien con el primer InputEventScreenTouch real (ver _input mas
+	# abajo). No se consulta OS.has_touchscreen_ui_hint(): en el Anbernic daba true sin
+	# pantalla tactil y dejaba los controles como overdraw puro en tier LOW.
 	_is_mobile = OS.get_name() == "Android" or OS.get_name() == "iOS"
 	_is_touch_active = _is_mobile
 	_touch_idle_timer = 0.0
@@ -75,13 +78,16 @@ func _input(event: InputEvent) -> void:
 	# Antes de que este mismo toque prenda el modo tactil: solo se despeja lo que ya estaba a la vista.
 	var was_touch_active := _is_touch_active
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_touch_seen = true
 		_touch_idle_timer = 0.0
 		_touch_pointer_until = OS.get_ticks_msec() + TOUCH_POINTER_GRACE_MSEC
+		var ui_was_visible := is_instance_valid(_mobile_ui) and _mobile_ui.visible
 		if not _is_touch_active:
 			_activate_touch()
 		_suspend_mouse_capture()
 		if event is InputEventScreenTouch:
 			_track_clear_tap(event, was_touch_active)
+			_reinject_first_touch(event, ui_was_visible)
 	elif event is InputEventMouseMotion and _is_touch_active and not _is_mobile:
 		# Histeresis: el mouse de verdad recupera el mando en el acto, sin esperar el timeout.
 		# El puntero fantasma del touch tambien manda motion, asi que se descarta con la ventana
@@ -106,6 +112,35 @@ func _track_clear_tap(event: InputEventScreenTouch, was_touch_active: bool) -> v
 			and event.position.distance_to(_clear_tap_start) <= CLEAR_TAP_MAX_DISTANCE \
 			and not _player_has_interactable():
 		_deactivate_touch()
+
+# Tarea HH: en web/desktop tactil la UI nace con este mismo toque, asi que los controles no
+# existian cuando el evento paso por la GUI y el primer toque se perderia (solo revelaria la UI).
+# Se re-inyecta UNA vez para que llegue a su control (joystick/boton). Android/iOS ya tenian la
+# UI y no se re-inyecta nada para no duplicar el toque; un toque en zona vacia tampoco (ese solo
+# muestra la UI). La re-inyeccion vuelve a entrar aca, pero con la UI ya visible no se repite.
+func _reinject_first_touch(event: InputEventScreenTouch, ui_was_visible: bool) -> void:
+	if not event.pressed or _is_mobile or ui_was_visible:
+		return
+	if not is_instance_valid(_mobile_ui) or not _mobile_ui.visible:
+		return
+	if not is_point_on_touch_controls(event.position):
+		return
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return
+	# SceneTree.input_event() espera coordenadas de VENTANA y las re-escala a viewport (relacion
+	# window_size/size del root). El evento que llega a _input ya viene en espacio de viewport,
+	# asi que se le deshace esa escala para que el toque re-inyectado caiga donde el jugador lo
+	# apoyo (importa con render_scale / content scale, como en el Anbernic).
+	var reinjected: InputEventScreenTouch = event.duplicate() as InputEventScreenTouch
+	if reinjected == null:
+		return
+	var window := Vector2(OS.window_size)
+	var viewport_size := tree.root.size
+	if window.x > 0.0 and window.y > 0.0 and viewport_size.x > 0.0 and viewport_size.y > 0.0:
+		reinjected.position = Vector2(event.position.x * window.x / viewport_size.x,
+			event.position.y * window.y / viewport_size.y)
+	tree.input_event(reinjected)
 
 # Nada que tocar ahi: ni un control tactil ni un widget de slot.
 func _is_empty_screen_point(point: Vector2) -> bool:
@@ -217,7 +252,7 @@ func _spawn_mobile_ui() -> void:
 	if _mobile_ui:
 		return
 	if _touch_ui_suppressed():
-		# Tarea GG: sin pantalla tactil en tier LOW no se instancia siquiera la escena.
+		# Tarea HH: sin touch real en tier LOW no se instancia siquiera la escena.
 		return
 	_mobile_ui = MobileUI.instance()
 	add_child(_mobile_ui)
@@ -258,7 +293,7 @@ func _is_script_cinematic_active() -> bool:
 	return false
 
 func _refresh_mobile_ui_visibility() -> void:
-	# Tarea GG: en tier LOW sin pantalla tactil los controles no se dibujan (ni interceptan
+	# Tarea HH: en tier LOW sin un touch real visto los controles no se dibujan (ni interceptan
 	# toques). Fuera de LOW o con ODISEA_LOW_UI_OPT=0 se comporta como siempre.
 	if _touch_ui_suppressed():
 		if is_instance_valid(_mobile_ui):
@@ -331,11 +366,11 @@ func _is_ui_fade_enabled() -> bool:
 		return true
 	return not bool(gate.is_low_tier())
 
-# Tarea GG: en tier LOW sobre una plataforma sin pantalla tactil (el Anbernic con pad fisico),
-# los controles tactiles son overdraw puro: no se dibujan ni se instancian. Fuera de LOW o con
-# ODISEA_LOW_UI_OPT=0 siguen como siempre. `_has_touchscreen` es el seam para tests.
+# Tarea HH: sin un InputEventScreenTouch real visto, los controles tactiles no se dibujan ni se
+# procesan (ni se instancian). Android/iOS se saben tactiles por plataforma y arrancan activos.
+# Fuera de LOW o con ODISEA_LOW_UI_OPT=0 no cambia nada. `_touch_seen` es el seam para tests.
 func _touch_ui_suppressed() -> bool:
-	return LowUiOptScript.enabled() and not _has_touchscreen
+	return LowUiOptScript.enabled() and not _is_mobile and not _touch_seen
 
 func _mobile_ui_container() -> Control:
 	if not is_instance_valid(_mobile_ui):

@@ -86,19 +86,27 @@ func test_low_hz_tick_throttles_only_in_low() -> void:
 	OS.set_environment(LowUiOptScript.ENV, "")
 
 
-# En LOW sin pantalla tactil la UI tactil queda suprimida; con el A/B en 0 no se suprime.
+# En LOW sin un touch real visto la UI tactil queda suprimida; con el A/B en 0 no se suprime.
+# Tarea HH: el gate ya no es OS.has_touchscreen_ui_hint() (mentia en el Anbernic) sino el
+# primer InputEventScreenTouch real (`_touch_seen`).
 func test_mobile_ui_suppressed_without_touchscreen_in_low() -> void:
 	var mobile = get_node_or_null("/root/MobileUIManager")
 	assert_object(mobile).is_not_null()
 	if mobile == null:
 		return
-	var prev_touchscreen = mobile._has_touchscreen
-	mobile._has_touchscreen = false
+	var prev_touch_seen = mobile._touch_seen
+	var prev_mobile: bool = mobile._is_mobile
+	mobile._touch_seen = false
+	mobile._is_mobile = false
 
 	_set_low(true)
 	assert_bool(mobile._touch_ui_suppressed()).is_true()
 	mobile._activate_touch()
 	assert_bool(mobile.is_touch_active()).is_false()
+	# Un touch real visto la desuprime aunque la plataforma no se declare tactil.
+	mobile._touch_seen = true
+	assert_bool(mobile._touch_ui_suppressed()).is_false()
+	mobile._touch_seen = false
 
 	OS.set_environment(LowUiOptScript.ENV, "0")
 	assert_bool(mobile._touch_ui_suppressed()).is_false()
@@ -107,7 +115,8 @@ func test_mobile_ui_suppressed_without_touchscreen_in_low() -> void:
 	_set_low(false)
 	assert_bool(mobile._touch_ui_suppressed()).is_false()
 
-	mobile._has_touchscreen = prev_touchscreen
+	mobile._touch_seen = prev_touch_seen
+	mobile._is_mobile = prev_mobile
 
 
 # Los subtitulos pierden la sombra dinamica en LOW y la conservan fuera de LOW / con el A/B en 0.

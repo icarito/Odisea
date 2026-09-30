@@ -4,6 +4,7 @@ const MobileUIManagerScript = preload("res://core_v2/autoloads/MobileUIManager.g
 const InputProviderV2Script = preload("res://core_v2/input/InputProviderV2.gd")
 const PlayerControllerV2Script = preload("res://core_v2/player/PlayerControllerV2.gd")
 const VirtualJoystickScene = preload("res://addons/virtual_joystick/virtual_joystick.tscn")
+const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
 
 
 func test_virtual_joystick_stays_centered_after_ui_scale_change() -> void:
@@ -54,6 +55,79 @@ func test_mobile_ui_manager_runtime_touch_detection() -> void:
 	assert_object(mgr._mobile_ui).is_not_null()
 	assert_bool(mgr._mobile_ui.visible).is_true()
 
+	mgr.queue_free()
+
+
+# Tarea HH: en tier LOW, sin un InputEventScreenTouch real la UI tactil no se dibuja ni se
+# instancia (OS.has_touchscreen_ui_hint() decia true en el Anbernic y la instanciaba igual).
+func test_mobile_ui_not_shown_or_processed_until_first_touch_in_low() -> void:
+	var env_prev := OS.get_environment(LowUiOptScript.ENV)
+	OS.set_environment(LowUiOptScript.ENV, "")
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	assert_object(gate).is_not_null()
+	if gate == null:
+		OS.set_environment(LowUiOptScript.ENV, env_prev)
+		return
+	var prev_force: bool = gate.force_gate
+	var prev_gated: bool = gate._gated_active
+	gate.force_gate = true
+	gate._gated_active = false
+
+	var mgr = MobileUIManagerScript.new()
+	get_tree().root.add_child(mgr)
+	mgr._is_mobile = false
+	mgr._is_touch_active = false
+	mgr._touch_seen = false
+
+	assert_bool(mgr._touch_ui_suppressed()).is_true()
+	mgr._spawn_mobile_ui()
+	assert_object(mgr._mobile_ui).is_null()
+	mgr._activate_touch()
+	assert_bool(mgr.is_touch_active()).is_false()
+	assert_object(mgr._mobile_ui).is_null()
+
+	# Un touch real visto la desuprime: el gate es el toque, no el hint del SO.
+	mgr._touch_seen = true
+	assert_bool(mgr._touch_ui_suppressed()).is_false()
+
+	mgr.queue_free()
+	gate.force_gate = prev_force
+	gate._gated_active = prev_gated
+	OS.set_environment(LowUiOptScript.ENV, env_prev)
+
+
+# Tarea HH: el primer toque real activa la UI y, como los controles nacen con ese mismo
+# evento, se re-inyecta para que llegue a su control: el primer tap no se pierde.
+func test_first_touch_activates_ui_and_reaches_its_control() -> void:
+	var mgr = MobileUIManagerScript.new()
+	get_tree().root.add_child(mgr)
+	mgr._is_mobile = false
+	mgr._is_touch_active = false
+	mgr._touch_seen = false
+	mgr._spawn_mobile_ui()
+	assert_object(mgr._mobile_ui).is_not_null()
+	assert_bool(mgr._mobile_ui.visible).is_false()
+
+	# Layout conocido: el toque cae dentro del contenedor de botones y sobre el de salto.
+	var buttons: Control = mgr._mobile_ui.get_node("Container/ActionButtons")
+	buttons.rect_global_position = Vector2(300.0, 300.0)
+	buttons.rect_size = Vector2(300.0, 300.0)
+	var jump: Control = buttons.get_node("JumpButton")
+	jump.rect_global_position = Vector2(400.0, 400.0)
+	jump.rect_size = Vector2(64.0, 64.0)
+
+	var touch := InputEventScreenTouch.new()
+	touch.pressed = true
+	touch.index = 3
+	touch.position = Vector2(420.0, 420.0)
+	mgr._input(touch)
+
+	assert_bool(mgr.is_touch_active()).is_true()
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	# El toque re-inyectado llego al boton (si se hubiera perdido quedaria en -1).
+	assert_int(jump._touch_index).is_equal(3)
+
+	Input.action_release("jump")
 	mgr.queue_free()
 
 
@@ -139,9 +213,9 @@ func test_mobile_ui_no_fade_in_low_tier() -> void:
 	get_tree().root.add_child(mgr)
 	mgr._is_mobile = true
 	mgr._is_touch_active = true
-	# Tarea GG: en tier LOW la UI tactil no se instancia sin pantalla tactil. Este test mide el
-	# fade instantaneo de LOW en un aparato CON touch, asi que declara la pantalla tactil.
-	mgr._has_touchscreen = true
+	# Tarea HH: la UI arranca activa en Android/iOS (`_is_mobile`); este test mide el fade
+	# instantaneo de LOW, asi que declara un touch real ya visto por si el gate lo consulta.
+	mgr._touch_seen = true
 	mgr._spawn_mobile_ui()
 	mgr._refresh_mobile_ui_visibility()
 	assert_float(mgr._ui_alpha).is_equal(1.0)

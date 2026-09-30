@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 # durante su ventana y que el estado exacto se restaure SIEMPRE al cerrarla.
 
 const PlaybackProbesScript = preload("res://core_v2/net/PlaybackProbes.gd")
+const HudRedrawMeterScript = preload("res://core_v2/net/HudRedrawMeter.gd")
 const PROBES_ENV := PlaybackProbesScript.PROBES_ENV
 
 # El etiquetado avanza una sonda por ventana y el resumen trae la mediana por sonda.
@@ -23,6 +24,8 @@ func test_probes_label_windows_and_report_median():
 
 	var summary: Dictionary = probes.finish()
 	assert_bool(summary.has("probes")).is_true()
+	# Tarea HH: el medidor de refresco viaja en el resumen.
+	assert_bool(summary.has("redraw")).is_true()
 	var probes_dict: Dictionary = summary["probes"]
 	assert_int(int(probes_dict["base"]["n"])).is_equal(2)
 	assert_int(int(probes_dict["3d"]["n"])).is_equal(2)
@@ -213,3 +216,54 @@ func test_discover_subtrees_labels():
 	assert_bool(labels.empty()).is_false()
 	for label in labels:
 		assert_bool(String(label).begins_with("subtree:")).is_true()
+
+
+# Tarea HH: el medidor cuenta UPDATE_ALWAYS por frame y los PULSOS de UPDATE_ONCE una sola vez
+# por flag (asi el driver de 10 Hz se lee como ~10/s y un Viewport en ALWAYS como ~60/s).
+func test_redraw_meter_counts_always_and_pulses():
+	var meter = HudRedrawMeterScript.new()
+	meter.tree = get_tree()
+	var vp_once := Viewport.new()
+	add_child(vp_once)
+	vp_once.render_target_update_mode = Viewport.UPDATE_ONCE
+	meter._viewports.append({
+		"node": vp_once, "path": "once", "always": 0, "pulses": 0, "disabled": 0, "last_mode": -1,
+	})
+	var vp_always := Viewport.new()
+	add_child(vp_always)
+	vp_always.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	meter._viewports.append({
+		"node": vp_always, "path": "always", "always": 0, "pulses": 0, "disabled": 0, "last_mode": -1,
+	})
+
+	meter.sample(100.0)
+	meter.sample(100.0)
+
+	var views: Dictionary = meter.report()["viewports"]
+	assert_float(float(views["once"]["pulses_per_s"])).is_equal_approx(5.0, 0.001)
+	assert_float(float(views["once"]["always_per_s"])).is_equal_approx(0.0, 0.001)
+	assert_float(float(views["always"]["always_per_s"])).is_equal_approx(10.0, 0.001)
+	vp_once.queue_free()
+	vp_always.queue_free()
+
+
+# Tarea HH: capture recorre el subarbol del widget host y registra Viewports, CanvasItem y el
+# driver de 10 Hz (LowHzRedraw).
+func test_redraw_meter_capture_subtree():
+	var meter = HudRedrawMeterScript.new()
+	meter.tree = get_tree()
+	var root := Control.new()
+	add_child(root)
+	var vp := Viewport.new()
+	root.add_child(vp)
+	var driver := Node.new()
+	driver.name = "LowHzRedraw"
+	root.add_child(driver)
+	var child := Control.new()
+	root.add_child(child)
+
+	meter._capture_subtree(root)
+	assert_int(meter._viewports.size()).is_equal(1)
+	assert_int(meter._low_hz_drivers).is_equal(1)
+	assert_int(meter._canvas_items.size()).is_greater_equal(2)
+	root.queue_free()

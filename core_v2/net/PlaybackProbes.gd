@@ -29,6 +29,9 @@ extends Reference
 
 const PROBES_ENV := "ODISEA_PLAYBACK_PROBES"
 const VP_ALWAYS_LABEL := "subtree:vpalways"
+# Tarea HH: medidor de refresco de los Viewports de widget. Responde por que el ahorro a 10 Hz
+# de los widgets no baja su costo (composicion del canvas vs. otro sistema en UPDATE_ALWAYS).
+const HudRedrawMeterScript = preload("res://core_v2/net/HudRedrawMeter.gd")
 
 # Frames por ventana. Con la traza del benchmark (~400 muestras alimentadas) entran la
 # base y las 5 sondas sin cortar la comparacion.
@@ -43,6 +46,8 @@ var sequence: Array = ["base", "3d", "ui", "env", "scale", "vsync"]
 var include_subtrees: bool = true
 var _subtree_probes: Dictionary = {}
 var _subtrees_built := false
+# Tarea HH: muestrea el refresco de los Viewports de widget durante la ventana base.
+var _redraw_meter = null
 
 var _tree = null
 var _enabled := false
@@ -95,6 +100,10 @@ func step(frame_ms: float, render_ms: float) -> String:
 			return ""
 	_apply_current()
 	_record(frame_ms, render_ms)
+	# Tarea HH: la ventana base es el estado sin tocar nada; ahi se mide el ritmo de refresco
+	# real de los Viewports de widget antes de que las sondas empiecen a ocultar subarboles.
+	if _redraw_meter != null and _active == "base":
+		_redraw_meter.sample(frame_ms)
 	_frames_in_window += 1
 	return _active
 
@@ -107,6 +116,8 @@ func finish() -> Dictionary:
 	_closed = true
 	var summary := summary()
 	_print_report(summary)
+	if _redraw_meter != null:
+		_redraw_meter.print_report()
 	return summary
 
 # Restaura (si quedo algo aplicado) sin cerrar: para cortes del playback a mitad de una
@@ -131,7 +142,10 @@ func summary() -> Dictionary:
 			"frame_ms_p50_delta": frame_ms - base_frame if base_frame >= 0.0 else -1.0,
 			"render_ms_p50_delta": render_ms - base_render if base_render >= 0.0 else -1.0,
 		}
-	return {"window_frames": window_frames, "probes": probes}
+	var out := {"window_frames": window_frames, "probes": probes}
+	if _redraw_meter != null:
+		out["redraw"] = _redraw_meter.report()
+	return out
 
 # --- ventana y acumulacion ---
 
@@ -315,6 +329,10 @@ func _ensure_sequence() -> void:
 	_subtrees_built = true
 	if include_subtrees:
 		discover_subtrees()
+	# Tarea HH: el medidor de refresco corre siempre que las sondas esten activas (no depende de
+	# include_subtrees): mide la ventana base para saber si el ahorro a 10 Hz se aplica.
+	_redraw_meter = HudRedrawMeterScript.new()
+	_redraw_meter.capture(_tree)
 
 # Registra una sonda de subarbol manualmente (tests u overrides). El nodo tiene que ser un
 # CanvasItem (CanvasLayer/Control) o el marcador VP_ALWAYS_LABEL para los Viewports ALWAYS.
