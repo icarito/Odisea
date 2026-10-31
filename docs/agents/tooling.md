@@ -21,6 +21,48 @@ silencio), no exporta Android y borra settings de `project.godot`. Tampoco `godo
 puede ser Godot 4. VSCode (`godotTools.editorPath.godot3`), el `GODOT` del Makefile y el
 hook pre-push ya apuntan a `tools/godot`.
 
+## Kilo CLI como subagente batch
+
+Para delegar desde otro orquestador, usar Kilo en modo `run` y tratarlo como un
+proceso batch con salida capturable. La documentacion publica de Kilo confirma
+`kilo run --auto`, pero no documenta de forma completa todos los flags; para esta
+instalacion el contrato validado es el de `kilo run --help` y probes locales.
+
+Comando base para ejecucion de codigo acotada:
+
+```bash
+timeout 120 /usr/bin/kilo run \
+  --dir /home/icarito/Proyectos/Odisea_Game/src \
+  --agent code \
+  -m kilo/deepseek/deepseek-v4.1-flash \
+  --auto \
+  --format json \
+  --title "titulo corto" \
+  "prompt acotado, con write set explicito, sin commit ni deploy"
+```
+
+Uso de agentes:
+
+- `--agent ask`: lectura, mapeo, segunda opinion o probes; no pedir ediciones.
+- `--agent code`: cambios acotados con write set explicito.
+- `--agent plan`: solo planificacion; no usar para implementacion directa.
+
+Reglas operativas:
+
+- Delegar **en serie**. Esta instalacion puede fallar con concurrencia por la DB de
+  credenciales (`Failed query: update "credential" ... connector_id = "kilo"`).
+- Usar DeepSeek v4.1 Flash para delegaciones por defecto:
+  `kilo/deepseek/deepseek-v4.1-flash`. Evitar caer al default si no se pidio GLM.
+- `--auto` aprueba permisos; no es sandbox. Limitar el prompt con archivos permitidos,
+  archivos prohibidos, "sin commit" y "sin deploy".
+- `--format json` emite eventos JSON y puede duplicar `step_start`, `text` y
+  `step_finish`; el orquestador debe deduplicar o extraer solo los `type:"text"`
+  relevantes.
+- Envolver con `timeout` y cortar procesos que entren en loops de debug.
+- Antes de aceptar el resultado, el lead revisa diff, limpia prints/probes y corre los
+  tests puntuales con los comandos de este documento. Un subagente no convierte su
+  propio reporte en prueba suficiente.
+
 ## Tests
 
 En desarrollo local, ejecutar solamente los tests puntuales afectados; la suite completa corresponde a CI. Usar pytest headless por defecto para GdUnit/OYS y Python, seleccionando el nodo o archivo afectado:
