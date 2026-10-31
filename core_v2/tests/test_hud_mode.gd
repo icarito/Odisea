@@ -1364,6 +1364,28 @@ func test_an_enlarged_widget_panel_drags_to_a_slot_with_the_mouse() -> void:
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
 
+func test_opening_a_screen_cancels_a_drag_in_progress() -> void:
+	# El click que abre o cambia de pantalla no puede dejar la vista pegada al puntero: al
+	# mostrar una pantalla se cancela cualquier arrastre a medias (el sintoma reportado era
+	# "queda arrastrando como si no hubiera soltado el boton").
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_screen_and_play("test:b", [UP])
+	var rect: Rect2 = overlay._view_screen_rect()
+	var on_body := Vector2(rect.position.x + 6.0, rect.position.y + 6.0)
+	var down := InputEventMouseButton.new()
+	down.button_index = BUTTON_LEFT
+	down.pressed = true
+	down.position = on_body
+	overlay._input(down)
+	assert_bool(overlay._dragging_view).is_true()
+
+	overlay._show_screen("test:a")
+	assert_bool(overlay._dragging_view).is_false()
+	assert_bool(overlay._mouse_drag_pending).is_false()
+	assert_str(String(SuitOS.get_active_screen_id())).is_equal("test:a")
+
+
 func test_widgets_ignore_taps_in_hud_mode_and_the_tap_that_closed_it() -> void:
 	# En el telefono el clic emulado del toque cierra el modo HUD (fuera de la pantalla) y el
 	# ScreenTouch del mismo toque caia sobre el widget que reaparecia: lo volvia a abrir.

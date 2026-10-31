@@ -91,6 +91,9 @@ var _mouse_drag_moved: bool = false
 var _restore_mouse_capture_after_drag: bool = false
 # Arrastre del widget ampliado (pantalla que es solo widget) hasta un slot.
 var _view_drag_candidate: bool = false
+# Al abrir una pantalla cuyo gesto de apertura dejo el boton apretado, se ignora el mouse
+# hasta que lo suelten: la cola del mismo click no puede arrancar un arrastre encima.
+var _ignore_mouse_until_release: bool = false
 var _view_handle: Control = null
 var _camera_focus_button: Button = null
 var _drag_from_handle: bool = false
@@ -562,6 +565,20 @@ func _drive_from_stream(input) -> void:
 	_confirm_was_down = down
 
 func _input(event: InputEvent) -> void:
+	# Cola del click que abrio la pantalla: mientras el boton izquierdo siga apretado, el mouse
+	# no entra. Se libera solo cuando lo sueltan (ver _cancel_view_pointer_gesture).
+	if _ignore_mouse_until_release and (event is InputEventMouseButton or event is InputEventMouseMotion):
+		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and not event.pressed:
+			_ignore_mouse_until_release = false
+		get_tree().set_input_as_handled()
+		return
+	# Un release del boton izquierdo SIEMPRE termina el arrastre de la vista en curso. Si algun
+	# camino de abajo lo consumiera, la pantalla queda pegada al puntero ("arrastrando como si
+	# no hubiera soltado el boton").
+	if _dragging_view and event is InputEventMouseButton and event.button_index == BUTTON_LEFT and not event.pressed:
+		_drop_view(_unified_cursor_position(event.position))
+		get_tree().set_input_as_handled()
+		return
 	if _drawer_open() and (event is InputEventMouseMotion or event is InputEventMouseButton \
 			or event is InputEventScreenTouch or event is InputEventScreenDrag):
 		# El drawer se usa con el dedo, el mouse y el mando. No marca el evento como atendido: el
@@ -606,6 +623,16 @@ func _input(event: InputEvent) -> void:
 				return
 		elif _dragging_view:
 			_drop_view(_unified_cursor_position(event.position))
+			get_tree().set_input_as_handled()
+			return
+	# Pantallas con vista propia (Linterna, Traje, Protocolo, Rendimiento): el puntero del
+	# modo Pantalla tambien las opera. Sin esto sus controles (ImGui) quedaban mudos porque
+	# nadie alimentaba el Viewport del presentador.
+	if not is_instance_valid(_active_focused_screen) and _mount.has_own_view() \
+			and (event is InputEventMouseButton or event is InputEventMouseMotion \
+				or event is InputEventScreenTouch):
+		var own_uv: Vector2 = _screen_surface_uv(event.position)
+		if own_uv.x >= 0.0 and _mount.forward_view_input(event, own_uv):
 			get_tree().set_input_as_handled()
 			return
 	if is_instance_valid(_active_focused_screen) and _active_focused_screen.has_method("forward_view_input"):
@@ -1188,6 +1215,26 @@ func _drop_view(position: Vector2) -> void:
 	elif suit_os.has_screen(id):
 		_show_screen(id)
 
+
+# Al abrir o cambiar de pantalla se cancela cualquier gesto de puntero a medias: el click que
+# la abrio (o un arrastre que quedo sin su release) no puede seguir moviendo la vista nueva.
+# Si el boton sigue apretado, ademas se ignora el mouse hasta que lo suelten.
+func _cancel_view_pointer_gesture() -> void:
+	var had_gesture: bool = _dragging_view or _view_drag_candidate or _view_drag_from_gamepad \
+		or is_instance_valid(_drag_ghost) or _mouse_drag_pending
+	_dragging_view = false
+	_view_drag_candidate = false
+	_view_drag_from_gamepad = false
+	_restore_drag_mesh()
+	if had_gesture:
+		_end_option_drag()
+		VirtualMouse.set_dragging(false)
+		# Solo cuando habia un gesto en curso: si el boton sigue apretado (el click que abrio
+		# la pantalla todavia no se solto), se ignora el mouse hasta que lo suelten para que
+		# la cola del mismo gesto no arranque un arrastre. Sin gesto no se toca el input.
+		_ignore_mouse_until_release = Input.is_mouse_button_pressed(BUTTON_LEFT)
+
+
 # --- Ghost de transicion del widget (slot <-> ampliado) ---
 # Visual y descartable: un panel que viaja entre dos rects y se desvanece. No toca el layout real
 # del widget ni el estado de gameplay, asi que no afecta determinismo ni tests.
@@ -1709,6 +1756,7 @@ func _set_virtual_mouse_enabled(enabled: bool) -> void:
 		_virtual_mouse.visible = false
 
 func _show_screen(id: String) -> void:
+	_cancel_view_pointer_gesture()
 	_focus_cursor_awaiting_motion = false
 	_set_virtual_mouse_enabled(true)
 	_release_mouse_for_screen()

@@ -35,6 +35,11 @@ var _widget_screen: Object = null
 var view_2d: bool = false
 var _view_frame: Control = null
 var _view_node: Control = null
+# Vista propia del presentador (la que NO presta el Viewport del terminal): es la que hay
+# que alimentar con el mouse para que sus controles (ImGui o Control) respondan en modo
+# Pantalla. En el camino con Viewport prestado el input lo maneja la pantalla.
+var _presenter_view: Node = null
+var _presenter_viewport: Viewport = null
 
 # B3a helper unico: alfa de panel/vidrio segun tier. LOW = 1.0 (opaco), resto = 0.7.
 static func widget_alpha() -> float:
@@ -83,6 +88,65 @@ func get_presenter() -> Spatial:
 func get_widget() -> Control:
 	return _widget if is_instance_valid(_widget) else null
 
+
+# Hay una vista propia del presentador (sin Viewport prestado) a la que el overlay puede
+# reenviar el puntero en modo Pantalla. Con Viewport prestado (terminal) el input lo resuelve
+# la pantalla via forward_view_input, no este camino.
+func has_own_view() -> bool:
+	return is_instance_valid(_presenter_viewport)
+
+
+# Reenvia el puntero del modo Pantalla a la vista del presentador. `uv` viene [0,1] sobre la
+# superficie (lo proyecta el overlay); aca se traduce a pixeles del Viewport. ImGuiCanvas NO
+# es Control: el pipeline de GUI del Viewport no lo alcanza, asi que se le pasa el MISMO
+# evento por _input() (mismo truco que HoloTerminalViewportInput._forward_to_imgui).
+func forward_view_input(event: InputEvent, uv: Vector2) -> bool:
+	if not is_instance_valid(_presenter_viewport):
+		return false
+	var size: Vector2 = _presenter_viewport.size
+	if size.x <= 0.0 or size.y <= 0.0:
+		return false
+	var pos := Vector2(clamp(uv.x, 0.0, 1.0) * size.x, clamp(uv.y, 0.0, 1.0) * size.y)
+	var evt: InputEvent = _pointer_event_at(event, pos)
+	if evt == null:
+		return false
+	_presenter_viewport.input(evt)
+	_forward_to_imgui(evt)
+	return true
+
+
+func _pointer_event_at(event: InputEvent, pos: Vector2) -> InputEvent:
+	if event is InputEventMouseButton:
+		var button = event.duplicate()
+		button.position = pos
+		button.global_position = pos
+		return button
+	if event is InputEventMouseMotion:
+		var motion = event.duplicate()
+		motion.position = pos
+		motion.global_position = pos
+		return motion
+	if event is InputEventScreenTouch:
+		var touch := InputEventMouseButton.new()
+		touch.button_index = BUTTON_LEFT
+		touch.pressed = event.pressed
+		touch.position = pos
+		touch.global_position = pos
+		return touch
+	return null
+
+
+func _forward_to_imgui(evt: InputEvent) -> void:
+	if is_instance_valid(_presenter_view):
+		_forward_to_imgui_deep(_presenter_view, evt)
+
+
+func _forward_to_imgui_deep(node: Node, evt: InputEvent) -> void:
+	for child in node.get_children():
+		if child is Node and (child as Node).get_class() == "ImGuiCanvas":
+			child.call("_input", evt)
+		_forward_to_imgui_deep(child, evt)
+
 func reveal_presenter() -> void:
 	if not is_instance_valid(_presenter):
 		return
@@ -116,6 +180,8 @@ func close() -> void:
 		_view_frame.queue_free()
 	_view_frame = null
 	_view_node = null
+	_presenter_view = null
+	_presenter_viewport = null
 	if is_instance_valid(_presenter):
 		if _presenter_snapped:
 			_presenter.set_active(false) # devuelve el ScreenMesh reparentado antes de liberar el presentador
@@ -188,6 +254,8 @@ func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, h
 		var view: Control = scene.instance()
 		viewport.add_child(view)
 		view.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+		_presenter_view = view
+		_presenter_viewport = viewport
 	presenter.set_active(true)
 	if snap_to_camera:
 		mesh.visible = false

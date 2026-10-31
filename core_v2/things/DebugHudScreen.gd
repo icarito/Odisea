@@ -52,6 +52,17 @@ func view_size() -> Vector2:
 	return VIEW_SIZE
 
 
+# Rendimiento se mira de cerca: se pide a pantalla completa y opaca. El default del
+# presentador (scale 0.5, depth 0.5, vidrio 0.15) dejaba las curvas chicas y lavadas contra
+# el mundo. 0.75 llena ~98% del alto a la fov del piloto (80). HudViewMount limita el alfa a
+# widget_alpha() (0.7 en desktop, 1.0 en LOW).
+func view_hud_config() -> Dictionary:
+	return {
+		"scale": 0.75,
+		"background_alpha": 0.7,
+	}
+
+
 var _registered := false
 
 

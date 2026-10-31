@@ -174,6 +174,10 @@ func test_debug_hud_screen_view_gated_by_imgui() -> void:
 		assert_object(screen.view_scene()).override_failure_message(
 			"sin ImGuiCanvas no deberia haber vista propia: cae al widget ampliado").is_null()
 	assert_vector2(screen.view_size()).is_equal(Vector2(640.0, 460.0))
+	# Se mira de cerca: pide una superficie grande y opaca (no el default chico/translucido).
+	var config: Dictionary = screen.view_hud_config()
+	assert_float(float(config.get("scale", 0.0))).is_greater(0.5)
+	assert_float(float(config.get("background_alpha", 0.0))).is_greater(0.15)
 
 
 # El widget de slot monta DebugHudWidgetImGui solo si el modulo esta disponible, y esconde
