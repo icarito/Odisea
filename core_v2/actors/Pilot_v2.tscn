@@ -26,6 +26,7 @@
 [ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_rough_1k.png" type="Texture" id=70]
 [ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_ao_1k.png" type="Texture" id=71]
 [ext_resource path="res://core_v2/props/lights/HelmetFlashlight.tscn" type="PackedScene" id=72]
+[ext_resource path="res://core_v2/things/SuitScreen.tscn" type="PackedScene" id=73]
 
 [sub_resource type="ShaderMaterial" id=121]
 shader = ExtResource( 67 )
@@ -326,5 +327,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 enabled = true
 cast_to = Vector3( 0, -5, 0 )
 collision_mask = 1048575
+
+[node name="SuitScreen" parent="." instance=ExtResource( 73 )]
 
 [editable path="Visual/Pivot/Skeleton"]
