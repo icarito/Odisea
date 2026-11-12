@@ -10,10 +10,13 @@ extends Spatial
 #   part   — MachinePart: "size", "density", "held", "color"
 #   hinge  — MachineHinge: "a", "b" (nombres de items), "limit" [lo,hi], "motor" {speed,torque,on}, "axle" (bool)
 #   scene  — instancia cualquier .tscn: "path", "props" {propiedad: valor}
-#   link   — conecta una senal: "from", "signal", "to", "method", "args", "delay" (s)
+#   trigger — zona que emite "entered" una sola vez cuando entra el jugador: "size"
+#   link   — conecta una senal: "from", "signal", "to", "method", "args", "delay" (s).
+#            "to": "@level" apunta a este nodo (p. ej. method "say", args [texto, segundos])
 
 const MachinePart = preload("res://core_v2/props/machines/MachinePart.gd")
 const MachineHinge = preload("res://core_v2/props/machines/MachineHinge.gd")
+const TriggerScript = preload("res://core_v2/props/machines/MachineTrigger.gd")
 
 export(String, FILE, "*.json") var layout_path := ""
 
@@ -117,6 +120,8 @@ func _make(item: Dictionary) -> Spatial:
 			hinge.motor_torque = float(motor.get("torque", hinge.motor_torque))
 			hinge.motor_enabled = bool(motor.get("on", false))
 			return hinge
+		"trigger":
+			return _make_trigger(item)
 		"scene":
 			var packed = load(str(item.get("path", "")))
 			if not (packed is PackedScene):
@@ -155,6 +160,24 @@ func _make_block(item: Dictionary) -> StaticBody:
 	return body
 
 
+func _make_trigger(item: Dictionary) -> Area:
+	var area := Area.new()
+	area.set_script(TriggerScript)
+	var shape := CollisionShape.new()
+	var box := BoxShape.new()
+	box.extents = _vec(item.get("size", [2, 2, 2])) * 0.5
+	shape.shape = box
+	area.add_child(shape)
+	return area
+
+
+# Linea de la IA Odisea. Texto, no audio: la voz llega por el overlay de subtitulos.
+func say(text: String, duration: float = 5.0) -> void:
+	var subtitles := get_node_or_null("/root/SubtitlesOverlayManager")
+	if subtitles != null and subtitles.has_method("show_subtitle"):
+		subtitles.show_subtitle(tr(text), Color(0.55, 0.95, 1.0), duration)
+
+
 func _place(node: Spatial, item: Dictionary) -> void:
 	var rot := _vec(item.get("rot", [0, 0, 0]))
 	node.transform = Transform(
@@ -164,7 +187,7 @@ func _place(node: Spatial, item: Dictionary) -> void:
 
 func _connect_link(link: Dictionary) -> void:
 	var from := get_item(str(link.get("from", "")))
-	var to := get_item(str(link.get("to", "")))
+	var to: Node = self if str(link.get("to", "")) == "@level" else get_item(str(link.get("to", "")))
 	var sig := str(link.get("signal", "activated"))
 	var method := str(link.get("method", "set_active"))
 	if from == null or to == null or not from.has_signal(sig) or not to.has_method(method):

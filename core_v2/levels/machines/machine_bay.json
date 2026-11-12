@@ -51,6 +51,20 @@
 		{"type": "scene", "name": "CheckEntry", "path": "res://core_v2/things/CheckZoneV2.tscn", "pos": [0, 1, 1], "props": {"zone_extents": [5, 2, 2], "debug_render": false}},
 		{"type": "scene", "name": "CheckLedge1", "path": "res://core_v2/things/CheckZoneV2.tscn", "pos": [0, 3.5, 14], "props": {"zone_extents": [5, 2, 1.5], "debug_render": false}},
 		{"type": "scene", "name": "CheckLedge2", "path": "res://core_v2/things/CheckZoneV2.tscn", "pos": [0, 4.5, 41.5], "props": {"zone_extents": [6, 2, 1.5], "debug_render": false}},
-		{"type": "scene", "name": "CheckLedge3", "path": "res://core_v2/things/CheckZoneV2.tscn", "pos": [0, 14, 56], "props": {"zone_extents": [6, 2, 3], "debug_render": false}}
+		{"type": "scene", "name": "CheckLedge3", "path": "res://core_v2/things/CheckZoneV2.tscn", "pos": [0, 14, 56], "props": {"zone_extents": [6, 2, 3], "debug_render": false}},
+
+		{"type": "trigger", "name": "VoiceEntry", "pos": [0, 1.5, 1.5], "size": [10, 3, 3]},
+		{"type": "link", "from": "VoiceEntry", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: Orden de Trabajo 0001. Restablezca el flujo en la Bahía 3. Tiempo estimado: cuatro minutos.", 6.0]},
+		{"type": "link", "from": "VoiceEntry", "signal": "entered", "to": "@level", "method": "say", "delay": 7.0, "args": ["ODISEA: El puente fue dado de baja por presupuesto. Use el equipo disponible.", 5.0]},
+		{"type": "link", "from": "SeesawLever", "signal": "activated", "to": "@level", "method": "say", "args": ["ODISEA: Ese contrapeso no está homologado para transporte de personal.", 4.0]},
+		{"type": "trigger", "name": "VoiceLedge1", "pos": [0, 4, 15], "size": [10, 3, 6]},
+		{"type": "link", "from": "VoiceLedge1", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: Trayectoria registrada. Se descontará de sus días de licencia.", 5.0]},
+		{"type": "link", "from": "PendulumLever", "signal": "activated", "to": "@level", "method": "say", "args": ["ODISEA: La góndola admite cero pasajeros. Usted figura como carga.", 4.5]},
+		{"type": "trigger", "name": "VoiceLedge2", "pos": [0, 5, 42], "size": [12, 3, 4]},
+		{"type": "link", "from": "VoiceLedge2", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: Tres contrapesos. La normativa recomienda uno. La normativa no conoce esa cornisa.", 6.0]},
+		{"type": "link", "from": "LeverHeavy", "signal": "activated", "to": "@level", "method": "say", "args": ["ODISEA: Anotado. El oficial eligió el pesado.", 4.0]},
+		{"type": "trigger", "name": "VoiceLedge3", "pos": [0, 14.5, 58], "size": [12, 3, 10]},
+		{"type": "link", "from": "VoiceLedge3", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: Flujo restablecido. Tiempo real: no fueron cuatro minutos.", 5.0]},
+		{"type": "link", "from": "VoiceLedge3", "signal": "entered", "to": "@level", "method": "say", "delay": 6.0, "args": ["ODISEA: Amonestación 0001 archivada: uso no homologado de contrapesos.", 6.0]}
 	]
 }
