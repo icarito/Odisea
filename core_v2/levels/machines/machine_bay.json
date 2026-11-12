@@ -1,0 +1,14 @@
+{
+	"items": [
+		{"type": "block", "name": "EntryFloor", "pos": [0, -0.5, 4], "size": [14, 1, 22]},
+
+		{"type": "part", "name": "SeesawArm", "pos": [0, 1.2, 8], "rot": [0, -90, 23.6], "size": [6, 0.2, 1.6], "density": 20},
+		{"type": "hinge", "name": "SeesawHinge", "pos": [0, 1.2, 8], "rot": [0, -90, 0], "a": "SeesawArm"},
+		{"type": "block", "name": "SeesawPost", "pos": [1.1, 0.5, 8], "size": [0.3, 1.0, 0.3], "color": "#c2641a"},
+		{"type": "part", "name": "SeesawWeight", "pos": [0, 8.2, 10.1], "size": [1, 1, 1], "density": 400, "held": true, "color": "#b8862b"},
+		{"type": "scene", "name": "SeesawLever", "path": "res://core_v2/props/controls/LeverV2.tscn", "pos": [1.6, 0, 4.6]},
+		{"type": "link", "from": "SeesawLever", "signal": "activated", "to": "SeesawWeight", "method": "release", "delay": 2.0},
+
+		{"type": "block", "name": "Ledge1", "pos": [6.5, 2.25, 9], "size": [5, 4.5, 12]}
+	]
+}

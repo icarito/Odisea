@@ -30,7 +30,9 @@ func _ready() -> void:
 	_build()
 	if held:
 		mode = MODE_STATIC
-	_ignore_players()
+	# Diferido: el jugador entra al grupo "player" en su propio _ready, que puede correr
+	# despues que el de esta pieza.
+	call_deferred("_ignore_players")
 	get_tree().connect("node_added", self, "_on_tree_node_added")
 
 
