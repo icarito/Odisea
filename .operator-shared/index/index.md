@@ -30,6 +30,8 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `player/` — Controladores del jugador, multi-tool, zero-G
 - `components/` — Bases de interactuables, zonas, plataformas, `PushableBoxV2`
 - `props/` — Props interactivos y decorativos
+- `props/machines/` — Kit de máquinas (FD-320): `MachinePart`, `MachineHinge`, `MachineTrigger` y `MachineLevel` (niveles por layout JSON)
+- `levels/machines/` — Bahía de máquinas: `MachineBay.tscn` + `machine_bay.json`
 - `levels/` — Escenas de nivel; `levels/interiors/` domos y fuentes de bake
 - `systems/` — Sistemas de nave (cryo, room)
 - `ui/` — HUD, OdiseaOS, menús, mouse virtual

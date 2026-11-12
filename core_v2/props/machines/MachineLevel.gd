@@ -79,6 +79,8 @@ func export_layout() -> Dictionary:
 		var e := t.basis.get_euler()
 		item["pos"] = [t.origin.x, t.origin.y, t.origin.z]
 		item["rot"] = [rad2deg(e.x), rad2deg(e.y), rad2deg(e.z)]
+		if item.has("held"):
+			item["held"] = bool(node.get("held")) # una pieza ya soltada no vuelve retenida
 		items.append(item)
 	return {"items": items}
 
