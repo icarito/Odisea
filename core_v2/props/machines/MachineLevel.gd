@@ -8,7 +8,7 @@ extends Spatial
 # Items (todos aceptan "name", "pos" [x,y,z] y "rot" [x,y,z] en grados):
 #   block  — geometria estatica: "size", "color"
 #   part   — MachinePart: "size", "density", "held", "color"
-#   hinge  — MachineHinge: "a", "b" (nombres de items), "limit" [lo,hi], "motor" {speed,torque,on}
+#   hinge  — MachineHinge: "a", "b" (nombres de items), "limit" [lo,hi], "motor" {speed,torque,on}, "axle" (bool)
 #   scene  — instancia cualquier .tscn: "path", "props" {propiedad: valor}
 #   link   — conecta una senal: "from", "signal", "to", "method", "args", "delay" (s)
 
@@ -111,6 +111,7 @@ func _make(item: Dictionary) -> Spatial:
 				hinge.use_limit = true
 				hinge.limit_lower_deg = float(item["limit"][0])
 				hinge.limit_upper_deg = float(item["limit"][1])
+			hinge.show_axle = bool(item.get("axle", true))
 			var motor: Dictionary = item.get("motor", {})
 			hinge.motor_speed = float(motor.get("speed", hinge.motor_speed))
 			hinge.motor_torque = float(motor.get("torque", hinge.motor_torque))
