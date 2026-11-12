@@ -36,6 +36,9 @@ export(float, 0, 90) var min_resistance_angle_degrees := 25.0 # Only resist on s
 var horizontal_velocity := Vector3.ZERO
 var _floor_normal := Vector3.UP # Cached floor normal for alignment
 var wish_direction := Vector3.ZERO
+# FD-320: ticks de vuelo balistico pendientes de confirmar despegue (>0 = lanzado).
+var _ballistic_ticks := 0
+const BALLISTIC_LIFTOFF_TICKS := 4
 
 # External Velocity State
 var external_velocity := Vector3.ZERO
@@ -70,6 +73,12 @@ func set_external_velocity(v: Vector3) -> void:
 
 func set_external_source_is_static(is_static: bool) -> void:
 	external_source_is_static = is_static
+
+# FD-320: una maquina le transfiere momentum horizontal al jugador. Mientras siga en el
+# aire no hay friccion de aire: el momentum se conserva y el input solo redirige.
+func add_launch_velocity(v: Vector3) -> void:
+	horizontal_velocity += Vector3(v.x, 0.0, v.z)
+	_ballistic_ticks = BALLISTIC_LIFTOFF_TICKS
 
 func integrate_external_velocity(delta: float) -> Vector3:
 	if external_velocity.length() < 0.001:
@@ -232,6 +241,16 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	else:
 		accel = ground_friction if is_on_floor else air_friction
 	
+	if _ballistic_ticks > 0:
+		# El piso del tick de lanzamiento todavia figura como contacto: se le dan unos
+		# ticks para despegar antes de dar el vuelo por terminado.
+		if is_on_floor:
+			_ballistic_ticks -= 1
+		var carried_speed: float = horizontal_velocity.length()
+		if wish_dir.length_squared() == 0.0:
+			accel = 0.0
+		elif carried_speed > wish_dir.length():
+			wish_dir = wish_direction * carried_speed
 	horizontal_velocity = horizontal_velocity.move_toward(wish_dir, accel * dt)
 	# print("[PlayerMovementV2] h_vel=%s" % horizontal_velocity)
 

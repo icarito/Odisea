@@ -19,6 +19,8 @@ const PLAYER_WEAK_VISUAL_REAPPLY_FRAMES := 24
 const HARDWARE_PROFILE_LOW := 1
 const HYPER_LOW_ANIMATOR_STEP_INTERVAL_FRAMES := 5
 const PLATFORM_TRACKING_MAX_DELTA := 120.0
+const RIGID_PLATFORM_GRACE_TICKS := 3
+const PLATFORM_LAUNCH_MIN_UP_SPEED := 1.5 # m/s; por debajo es jitter de reposo, no un lanzamiento
 
 var is_replay_mode := false
 
@@ -117,6 +119,7 @@ var _crouched_collision_origin := Vector3.ZERO
 var _platform_collider: Spatial = null
 var _platform_last_transform: Transform = Transform.IDENTITY
 var _platform_velocity: Vector3 = Vector3.ZERO
+var _rigid_platform_grace := 0
 var _was_on_platform := false
 var _platform_tracking_key := ""
 # PERF: _update_platform_tracking ya recorre los slide contacts por tick; de ahi se cachea
@@ -3439,11 +3442,24 @@ func _update_platform_tracking(dt: float) -> void:
 					new_platform_key = _get_platform_tracking_key(collider)
 					break
 	_floor_moving_terrace_cached = floor_moving_terrace
+	# FD-320: una pieza rigida que acelera hacia arriba se incrusta un tick en la capsula y
+	# el contacto de piso parpadea. Sin esta histeresis el jugador "deja" la pieza a mitad
+	# de la aceleracion y sale con una fraccion del impulso.
+	if new_platform != null:
+		_rigid_platform_grace = RIGID_PLATFORM_GRACE_TICKS
+	elif _rigid_platform_grace > 0 and is_on_floor() and _platform_collider is RigidBody \
+			and is_instance_valid(_platform_collider):
+		_rigid_platform_grace -= 1
+		new_platform = _platform_collider
+		new_platform_key = _platform_tracking_key
 	
 	if new_platform != _platform_collider or new_platform_key != _platform_tracking_key:
 		if _platform_collider != null and new_platform == null:
 			if _platform_velocity.length() > 0.1:
-				velocity += _platform_velocity
+				if _platform_collider is RigidBody:
+					_apply_launch_momentum(_platform_velocity)
+				else:
+					velocity += _platform_velocity
 		
 		_platform_collider = new_platform
 		_platform_tracking_key = new_platform_key
@@ -3456,7 +3472,9 @@ func _update_platform_tracking(dt: float) -> void:
 		var old_local_pos = _platform_last_transform.affine_inverse().xform(global_transform.origin)
 		var new_global_pos = current_transform.xform(old_local_pos)
 		var delta_pos = new_global_pos - global_transform.origin
-		if delta_pos.length() <= PLATFORM_TRACKING_MAX_DELTA:
+		if _platform_collider is RigidBody:
+			_track_rigid_platform(_platform_collider as RigidBody, dt)
+		elif delta_pos.length() <= PLATFORM_TRACKING_MAX_DELTA:
 			global_transform.origin += delta_pos
 			_platform_velocity = delta_pos / dt if dt > 0 else Vector3.ZERO
 		else:
@@ -3465,6 +3483,39 @@ func _update_platform_tracking(dt: float) -> void:
 	else:
 		_platform_velocity = Vector3.ZERO
 		_platform_tracking_key = ""
+
+# FD-320: sobre un RigidBody (brazo de balancin, catapulta) no se acarrea por delta de
+# transform: move_and_slide ya suma la velocidad del piso en el punto de contacto, y sumar
+# el delta encima duplica el movimiento y hace parpadear el contacto. Aca solo se mide esa
+# velocidad para (a) heredarla al saltar o caer de la pieza y (b) el desprendimiento
+# inercial: si la pieza frena hacia abajo mas fuerte que la gravedad, el jugador conserva
+# la velocidad que traia y sale lanzado.
+func _track_rigid_platform(body: RigidBody, dt: float) -> void:
+	var arm: Vector3 = global_transform.origin - body.global_transform.origin
+	var point_velocity: Vector3 = body.linear_velocity + body.angular_velocity.cross(arm)
+	var gravity_y: float = jump_logic.get_gravity() if is_instance_valid(jump_logic) else -24.0
+	if dt > 0.0 and _platform_velocity.y > PLATFORM_LAUNCH_MIN_UP_SPEED \
+			and (point_velocity.y - _platform_velocity.y) / dt < gravity_y:
+		# El jugador procesa antes que el solver: viene un tick (v*dt) detras de la pieza,
+		# incrustado en ella. Sin recuperar ese tramo, el slide siguiente choca y frena.
+		global_transform.origin += _platform_velocity * dt
+		_apply_launch_momentum(_platform_velocity)
+		_platform_collider = null
+		_platform_tracking_key = ""
+		_platform_velocity = Vector3.ZERO
+		_was_on_platform = false
+		return
+	_platform_velocity = point_velocity
+
+# FD-320: el jugador hereda el momentum de la pieza que deja. `velocity` sola no alcanza:
+# el tick siguiente la pisan movement_logic (horizontal) y jump_logic (vertical).
+func _apply_launch_momentum(v: Vector3) -> void:
+	velocity += v
+	if is_instance_valid(movement_logic):
+		movement_logic.add_launch_velocity(v)
+	if is_instance_valid(jump_logic):
+		var base_vy: float = jump_logic.internal_velocity if jump_logic._is_jumping else 0.0
+		jump_logic.launch(base_vy + v.y)
 
 # True when the player is currently grounded on a WorldRotator-driven terrace plate.
 # Those StaticBody colliders carry a "canonical_tx" meta (set by the pool/active-body

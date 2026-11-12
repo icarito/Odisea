@@ -21,6 +21,7 @@ var jump_buffer_timer := 0.0
 var internal_velocity := 0.0
 var _is_jumping := false
 var _jump_time_tracker := 0.0
+var _launched := false # FD-320: impulso externo (maquina); no se recorta como salto variable
 
 const MIN_JUMP_TIME := 0.08 # Evita cortes accidentales en los primeros ~5 frames
 
@@ -30,6 +31,7 @@ func reset_on_floor() -> void:
 	if coyote_timer > 0.0 and _jump_time_tracker > MIN_JUMP_TIME:
 		_is_jumping = false
 		_jump_time_tracker = 0.0
+		_launched = false
 
 func on_air_tick(dt: float) -> void:
 	coyote_timer -= dt
@@ -53,6 +55,14 @@ func consume_jump() -> void:
 func set_internal_velocity(v: float) -> void:
 	internal_velocity = v
 
+# FD-320: una maquina lanza al jugador. Se trata como un salto ya iniciado (asi el piso no
+# resincroniza la velocidad) pero sin el recorte de salto variable: es momentum, no input.
+func launch(vy: float) -> void:
+	internal_velocity = vy
+	_is_jumping = true
+	_launched = true
+	_jump_time_tracker = 0.0
+
 func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> float:
 	# Sync internal velocity with current_vy if we are on floor and NOT jumping
 	# This ensures we don't fight slope alignment or external vertical forces.
@@ -75,9 +85,10 @@ func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> flo
 	# Si ya no estamos en el suelo y vamos cayendo, el salto terminó
 	if not on_floor and internal_velocity <= 0.0:
 		_is_jumping = false
+		_launched = false
 	
 	# Lógica de Salto Variable (Recorte a Intensidad Mínima)
-	if not input_jump and _is_jumping and internal_velocity > 0.0 and _jump_time_tracker > MIN_JUMP_TIME:
+	if not input_jump and _is_jumping and not _launched and internal_velocity > 0.0 and _jump_time_tracker > MIN_JUMP_TIME:
 		var min_v = jump_force * min_jump_intensity
 		if internal_velocity > min_v:
 			internal_velocity = min_v
