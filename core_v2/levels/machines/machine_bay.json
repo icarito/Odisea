@@ -1,5 +1,6 @@
 {
 	"items": [
+		{"type": "scene", "name": "BayShell", "path": "res://models/machine_bay/bay_shell.glb", "optional": true},
 		{"type": "block", "name": "EntryFloor", "pos": [0, -0.5, 4.5], "size": [14, 1, 23]},
 
 		{"type": "part", "name": "SeesawArm", "pos": [0, 1.2, 7.9], "rot": [0, -90, 23.6], "size": [6, 0.2, 1.6], "density": 20},

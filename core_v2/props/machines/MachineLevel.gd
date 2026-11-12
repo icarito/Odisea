@@ -9,7 +9,7 @@ extends Spatial
 #   block  — geometria estatica: "size", "color"
 #   part   — MachinePart: "size", "density", "held", "color"
 #   hinge  — MachineHinge: "a", "b" (nombres de items), "limit" [lo,hi], "motor" {speed,torque,on}, "axle" (bool)
-#   scene  — instancia cualquier .tscn: "path", "props" {propiedad: valor}
+#   scene  — instancia cualquier .tscn/.glb: "path", "props" {propiedad: valor}, "optional" (bool)
 #   trigger — zona que emite "entered" una sola vez cuando entra el jugador: "size"
 #   link   — conecta una senal: "from", "signal", "to", "method", "args", "delay" (s).
 #            "to": "@level" apunta a este nodo (p. ej. method "say", args [texto, segundos])
@@ -125,6 +125,9 @@ func _make(item: Dictionary) -> Spatial:
 		"trigger":
 			return _make_trigger(item)
 		"scene":
+			# "optional": decoracion cuyo import puede no existir (CI no importa assets nuevos).
+			if bool(item.get("optional", false)) and not ResourceLoader.exists(str(item.get("path", ""))):
+				return null
 			var packed = load(str(item.get("path", "")))
 			if not (packed is PackedScene):
 				push_error("MachineLevel: escena invalida " + str(item.get("path", "")))

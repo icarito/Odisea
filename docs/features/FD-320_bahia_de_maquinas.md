@@ -12,6 +12,18 @@ mantenimiento lanzándose con mecanismos físicos (Box3D). Fantasía central: *l
 Principio: sistemas, no puzzles — las variables son continuas (masa, dónde se para el
 jugador, cuándo salta) y no hay umbral mágico.
 
+## Referencias de diseño
+
+- Immersive sims; parkour de *Mirror's Edge* y *Tomb Raider* (pedido original).
+- **Besiege** (Sebastián, 2026-11-11). Lo que se toma para el banco de pruebas:
+  - Dos fases: **armar** (física congelada, piezas que encajan en puntos de anclaje) y
+    **probar** (se suelta la simulación); volver a armar restaura el plano guardado.
+    El layout JSON es ese plano.
+  - Catálogo corto de piezas con un rol claro cada una, que se combinan.
+  - El fracaso es parte de la gracia: las máquinas se desarman y fallan de forma legible.
+  - Lo que no se toma: la cámara libre fuera del personaje. Elías arma desde adentro del
+    mundo, con el multi-tool.
+
 ## Enmienda propuesta al GDD y a AGENTS.md (pendiente de decisión de Sebastián)
 
 - GDD v3 §10 dice «no tiene puzzles de reparación / minijuegos». La bahía no es un
