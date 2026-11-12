@@ -45,7 +45,13 @@
 		{"type": "link", "from": "LeverHeavy", "signal": "activated", "to": "WeightHeavy", "method": "release", "delay": 3.0},
 
 		{"type": "block", "name": "Ledge3", "pos": [0, 12.5, 58], "size": [12, 1, 12]},
-		{"type": "block", "name": "Ledge3Wall", "pos": [0, 15.5, 64.3], "size": [12, 5, 0.6], "color": "#2c3138"},
+
+		{"type": "block", "name": "CentrifugePost", "pos": [0, 6.3, 70], "size": [1.2, 12.6, 1.2], "color": "#c2641a"},
+		{"type": "part", "name": "CentrifugeArm", "pos": [0, 12.85, 70], "rot": [0, -90, 0], "size": [11, 0.3, 2], "density": 20},
+		{"type": "hinge", "name": "CentrifugeHinge", "pos": [0, 12.85, 70], "rot": [90, 0, 0], "a": "CentrifugeArm", "motor": {"speed": 1.8, "torque": 1500}},
+		{"type": "scene", "name": "CentrifugeLever", "path": "res://core_v2/props/controls/LeverV2.tscn", "pos": [3, 13, 62.5]},
+		{"type": "link", "from": "CentrifugeLever", "signal": "activated", "to": "CentrifugeHinge", "method": "set_active", "args": [true], "delay": 5.0},
+		{"type": "block", "name": "ExitPad", "pos": [0, 9.5, 87], "size": [26, 1, 16]},
 
 		{"type": "scene", "name": "KillFloor", "path": "res://core_v2/things/KillZoneV2.tscn", "pos": [0, -14, 35], "props": {"zone_extents": [90, 2, 90], "debug_render": false}},
 		{"type": "scene", "name": "CheckEntry", "path": "res://core_v2/things/CheckZoneV2.tscn", "pos": [0, 1, 1], "props": {"zone_extents": [5, 2, 2], "debug_render": false}},
@@ -64,7 +70,9 @@
 		{"type": "link", "from": "VoiceLedge2", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: Tres contrapesos. La normativa recomienda uno. La normativa no conoce esa cornisa.", 6.0]},
 		{"type": "link", "from": "LeverHeavy", "signal": "activated", "to": "@level", "method": "say", "args": ["ODISEA: Anotado. El oficial eligió el pesado.", 4.0]},
 		{"type": "trigger", "name": "VoiceLedge3", "pos": [0, 14.5, 58], "size": [12, 3, 10]},
-		{"type": "link", "from": "VoiceLedge3", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: Flujo restablecido. Tiempo real: no fueron cuatro minutos.", 5.0]},
-		{"type": "link", "from": "VoiceLedge3", "signal": "entered", "to": "@level", "method": "say", "delay": 6.0, "args": ["ODISEA: Amonestación 0001 archivada: uso no homologado de contrapesos.", 6.0]}
+		{"type": "link", "from": "VoiceLedge3", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: La salida está al otro lado. El brazo de servicio gira. Usted no debería.", 5.0]},
+		{"type": "trigger", "name": "VoiceExit", "pos": [0, 11.5, 87], "size": [26, 3, 16]},
+		{"type": "link", "from": "VoiceExit", "signal": "entered", "to": "@level", "method": "say", "args": ["ODISEA: Flujo restablecido. Tiempo real: no fueron cuatro minutos.", 5.0]},
+		{"type": "link", "from": "VoiceExit", "signal": "entered", "to": "@level", "method": "say", "delay": 6.0, "args": ["ODISEA: Amonestación 0001 archivada: uso no homologado de contrapesos.", 6.0]}
 	]
 }

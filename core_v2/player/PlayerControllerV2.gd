@@ -3505,6 +3505,13 @@ func _track_rigid_platform(body: RigidBody, dt: float) -> void:
 		_platform_velocity = Vector3.ZERO
 		_was_on_platform = false
 		return
+	# El backend Box3D del fork resuelve get_velocity_at_local_position() con el punto en
+	# coordenadas LOCALES del cuerpo (Godot pasa un offset en orientacion global), asi que
+	# sobre una pieza rotada move_and_slide acarrea en la direccion equivocada. Se repone
+	# la diferencia; cuando el fork lo corrija, esta resta da cero.
+	var state := PhysicsServer.body_get_direct_state(body.get_rid())
+	if state != null:
+		global_transform.origin += (point_velocity - state.get_velocity_at_local_position(arm)) * dt
 	_platform_velocity = point_velocity
 
 # FD-320: el jugador hereda el momentum de la pieza que deja. `velocity` sola no alcanza:

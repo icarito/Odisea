@@ -23,6 +23,12 @@ para (FD-320). Lo que el código no dice solo.
   (horizontal) y `jump_logic` (vertical). Todo impulso externo que deba conservarse entra
   por `_apply_launch_momentum()`.
 
+- **Bug conocido del fork Box3D:** `get_velocity_at_local_position()` del direct state
+  interpreta el punto en coordenadas locales del cuerpo (Godot pasa un offset en orientación
+  global). Sobre una pieza rotada, el acarreo de `move_and_slide` va en la dirección
+  equivocada. `_track_rigid_platform` repone la diferencia cada tick; la resta da cero
+  cuando el fork se corrija, y entonces se puede borrar.
+
 ## Reglas de desprendimiento
 
 - **Inercial:** si la velocidad vertical de la pieza en el punto de contacto cae más rápido
