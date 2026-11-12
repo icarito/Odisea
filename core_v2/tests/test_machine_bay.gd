@@ -14,6 +14,11 @@ func _load_bay(pilot_pos: Vector3) -> KinematicBody:
 	var pilot: KinematicBody = _bay.get_node("Pilot")
 	pilot.translation = pilot_pos
 	get_tree().root.add_child(_bay)
+	# El TeleportSystem (autoload) solo conoce al piloto de la escena actual; aca la bahia
+	# cuelga de root, asi que los checkpoints fallarian al guardar. No son parte del caso.
+	for zone in get_tree().get_nodes_in_group("CheckZoneV2"):
+		if _bay.is_a_parent_of(zone):
+			zone.queue_free()
 	return pilot
 
 
