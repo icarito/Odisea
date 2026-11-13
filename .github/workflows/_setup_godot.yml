@@ -65,10 +65,13 @@ jobs:
         id: godot_bin_cache
         uses: actions/cache@v6
         with:
+          # Key computable desde CUALQUIER job (no depende de un step output ni
+          # del cache_key_suffix): los jobs que no son `setup` corren en otro
+          # runner y necesitan restaurar el mismo binario para instalarlo.
           path: ${{ github.workspace }}/.ci-cache/godot/box3d/godot
-          key: ${{ runner.os }}-godot-box3d-${{ steps.read_release.outputs.box3d_release }}-${{ inputs.cache_key_suffix }}
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}
           restore-keys: |
-            ${{ runner.os }}-godot-box3d-${{ steps.read_release.outputs.box3d_release }}-
+            ${{ runner.os }}-godot-box3d-
 
       - name: Install Godot (Box3D fork)
         id: install
