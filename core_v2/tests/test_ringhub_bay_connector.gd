@@ -74,6 +74,41 @@ func test_airlock_trigger_and_hazard_present() -> void:
 	assert_float((hazard.get("wind_velocity") as Vector3).x).is_less(0.0)
 
 
+# --- Contrato de inmersión (§1.1): el spring arm del jugador (pivote ~2.27 m,
+# sube 0.334/ud, esfera r=0.45) NO debe colapsar dentro del túnel. Antes el techo
+# interno a 3.1 m lo latchaba a ~1.0 m; ahora el interior tiene holgura y el techo
+# es una losa horizontal (no el mesh vertical de pared reusado). ---
+
+func test_tunnel_ceiling_clears_the_spring_arm() -> void:
+	var level := _boot_level()
+	yield(get_tree(), "idle_frame")
+	var ceiling = level.get_node_or_null("Hub/BayConnector/Ceiling")
+	assert_object(ceiling).is_not_null()
+	var cs := ceiling.get_node("CollisionShape") as CollisionShape
+	var box := cs.shape as BoxShape
+	var slab_thickness: float = box.extents.y
+	var inner_face: float = cs.transform.origin.y - slab_thickness
+	# Cara interna del techo por encima de lo que necesita el arm (>= 4.2 m).
+	assert_float(inner_face).is_greater_equal(4.2)
+	# El techo visual es una losa horizontal (ancho en Z), no el mesh de pared.
+	var mesh_size: Vector3 = (ceiling.get_node("Mesh") as MeshInstance).mesh.size
+	assert_float(mesh_size.y).is_less_equal(1.0)
+	assert_float(mesh_size.z).is_greater(4.0)
+
+
+func test_tunnel_lights_read_in_dark() -> void:
+	var level := _boot_level()
+	yield(get_tree(), "idle_frame")
+	var bc = level.get_node_or_null("Hub/BayConnector")
+	assert_object(bc).is_not_null()
+	var lit := 0
+	for child in bc.get_children():
+		if child is OmniLight and float(child.light_energy) >= 3.0:
+			lit += 1
+	# Al menos 3 luces propias con energía suficiente para leer el túnel en DARK.
+	assert_int(lit).is_greater_equal(3)
+
+
 # --- Transitabilidad real: el piloto CAMINA desde el piso del domo, cruza la boca
 # y llega al túnel (no es sólo geometría: pasa la colisión de la cáscara cortada). ---
 
@@ -130,15 +165,22 @@ func test_pilot_walks_through_the_breach_into_the_tunnel() -> void:
 		yield(get_tree(), "physics_frame")
 	var pilot = level.get_node_or_null("Pilot")
 	assert_object(pilot).is_not_null()
+	var arm = pilot.get_node_or_null("CameraRig/Yaw/Pitch/OTS_Offset/SpringArm")
+	assert_object(arm).is_not_null()
 	var n := Vector3(cos(deg2rad(AZIMUTH_DEG)), 0.0, sin(deg2rad(AZIMUTH_DEG)))
 	# Arranca en el piso del domo, 6 m antes de la boca.
 	pilot.global_transform.origin = n * 29.0 + Vector3(0.0, 2.0, 0.0)
 	pilot.velocity = Vector3.ZERO
 	yield(get_tree(), "physics_frame")
 	var reached := false
+	var min_arm_in_tunnel := 999.0
 	for _i in range(900):
 		var p: Vector3 = pilot.global_transform.origin
-		if Vector3(p.x, 0.0, p.z).length() >= 42.0:
+		var pr: float = Vector3(p.x, 0.0, p.z).length()
+		# Cámara a distancia: el arm no debe colapsar dentro del túnel (r 38..42).
+		if pr >= 38.0 and pr <= 42.5:
+			min_arm_in_tunnel = min(min_arm_in_tunnel, float(arm.current_length))
+		if pr >= 42.0:
 			reached = true
 			break
 		_drive(pilot, n * 46.0)
@@ -146,3 +188,5 @@ func test_pilot_walks_through_the_breach_into_the_tunnel() -> void:
 	_release_move()
 	assert_bool(reached).is_true()
 	assert_bool(pilot.is_on_floor()).is_true()
+	# El arm mantiene distancia de cámara dentro del túnel (antes: ~1.0 m).
+	assert_float(min_arm_in_tunnel).is_greater_equal(1.8)
