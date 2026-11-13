@@ -1,14 +1,24 @@
 extends GdUnitTestSuite
 
-# OdiseaHologramV2: NPC-holograma de Odisea (v1). Cubre construcción del visual,
-# fade-in/fade-out determinista por ticks, y el hook observer contra MachineLevel
-# (señal "said").
+# OdiseaHologramV2: NPC-holograma de Odisea. Cubre construcción del visual,
+# fade-in/fade-out determinista por ticks, hook observer contra MachineLevel
+# (señal "said") y el movimiento v2: seguimiento suave del jugador, orientación
+# hacia él y selección de animación por velocidad horizontal (Idle/Walk).
 #
 # Nota: los yields de espera van SIEMPRE inline en el cuerpo del test; GdUnit no
 # suspende la corrutina si el yield ocurre dentro de una función helper.
 
 const HoloScene = preload("res://core_v2/actors/OdiseaHologramV2.tscn")
 const MachineLevel = preload("res://core_v2/props/machines/MachineLevel.gd")
+
+
+func _new_dummy_player(pos: Vector3) -> KinematicBody:
+	var pl := KinematicBody.new()
+	pl.name = "DummyPlayer"
+	pl.add_to_group("player")
+	pl.global_transform = Transform(Basis.IDENTITY, pos)
+	get_tree().root.add_child(pl)
+	return pl
 
 
 func test_show_builds_visual_and_fades_in() -> void:
@@ -100,5 +110,63 @@ func test_does_not_break_without_player() -> void:
 	for _i in range(30):
 		yield(get_tree(), "physics_frame")
 	assert_bool(holo._visual.visible).is_true()
+	holo.queue_free()
+	yield(get_tree(), "idle_frame")
+
+
+func test_follows_player_and_orients_toward_it() -> void:
+	var holo = HoloScene.instance()
+	get_tree().root.add_child(holo)
+	var pl = _new_dummy_player(Vector3(0, 0, 0))
+	holo.show_holo(10.0)
+	for _i in range(120):
+		yield(get_tree(), "physics_frame")
+	var before_distance: float = holo._visual.global_transform.origin.distance_to(Vector3(4, 1, 0))
+	pl.global_transform = Transform(Basis.IDENTITY, Vector3(4, 1, 0))
+	for _i in range(120):
+		yield(get_tree(), "physics_frame")
+	var after: Vector3 = holo._visual.global_transform.origin
+	var after_distance: float = after.distance_to(Vector3(4, 1, 0))
+	assert_bool(after_distance < before_distance).is_true()
+	assert_bool(after.y > 0.8).is_true() # sigue la Y del jugador (~1) + anchor_height
+	var fwd: Vector3 = -holo._visual.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var to_player: Vector3 = Vector3(4, 0, 0) - after
+	to_player.y = 0.0
+	to_player = to_player.normalized()
+	assert_bool(fwd.dot(to_player) > 0.9).is_true()
+	pl.queue_free()
+	holo.queue_free()
+	yield(get_tree(), "idle_frame")
+
+
+func test_animation_idle_when_player_static() -> void:
+	var holo = HoloScene.instance()
+	get_tree().root.add_child(holo)
+	var pl = _new_dummy_player(Vector3(0, 0, 0))
+	holo.show_holo(10.0)
+	for _i in range(240): # deja terminar Levitate Entrance y asentarse
+		yield(get_tree(), "physics_frame")
+	var anim: String = holo._anim_player.current_animation if holo._anim_player != null else ""
+	assert_bool(anim == "Idle_Loop" or anim == "Swim_Idle_Loop").is_true()
+	pl.queue_free()
+	holo.queue_free()
+	yield(get_tree(), "idle_frame")
+
+
+func test_animation_walk_when_player_moves() -> void:
+	var holo = HoloScene.instance()
+	get_tree().root.add_child(holo)
+	var pl = _new_dummy_player(Vector3(0, 0, 0))
+	holo.show_holo(10.0)
+	for _i in range(240):
+		yield(get_tree(), "physics_frame")
+	for i in range(40):
+		pl.global_transform.origin = Vector3(float(i) * 0.5, 0.5, 0.0)
+		yield(get_tree(), "physics_frame")
+	var anim: String = holo._anim_player.current_animation if holo._anim_player != null else ""
+	assert_bool(anim == "Walk_Loop").is_true()
+	pl.queue_free()
 	holo.queue_free()
 	yield(get_tree(), "idle_frame")

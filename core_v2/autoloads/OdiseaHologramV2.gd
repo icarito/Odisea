@@ -1,13 +1,13 @@
 extends Spatial
-# OdiseaHologramV2
-# NPC-holograma de Odisea (v1: aparición/desaparición con movimiento vivo de
-# animación y luz diegética). Cuerpo visual reutilizado: Programmer.glb con el
+# OdiseaHologramV2 (v2: movimiento determinista)
+# NPC-holograma de Odisea. Cuerpo visual reutilizado: Programmer.glb con el
 # material holográfico (ProgrammerHoloShader/Material). Sin física ni colisión:
 # es puramente decorativo.
 # Scene-agnóstico: escucha la señal "said" de los nodos MachineLevel (bahía de
-# máquinas) y aparece junto al jugador mientras Odisea habla; se desvanece al
-# terminar el mensaje. El fade se maneja por ticks de física (determinista), no
-# con Tween.
+# máquinas), aparece junto al jugador mientras Odisea habla y lo acompaña con un
+# seguimiento suave (offset delante/al costado), orientándose hacia él en XZ y
+# eligiendo animación por velocidad horizontal. Todo determinista en
+# _physics_process (sin Tween/randf/randomize).
 
 const PROGRAMMER_PACK := preload("res://models/Programmer.glb")
 const HOLO_MAT := preload("res://core_v2/visual/ProgrammerHoloMaterial.tres")
@@ -19,6 +19,10 @@ export(float) var anchor_distance := 2.4
 export(float) var anchor_height := 0.0
 export(float) var light_energy_base := 0.55
 export(bool) var face_camera := true
+export(float) var follow_speed := 3.5
+export(float) var turn_speed := 6.0
+export(float) var walk_speed_threshold := 0.35
+export(Vector3) var follow_offset := Vector3(0.9, 0.0, -2.2)
 
 var _visual: Spatial = null
 var _holo_mat: ShaderMaterial = null
@@ -29,6 +33,10 @@ var _target_alpha := 0.0
 var _hold_ticks := 0
 var _active := false
 var _levels := {} # instance_id -> MachineLevel conectado
+var _prev_pos := Vector3.ZERO
+var _yaw := 0.0
+var _horiz_speed := 0.0
+var _anim_state := "entrance"
 
 
 func _ready() -> void:
@@ -73,9 +81,13 @@ func show_holo(duration: float) -> void:
 	_target_alpha = 1.0
 	_hold_ticks = int(round(max(0.0, duration) * Engine.iterations_per_second))
 	_place_near_player()
-	_start_animation()
 	if _visual != null:
+		_prev_pos = _visual.global_transform.origin
+		_yaw = _visual.global_transform.basis.get_euler().y
+		_horiz_speed = 0.0
+		_anim_state = "entrance"
 		_visual.visible = true
+	_start_animation()
 
 
 func hide_holo() -> void:
@@ -84,6 +96,7 @@ func hide_holo() -> void:
 	_hold_ticks = 0
 	if _anim_player != null:
 		_anim_player.stop()
+	_anim_state = "entrance"
 
 
 func is_holo_active() -> bool:
@@ -131,9 +144,6 @@ func _build_holo_light() -> void:
 func _place_near_player() -> void:
 	if _visual == null:
 		return
-	# Preferir la cámara activa: el holograma aparece delante de lo que el jugador
-	# está mirando. La Y usa la del jugador (o piso lógico) + anchor_height para no
-	# quedar hundido/flotando en plataformas elevadas; el origen del mesh está en los pies.
 	var players := get_tree().get_nodes_in_group("player")
 	var ground_y := 0.0
 	if not players.empty():
@@ -153,7 +163,6 @@ func _place_near_player() -> void:
 		_visual.global_transform = Transform(Basis.IDENTITY, target)
 		_orient_to(face_camera, cam.global_transform.origin, target)
 		return
-	# Fallback sin cámara: junto al jugador, o punto fijo si no hay jugador.
 	var pivot := Vector3(0.0, 0.6, -2.0)
 	var forward := Vector3(0.0, 0.0, -1.0)
 	if not players.empty():
@@ -187,6 +196,9 @@ func _physics_process(delta: float) -> void:
 		if _hold_ticks == 0 and _active:
 			_active = false
 			_target_alpha = 0.0
+	if _active and _visual != null:
+		_follow_player(delta)
+		_update_movement_animation()
 	if _alpha == _target_alpha:
 		return
 	var fade_sec := fade_in_sec if _target_alpha > _alpha else fade_out_sec
@@ -196,6 +208,64 @@ func _physics_process(delta: float) -> void:
 	else:
 		_alpha = max(_target_alpha, _alpha - stepv)
 	_apply_alpha(_alpha)
+
+
+func _follow_player(delta: float) -> void:
+	var players := get_tree().get_nodes_in_group("player")
+	if players.empty():
+		return
+	var p = players[0]
+	if not is_instance_valid(p) or not (p is Spatial):
+		return
+	var p_sp: Spatial = p
+	var desired: Vector3 = p_sp.global_transform.xform(follow_offset)
+	desired.y += anchor_height
+	var cur: Vector3 = _visual.global_transform.origin
+	var moved: Vector3 = cur - _prev_pos
+	moved.y = 0.0
+	_horiz_speed = moved.length() / max(0.0001, delta)
+	_prev_pos = cur
+	var k := clamp(delta * follow_speed, 0.0, 1.0)
+	var new_pos: Vector3 = cur.linear_interpolate(desired, k)
+	new_pos.y = lerp(cur.y, desired.y, min(1.0, delta * follow_speed * 1.6))
+	_visual.global_transform.origin = new_pos
+	_orient_toward_player(p_sp.global_transform.origin, delta)
+
+
+func _orient_toward_player(player_global_pos: Vector3, delta: float) -> void:
+	var dir := player_global_pos - _visual.global_transform.origin
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	var target_yaw := atan2(-dir.x, -dir.z)
+	var diff := wrapf(target_yaw - _yaw, -PI, PI)
+	var step := min(abs(diff), delta * turn_speed)
+	if diff < 0.0:
+		_yaw -= step
+	else:
+		_yaw += step
+	_visual.global_transform.basis = Basis(Vector3.UP, _yaw)
+
+
+func _update_movement_animation() -> void:
+	if _anim_player == null:
+		return
+	if not _anim_player.is_playing():
+		if _anim_state == "entrance":
+			_after_entrance()
+		else:
+			_play_rest()
+		return
+	var cur := _anim_player.current_animation
+	if cur == "Levitate Entrance":
+		return
+	if _horiz_speed > walk_speed_threshold:
+		if cur != "Walk_Loop" and _has_anim("Walk_Loop"):
+			_anim_player.play("Walk_Loop")
+			_anim_state = "moving"
+	else:
+		if _anim_state == "moving":
+			_play_rest()
 
 
 func _apply_alpha(a: float) -> void:
@@ -211,27 +281,41 @@ func _apply_alpha(a: float) -> void:
 func _start_animation() -> void:
 	if _anim_player == null:
 		return
-	var names := _anim_player.get_animation_list()
-	if names.has("Levitate Entrance"):
+	if _has_anim("Levitate Entrance"):
 		if not _anim_player.is_connected("animation_finished", self, "_on_holo_anim_finished"):
 			_anim_player.connect("animation_finished", self, "_on_holo_anim_finished")
 		_anim_player.play("Levitate Entrance")
+		_anim_state = "entrance"
 	else:
-		_play_holo_idle()
+		_after_entrance()
 
 
-func _play_holo_idle() -> void:
+func _has_anim(name: String) -> bool:
+	return _anim_player != null and _anim_player.get_animation_list().has(name)
+
+
+func _play_rest() -> void:
 	if _anim_player == null:
 		return
-	var names := _anim_player.get_animation_list()
-	if names.has("Levitate Idle"):
-		_anim_player.play("Levitate Idle")
-	elif names.has("Idle_Loop"):
+	if _has_anim("Idle_Loop"):
 		_anim_player.play("Idle_Loop")
-	elif names.has("Swim_Idle_Loop"):
+	elif _has_anim("Swim_Idle_Loop"):
 		_anim_player.play("Swim_Idle_Loop")
+	else:
+		_anim_player.stop()
+	_anim_state = "rest"
+
+
+func _after_entrance() -> void:
+	if _anim_player == null:
+		return
+	if _horiz_speed > walk_speed_threshold and _has_anim("Walk_Loop"):
+		_anim_player.play("Walk_Loop")
+		_anim_state = "moving"
+	else:
+		_play_rest()
 
 
 func _on_holo_anim_finished(anim_name: String) -> void:
 	if anim_name == "Levitate Entrance":
-		_play_holo_idle()
+		_after_entrance()
