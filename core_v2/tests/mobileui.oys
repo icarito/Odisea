@@ -1,0 +1,7 @@
+# Captura visual de los controles tactiles (MobileUI): boton de disparo del multitool y
+# botones de ciclo de modo. Lo usa test_ui.sh --scene=res://core_v2/ui/MobileUI.tscn.
+WAIT 0.40
+SCREENSHOT 0_boot
+
+WAIT 1.00
+SCREENSHOT 1_gameplay
