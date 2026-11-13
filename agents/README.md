@@ -219,6 +219,33 @@ Ambos scripts aplican límite de hilos vía `--cpu-threads`:
 
 Si quieres limitar aún más, en Linux puedes combinarlos con `taskset`.
 
+## Export de política PPO a inferencia MLP en GDScript
+
+Los checkpoints de `agents/models/` son PPO de Stable-Baselines3 (zip con `policy.pth`).
+Para usarlos en el juego sin meter torch/onnxruntime en el export de Godot:
+
+```bash
+python agents/export_ppo_mlp.py \
+  --model agents/models/anna_ppo_noorbit_lvl2_32k_fps120_v1.zip \
+  --name anna_ppo_noorbit_v1
+```
+
+Genera:
+
+- `core_v2/agents/<name>_weights.json` — pesos de la política (MLP + tanh, solo resp, en float64).
+- `core_v2/tests/fixtures/<name>_golden.json` — entradas fijas + logits esperados (golden para tests).
+
+En GDScript: `core_v2/agents/MLPPolicyInference.gd` carga el JSON y expone
+`predict_logits(obs: Array) -> Array` (determinista, sin dependencias externas).
+Test de verificación: `core_v2/tests/test_anna_mlp_inference.gd`.
+
+Modelos inspeccionados (2026-11-13):
+
+| Modelo | Obs | Acción | Arquitectura política |
+|---|---|---|---|
+| `anna_ppo_noorbit_lvl2_32k_fps120_v1.zip` | Box(12,) ∈ [-1,1] | Discrete(6) | 12→64→64→6 (tanh) |
+| `anna_candidate.zip` | Box(13,) ∈ [-1,1] | Discrete(8) | 13→128→128→8 (tanh) |
+
 ## Notas
 
 - En modo RL (`ANNA_RL_MODE=1`) el mundo avanza en lock-step (un `STEP` -> un frame físico).
