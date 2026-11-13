@@ -52,6 +52,12 @@ La prueba de checkpoints usa caída real, nuevo Pilot y consulta de su cápsula 
 - Test adicional de lanzamiento `test_machine_launch`: 1 suite correcta en 12.10s. Manifests revalidados: 952 y 19 críticos, sin limpieza de imports.
 - No quedó aplicada ninguna modificación nueva de luz/carcasa. Se cerraron las instancias gráficas propias al acabar las comparativas; no se cerró el editor del usuario.
 
+## Auditoría HUD (siguiente bloque)
+
+Diagnóstico solo lectura de Kilo: `_place_context` limita fit por altura, no por ancho; las labels del widget no envuelven texto. Una descripción larga puede exceder el área segura. Subtítulos y contexto se anclan independientemente cerca del borde inferior: limitar ancho no resolverá por sí solo la colisión vertical. Se encargó regresión y fix mínimo de contención horizontal, sin cambiar slots de esquina ni subtítulos. Revisión de aislamiento concluida: `e1eb77ac` restaura iluminación mediante setters (incluye uniforms de materiales cacheados) y explicita la precondición FREE/sin latch del segmento por input. Ambas suites verdes en 2.99s. No se encontró defecto bloqueante en el payload.
+
+`bb058ec0`: límite horizontal uniforme del contexto HUD, conservando centro/ancla inferior. La regresión de texto largo falló antes (bordes x=-14547..15507 en viewport 960) y pasó con el fix; suite host: 24 casos, pytest 1 suite correcta en 2.26s. Captura posterior abierta a 960×540: contenido dentro de pantalla, pero sigue colisión con Modo Láser/debug y proximidad a subtítulos. No declarar cerrado el HUD. Texto excesivo puede quedar pequeño: pendiente presentación legible, no añadir más shrink como solución estética.
+
 ## Regresión combinada al cerrar el bloque
 
 `pytest tests/test_odisea_runner.py -q -k 'test_machine_bay or test_machine_level or test_machine_sign_scale or test_ringhub_wakeup or test_ringhub_light_state or test_menu_checkpoint_flow or test_multitool_laser'`: **9 suites correctas, 169 excluidas, 129.21s**. Incluye retorno y ruta de entrada por coincidencia del nombre `test_machine_bay`. No se ejecutó suite completa.
