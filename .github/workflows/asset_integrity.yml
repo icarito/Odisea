@@ -76,23 +76,3 @@ jobs:
       import_retry_log: 'reports/import_resources_asset_integrity_retry.log'
       smoke_log: 'reports/resource_smoke_asset_integrity.log'
       smoke_retry_log: 'reports/resource_smoke_asset_integrity_retry.log'
-
-  upload-logs:
-    needs: import-smoke
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download import/smoke logs
-        uses: actions/download-artifact@v7
-        with:
-          name: import-smoke-logs-asset_integrity-import-smoke
-          path: reports
-      - name: Upload asset integrity logs
-        uses: actions/upload-artifact@v7
-        with:
-          name: asset-integrity-logs
-          path: |
-            reports/import_resources_asset_integrity.log
-            reports/import_resources_asset_integrity_retry.log
-            reports/resource_smoke_asset_integrity.log
-            reports/resource_smoke_asset_integrity_retry.log
