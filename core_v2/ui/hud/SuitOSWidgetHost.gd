@@ -578,13 +578,21 @@ func _place_context(control: Control) -> void:
 		return
 	var k: float = UIScaleCompensatorScript.scale_for(self)
 	var min_size: Vector2 = control.get_combined_minimum_size()
+	var width: float = max(max(control.rect_size.x, min_size.x), 1.0)
 	var height: float = max(min_size.y, 1.0)
-	var fit: float = min(1.0, HudSlots.SLOT_ROW_HEIGHT / height)
+	var safe: Rect2 = _safe_rect()
+	# El ajuste es uniforme y mira alto Y ancho: una descripcion larga estiraba el widget a lo ancho
+	# y lo sacaba del area segura (en 960x540 el texto se pierde fuera del recorte). El ancho util
+	# descuenta el mismo padding que usan los slots a cada lado. Solo contencion: un texto muy largo
+	# queda chico (no envuelve ni elide).
+	var margin: float = HudSlots.SLOT_PADDING * k
+	var max_width: float = max(safe.size.x - margin * 2.0, 1.0)
+	var fit: float = min(1.0, min(HudSlots.SLOT_ROW_HEIGHT / height,
+		max_width / max(width * k, 0.001)))
 	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	control.rect_scale = Vector2.ONE * fit * k
-	var size: Vector2 = Vector2(max(control.rect_size.x, min_size.x), height) * fit * k
+	var size: Vector2 = Vector2(width, height) * fit * k
 	# Abajo-centro del area segura: centrado entre los controles tactiles, pegado al pie.
-	var safe: Rect2 = _safe_rect()
 	control.rect_position = Vector2(
 		safe.position.x + (safe.size.x - size.x) * 0.5,
 		safe.position.y + safe.size.y - size.y - 24.0 * k)

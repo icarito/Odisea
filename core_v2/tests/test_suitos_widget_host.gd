@@ -83,6 +83,40 @@ func test_context_widget_sits_at_the_bottom_centered_and_leaves_with_clear() -> 
 		SuitOS.clear_slot(i)
 
 
+# Regresion: el ajuste del widget del pie solo miraba el ALTO. Un interactuable con descripcion
+# larga estiraba el widget a lo ancho y se salia del area segura (recorte del borde en 960x540).
+# El fit uniforme ahora tambien limita el ancho; el widget sigue centrado y pegado al pie.
+func test_a_long_context_description_scales_to_fit_inside_the_safe_rect() -> void:
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+	var long_description := ""
+	for _i in range(60):
+		long_description += "Circuito de refrigerante del colector principal "
+	_widget_host.show_context({
+		"title": "Válvula de mantenimiento del colector principal",
+		"description": long_description,
+		"action": "Cerrar",
+	})
+	# Dos cuadros: deja que el contenedor fije su rect_size al minimo del texto largo.
+	yield(await_idle_frame(), "completed")
+	yield(await_idle_frame(), "completed")
+	var context: Control = _widget_host.get_widget_root().get_node_or_null("SuitOS_Context")
+	assert_object(context).is_not_null()
+	var safe: Rect2 = _widget_host._safe_rect()
+	var bounds := Rect2(context.rect_position, context.rect_size * context.rect_scale)
+	# Los bordes escalados no se salen del area segura (contencion).
+	assert_float(bounds.position.x).is_greater_equal(safe.position.x - 0.5)
+	assert_float(bounds.end.x).is_less_equal(safe.end.x + 0.5)
+	assert_float(bounds.position.y).is_greater_equal(safe.position.y - 0.5)
+	assert_float(bounds.end.y).is_less_equal(safe.end.y + 0.5)
+	# Sigue centrado horizontalmente y anclado al pie.
+	assert_float(bounds.get_center().x).is_equal_approx(safe.get_center().x, 1.0)
+	assert_float(bounds.end.y).is_less(safe.end.y)
+	_widget_host.clear_context()
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+
+
 func test_context_widget_can_be_pinned_to_a_slot_and_actuated() -> void:
 	for i in range(HudSlots.COUNT):
 		SuitOS.clear_slot(i)
