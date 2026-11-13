@@ -102,3 +102,22 @@ Paths: `/home/icarito/.ao/data/artifacts/src-8/odisea_holo_during{1,2}.png`,
   flujo. Coordinar con el worker de bahía visual (src-6) al mergear MachineLevel.gd.
 - `Programmer.glb` es compartido con el jugador: cualquier restauración de versión
   anterior cambia también al actor jugable (fuera del alcance de esta tarea).
+
+## Actualización post-PR (2026-11-13)
+
+- PR draft: https://github.com/icarito/Odisea/pull/372 (base `main`, rama
+  `ao/objetivo-pulido-nocturno-6/npc-holograma-odisea`).
+- **Reimport de `Programmer.glb` (pedido de Sebastián):** se verificó que el binario
+  `.glb` y los parámetros de `.import` son idénticos a `10da94ab` (sólo `fadf685a`
+  regeneró el `.scn`). Se forzó la reimport: al regenerar desde la misma fuente, el
+  `.scn` resultante es idéntico al versionado (952 manifests OK, modelo sigue
+  cargando: AABB ≈ 1.96×1.96×0.40, 1 skinned mesh). Si el cambio de normales es una
+  edición deliberada (fuente o parámetro), hay que aplicarlo explícitamente y luego sí
+  reimportar; hoy no hay diff pendiente.
+- **Hook pre-commit/pre-push:** `check_export_presets.py` falla en HEAD (pre-existente):
+  las presets de export incluyen `models/Programmer.glb` a la vez en `export_files` y
+  en `exclude_filter`. Se commitó con `ODISEA_SKIP_IMPORT_HOOKS=1` (escape oficial).
+  Conviene corregirlo aparte.
+- **Build con Mono (siguiente paso, pedido de Sebastián):** evaluar un build del motor
+  con Mono para usar el modelo de movimiento entrenado antes. Fuera del alcance v1;
+  queda para el orquestador.
