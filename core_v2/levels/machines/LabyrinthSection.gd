@@ -390,6 +390,8 @@ func _apply_phase_to_hazards() -> void:
 		_fire_hazard.stop()
 		if _phase == HazardPhase.FIRE:
 			_fire_hazard.start()
+	if _fire_visual:
+		_fire_visual.visible = (_phase == HazardPhase.FIRE)
 	if _gas_hazard:
 		if _phase == HazardPhase.GAS:
 			_gas_hazard.set("damage_per_second", gas_damage_per_second)

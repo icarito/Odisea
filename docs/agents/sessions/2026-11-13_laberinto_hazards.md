@@ -71,6 +71,13 @@ Implementación en el slice (mínima, sin tocar HUD/signaling):
 - Telegraphing: `OmniLight` de estado en la entrada que cambia color por fase (verde=seguro, ámbar=aviso, rojo=fuego activo, cian=gas activo). No toca HUD/UI/Señalética existente.
 - Arranque en SAFE (sin daño al entrar). Getters para test (`get_hazard_phase`).
 
+## Estado de ejecución (Fase 2 completada)
+
+- Tests: `test_labyrinth_hazards.gd` 7/7 verde; máquinas 6/6; fire/gas/scaffold 5/5; manifests 952 OK.
+- Capturas (960x540, DISPLAY :0, hardware input off): `laberinto_default.png`, `laberinto_fire.png`, `laberinto_gas.png` (+ `_gas_closeup`), en `/home/icarito/.ao/data/artifacts/src-7/laberinto/`. Revisadas por subagente de visión: fuego visible e inconfundible; estado default limpio; el gas se ve como penacho tóxico gris-verdoso sobre la pasarela (sin llamas), pero la calibración a teal vivo queda para ojos humanos.
+- PR draft: https://github.com/icarito/Odisea/pull/371 (rama `ao/objetivo-pulido-nocturno-5/laberinto-hazards`).
+- Notas: fallo de hook pre-commit/pre-push por queja ambiental de export-presets (exclude_filter tapa `fireball_01.png`), se omitieron hooks con validación manual equivalente. Flakes de suites de máquina en lote por compartición de peer (ya documentado).
+
 ## Riesgos
 
 - `BayShell.glb` (opcional) podría intersectar el volumen lateral en builds que lo incluyan: riesgo aceptado, asset opcional; la sección vive en vacío no usado.
