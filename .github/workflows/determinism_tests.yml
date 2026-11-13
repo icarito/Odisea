@@ -29,132 +29,39 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Godot carrying the Box3D physics module, published by icarito/godot-box3d-3.
-  # Determinism is the reason: Box3D steps single-threaded with a fixed
-  # sub-step count, which is what these tests are checking for.
-  # La release sale de .github/box3d_release, compartida con los demas workflows.
   GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ANNA_V2_NO_CENTRAL: "1"
 
 jobs:
-  determinism-tests:
-    name: Run Determinism Tests
+  setup-godot:
+    uses: ./.github/workflows/_setup_godot.yml
+    with:
+      cache_key_suffix: 'determinism'
+      cache_import: 'true'
+      # Solo project.godot + *.import para key estable (alineado con export_all)
+      import_cache_paths: '[]'
+
+  validate-imports:
+    needs: setup-godot
+    uses: ./.github/workflows/_validate_imports.yml
+
+  import-smoke:
+    needs: [setup-godot, validate-imports]
+    uses: ./.github/workflows/_import_smoke.yml
+    with:
+      godot_bin: ${{ needs.setup-godot.outputs.godot_bin }}
+      clean_cache: '0'
+      import_mode: 'auto'
+      smoke_script: 'tests/ci_resource_smoke.gd'
+      import_log: 'reports/import_resources_determinism.log'
+      smoke_log: 'reports/resource_smoke_determinism.log'
+      smoke_retry_log: 'reports/resource_smoke_determinism_retry.log'
+
+  log-runner-cpu:
+    needs: import-smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup Godot cache
-        uses: actions/cache@v6
-        with:
-          path: |
-            ${{ github.workspace }}/.import
-            ${{ github.workspace }}/.godot
-          # Key estable, alineada con export_all.yml: hashea solo project.godot y los
-          # manifests *.import (trackeados en git), NO el contenido generado de
-          # .import/** ni los assets crudos (textures/models/...). Esos cambiaban con
-          # cualquier PNG y por incluir output generado provocaban cache MISS casi
-          # siempre -> re-import de minutos. Con esta key el hit es frecuente (~4s).
-          # Do not restore an arbitrary older import cache over the tracked
-          # artifacts. A truncated StreamTexture otherwise survives forever.
-          key: ${{ runner.os }}-godot-v5-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
-
-      - name: Cache Godot binary
-        uses: actions/cache@v6
-        with:
-          # La clave lleva el hash de la release: con la version fija de antes, subir
-          # de release seguia restaurando el binario viejo del cache.
-          path: ${{ env.GODOT_CACHE_DIR }}/box3d/godot
-          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-determinism
-
-      - name: Setup Godot (Box3D build)
-        run: |
-          set -euo pipefail
-          BOX3D_RELEASE="$(cat .github/box3d_release)"
-          TARGET_DIR="${GODOT_CACHE_DIR}/box3d"
-          TARGET_BIN="${TARGET_DIR}/godot"
-          mkdir -p "$TARGET_DIR"
-          if [ ! -x "$TARGET_BIN" ]; then
-            # platform=server build: links no X11, so it runs on a bare runner
-            # exactly like the stock linux_headless binary it replaces.
-            curl -fSL -o "$TARGET_BIN" \
-              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
-            chmod +x "$TARGET_BIN"
-          fi
-          sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
-          godot --version
-
-      # Selecting the backend from a project setting would switch it for every
-      # job and every export too. override.cfg is read next to project.godot and
-      # is not committed, so the switch lives in this workflow alone.
-      - name: Select the Box3D physics backend
-        run: |
-          set -euo pipefail
-          # 3d/box3d_workers=1: los replays son deterministas solo con el solver
-          # serial. Box3D arranca en cores/2 cuando no hay setting; aca se fuerza 1
-          # para que la comparacion PASS 1 vs PASS 2 no dependa del paralelismo.
-          printf '[physics]\n\n3d/physics_engine="Box3D"\n3d/box3d_workers=1\n' > override.cfg
-          cat override.cfg
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: requirements-pytest.txt
-
-      - name: Cache virtualenv
-        id: venv_cache
-        uses: actions/cache@v6
-        with:
-          path: .venv
-          key: ${{ runner.os }}-venv-pytest-v2-${{ hashFiles('requirements-pytest.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-venv-pytest-v2-
-
-      - name: Install/Repair Pytest venv
-        run: |
-          set -euo pipefail
-          if [ ! -x .venv/bin/python ] || [ ! -x .venv/bin/pytest ] || ! .venv/bin/python -c "import sys" >/dev/null 2>&1; then
-            rm -rf .venv
-            python -m venv .venv
-          fi
-          ./.venv/bin/pip install --upgrade pip
-          ./.venv/bin/pip install -r requirements-pytest.txt
-
-      - name: Validate tracked import manifests
-        run: |
-          set -euo pipefail
-          python3 scripts/check_tracked_imports.py
-
-      - name: Validate critical import artifacts
-        run: |
-          set -euo pipefail
-          python3 scripts/check_critical_import_artifacts.py
-
-      - name: Import + Smoke (self-healing)
-        run: |
-          set -euo pipefail
-          scripts/godot_import_smoke.sh \
-            --godot-bin /usr/local/bin/godot \
-            --project-path . \
-            --import-log reports/import_resources_determinism.log \
-            --smoke-log reports/resource_smoke_determinism.log \
-            --smoke-retry-log reports/resource_smoke_determinism_retry.log \
-            --timeout-import 600 \
-            --timeout-smoke 180 \
-            --clean-cache 0 \
-            --disable-editor-plugins 1 \
-            --xvfb 0 \
-            --force-software 0 \
-            --import-mode auto \
-            --allow-smoke-retry 1
-
       - name: Log runner CPU (para descartar/confirmar correlacion de hardware)
         run: |
           # test_push_clipping.oys da un drift bimodal (~0 o ~0.049) que se
@@ -168,11 +75,28 @@ jobs:
           grep -m1 "model name" /proc/cpuinfo
           grep -o -m1 -E "avx512[a-z]*|fma|avx2" /proc/cpuinfo | sort -u | tr '\n' ' '; echo
 
+  run-determinism-tests:
+    needs: [import-smoke, log-runner-cpu]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GODOT_BIN: /usr/local/bin/godot
+      ODISEA_SKIP_PREFLIGHT: "1"
+      ODISEA_RUN_DETERMINISM: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Select the Box3D physics backend (serial solver for determinism)
+        run: |
+          set -euo pipefail
+          # 3d/box3d_workers=1: los replays son deterministas solo con el solver
+          # serial. Box3D arranca en cores/2 cuando no hay setting; aca se fuerza 1
+          # para que la comparacion PASS 1 vs PASS 2 no dependa del paralelismo.
+          printf '[physics]\n\n3d/physics_engine="Box3D"\n3d/box3d_workers=1\n' > override.cfg
+          cat override.cfg
+
       - name: Run Determinism Tests
-        env:
-          GODOT_BIN: /usr/local/bin/godot
-          ODISEA_SKIP_PREFLIGHT: "1"
-          ODISEA_RUN_DETERMINISM: "1"
         run: |
           mkdir -p reports
           # One Godot process keeps imported scenes/resources warm across all OYS

@@ -1,0 +1,105 @@
+name: Setup Godot (Reusable)
+
+# Cuerpo reutilizable para instalar el binario del fork Box3D y configurar caches.
+# Lo usan: asset_integrity, determinism_tests, pytest_runner, stress_performance, export_platform
+
+on:
+  workflow_call:
+    inputs:
+      box3d_release_path:
+        description: 'Path to .github/box3d_release file'
+        required: false
+        default: '.github/box3d_release'
+        type: string
+      cache_key_suffix:
+        description: 'Suffix to isolate cache keys per workflow (e.g. "asset-integrity", "determinism")'
+        required: true
+        type: string
+      cache_import:
+        description: 'Whether to cache .import/ directory'
+        required: false
+        default: 'false'
+        type: boolean
+      import_cache_paths:
+        description: 'Extra paths to include in import cache key (JSON array)'
+        required: false
+        default: '[]'
+        type: string
+
+    outputs:
+      godot_bin:
+        description: 'Path to installed Godot binary'
+        value: ${{ steps.install.outputs.godot_bin }}
+      box3d_release:
+        description: 'Resolved Box3D release tag'
+        value: ${{ steps.install.outputs.box3d_release }}
+      import_cache_hit:
+        description: 'Whether import cache was hit'
+        value: ${{ steps.import_cache.outputs.cache-hit }}
+
+    secrets:
+      # No secrets needed for setup
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Read Box3D release
+        id: read_release
+        run: |
+          BOX3D_RELEASE="$(cat "${{ inputs.box3d_release_path }}")"
+          echo "box3d_release=$BOX3D_RELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Godot binary
+        id: godot_bin_cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.ci-cache/godot/box3d/godot
+          key: ${{ runner.os }}-godot-box3d-${{ steps.read_release.outputs.box3d_release }}-${{ inputs.cache_key_suffix }}
+          restore-keys: |
+            ${{ runner.os }}-godot-box3d-${{ steps.read_release.outputs.box3d_release }}-
+
+      - name: Install Godot (Box3D fork)
+        id: install
+        run: |
+          set -euo pipefail
+          BOX3D_RELEASE="${{ steps.read_release.outputs.box3d_release }}"
+          TARGET_DIR="${{ github.workspace }}/.ci-cache/godot/box3d"
+          TARGET_BIN="${TARGET_DIR}/godot"
+          mkdir -p "$TARGET_DIR"
+          if [ ! -x "$TARGET_BIN" ]; then
+            curl -fSL -o "$TARGET_BIN" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
+            chmod +x "$TARGET_BIN"
+          fi
+          sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
+          echo "godot_bin=/usr/local/bin/godot" >> "$GITHUB_OUTPUT"
+          echo "box3d_release=$BOX3D_RELEASE" >> "$GITHUB_OUTPUT"
+          godot --version
+
+      - name: Cache .import (per workflow)
+        if: inputs.cache_import == 'true'
+        id: import_cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ github.workspace }}/.import
+            ${{ github.workspace }}/.godot
+          key: ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-${{ inputs.import_cache_paths }}
+          restore-keys: |
+            ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-
+            ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-
+        env:
+          import_cache_paths: ${{ inputs.import_cache_paths }}
+
+      - name: No import cache
+        if: inputs.cache_import != 'true'
+        id: import_cache
+        run: echo "cache-hit=false" >> "$GITHUB_OUTPUT"

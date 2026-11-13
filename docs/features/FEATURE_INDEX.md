@@ -60,11 +60,10 @@ Usar tres capas separadas:
 | FD | Title | Status | Effort | Priority | PM Note |
 |----|-------|--------|--------|----------|---------|
 | FD-021 | Scene Transition System | Implemented | Medium | P0 | AirlockZoneV2 con carga async, snapshot, camera yank fix. |
-
 | FD-042 | Over-the-Shoulder Camera | Implemented | Small | P0 | Desplaza camara al hombro, compensacion de salto. |
-| FD-040 | PlateContentStream Authoring | In Progress | Small | P0 | Sub-escenas jugables por plate. |
+| FD-040 | PlateContentStream Authoring | Implemented | Small | P0 | Sub-escenas jugables por plate. |
 | FD-026 | Goal Beacon | Planned | Small | P0 | Loop de nivel testeable. |
-| FD-025 | Tube / Airlock Connector Kit | Planned | Small | P0 | Kit de conectores. |
+| FD-025 | Tube / Airlock Connector Kit | Design | Small | P0 | Kit de conectores. |
 | FD-020 | WallManager Area | In Progress | Medium | P0 | Camara en interiores. |
 
 ### P1 — Mejora inmersion y continuidad
@@ -72,7 +71,6 @@ Usar tres capas separadas:
 | FD | Title | Status | Effort | Priority | PM Note |
 |----|-------|--------|--------|----------|---------|
 | FD-032 | Seamless Startup Streaming | In Progress | Large | P1 | Vecinos de transicion, luego chunks. |
-
 | FD-036 | Gravity Manager | Implemented | Medium | P1 | World-rotation approach. |
 | FD-039 | Gravity Physics Strategy | Implemented | Medium | P1 | Fuente de verdad para fisica/espiral. |
 | FD-033 | Advanced Traversal | In Progress | Large | P1 | Ladder/ledge core si el nivel lo necesita. |
@@ -90,7 +88,6 @@ Usar tres capas separadas:
 | FD-035 | ConveyorCarrousel | Design | Medium | P2 | Puzzle prop. |
 | FD-022 | BGM Audio Manager | Planned | Medium | P2 | Polish de transiciones. |
 | FD-027 | Spawn Cinematic / ScreenBorders | In Progress | Medium | P2 | Ocultar entrada/retry. |
-
 
 ### P3 — Contenido posterior
 
@@ -112,7 +109,6 @@ Usar tres capas separadas:
 | FD-241 | Cargol V2 — Compañero Funcional | Design | Medium | P0 |
 | FD-242 | DDC Drone + Sigilo Básico | Design | Medium | P0 |
 | FD-243 | AgentBase PATROL fix + visual del drone | Design | Medium | P1 |
-| ~~FD-243~~ | ⚠️ *Diálogo Odisea y Lore Pickup* figuraba con este número, pero `docs/features/FD-243*.md` es otra cosa. El FD de diálogo/lore **no existe como documento**: hay que escribirlo con un número libre. | sin doc | — | P1 |
 | FD-244 | Multi-Tool — Láser + Gloo Gun | Design | Medium | P0 |
 | FD-255 | Los 4 Sistemas de la Nave (maestro) | Implemented | Medium | P0 |
 | FD-256 | Sistema Criocoolant (CryoVent) | Implemented | Small | P0 |
@@ -139,11 +135,11 @@ Usar tres capas separadas:
 | FD-308 | Portugués de Brasil (pt_BR) — tercera columna en el pipeline i18n + cableado de locale | Implemented | Small | P1 |
 | FD-309 | Coreano (`ko`) — columna del CSV + fallback de fuente Hangul en todos los DynamicFont (y cierra FD-308) | Implemented | Small | P1 |
 | FD-310 | Widget contextual de interactuables — del subtítulo al HUD | Implemented (v1) | Medium | P2 |
-| ~~FD-311~~ | *libre* — nunca se usó |  |  |  |
 | FD-312 | Faltantes de la GUI de OdiseaOS — inventario priorizado | Design | - | P1 |
 | FD-313 | Fixes de ergonomía del HUD, determinismo y paridad del Control Remoto | Planned | Medium | P1 |
 | FD-314 | Streaming de superestructura de scaffold en RingHub (MultiMesh + colisiones por chunk) | Planned | Large | P1 |
 | FD-316 | Sim Host Remoto — render-esclavo low-end-flat (físicas 60Hz en el host) | Planned | Large | P1 |
+| FD-320 | RingHub + Bahía de máquinas | In Progress | Large | P0 | Traversal 4 máquinas, checkpoints, válvula, regreso |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 
@@ -167,6 +163,8 @@ resolvió como fallback de `DynamicFont`._
 | FD-311 | UI Consistency & Accessibility | 2026-09-23 | Capa 10000 VirtualMouse, centrado (0,0), rate limit Web, paridad de foco en HUDables. |
 | FD-023 | WindZone | 2026-03-02 | archive/ |
 | FD-024 | Guardrail Platform | 2026-03-02 | archive/ |
+| FD-028 | Plasma Leak Obstacle | 2026-08-15 | Superseded by FD-257. |
+| FD-295 | HUD persistente de sistemas | 2026-09-10 | Superseded by FD-296. |
 
 ## Status Legend
 
@@ -176,6 +174,7 @@ resolvió como fallback de `DynamicFont`._
 - **Implemented**: Code complete
 - **Complete**: Verified working
 - **Deferred**: Postponed
+- **Superseded**: Replaced by another FD
 
 ## Existing Pieces To Reuse
 

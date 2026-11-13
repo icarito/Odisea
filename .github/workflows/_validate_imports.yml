@@ -1,0 +1,64 @@
+name: Validate Imports (Reusable)
+
+# Valida manifests de imports trackeados y artifacts críticos.
+# Lo usan: asset_integrity, determinism_tests, pytest_runner, stress_performance
+
+on:
+  workflow_call:
+    inputs:
+      check_added_assets:
+        description: 'Also run check_import_artifacts_present.py for added assets (requires base_sha)'
+        required: false
+        default: 'false'
+        type: boolean
+      base_sha:
+        description: 'Base commit SHA for added assets check (from pytest_runner BASE_SHA)'
+        required: false
+        default: ''
+        type: string
+      fail_on_missing_textures:
+        description: 'Fail if texture artifacts missing in strict mode'
+        required: false
+        default: 'false'
+        type: boolean
+
+    secrets:
+      # No secrets needed
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: ${{ inputs.check_added_assets == 'true' && '50' || '1' }}
+
+      - name: Validate tracked import manifests
+        run: |
+          set -euo pipefail
+          python3 scripts/check_tracked_imports.py
+
+      - name: Validate critical import artifacts
+        run: |
+          set -euo pipefail
+          python3 scripts/check_critical_import_artifacts.py
+
+      - name: Validate new imported assets ship their artifact
+        if: inputs.check_added_assets == 'true' && inputs.base_sha != ''
+        run: |
+          set -euo pipefail
+          python3 scripts/check_import_artifacts_present.py \
+            --mode added \
+            --base "${{ inputs.base_sha }}" \
+            ${{ inputs.fail_on_missing_textures == 'true' && '--strict --fail-on-missing-textures' || '' }}
+
+      - name: Guard added assets size (<=50MB)
+        if: inputs.check_added_assets == 'true' && inputs.base_sha != ''
+        run: |
+          set -euo pipefail
+          scripts/check_added_file_sizes.sh "${{ inputs.base_sha }}" "${{ github.sha }}"
