@@ -58,15 +58,7 @@ func _physics_process(_delta):
 		if target and target.has_method("laser_hit"):
 			target.laser_hit()
 		
-		_impact_particles.global_transform.origin = collision_point
-		var normal = _raycast.get_collision_normal()
-		if normal.cross(Vector3.UP).length() < 0.001:
-			_impact_particles.look_at(collision_point + normal, Vector3.RIGHT)
-		else:
-			_impact_particles.look_at(collision_point + normal, Vector3.UP)
-		
-		if not _impact_particles.emitting:
-			_impact_particles.emitting = true
+		_apply_impact(collision_point, _raycast.get_collision_normal())
 	else:
 		if _impact_particles.emitting:
 			_impact_particles.emitting = false
@@ -77,6 +69,22 @@ func _physics_process(_delta):
 	# It points towards -Z.
 	_beam_mesh.scale.z = beam_length
 	_beam_mesh.translation.z = -beam_length / 2.0
+
+func _apply_impact(collision_point: Vector3, normal: Vector3) -> void:
+	# A ray starting inside a collider can report a zero (degenerate) normal.
+	# look_at() errors when origin == target, so skip orientation and stop the
+	# impact emission until a valid surface normal is available.
+	if normal.length() < 0.001:
+		if _impact_particles.emitting:
+			_impact_particles.emitting = false
+		return
+	_impact_particles.global_transform.origin = collision_point
+	if normal.cross(Vector3.UP).length() < 0.001:
+		_impact_particles.look_at(collision_point + normal, Vector3.RIGHT)
+	else:
+		_impact_particles.look_at(collision_point + normal, Vector3.UP)
+	if not _impact_particles.emitting:
+		_impact_particles.emitting = true
 
 func _find_laser_target(collider):
 	var target = collider

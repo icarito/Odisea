@@ -82,3 +82,19 @@ func test_laser_raycast_collision():
 	assert_float(_laser._beam_mesh.scale.z).override_failure_message("Laser beam length did not match the raycast hit point.").is_between(expected_len - 0.1, expected_len + 0.1)
 	
 	static_body.queue_free()
+
+func test_laser_degenerate_collision_normal_is_skipped() -> void:
+	# Regression: a RayCast starting inside a collider reports a zero collision
+	# normal. look_at(origin == target) made Godot 3 error out, so a degenerate
+	# normal must skip orientation and stop impact emission.
+	var point: Vector3 = _laser.global_transform.origin + Vector3(0, 0, -3)
+	_laser._impact_particles.emitting = true
+	_laser._apply_impact(point, Vector3.ZERO)
+	assert_bool(_laser._impact_particles.emitting).override_failure_message("Degenerate normal must stop impact emission.").is_false()
+
+	# Valid normals keep the existing orientation and emission behavior.
+	_laser._apply_impact(point, Vector3.UP)
+	assert_bool(_laser._impact_particles.emitting).override_failure_message("Valid UP normal must enable impact emission.").is_true()
+	_laser._impact_particles.emitting = false
+	_laser._apply_impact(point, Vector3.RIGHT)
+	assert_bool(_laser._impact_particles.emitting).override_failure_message("Valid RIGHT normal must enable impact emission.").is_true()
