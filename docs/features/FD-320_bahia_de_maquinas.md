@@ -1,6 +1,7 @@
 # FD-320 — Bahía de máquinas («Orden de Trabajo 0001»)
 
-**Estado:** greybox jugable, verificado por tests de recorrido. Falta prueba con control en mano.
+**Estado:** candidata RingHub + bahía, con regresiones focalizadas de máquinas, checkpoint/Continue y retorno. Falta recorrido continuo con control en mano y aprobación visual.
+**Alcance de cierre (2026-11-13):** traversal con cuatro máquinas prearmadas; sin editor de construcción ni integración de domos. [Bitácora de verificación](../agents/sessions/2026-11-13_slice_convergence.md).
 **Rama:** `feat/vs-bahia-maquinas`
 **Contratos:** `.operator-shared/specs/machine-launch.md`, `.operator-shared/specs/machine-layout.md`
 
@@ -64,19 +65,14 @@ ODISEA_FORCE_MUTE_AUDIO=1 tools/launch_game.sh --scene res://core_v2/levels/mach
 
 ## Pendiente
 
-- **Ruta domo → tubo → bahía.** No se cableó: los airlocks viven en `Dome_Base.tscn`, que
-  tenía cambios sin commitear de Sebastián, y la bahía no tiene airlock de llegada (contrato
-  de swap seamless). Hoy se entra por `launch_game.sh --scene`.
-- **Modo agarrar del multi-tool** (mover piezas sueltas). El gloo ya suelda y el láser
-  corta; falta sostener y rotar.
+- **Ruta vigente: RingHub → bahía → RingHub.** Existe acceso por `Hub/PedestalMachineBay` y payload de regreso para no repetir el despertar. Falta validar el recorrido completo y continuidad visual jugando. La conexión domo/tubo queda fuera de este cierre; el launcher es una herramienta de inspección, no la entrada de campaña.
+- **Multi-tool.** Tractor/agarrar ya existe en `MultiToolV2`; gloo y láser también. Validar claridad de uso; no añadir catálogo/editor como requisito del traversal.
 - **Balancín: el vuelo es casi vertical.** Llegar a la cornisa exige corregir en el aire;
   falta confirmar con control en mano que se entiende sin texto.
 - **Bug del fork Box3D** (`Box3DDirectBodyState::get_velocity_at_local_position`): toma el
   punto en coordenadas locales del cuerpo. El jugador lo compensa en
   `_track_rigid_platform`; conviene corregirlo en `godot-box3d-3` y borrar la compensación.
-- **Cascarón Blender** de la bahía; hoy es greybox de cajas.
-- **Banco de pruebas / editor.** `MachineLevel.export_layout()` y `save_layout_file()`
-  existen; falta la terminal in-game que saque piezas del catálogo.
+- **Cascarón Blender opcional.** El layout carga `build/machine_bay/bay_shell.glb` si existe. Su presencia local no acredita disponibilidad en exports/CI; revisar legibilidad y empaquetado antes de darlo por entregado.
+- **Banco de pruebas / editor (backlog, fuera de este cierre).** `MachineLevel.export_layout()` y `save_layout_file()` existen; no implementar una terminal/catálogo para cerrar el slice.
 - **i18n** de las líneas de Odisea (hoy texto en español dentro del layout, pasa por `tr()`).
-- **Replay.** `_launched`, `_ballistic_ticks` y `_rigid_platform_grace` no viajan en los
-  snapshots del jugador: un replay que empiece en pleno vuelo puede derivar.
+- **Replay.** Los snapshots de vuelo ya incluyen estado balístico en `PlayerMovementV2`; conservar la cobertura focalizada y verificar determinismo cuando se toque movimiento. No tratar la implementación antigua como un pendiente sin volver a leer el código.
