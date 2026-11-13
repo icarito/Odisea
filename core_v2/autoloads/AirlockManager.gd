@@ -38,6 +38,7 @@ func _ready() -> void:
 	if scene_manager:
 		scene_manager.connect("pre_scene_swap", self, "_on_pre_scene_swap")
 		scene_manager.connect("pre_spawn_state", self, "_on_pre_spawn_state")
+		scene_manager.connect("transition_started", self, "_on_transition_started")
 	set_process(false)
 	# Create permanent beacon alarm proxy — lives here for the lifetime of the
 	# game, never reparented. Every EmergencyBeaconV2 in every scene wires its
@@ -83,6 +84,49 @@ func notify_transition(target_scene: String) -> void:
 			_exterior_scene = current_scene
 
 
+# RingHub <-> MachineBay no tienen airlock fisico: el productor de la transicion
+# (RingHubLightState / MachineLevel.return_to_ring_hub) no llama notify_transition.
+# El payload de ida/vuelta es la marca estable de ese par, asi que se arma el mismo
+# camino seamless del airlock (levantar al jugador y hacer add-before-free) antes
+# de que SceneManager capture _seamless_swap.
+func _on_transition_started(path: String, params: Dictionary) -> void:
+	if _pending_transition:
+		return
+	if not _should_auto_seamless(path, params):
+		return
+	notify_transition(path)
+
+
+func _should_auto_seamless(path: String, params: Dictionary) -> bool:
+	if typeof(params) != TYPE_DICTIONARY:
+		return false
+	if not _is_hub_bay_pair(path):
+		return false
+	var to_name := String(path).get_file().get_basename()
+	var state_data = params.get("state_data", {})
+	var snapshot = {}
+	if typeof(state_data) == TYPE_DICTIONARY:
+		snapshot = state_data.get("player_snapshot", {})
+	if to_name == "RingHub_Level":
+		# Sin snapshot no hay donde devolver al jugador: dejar el camino normal
+		# (spawn del hub) en vez de soltarlo en coordenadas de la bahia.
+		return typeof(snapshot) == TYPE_DICTIONARY and snapshot.has("position")
+	if params.has("ringhub_return_state"):
+		return true
+	return typeof(snapshot) == TYPE_DICTIONARY and snapshot.has("position")
+
+
+func _is_hub_bay_pair(target_path: String) -> bool:
+	var tree := get_tree()
+	if tree == null or not is_instance_valid(tree.current_scene):
+		return false
+	var current_path := String(tree.current_scene.filename)
+	var from_name := current_path.get_file().get_basename() if current_path != "" else String(tree.current_scene.name)
+	var to_name := String(target_path).get_file().get_basename()
+	return (from_name == "RingHub_Level" and to_name == "MachineBay") \
+		or (from_name == "MachineBay" and to_name == "RingHub_Level")
+
+
 func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) -> void:
 	if not _pending_transition:
 		return
@@ -112,8 +156,11 @@ func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) 
 		_seamless_swap = false
 		# Freeze the source scene's WorldRotator so it stops following the player
 		# (now lifted into the airlock chamber) and does not accumulate rotation
-		# that would snap in at scene swap (the [YANK]).
-		var source_rotator := _find_world_rotator_in(old_scene)
+		# that would snap in at scene swap (the [YANK]). El camino seamless sin
+		# airlock (hub<->bahia) no tiene camara de airlock ni rotator que congelar.
+		var source_rotator: Node = null
+		if _has_airlock_frame(_params):
+			source_rotator = _find_world_rotator_in(old_scene)
 		if is_instance_valid(source_rotator) and source_rotator.has_method("pause_tracking"):
 			source_rotator.pause_tracking()
 		# Re-assert camera immediately and deferred (covers both the current frame and
@@ -176,7 +223,12 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 			player.force_camera_current()
 			player.call_deferred("force_camera_current")
 		# Zero out velocity so physics doesn't continue with pre-transition momentum.
-		if "velocity" in player:
+		# El camino seamless sin airlock (hub<->bahia) conserva el momentum: ahi el
+		# snapshot o la entrada ya dejaron la velocidad correcta.
+		var preserve_momentum := false
+		if typeof(_params) == TYPE_DICTIONARY:
+			preserve_momentum = not _has_airlock_frame(_params)
+		if not preserve_momentum and "velocity" in player:
 			player.velocity = Vector3.ZERO
 		# Activate snap frames so KinematicBody adheres to the floor without micro-bounce.
 		if "_post_teleport_snap_frames" in player:
@@ -243,6 +295,7 @@ func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictio
 		return
 	var relative_transform = state_data.get("airlock_relative_transform", null)
 	if typeof(relative_transform) != TYPE_TRANSFORM:
+		_pre_position_without_airlock(player, scene_root, params, state_data)
 		return
 	var target_airlock_path := String(state_data.get("target_airlock_path", "")).strip_edges()
 	if target_airlock_path == "":
@@ -294,6 +347,159 @@ func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictio
 		player.camera_rig.force_update_transform()
 	if "_camera_rig_y_initialized" in player:
 		player._camera_rig_y_initialized = true
+
+# Camino seamless sin airlock (RingHub <-> MachineBay): el jugador sobrevive al
+# swap, pero tiene que aparecer en el destino. El snapshot del payload de retorno
+# manda (pose/momentum exactos); la entrada a la bahia usa su SpawnPointV2 y
+# conserva yaw/pitch/velocidad del hub para no rotar la vista 180 grados.
+func _pre_position_without_airlock(player: Node, scene_root: Node, params: Dictionary, state_data: Dictionary) -> void:
+	var snapshot = state_data.get("player_snapshot", {})
+	if typeof(snapshot) == TYPE_DICTIONARY and snapshot.has("position"):
+		if player.has_method("restore_snapshot"):
+			player.restore_snapshot(snapshot)
+			if player is Node:
+				player.reset_physics_interpolation()
+			_refresh_camera_rig_after_placement(player)
+			return
+		var origin := _snapshot_position(snapshot, player)
+		_place_without_airlock(player, origin, float(snapshot.get("yaw", _player_yaw(player))),
+			float(snapshot.get("pitch", _player_pitch(player))))
+		_apply_snapshot_velocity(player, snapshot.get("velocity", null))
+		return
+
+	var spawn := _find_transition_spawn(scene_root, params, state_data)
+	if is_instance_valid(spawn):
+		# Conservar la orientacion del jugador (no la del spawn) evita que la vista
+		# rote al cruzar; el cambio de posicion queda cubierto por el fade.
+		_place_without_airlock(player, spawn.global_transform.origin,
+			_player_yaw(player), _player_pitch(player))
+		return
+
+	# Fallback: si la escena destino no declara SpawnPointV2, usar la posicion del
+	# Pilot que trae la escena (equivale al spawn que usaria el camino normal).
+	var scene_pilot = scene_root.find_node("Pilot", true, false)
+	if scene_pilot is Spatial:
+		_place_without_airlock(player, (scene_pilot as Spatial).global_transform.origin,
+			_player_yaw(player), _player_pitch(player))
+
+
+func _find_transition_spawn(scene_root: Node, params: Dictionary, state_data: Dictionary) -> Position3D:
+	var target_id := ""
+	if typeof(params) == TYPE_DICTIONARY:
+		target_id = String(params.get("target_spawn_id", params.get("spawn_id", ""))).strip_edges()
+	if target_id == "" and typeof(state_data) == TYPE_DICTIONARY:
+		target_id = String(state_data.get("target_spawn_id", "")).strip_edges()
+	var fallback: Position3D = null
+	var pending: Array = [scene_root]
+	while not pending.empty():
+		var node = pending.pop_front()
+		if not is_instance_valid(node):
+			continue
+		if node is Position3D and "spawn_id" in node:
+			var spawn := node as Position3D
+			if fallback == null:
+				fallback = spawn
+			if target_id == "" or String(node.get("spawn_id")) == target_id:
+				return spawn
+		for child in node.get_children():
+			pending.push_back(child)
+	return fallback
+
+
+func _snapshot_position(snapshot: Dictionary, player: Node) -> Vector3:
+	var pos = snapshot.get("position", null)
+	if typeof(pos) == TYPE_VECTOR3:
+		return pos
+	if pos is Array and pos.size() >= 3:
+		return Vector3(float(pos[0]), float(pos[1]), float(pos[2]))
+	if is_instance_valid(player) and player is Spatial:
+		return (player as Spatial).global_transform.origin
+	return Vector3.ZERO
+
+
+func _apply_snapshot_velocity(player: Node, velocity_data) -> void:
+	if not is_instance_valid(player) or not ("velocity" in player):
+		return
+	if typeof(velocity_data) == TYPE_VECTOR3:
+		player.velocity = velocity_data
+	elif velocity_data is Array and velocity_data.size() >= 3:
+		player.velocity = Vector3(float(velocity_data[0]), float(velocity_data[1]), float(velocity_data[2]))
+
+
+func _place_without_airlock(player: Node, origin: Vector3, yaw: float, pitch: float) -> void:
+	if not is_instance_valid(player) or not (player is Spatial):
+		return
+	var target := (player as Spatial).global_transform
+	target.origin = origin
+	(player as Spatial).global_transform = target
+	if "yaw" in player:
+		player.yaw = yaw
+	if "pitch" in player:
+		player.pitch = pitch
+	if "yaw_deg" in player:
+		player.yaw_deg = rad2deg(yaw)
+	if "pitch_deg" in player:
+		player.pitch_deg = rad2deg(pitch)
+	# Interpolacion de fisica: el lift corre fuera del tick; sin reset el primer
+	# frame del destino interpola desde la escena de origen (el "yank" clasico).
+	player.reset_physics_interpolation()
+	_refresh_camera_rig_after_placement(player)
+	if "_post_teleport_snap_frames" in player:
+		player._post_teleport_snap_frames = 8
+
+
+func _refresh_camera_rig_after_placement(player: Node) -> void:
+	if not is_instance_valid(player) or not ("camera_rig" in player):
+		return
+	var rig = player.camera_rig
+	if not is_instance_valid(rig):
+		return
+	var yaw := _player_yaw(player)
+	var pitch := _player_pitch(player)
+	var prefix: Basis = player.camera_basis_prefix if "camera_basis_prefix" in player else Basis.IDENTITY
+	rig.transform.basis = prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+	var base_y := float(player.base_rig_y) if "base_rig_y" in player else 0.0
+	rig.transform.origin.y = base_y
+	rig.force_update_transform()
+	# Sin airlock no hay reencuadre de camara que preservar: dejar el spring arm en
+	# la longitud base del jugador evita un zoom visible despues del fade-in.
+	if "base_spring_length_3d" in player:
+		var base_len := float(player.base_spring_length_3d)
+		if "current_spring_length" in player:
+			player.current_spring_length = base_len
+		var arm = player.get("_cached_spring_arm")
+		if is_instance_valid(arm):
+			if "spring_length" in arm:
+				arm.spring_length = base_len
+			if "current_length" in arm:
+				arm.current_length = base_len
+	if "_camera_rig_y_initialized" in player:
+		player._camera_rig_y_initialized = true
+	if "_camera_rig_y_smoothed_global" in player:
+		var origin_y := 0.0
+		if player is Spatial:
+			origin_y = (player as Spatial).global_transform.origin.y
+		player._camera_rig_y_smoothed_global = origin_y + base_y
+		player._camera_rig_airborne_anchor_global = player._camera_rig_y_smoothed_global
+		player._camera_rig_was_grounded = true
+
+
+func _has_airlock_frame(params: Dictionary) -> bool:
+	if typeof(params) != TYPE_DICTIONARY:
+		return false
+	var state_data = params.get("state_data", {})
+	if typeof(state_data) != TYPE_DICTIONARY:
+		return false
+	return typeof(state_data.get("airlock_relative_transform", null)) == TYPE_TRANSFORM \
+		or String(state_data.get("target_airlock_path", "")).strip_edges() != ""
+
+
+func _player_yaw(player: Node) -> float:
+	return float(player.yaw) if is_instance_valid(player) and "yaw" in player else 0.0
+
+
+func _player_pitch(player: Node) -> float:
+	return float(player.pitch) if is_instance_valid(player) and "pitch" in player else 0.0
 
 func _find_animator_in(player: Node) -> Node:
 	if not is_instance_valid(player):

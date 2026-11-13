@@ -139,6 +139,9 @@ func _ready() -> void:
 	# Deferred para correr despues del _apply() de DarkLevelLighting, pero sus
 	# setters guardan pendiente igual, asi que el orden no es critico.
 	call_deferred("_apply_initial")
+	# FD-021 (precarga async): la bahia se carga en background durante el hub, asi
+	# el cruce no paga la carga completa con la pantalla ya fundida.
+	call_deferred("_preload_machine_bay")
 	# El piso (ScaffoldHubRing) y los pods de criopods se generan en su _ready, DESPUES
 	# del NOTIFICATION_READY del BakedLightmap: su _assign_lightmaps no los encuentra
 	# ("Node not found"). Se re-asigna diferido, cuando ya existen.
@@ -196,10 +199,32 @@ func enter_machine_bay() -> void:
 			if pilot != null and pilot.has_method("get_full_snapshot"):
 				return_state = {"wakeup": hub.get_snapshot(), "light_state": get_snapshot(),
 					"player_snapshot": pilot.get_full_snapshot()}
+		# Mismo camino seamless que un airlock: el jugador sobrevive al swap (camara
+		# continua) y se reubica en el SpawnPointV2 de la bahia. Se arma solo cuando
+		# no hay otra transicion en curso; un goto_scene encolado no debe dejar el
+		# lift armado para la transicion siguiente.
+		if not scene_mgr.has_method("is_transitioning") or not bool(scene_mgr.is_transitioning()):
+			var airlock_manager = get_node_or_null("/root/AirlockManager")
+			if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+				airlock_manager.notify_transition(machine_bay_scene_path)
 		scene_mgr.goto_scene(machine_bay_scene_path, {"preserve_player_state": false,
 			"wait_for_fade_out": true, "ringhub_return_state": return_state})
 	else:
 		get_tree().change_scene(machine_bay_scene_path)
+
+
+# Precarga en background solo cuando este nodo pertenece al nivel vivo (no en una
+# instancia de test colgada de root). Una sola escena pendiente alcanza: SceneManager
+# la instancia al cruzar y la mantiene cacheada.
+func _preload_machine_bay() -> void:
+	if machine_bay_scene_path.strip_edges() == "" or not is_inside_tree():
+		return
+	var tree := get_tree()
+	if tree == null or not is_instance_valid(tree.current_scene) or get_parent() != tree.current_scene:
+		return
+	var scene_mgr = get_node_or_null("/root/SceneManager")
+	if scene_mgr != null and scene_mgr.has_method("request_scene_preload"):
+		scene_mgr.request_scene_preload(machine_bay_scene_path)
 
 func _notify_suit_lights_restored() -> void:
 	if not is_inside_tree():
