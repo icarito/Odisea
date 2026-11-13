@@ -7,6 +7,7 @@ uniform float albedo_mix : hint_range(0.0, 1.0) = 0.0;
 uniform float emission_energy : hint_range(0.0, 8.0) = 2.4;
 uniform float alpha_scale : hint_range(0.0, 2.0) = 0.85;
 uniform float min_alpha : hint_range(0.0, 1.0) = 0.02;
+uniform float fade_alpha : hint_range(0.0, 1.0) = 1.0;
 
 uniform float scanline_density : hint_range(10.0, 260.0) = 145.0;
 uniform float scanline_speed : hint_range(0.0, 10.0) = 1.4;
@@ -103,12 +104,12 @@ void fragment() {
 	vec3 core_color = holo_color * scanline_mask * flicker_mask * noise_mask;
 	vec3 edge_color = base_color.rgb * (1.2 + glitch_gate * 0.8);
 
-	ALBEDO = core_color * (0.32 + fresnel * 0.22);
-	EMISSION = core_color * emission_energy + edge_color * fresnel * (1.5 + glitch_gate);
+	ALBEDO = core_color * (0.32 + fresnel * 0.22) * fade_alpha;
+	EMISSION = (core_color * emission_energy + edge_color * fresnel * (1.5 + glitch_gate)) * fade_alpha;
 
 	float alpha = body_alpha * scanline_mask;
 	alpha *= 1.0 - glitch_gate * glitch_strength * 0.25;
 	alpha *= 0.86 + 0.14 * flicker_mask;
 	alpha += fresnel * 0.12;
-	ALPHA = clamp(alpha, min_alpha, 1.0);
+	ALPHA = clamp(alpha, min_alpha, 1.0) * fade_alpha;
 }
