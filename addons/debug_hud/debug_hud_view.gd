@@ -68,8 +68,8 @@ func _on_imgui_frame() -> void:
 	if is_key_pressed(KEY_F1):
 		hud.visible = not hud.visible
 	var m = hud.metrics
-	_draw_mini(m)
 	if hud.visible:
+		_draw_mini(m)
 		_draw_full(m)
 
 
