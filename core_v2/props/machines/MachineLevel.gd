@@ -501,8 +501,23 @@ func _calc_transform(item: Dictionary) -> Transform:
 		_vec(item.get("pos", [0, 0, 0])))
 
 
+# Escala pedida de un cartel en formato layout. _calc_transform arma solo rotacion y
+# posicion, asi que el "scale" del item debe re-aplicarse DESPUES de asignar la transform:
+# asignar node.transform lo pisa y el cartel quedaba en (1,1,1) pese a pedir p. ej. 1.6.
+static func _sign_scale(item: Dictionary) -> Vector3:
+	if not item.has("scale"):
+		return Vector3.ONE
+	var s = item["scale"]
+	if s is Array and s.size() == 3:
+		return _vec(s)
+	var f := float(s)
+	return Vector3(f, f, 1.0)
+
+
 func _place(node: Spatial, item: Dictionary) -> void:
 	node.transform = _calc_transform(item)
+	if str(item.get("type", "")) == "sign":
+		node.scale = _sign_scale(item)
 
 
 # Rearma las piezas, bisagras y controles de una estacion (o de todo el nivel si station_id <= 0).
@@ -558,7 +573,7 @@ func reset_station(station_id: int = 0) -> void:
 				node.set_active(false, true)
 		else:
 			if node is Spatial:
-				(node as Spatial).transform = t
+				_place(node as Spatial, item)
 	for c in _conduits:
 		if target_nodes.has(c.get("to", null)):
 			c["active_ticks"] = 0
