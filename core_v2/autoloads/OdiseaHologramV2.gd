@@ -1,8 +1,9 @@
 extends Spatial
 # OdiseaHologramV2
-# NPC-holograma de Odisea (v1: solo aparición/desaparición, sin movimiento).
-# Cuerpo visual reutilizado: Programmer.glb con el material holográfico
-# (ProgrammerHoloShader/Material). Sin física ni colisión: es puramente decorativo.
+# NPC-holograma de Odisea (v1: aparición/desaparición con movimiento vivo de
+# animación y luz diegética). Cuerpo visual reutilizado: Programmer.glb con el
+# material holográfico (ProgrammerHoloShader/Material). Sin física ni colisión:
+# es puramente decorativo.
 # Scene-agnóstico: escucha la señal "said" de los nodos MachineLevel (bahía de
 # máquinas) y aparece junto al jugador mientras Odisea habla; se desvanece al
 # terminar el mensaje. El fade se maneja por ticks de física (determinista), no
@@ -16,9 +17,13 @@ export(float) var fade_in_sec := 0.4
 export(float) var fade_out_sec := 0.5
 export(float) var anchor_distance := 2.4
 export(float) var anchor_height := 0.0
+export(float) var light_energy_base := 0.55
+export(bool) var face_camera := true
 
 var _visual: Spatial = null
 var _holo_mat: ShaderMaterial = null
+var _anim_player: AnimationPlayer = null
+var _light: OmniLight = null
 var _alpha := 0.0
 var _target_alpha := 0.0
 var _hold_ticks := 0
@@ -68,6 +73,7 @@ func show_holo(duration: float) -> void:
 	_target_alpha = 1.0
 	_hold_ticks = int(round(max(0.0, duration) * Engine.iterations_per_second))
 	_place_near_player()
+	_start_animation()
 	if _visual != null:
 		_visual.visible = true
 
@@ -76,6 +82,8 @@ func hide_holo() -> void:
 	_active = false
 	_target_alpha = 0.0
 	_hold_ticks = 0
+	if _anim_player != null:
+		_anim_player.stop()
 
 
 func is_holo_active() -> bool:
@@ -99,18 +107,39 @@ func _ensure_visual() -> void:
 			(n as GeometryInstance).cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		if n is MeshInstance:
 			(n as MeshInstance).material_override = _holo_mat
+		if n is AnimationPlayer and _anim_player == null:
+			_anim_player = n as AnimationPlayer
 		for c in n.get_children():
 			stack.push_back(c)
 	add_child(_visual)
+	_build_holo_light()
 	_apply_alpha(0.0)
 	_visual.visible = false
+
+
+func _build_holo_light() -> void:
+	_light = OmniLight.new()
+	_light.name = "HoloLight"
+	_light.light_color = Color(0.3, 0.9, 1.0)
+	_light.light_energy = 0.0
+	_light.omni_range = 4.5
+	_light.shadow_enabled = false
+	_light.translation = Vector3(0.0, 1.2, 0.0)
+	_visual.add_child(_light)
 
 
 func _place_near_player() -> void:
 	if _visual == null:
 		return
 	# Preferir la cámara activa: el holograma aparece delante de lo que el jugador
-	# está mirando, anclado al piso (el origen del mesh está en los pies).
+	# está mirando. La Y usa la del jugador (o piso lógico) + anchor_height para no
+	# quedar hundido/flotando en plataformas elevadas; el origen del mesh está en los pies.
+	var players := get_tree().get_nodes_in_group("player")
+	var ground_y := 0.0
+	if not players.empty():
+		var p = players[0]
+		if is_instance_valid(p) and p is Spatial:
+			ground_y = (p as Spatial).global_transform.origin.y
 	var cam: Camera = get_viewport().get_camera()
 	if cam != null:
 		var fwd: Vector3 = -cam.global_transform.basis.z
@@ -120,17 +149,17 @@ func _place_near_player() -> void:
 		else:
 			fwd = fwd.normalized()
 		var target: Vector3 = cam.global_transform.origin + fwd * anchor_distance
-		target.y = anchor_height
+		target.y = ground_y + anchor_height
 		_visual.global_transform = Transform(Basis.IDENTITY, target)
+		_orient_to(face_camera, cam.global_transform.origin, target)
 		return
 	# Fallback sin cámara: junto al jugador, o punto fijo si no hay jugador.
 	var pivot := Vector3(0.0, 0.6, -2.0)
 	var forward := Vector3(0.0, 0.0, -1.0)
-	var players := get_tree().get_nodes_in_group("player")
 	if not players.empty():
-		var p = players[0]
-		if is_instance_valid(p) and p is Spatial:
-			var p_sp: Spatial = p
+		var p2 = players[0]
+		if is_instance_valid(p2) and p2 is Spatial:
+			var p_sp: Spatial = p2
 			pivot = p_sp.global_transform.origin
 			var b := p_sp.global_transform.basis
 			forward = -b.z
@@ -140,6 +169,16 @@ func _place_near_player() -> void:
 			else:
 				forward = forward.normalized()
 	_visual.global_transform = Transform(Basis.IDENTITY, pivot + forward * anchor_distance + Vector3(0.0, anchor_height, 0.0))
+
+
+func _orient_to(face: bool, camera_global_pos: Vector3, holo_pos: Vector3) -> void:
+	if not face or _visual == null:
+		return
+	var dir := camera_global_pos - holo_pos
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	_visual.look_at(holo_pos + dir, Vector3.UP)
 
 
 func _physics_process(delta: float) -> void:
@@ -164,3 +203,35 @@ func _apply_alpha(a: float) -> void:
 		_holo_mat.set_shader_param("fade_alpha", a)
 	if _visual != null:
 		_visual.visible = a > 0.001
+	if _light != null:
+		_light.light_energy = light_energy_base * a
+		_light.visible = a > 0.001
+
+
+func _start_animation() -> void:
+	if _anim_player == null:
+		return
+	var names := _anim_player.get_animation_list()
+	if names.has("Levitate Entrance"):
+		if not _anim_player.is_connected("animation_finished", self, "_on_holo_anim_finished"):
+			_anim_player.connect("animation_finished", self, "_on_holo_anim_finished")
+		_anim_player.play("Levitate Entrance")
+	else:
+		_play_holo_idle()
+
+
+func _play_holo_idle() -> void:
+	if _anim_player == null:
+		return
+	var names := _anim_player.get_animation_list()
+	if names.has("Levitate Idle"):
+		_anim_player.play("Levitate Idle")
+	elif names.has("Idle_Loop"):
+		_anim_player.play("Idle_Loop")
+	elif names.has("Swim_Idle_Loop"):
+		_anim_player.play("Swim_Idle_Loop")
+
+
+func _on_holo_anim_finished(anim_name: String) -> void:
+	if anim_name == "Levitate Entrance":
+		_play_holo_idle()

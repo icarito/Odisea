@@ -121,3 +121,26 @@ Paths: `/home/icarito/.ao/data/artifacts/src-8/odisea_holo_during{1,2}.png`,
 - **Build con Mono (siguiente paso, pedido de Sebastián):** evaluar un build del motor
   con Mono para usar el modelo de movimiento entrenado antes. Fuera del alcance v1;
   queda para el orquestador.
+
+## Revisión de orquestador (PR #372) — aplicada
+
+1. **Colocación**: la Y usa `player.global_transform.origin.y + anchor_height` (no un
+   piso fijo) para no hundirse/flotar en plataformas elevadas de MachineBay/RingHub.
+   Además `face_camera=true` orienta el holograma en XZ hacia la cámara
+   (`_orient_to` vía `look_at`; convención de front -Z del personaje).
+2. **Animación viva**: al `show_holo()` se reproduce `Levitate Entrance` y al terminar
+   encadena a `Levitate Idle` (fallback `Idle_Loop`/`Swim_Idle_Loop`); `hide_holo()`
+   detiene el AnimationPlayer. No queda congelado en bind/T-pose.
+3. **Luz diegética**: OmniLight cian sin sombras (`HoloLight`) acoplada a `fade_alpha`
+   (`light_energy = light_energy_base * alpha`).
+4. **Tests pedidos:**
+   - `./runtest.sh -a ./core_v2/tests/test_odisea_hologram.gd` → 6/6 PASSED.
+   - `./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd` → 2/2 PASSED.
+   - Regresión rápida `pytest -k test_machine_level` → 1/1 PASSED.
+   - Captura revalidada: durante → `Levitate Idle` + luz 0.55 + alpha 1 en frame;
+     después → oculto, anim detenida, luz 0.
+5. **Reimport final del glb con el setting actual (pedido de Sebastián):** se corrió el
+   pipeline de import del repo (`scripts/godot_import_smoke.sh --import-mode full`). El
+   `.scn` de `Programmer.glb` se regeneró y difiere de HEAD (md5 cambió, mismo tamaño):
+   ese es el resultado buscado y quedó versionado en el PR. `check_tracked_imports.py`
+   sigue en 952 manifests OK.
