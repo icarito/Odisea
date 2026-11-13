@@ -1,0 +1,138 @@
+name: Import + Smoke (Reusable)
+
+# Ejecuta import + smoke test usando godot_import_smoke.sh con parámetros configurables.
+# Lo usan: asset_integrity, determinism_tests, pytest_runner, stress_performance
+
+on:
+  workflow_call:
+    inputs:
+      godot_bin:
+        description: 'Path to Godot binary (from _setup_godot output)'
+        required: true
+        type: string
+      clean_cache:
+        description: 'Full clean rebuild (1) vs self-healing (0)'
+        required: false
+        default: '0'
+        type: string
+      import_mode:
+        description: 'Import mode: quick, auto, full'
+        required: false
+        default: 'auto'
+        type: string
+      smoke_script:
+        description: 'Smoke test script to run'
+        required: false
+        default: 'tests/ci_resource_smoke.gd'
+        type: string
+      timeout_import:
+        description: 'Import timeout in seconds'
+        required: false
+        default: '600'
+        type: string
+      timeout_smoke:
+        description: 'Smoke timeout in seconds'
+        required: false
+        default: '180'
+        type: string
+      disable_editor_plugins:
+        description: 'Disable editor plugins during import'
+        required: false
+        default: '1'
+        type: string
+      xvfb:
+        description: 'Use xvfb (1) or not (0)'
+        required: false
+        default: '0'
+        type: string
+      force_software:
+        description: 'Force software rendering (1) or not (0)'
+        required: false
+        default: '0'
+        type: string
+      allow_import_retry:
+        description: 'Allow import retry (1) or not (0) — default matches godot_import_smoke.sh'
+        required: false
+        default: '1'
+        type: string
+      allow_full_escalation:
+        description: 'Allow full escalation (1) or not (0) — default matches godot_import_smoke.sh'
+        required: false
+        default: '1'
+        type: string
+      allow_smoke_retry:
+        description: 'Allow smoke retry (1) or not (0)'
+        required: false
+        default: '1'
+        type: string
+      import_log:
+        description: 'Import log file path'
+        required: false
+        default: 'reports/import_resources.log'
+        type: string
+      import_retry_log:
+        description: 'Import retry log file path'
+        required: false
+        default: 'reports/import_resources_retry.log'
+        type: string
+      smoke_log:
+        description: 'Smoke log file path'
+        required: false
+        default: 'reports/resource_smoke.log'
+        type: string
+      smoke_retry_log:
+        description: 'Smoke retry log file path'
+        required: false
+        default: 'reports/resource_smoke_retry.log'
+        type: string
+
+    secrets:
+      # No secrets needed
+
+jobs:
+  import_smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Ensure reports directory
+        run: mkdir -p reports
+
+      - name: Run Import + Smoke
+        run: |
+          set -euo pipefail
+          scripts/godot_import_smoke.sh \
+            --godot-bin "${{ inputs.godot_bin }}" \
+            --project-path . \
+            --import-log "${{ inputs.import_log }}" \
+            --import-retry-log "${{ inputs.import_retry_log }}" \
+            --smoke-log "${{ inputs.smoke_log }}" \
+            --smoke-retry-log "${{ inputs.smoke_retry_log }}" \
+            --smoke-script "${{ inputs.smoke_script }}" \
+            --timeout-import "${{ inputs.timeout_import }}" \
+            --timeout-smoke "${{ inputs.timeout_smoke }}" \
+            --clean-cache "${{ inputs.clean_cache }}" \
+            --disable-editor-plugins "${{ inputs.disable_editor_plugins }}" \
+            --xvfb "${{ inputs.xvfb }}" \
+            --force-software "${{ inputs.force_software }}" \
+            --import-mode "${{ inputs.import_mode }}" \
+            --allow-import-retry "${{ inputs.allow_import_retry }}" \
+            --allow-full-escalation "${{ inputs.allow_full_escalation }}" \
+            --allow-smoke-retry "${{ inputs.allow_smoke_retry }}"
+
+      - name: Upload import/smoke logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: import-smoke-logs-${{ github.workflow }}-${{ github.job }}
+          path: |
+            ${{ inputs.import_log }}
+            ${{ inputs.import_retry_log }}
+            ${{ inputs.smoke_log }}
+            ${{ inputs.smoke_retry_log }}
+          if-no-files-found: ignore

@@ -22,55 +22,44 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Runtime del fork (modulo Box3D); release en .github/box3d_release.
   EXPORT_NAME: Odisea
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  setup-godot:
+    uses: ./.github/workflows/_setup_godot.yml
+    with:
+      cache_key_suffix: 'stress'
+      cache_import: 'true'
+      # Key estable alineada con export_all/determinism: solo project.godot + *.import
+      import_cache_paths: '[]'
+
+  validate-imports:
+    needs: setup-godot
+    uses: ./.github/workflows/_validate_imports.yml
+
+  import-smoke:
+    needs: [setup-godot, validate-imports]
+    uses: ./.github/workflows/_import_smoke.yml
+    with:
+      godot_bin: ${{ needs.setup-godot.outputs.godot_bin }}
+      clean_cache: '0'
+      import_mode: 'auto'
+      import_log: 'reports/import_resources_stress.log'
+      smoke_log: 'reports/resource_smoke_stress.log'
+      smoke_retry_log: 'reports/resource_smoke_stress_retry.log'
+
   stress-test:
+    needs: import-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions:
-      contents: read
-      actions: read
     env:
       SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
       FPS_TOLERANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.fps_tolerance || '0.97' }}
       ANNA_V2_NO_CENTRAL: "1"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Restore Godot project cache
-        id: godot_project_cache
-        uses: actions/cache@v6
-        with:
-          path: |
-            ${{ github.workspace }}/.import
-          # Key estable alineada con export_all/determinism: solo project.godot +
-          # manifests *.import trackeados, no el .import/** generado ni assets crudos.
-          key: godot-stress-${{ runner.os }}-v4-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
-          restore-keys: |
-            godot-stress-${{ runner.os }}-v4-${{ hashFiles('**/project.godot') }}-
-            godot-stress-${{ runner.os }}-v4-
-            godot-stress-${{ runner.os }}-v3-
-
-      - name: Setup Godot (Box3D fork)
-        run: |
-          set -euo pipefail
-          # El binario stock no trae el modulo Box3D y el proyecto cae a Bullet en
-          # silencio -- inaceptable justo aca, donde se mide rendimiento de fisica.
-          BOX3D_RELEASE="$(cat .github/box3d_release)"
-          curl -fSL -o /tmp/godot-box3d \
-            "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
-          sudo install -m 755 /tmp/godot-box3d /usr/local/bin/godot
-          godot --version
-
-          # Install runtime dependencies for xvfb/godot
-          sudo apt-get update
-          # libasound2 is libasound2t64 on Ubuntu 24.04 (Noble)
-          sudo apt-get install -y xvfb libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2t64 libpulse0 libgl1 mesa-utils
 
       - name: Setup Environment
         run: |
@@ -85,33 +74,11 @@ jobs:
             mv addons/gdUnit3 /tmp/odisea_ci_disabled/gdUnit3
           fi
 
-      - name: Validate tracked import manifests
+      - name: Install runtime dependencies
         run: |
-          set -euo pipefail
-          python3 scripts/check_tracked_imports.py
-
-      - name: Validate critical import artifacts
-        run: |
-          set -euo pipefail
-          python3 scripts/check_critical_import_artifacts.py
-
-      - name: Import + Smoke (self-healing)
-        run: |
-          set -euo pipefail
-          scripts/godot_import_smoke.sh \
-            --godot-bin /usr/local/bin/godot \
-            --project-path . \
-            --import-log reports/import_resources_stress.log \
-            --smoke-log reports/resource_smoke_stress.log \
-            --smoke-retry-log reports/resource_smoke_stress_retry.log \
-            --timeout-import 600 \
-            --timeout-smoke 180 \
-            --clean-cache 0 \
-            --disable-editor-plugins 1 \
-            --xvfb 0 \
-            --force-software 0 \
-            --import-mode auto \
-            --allow-smoke-retry 1
+          sudo apt-get update
+          # libasound2 is libasound2t64 on Ubuntu 24.04 (Noble)
+          sudo apt-get install -y xvfb libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2t64 libpulse0 libgl1 mesa-utils
 
       - name: Capture Host Environment
         run: |
@@ -161,9 +128,6 @@ jobs:
             f.write("\n")
           PY
 
-      # Historial y baseline salen de los artifacts de corridas previas, NO de
-      # actions/cache: el repo pasa el limite de 10 GB de cache y el LRU desalojaba
-      # este cache chico cada noche, dejando el historial en 1 corrida (sin grafico).
       - name: Restore Performance History (previous run artifacts)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -187,7 +151,6 @@ jobs:
           import json, os, sys
           prev = sys.argv[1]
           history, baseline = [], None
-          # gh run list devuelve lo mas nuevo primero; el historial va de viejo a nuevo.
           for run_id in sorted(os.listdir(prev), key=int):
               d = os.path.join(prev, run_id)
               try:
@@ -210,7 +173,6 @@ jobs:
           if baseline:
               with open(baseline) as src, open("performance_baseline.json", "w") as dst:
                   dst.write(src.read())
-          # Baseline del benchmark de Box3D workers (mismo mecanismo de artifacts).
           def box3d_candidates(name):
               return sorted(
                   (os.path.join(root, f) for root, _, files in os.walk(prev) for f in files if f == name),
@@ -227,8 +189,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p reports
-          # Run the stress OYS directly via the SessionManager auto-run contract.
-          # We use xvfb-run even with headless mode to ensure visual server initializes for viewports/captures if needed.
           set +e
           timeout 600 env OYS_AUTO_RUN=res://core_v2/tests/stress/run_stress.oys \
             xvfb-run godot --headless --no-window --audio-driver Dummy 2>&1 | tee reports/stress_runner.log
@@ -243,7 +203,6 @@ jobs:
             exit "$stress_rc"
           fi
 
-          # Move result to workspace
           if [ ! -f ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json ]; then
             echo "Stress runner did not produce performance_snapshots.json"
             exit 1
@@ -254,9 +213,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p reports
-          # physics/3d/box3d_workers se lee al crear el world (arranque del motor),
-          # asi que se fija por override.cfg (gitignored): un run headless por valor.
-          # Se compara serial (1) contra ~mitad de los cores, que es el optimo medido.
           cores="$(nproc)"
           half="$(( cores / 2 ))"
           [ "$half" -lt 1 ] && half=1
@@ -274,7 +230,6 @@ jobs:
         env:
           ODISEA_SIMULATE_REGRESSION: ${{ env.SIMULATE_REGRESSION }}
           ODISEA_FPS_TOLERANCE: ${{ env.FPS_TOLERANCE }}
-          # Shared CI runners are too noisy for CPU-based gating; gate only by FPS.
           ODISEA_CPU_TOLERANCE: "9999"
         run: |
           python3 scripts/check_regression.py \

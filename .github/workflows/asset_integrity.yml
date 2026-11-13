@@ -46,88 +46,48 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Runtime del fork (modulo Box3D); release en .github/box3d_release.
   GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  asset-integrity:
+  setup-godot:
+    uses: ./.github/workflows/_setup_godot.yml
+    with:
+      cache_key_suffix: 'asset-integrity'
+      cache_import: 'true'
+      import_cache_paths: '["assets/**", "textures/**", "models/**", "core_v2/audio/**", "core_v2/actors/**", "core_v2/components/**", "core_v2/props/**", "core_v2/levels/**"]'
+
+  validate-imports:
+    needs: setup-godot
+    uses: ./.github/workflows/_validate_imports.yml
+
+  import-smoke:
+    needs: [setup-godot, validate-imports]
+    uses: ./.github/workflows/_import_smoke.yml
+    with:
+      godot_bin: ${{ needs.setup-godot.outputs.godot_bin }}
+      clean_cache: '1'
+      import_mode: 'quick'
+      smoke_script: 'tests/ci_resource_smoke_asset_integrity.gd'
+      # Asset Integrity es un rebuild limpio: no reintentar imports ni escalar a full.
+      allow_import_retry: '0'
+      allow_full_escalation: '0'
+      import_log: 'reports/import_resources_asset_integrity.log'
+      import_retry_log: 'reports/import_resources_asset_integrity_retry.log'
+      smoke_log: 'reports/resource_smoke_asset_integrity.log'
+      smoke_retry_log: 'reports/resource_smoke_asset_integrity_retry.log'
+
+  upload-logs:
+    needs: import-smoke
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup Godot cache
-        uses: actions/cache@v6
+      - name: Download import/smoke logs
+        uses: actions/download-artifact@v7
         with:
-          path: |
-            ${{ github.workspace }}/.import
-            ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-v3-asset-integrity-${{ hashFiles('**/project.godot', '**/*.import', '.import/**', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
-          restore-keys: |
-            ${{ runner.os }}-godot-v3-asset-integrity-
-            ${{ runner.os }}-godot-v3-
-
-      - name: Cache Godot binary
-        uses: actions/cache@v6
-        with:
-          path: ${{ env.GODOT_CACHE_DIR }}/box3d/godot
-          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-asset-integrity
-          restore-keys: |
-            ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-
-
-      - name: Setup Godot (Box3D fork)
-        run: |
-          set -euo pipefail
-          BOX3D_RELEASE="$(cat .github/box3d_release)"
-          TARGET_DIR="${GODOT_CACHE_DIR}/box3d"
-          TARGET_BIN="${TARGET_DIR}/godot"
-          mkdir -p "$TARGET_DIR"
-          if [ ! -x "$TARGET_BIN" ]; then
-            curl -fSL -o "$TARGET_BIN" \
-              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
-            chmod +x "$TARGET_BIN"
-          fi
-          sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
-
-      - name: Validate tracked import manifests
-        run: |
-          set -euo pipefail
-          python3 scripts/check_tracked_imports.py
-
-      - name: Validate critical import artifacts
-        run: |
-          set -euo pipefail
-          python3 scripts/check_critical_import_artifacts.py
-
-      - name: Import + Smoke (full clean rebuild)
-        run: |
-          set -euo pipefail
-          scripts/godot_import_smoke.sh \
-            --godot-bin /usr/local/bin/godot \
-            --project-path . \
-            --import-log reports/import_resources_asset_integrity.log \
-            --import-retry-log reports/import_resources_asset_integrity_retry.log \
-            --smoke-log reports/resource_smoke_asset_integrity.log \
-            --smoke-retry-log reports/resource_smoke_asset_integrity_retry.log \
-            --smoke-script tests/ci_resource_smoke_asset_integrity.gd \
-            --timeout-import 600 \
-            --timeout-smoke 180 \
-            --clean-cache 1 \
-            --disable-editor-plugins 1 \
-            --xvfb 0 \
-            --force-software 0 \
-            --import-mode quick \
-            --allow-import-retry 0 \
-            --allow-full-escalation 0 \
-            --allow-smoke-retry 1
-
+          name: import-smoke-logs-asset_integrity-import-smoke
+          path: reports
       - name: Upload asset integrity logs
-        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: asset-integrity-logs
