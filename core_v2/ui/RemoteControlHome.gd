@@ -173,7 +173,12 @@ func _send_touch_actions(client) -> void:
 			_send_action_if_changed(client, action, 0.0)
 			continue
 		var down: bool = Input.is_action_pressed(action) if InputMap.has_action(action) else false
-		if action == "tool_fire_primary" and from_touch:
+		# El fantasma del touch tambien aprieta tool_fire_primary aca. Un boton tactil explicito
+		# (el FireButton del MobileUI) marca su accion en MobileUIManager y solo entonces se
+		# reenvia al host, igual que hace InputProviderV2 local (ver PR #384). El cambio de modo
+		# (tool_next_mode/tool_prev_mode) no lo aprieta el fantasma: viaja directo.
+		if action == "tool_fire_primary" and from_touch \
+				and not InputProviderV2.touch_action_is_explicit(action):
 			down = false
 		if action == "tool_fire_primary" and _widget_view_widget() != null:
 			if down and not _widget_view_fire_was_down:
