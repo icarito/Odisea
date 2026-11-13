@@ -39,8 +39,8 @@
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_03_body.tscn" type="PackedScene" id=43]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_04_body.tscn" type="PackedScene" id=44]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_05_body.tscn" type="PackedScene" id=45]
-[ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.mesh" type="ArrayMesh" id=46]
-[ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.shape" type="Shape" id=47]
+[ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_breach.mesh" type="ArrayMesh" id=46]
+[ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_breach.shape" type="Shape" id=47]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_00.mesh" type="ArrayMesh" id=48]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_01.mesh" type="ArrayMesh" id=49]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_02.mesh" type="ArrayMesh" id=50]
@@ -112,6 +112,7 @@
 [ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_5_low_1.mesh" type="ArrayMesh" id=117]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_5_low_2.mesh" type="ArrayMesh" id=118]
 [ext_resource path="res://core_v2/levels/RingHubOccluders.gd" type="Script" id=119]
+[ext_resource path="res://core_v2/props/tube/RingHubBayConnector.tscn" type="PackedScene" id=120]
 
 [sub_resource type="BoxShape" id=400]
 extents = Vector3( 35, 0.3, 35 )
@@ -740,6 +741,9 @@ mesh = ExtResource( 46 )
 
 [node name="WorldCollision" type="CollisionShape" parent="Hub/DomeInteriorLowPoly"]
 shape = ExtResource( 47 )
+
+[node name="BayConnector" parent="Hub" instance=ExtResource( 120 )]
+transform = Transform( 0.994969, 0, -0.100188, 0, 1, 0, 0.100188, 0, 0.994969, 27.859119, 0, 2.805266 )
 
 [node name="RingFloor" parent="Hub" instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0 )
