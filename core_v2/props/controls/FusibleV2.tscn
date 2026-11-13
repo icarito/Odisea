@@ -1,0 +1,51 @@
+[gd_scene load_steps=7 format=2]
+
+; Fusible con socket (FD-289 §7.6, T5). Sostener para extraer, sostener para insertar.
+; El fusible (Fuse) se desliza sobre el eje del socket (local Y) según el hold del jugador.
+; Color verde: red de Energía (§3.4, #00FF88).
+
+[ext_resource path="res://core_v2/props/controls/FusibleV2.gd" type="Script" id=1]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=2]
+
+[sub_resource type="CylinderMesh" id=1]
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.16
+
+[sub_resource type="CylinderMesh" id=2]
+top_radius = 0.075
+bottom_radius = 0.075
+height = 0.08
+
+[sub_resource type="SpatialMaterial" id=3]
+albedo_color = Color( 0.08, 0.12, 0.09, 1 )
+metallic = 0.6
+roughness = 0.35
+emission_enabled = true
+emission = Color( 0, 1, 0.53, 1 )
+emission_energy = 0.9
+
+[sub_resource type="CylinderShape" id=4]
+radius = 0.09
+height = 0.28
+
+[node name="FusibleV2" type="Spatial"]
+script = ExtResource( 1 )
+starts_active = true
+
+[node name="Socket" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0 )
+mesh = SubResource( 2 )
+material/0 = ExtResource( 2 )
+
+[node name="Fuse" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0 )
+mesh = SubResource( 1 )
+material/0 = SubResource( 3 )
+
+[node name="StaticBody" type="StaticBody" parent="."]
+collision_layer = 64
+
+[node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.32, 0 )
+shape = SubResource( 4 )
