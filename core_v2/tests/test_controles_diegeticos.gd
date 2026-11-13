@@ -62,10 +62,11 @@ func test_pedestal_button_pulse_on_rising_edge_and_bezel_emissive() -> void:
 	assert_bool(button.is_active).is_true()
 	assert_int(button._pulse_ticks).is_equal(button.PULSE_TICKS)
 
-	var bezel: MeshInstance = button.get_node("ConsoleBezel")
-	var bmat = bezel.material_override
-	assert_bool(bmat is SpatialMaterial).is_true()
-	assert_bool(bmat.emission_enabled).is_true()
+	var mesh: MeshInstance = button.get_node("ButtonMesh")
+	var mat = mesh.material_override
+	assert_bool(mat is SpatialMaterial).is_true()
+	assert_bool(mat.emission_enabled).is_true()
+	assert_float(mat.emission_energy).is_greater(1.0) # boost de pulso sobre el actuador
 
 	var ticks_before: int = button._pulse_ticks
 	button.step(1.0 / 60.0)

@@ -105,7 +105,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.26, 0 )
 mesh = SubResource( 8 )
 material/0 = ExtResource( 6 )
 
-[node name="Knob" type="MeshInstance" parent="Handle" groups=["no_occlusion"]]
+[node name="Knob" type="MeshInstance" parent="Handle"]
 transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0.52, 0 )
 material_override = SubResource( 9 )
 mesh = SubResource( 10 )
