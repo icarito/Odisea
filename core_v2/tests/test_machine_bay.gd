@@ -5,6 +5,22 @@ extends GdUnitTestSuite
 
 const BayScene = preload("res://core_v2/levels/machines/MachineBay.tscn")
 
+# Modelo privado: los tests de cierre no escriben objetivos/comunicaciones de campaña.
+class ClosureScreen extends Reference:
+	var model: Reference = preload("res://core_v2/ui/hud/SuitModel.gd").new()
+
+	func ensure_model() -> Reference:
+		return model
+
+	func notify_state_changed() -> void:
+		pass
+
+class ClosureLevel extends "res://core_v2/props/machines/MachineLevel.gd":
+	var screen: Reference = ClosureScreen.new()
+
+	func _get_suit_screen() -> Object:
+		return screen
+
 var _bay: Node = null
 var debug_trace := false
 
@@ -237,6 +253,102 @@ func test_laser_cut_strut_launches_pilot_and_reset_restores_station() -> void:
 	yield(_free_bay(), "completed")
 
 
+func _closure_level(names: Array) -> Node:
+	var file := File.new()
+	file.open("res://core_v2/levels/machines/machine_bay.json", File.READ)
+	var layout: Dictionary = JSON.parse(file.get_as_text()).result
+	file.close()
+	var items: Array = []
+	for item in layout["items"]:
+		if names.has(item.get("name", "")) or (item["type"] == "link" and names.has(item.get("from", "")) and (names.has(item.get("to", "")) or item.get("to", "") == "@level")):
+			items.append(item)
+	var level: Node = ClosureLevel.new()
+	get_tree().root.add_child(level)
+	level.build({"items": items})
+	level.set_physics_process(false)
+	return level
+
+
+func _step_level(level: Node, ticks: int) -> void:
+	for _tick in range(ticks):
+		level._physics_process(1.0 / float(Engine.iterations_per_second))
+
+
+func test_administrative_close_requires_valve_and_is_idempotent() -> void:
+	var level: Node = _closure_level(["MasterFlowValve", "OrderCompleteButton"])
+	var model: Reference = level.screen.model
+	level.start_work_order()
+	assert_str(model.objective_state("lights")).is_equal(model.OBJ_ACTIVE)
+	level.complete_work_order()
+	var button: Node = level.get_item("OrderCompleteButton")
+	button.interact()
+	assert_bool(level.is_work_order_completed()).is_false()
+	assert_str(model.objective_state("order_0001")).is_equal(model.OBJ_ACTIVE)
+	assert_bool(model.objective_ids().has("return_hub")).is_false()
+	assert_array(level._pending).is_empty()
+	# Apertura real: su señal también pasa por el mismo guard, sin botón administrativo.
+	level.get_item("MasterFlowValve").interact()
+	level.get_item("MasterFlowValve").step(1.0)
+	assert_bool(level.is_work_order_completed()).is_true()
+	assert_str(model.objective_state("lights")).is_equal(model.OBJ_ACTIVE)
+	assert_str(model.objective_state("order_0001")).is_equal(model.OBJ_DONE)
+	assert_str(JSON.print(model.snapshot())).contains("Fin de la demo")
+	assert_bool(JSON.print(model.snapshot()).find("Orden 0002") >= 0).is_false()
+	var snapshot: Dictionary = model.snapshot().duplicate(true)
+	var pending: Array = level.get_snapshot()["pending"]
+	button.set_active(false, true)
+	button.interact()
+	level.complete_work_order()
+	assert_dict(model.snapshot()).is_equal(snapshot)
+	assert_array(level.get_snapshot()["pending"]).is_equal(pending)
+	level.free()
+
+
+func test_rotor_lever_starts_once_after_five_seconds() -> void:
+	var level: Node = _closure_level(["CentrifugeLever", "CentrifugeJam", "CentrifugeHinge", "CentrifugeArm"])
+	var ips: int = Engine.iterations_per_second
+	var jam: Node = level.get_item("CentrifugeJam")
+	var motor: Node = level.get_item("CentrifugeHinge")
+	level.get_item("CentrifugeLever").interact()
+	level.get_item("CentrifugeLever").step(2.0)
+	_step_level(level, int(round(3.5 * ips)) - 1)
+	assert_bool(jam.is_cut()).is_false()
+	assert_bool(motor.motor_enabled).is_false()
+	_step_level(level, 1)
+	assert_bool(jam.is_cut()).is_true()
+	assert_bool(motor.motor_enabled).is_false()
+	assert_int(level._pending.size()).is_equal(1)
+	_step_level(level, int(round(1.5 * ips)) - 1)
+	assert_bool(motor.motor_enabled).is_false()
+	_step_level(level, 1)
+	assert_bool(motor.motor_enabled).is_true()
+	assert_array(level._pending).is_empty()
+	motor.set_active(false)
+	_step_level(level, 2 * ips)
+	assert_bool(motor.motor_enabled).is_false()
+	level.free()
+
+
+func test_rotor_early_cut_does_not_schedule_a_second_motor_start() -> void:
+	var level: Node = _closure_level(["CentrifugeLever", "CentrifugeJam", "CentrifugeHinge", "CentrifugeArm"])
+	var ips: int = Engine.iterations_per_second
+	var motor: Node = level.get_item("CentrifugeHinge")
+	level.get_item("CentrifugeLever").interact()
+	level.get_item("CentrifugeLever").step(2.0)
+	_step_level(level, ips)
+	# Mismo corte terminal que produce el láser; el retardo de palanca sigue pendiente.
+	level.get_item("CentrifugeJam").cut_now()
+	_step_level(level, int(round(1.5 * ips)) - 1)
+	assert_bool(motor.motor_enabled).is_false()
+	_step_level(level, 1)
+	assert_bool(motor.motor_enabled).is_true()
+	motor.set_active(false)
+	_step_level(level, 4 * ips)
+	assert_bool(motor.motor_enabled).is_false()
+	assert_array(level._pending).is_empty()
+	level.free()
+
+
 func test_master_flow_valve_completes_work_order_0001() -> void:
 	var pilot := _load_bay(Vector3(0, 10.5, 81.5))
 	yield(_fly(pilot, 20), "completed")
@@ -260,10 +372,11 @@ func test_spawn_on_floor_lighting_and_kill_floor_detection() -> void:
 	assert_float(pilot.global_transform.origin.x).is_equal_approx(0.0, 0.2)
 	assert_float(pilot.global_transform.origin.y).is_greater(-0.1)
 	assert_object(_bay.get_node_or_null("SpawnPointV2")).is_not_null()
-	# 2. Iluminacion interior: Environment con ambient >= 1.0 y BayLights presentes.
+	# 2. Iluminacion interior: ambiente acotado para no lavar las marcas, con luces locales.
 	var we := _bay.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	assert_object(we).is_not_null()
-	assert_float(we.environment.ambient_light_energy).is_greater(1.0)
+	assert_float(we.environment.ambient_light_energy).is_between(0.25, 0.6)
+	assert_float(we.environment.glow_bloom).is_equal(0.0)
 	assert_object(_bay.get_node_or_null("BayLights/LightStation1")).is_not_null()
 	# 3. KillFloor detecta la capa de colision 2 del Pilot y dispara player_killed al caer.
 	var kill_floor := _item("KillFloor") as Area

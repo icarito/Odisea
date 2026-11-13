@@ -19,6 +19,10 @@ const MachineHinge = preload("res://core_v2/props/machines/MachineHinge.gd")
 const TriggerScript = preload("res://core_v2/props/machines/MachineTrigger.gd")
 const LedgeV2 = preload("res://core_v2/components/LedgeV2.gd")
 const SignagePanelScene = preload("res://core_v2/props/signage/SignagePanel.tscn")
+const DiamondPlateTex = preload("res://materials/diamondplate.png")
+const DiamondPlateSpec = preload("res://materials/diamondplate_spec.png")
+const IndFloorTex = preload("res://textures/kenney_prototype_textures/dark/texture_08.png")
+const HazardMat = preload("res://materials/diamondPlateAluminum/seam_hazard_stripes.tres")
 
 export(String, FILE, "*.json") var layout_path := ""
 export(bool) var enable_player_multi_tool := true
@@ -34,9 +38,13 @@ var _station_resets := 0
 var _elapsed_ticks := 0
 var _order_completed := false
 var _void_kill_cooldown_ticks := 0
+var _ringhub_return_state: Dictionary = {}
 
 
 func _ready() -> void:
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+	if scene_manager != null:
+		_ringhub_return_state = scene_manager._transition_params.get("ringhub_return_state", {}).duplicate(true)
 	add_to_group("replay_sync")
 	set_physics_process(true)
 	_apply_flat_lighting()
@@ -231,15 +239,55 @@ func _make_block(item: Dictionary) -> StaticBody:
 	cube.size = size
 	mesh.mesh = cube
 	var mat := SpatialMaterial.new()
-	mat.albedo_color = Color(str(item.get("color", "#3a4048")))
-	mat.roughness = 0.85
-	mat.metallic = 0.2
-	if bool(item.get("emissive", false)):
+	var is_emissive := bool(item.get("emissive", false))
+	var has_custom_color := item.has("color")
+	mat.albedo_color = Color(str(item.get("color", "#4a525d")))
+	mat.roughness = 0.62 if not is_emissive else 0.45
+	mat.metallic = 0.45 if not is_emissive else 0.15
+	if not is_emissive:
+		mat.uv1_triplanar = true
+		mat.uv1_triplanar_sharpness = 6.0
+		if has_custom_color:
+			mat.albedo_texture = DiamondPlateTex
+			mat.metallic_texture = DiamondPlateSpec
+			mat.normal_enabled = true
+			mat.normal_texture = DiamondPlateTex
+			mat.normal_scale = 0.55
+			mat.uv1_scale = Vector3(0.4, 0.4, 0.4)
+		else:
+			mat.albedo_texture = IndFloorTex
+			mat.normal_enabled = true
+			mat.normal_texture = DiamondPlateTex
+			mat.normal_scale = 0.35
+			mat.uv1_scale = Vector3(0.25, 0.25, 0.25)
+	if is_emissive:
 		mat.emission_enabled = true
 		mat.emission = mat.albedo_color
-		mat.emission_energy = float(item.get("emission_energy", 0.55))
+		mat.emission_energy = float(item.get("emission_energy", 0.85))
 	mesh.material_override = mat
 	body.add_child(mesh)
+	# Si es una plataforma caminable ancha (no tira emisiva), agregar moldura perimetral y franja de peligro en bordes Z.
+	if not is_emissive and size.x >= 5.5 and size.z >= 2.0 and size.y >= 0.8:
+		var trim_mat := SpatialMaterial.new()
+		trim_mat.albedo_color = Color(0.18, 0.2, 0.23)
+		trim_mat.metallic = 0.82
+		trim_mat.roughness = 0.35
+		for sx in [-1.0, 1.0]:
+			var side_beam := MeshInstance.new()
+			var sc := CubeMesh.new()
+			sc.size = Vector3(0.14, 0.22, size.z + 0.04)
+			side_beam.mesh = sc
+			side_beam.material_override = trim_mat
+			side_beam.translation = Vector3(sx * (size.x * 0.5 + 0.04), size.y * 0.5 - 0.11, 0)
+			body.add_child(side_beam)
+		for sz in [-1.0, 1.0]:
+			var lip := MeshInstance.new()
+			var lc := CubeMesh.new()
+			lc.size = Vector3(size.x, 0.14, 0.12)
+			lip.mesh = lc
+			lip.material_override = HazardMat
+			lip.translation = Vector3(0, size.y * 0.5 - 0.06, sz * (size.z * 0.5 + 0.03))
+			body.add_child(lip)
 	return body
 
 
@@ -377,7 +425,6 @@ func start_work_order() -> void:
 	var model = suit_screen.ensure_model()
 	if model == null:
 		return
-	model.complete_objective("lights")
 	if not model.objective_ids().has("order_0001"):
 		model.add_objective("order_0001", "Orden 0001: Restablecer flujo en Bahía 3", model.OBJ_ACTIVE)
 	elif model.objective_state("order_0001") != model.OBJ_DONE:
@@ -389,6 +436,12 @@ func start_work_order() -> void:
 func complete_work_order() -> void:
 	if _order_completed:
 		return
+	var valve: Node = get_item("MasterFlowValve")
+	if not is_instance_valid(valve) or not bool(valve.get("is_active")):
+		var subtitles: Node = get_node_or_null("/root/SubtitlesOverlayManager")
+		if subtitles != null and subtitles.has_method("show_hint"):
+			subtitles.show_hint("Abra la Válvula Maestra para restablecer el flujo y cerrar la Orden 0001.", Color(1.0, 0.78, 0.25), 4.0)
+		return
 	_order_completed = true
 	var elapsed_sec := int(round(get_elapsed_seconds()))
 	var resets := get_station_resets()
@@ -396,16 +449,15 @@ func complete_work_order() -> void:
 	if suit_screen != null and suit_screen.has_method("ensure_model"):
 		var model = suit_screen.ensure_model()
 		if model != null:
-			model.complete_objective("lights")
 			if not model.objective_ids().has("order_0001"):
 				model.add_objective("order_0001", "Orden 0001: Restablecer flujo en Bahía 3", model.OBJ_DONE)
 			else:
 				model.complete_objective("order_0001")
 			if not model.objective_ids().has("return_hub"):
-				model.add_objective("return_hub", "Retornar al anillo de criogenia o aguardar Orden 0002", model.OBJ_ACTIVE)
+				model.add_objective("return_hub", "Fin de la demo: puede retornar al anillo de criogenia", model.OBJ_ACTIVE)
 			if suit_screen.has_method("notify_state_changed"):
 				suit_screen.notify_state_changed()
-	say("ODISEA: Orden de Trabajo 0001 cerrada. Flujo principal restablecido en Bahía 3.", 7.5)
+	say("ODISEA: Orden de Trabajo 0001 cerrada. Flujo principal restablecido en Bahía 3. Fin de la demo; puede retornar al anillo de criogenia.", 7.5)
 	var line_eval := "ODISEA: Tiempo presupuestado: 240 s. Tiempo real: %d s. Rearmes de estación: %d." % [elapsed_sec, resets]
 	var line_reprimand := "ODISEA: Amonestación 0001 archivada: uso no homologado de contrapesos y corte térmico de retenes."
 	_on_link_fired(self, "say", [line_eval, 8.0], int(round(6.5 * Engine.iterations_per_second)))
@@ -422,7 +474,12 @@ func return_to_ring_hub() -> void:
 	var target_scene := "res://core_v2/levels/RingHub_Level.tscn"
 	var scene_mgr = get_node_or_null("/root/SceneManager")
 	if scene_mgr != null and scene_mgr.has_method("goto_scene"):
-		scene_mgr.goto_scene(target_scene, {"preserve_player_state": false})
+		scene_mgr.goto_scene(target_scene, {
+			"preserve_player_state": false,
+			"wait_for_fade_out": true,
+			"ringhub_return_state": _ringhub_return_state.duplicate(true),
+			"state_data": {"player_snapshot": _ringhub_return_state.get("player_snapshot", {})}
+		})
 	else:
 		get_tree().change_scene(target_scene)
 
@@ -615,7 +672,7 @@ func _update_diegetic_feedback(min_mechanical_ticks: int) -> void:
 			_last_countdown_sec = sec_left
 			var subtitles := get_node_or_null("/root/SubtitlesOverlayManager")
 			if subtitles != null and subtitles.has_method("show_hint"):
-				subtitles.show_hint("⏱ LIBERACIÓN MECÁNICA EN %d s..." % sec_left, Color(1.0, 0.78, 0.25), 0.95)
+				subtitles.show_hint("⏱ SIGUIENTE ETAPA MECÁNICA EN %d s..." % sec_left, Color(1.0, 0.78, 0.25), 0.95)
 	else:
 		_last_countdown_sec = -1
 	for c in _conduits:
@@ -686,6 +743,7 @@ func get_snapshot() -> Dictionary:
 			(entry[3] as Array).duplicate(true), int(entry[4]), str(entry[5])])
 	return {
 		"pending": pending,
+		"ringhub_return_state": _ringhub_return_state.duplicate(true),
 		"station_resets": _station_resets,
 		"elapsed_ticks": _elapsed_ticks,
 		"order_completed": _order_completed,
@@ -693,6 +751,7 @@ func get_snapshot() -> Dictionary:
 
 
 func restore_snapshot(data: Dictionary) -> void:
+	_ringhub_return_state = data.get("ringhub_return_state", _ringhub_return_state).duplicate(true)
 	# Reemplazar, nunca fusionar: snapshots antiguos tampoco conservan eventos futuros.
 	_pending.clear()
 	for entry in data.get("pending", []):
