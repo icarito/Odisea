@@ -156,3 +156,22 @@ cache nunca se instancia (`Shader cache: OFF (enabled, but not supported)`) por
 mas que `shader_compilation_mode.web=2`. No es un bug de Godot: WebGL2 no expone
 ninguna API de binarios de programa. Alla el modo 2 solo compra la mitad
 asincrona, y lo unico que cachea es el navegador, por origen.
+
+## Shaders de gameplay: sin screen/depth texture (`USAGE_3D_NO_EFFECTS`)
+
+`framebuffer_allocation.Android=3` (`USAGE_3D_NO_EFFECTS`, contrato §11.9)
+deshabilita el backbuffer del viewport raiz en Android: no hay screen texture ni
+post-process. Un `ShaderMaterial` de gameplay que lea `SCREEN_TEXTURE`/`SCREEN_UV`
+(o `DEPTH_TEXTURE`) puede fallar **en silencio** en GLES3 movil — log limpio y
+mesh invisible. Le paso al holograma del Programmer
+(`core_v2/visual/ProgrammerHoloShader.shader`): en el build de Android el NPC no
+se veia aunque la escena y el material si entraban al pck.
+
+Regla: los shaders de props/actores/UI deben ser autocontenidos. Si el look
+depende de leer lo que hay detras (refraccion, blend con el fondo), aproximarlo
+con un termino propio (color/uniform) en vez de muestrear la pantalla. El
+holograma reemplazo el mix de `SCREEN_TEXTURE` (uniform `background_mix`) por un
+velo propio derivado de su albedo, modulado por el scanline. Un guard de
+regresion de fuente
+(`test_programmer_holo_npc.gd::test_holo_shader_has_no_screen_or_depth_texture_dependency`)
+falla si se reintroduce la dependencia.
