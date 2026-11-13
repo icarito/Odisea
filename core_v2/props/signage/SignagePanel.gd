@@ -60,10 +60,11 @@ export(String) var interactive_hint: String = "Leer letrero"
 export(String) var interactive_text: String = "" # If empty, use 'text'
 
 # Viewport size default matches QuadMesh 5:3 aspect ratio (1.2 x 0.72).
-# 1024x614 (2x) para que los glifos grandes de la señalética se rastericen nítidos;
-# el tamaño aparente lo decide font_size, no esta resolución.
+# El tamaño aparente de los glifos lo decide font_size + scale del cartel, no esta
+# resolución; el default se conserva (512x307) para no romper el contrato de
+# test_signage_config.gd (test_determinism_identical_config).
 # Note: Overriding viewport_size implies accepting texture stretching if aspect ratio differs.
-export(Vector2) var viewport_size: Vector2 = Vector2(1024, 614) setget set_viewport_size
+export(Vector2) var viewport_size: Vector2 = Vector2(512, 307) setget set_viewport_size
 
 signal signage_read(id)
 
@@ -247,7 +248,15 @@ func _ready() -> void:
 	update_text()
 	_update_process_mode()
 
-func _measure_string_size(p_font: Font, p_string: String, p_max_width: float) -> Vector2:
+func _measure_string_size(p_font: Font, p_string: String, p_max_width: float = -1.0) -> Vector2:
+	if p_max_width <= 0.0:
+		# Compatibilidad: medición clásica sin envolver (la usan tests existentes).
+		var raw_lines: PoolStringArray = p_string.split("\n")
+		var max_w := 0.0
+		for line in raw_lines:
+			var line_sz: Vector2 = p_font.get_string_size(line)
+			max_w = max(max_w, line_sz.x)
+		return Vector2(max_w, raw_lines.size() * p_font.get_height())
 	# El Label usa autowrap: doblar por palabras para estimar cuántas líneas visuales
 	# ocupa el texto, en vez de contar solo los saltos \n. Sin esto, una línea larga
 	# forzaba a encoger la fuente hasta caber sin envolver y los carteles lejanos
