@@ -5,15 +5,8 @@ on:
   schedule:
     # Run nightly at 2 AM UTC
     - cron: '0 2 * * *'
-  push:
-    branches: [main]
-    paths:
-      - 'core_v2/**/*.gd'
-      - 'core_v2/tests/*.oys'
-      - 'core_v2/tests/*.json'
-      - 'runtest.sh'
-      - 'tests/**'
-      - '.github/workflows/determinism_tests.yml'
+  # Se quitó el trigger `push: [main]` (autorizado por Sebastián): un merge a
+  # main ya pasó por la corrida del PR y el nightly cubre la rama.
   pull_request:
     branches: [main]
     paths:
@@ -23,6 +16,10 @@ on:
       - 'runtest.sh'
       - 'tests/**'
       - '.github/workflows/determinism_tests.yml'
+      # Reusables: cambiarlos debe disparar el workflow (gap que ocultó #378).
+      - '.github/workflows/_setup_godot.yml'
+      - '.github/workflows/_validate_imports.yml'
+      - '.github/workflows/_import_smoke.yml'
 
 concurrency:
   group: determinism-tests-${{ github.ref }}
@@ -38,7 +35,7 @@ jobs:
     uses: ./.github/workflows/_setup_godot.yml
     with:
       cache_key_suffix: 'determinism'
-      cache_import: 'true'
+      cache_import: true
       # Solo project.godot + *.import para key estable (alineado con export_all)
       import_cache_paths: '[]'
 
@@ -86,6 +83,31 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      # Este job corre en un runner distinto al de setup-godot: restaurar el
+      # binario desde la cache (misma key) e instalarlo. Fallback: descarga.
+      - name: Restore Godot binary
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.ci-cache/godot/box3d/godot
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-box3d-
+
+      - name: Install Godot binary
+        run: |
+          set -euo pipefail
+          DEST="${GODOT_BIN}"
+          CACHED="${{ github.workspace }}/.ci-cache/godot/box3d/godot"
+          if [ ! -x "$CACHED" ]; then
+            BOX3D_RELEASE="$(cat .github/box3d_release)"
+            mkdir -p "$(dirname "$CACHED")"
+            curl -fSL -o "$CACHED" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
+            chmod +x "$CACHED"
+          fi
+          sudo install -m 755 "$CACHED" "$DEST"
+          "$DEST" --version
 
       - name: Select the Box3D physics backend (serial solver for determinism)
         run: |

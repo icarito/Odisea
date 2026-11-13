@@ -18,7 +18,7 @@ on:
       cache_import:
         description: 'Whether to cache .import/ directory'
         required: false
-        default: 'false'
+        default: false
         type: boolean
       import_cache_paths:
         description: 'Extra paths to include in import cache key (JSON array)'
@@ -26,19 +26,19 @@ on:
         default: '[]'
         type: string
 
+    # Los outputs de workflow_call deben mapear outputs a nivel de job
+    # (jobs.<job>.outputs.<name>), no `steps.*` directo: GitHub rechaza el
+    # archivo si se usa el contexto `steps` aca.
     outputs:
       godot_bin:
         description: 'Path to installed Godot binary'
-        value: ${{ steps.install.outputs.godot_bin }}
+        value: ${{ jobs.setup.outputs.godot_bin }}
       box3d_release:
         description: 'Resolved Box3D release tag'
-        value: ${{ steps.install.outputs.box3d_release }}
+        value: ${{ jobs.setup.outputs.box3d_release }}
       import_cache_hit:
         description: 'Whether import cache was hit'
-        value: ${{ steps.import_cache.outputs.cache-hit }}
-
-    secrets:
-      # No secrets needed for setup
+        value: ${{ jobs.setup.outputs.import_cache_hit }}
 
 jobs:
   setup:
@@ -46,6 +46,10 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    outputs:
+      godot_bin: ${{ steps.install.outputs.godot_bin }}
+      box3d_release: ${{ steps.install.outputs.box3d_release }}
+      import_cache_hit: ${{ steps.import_cache.outputs.cache-hit || steps.import_cache_miss.outputs.cache-hit || 'false' }}
 
     steps:
       - name: Checkout repository
@@ -61,10 +65,13 @@ jobs:
         id: godot_bin_cache
         uses: actions/cache@v6
         with:
+          # Key computable desde CUALQUIER job (no depende de un step output ni
+          # del cache_key_suffix): los jobs que no son `setup` corren en otro
+          # runner y necesitan restaurar el mismo binario para instalarlo.
           path: ${{ github.workspace }}/.ci-cache/godot/box3d/godot
-          key: ${{ runner.os }}-godot-box3d-${{ steps.read_release.outputs.box3d_release }}-${{ inputs.cache_key_suffix }}
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}
           restore-keys: |
-            ${{ runner.os }}-godot-box3d-${{ steps.read_release.outputs.box3d_release }}-
+            ${{ runner.os }}-godot-box3d-
 
       - name: Install Godot (Box3D fork)
         id: install
@@ -85,14 +92,17 @@ jobs:
           godot --version
 
       - name: Cache .import (per workflow)
-        if: inputs.cache_import == 'true'
+        if: inputs.cache_import
         id: import_cache
         uses: actions/cache@v6
         with:
           path: |
             ${{ github.workspace }}/.import
             ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-${{ inputs.import_cache_paths }}
+          # Nota: la cache key de GitHub no admite comas, y import_cache_paths
+          # llega como JSON array ("[...]"). Se normaliza a un separador '-'
+          # para poder incluir el salt de rutas sin comas.
+          key: ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-${{ join(fromJSON(inputs.import_cache_paths), '-') }}
           restore-keys: |
             ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-
             ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-
@@ -100,6 +110,6 @@ jobs:
           import_cache_paths: ${{ inputs.import_cache_paths }}
 
       - name: No import cache
-        if: inputs.cache_import != 'true'
-        id: import_cache
+        if: ${{ ! inputs.cache_import }}
+        id: import_cache_miss
         run: echo "cache-hit=false" >> "$GITHUB_OUTPUT"

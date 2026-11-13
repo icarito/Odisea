@@ -86,9 +86,6 @@ on:
         default: 'reports/resource_smoke_retry.log'
         type: string
 
-    secrets:
-      # No secrets needed
-
 jobs:
   import_smoke:
     runs-on: ubuntu-latest
@@ -99,6 +96,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      # El job setup-godot instala el binario en SU runner; este job corre en
+      # otro runner, asi que hay que restaurarlo desde la cache (misma key que
+      # setup) e instalarlo de nuevo. Fallback: descarga directa del release.
+      - name: Restore Godot binary
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.ci-cache/godot/box3d/godot
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-box3d-
+
+      - name: Install Godot binary
+        run: |
+          set -euo pipefail
+          DEST="${{ inputs.godot_bin }}"
+          CACHED="${{ github.workspace }}/.ci-cache/godot/box3d/godot"
+          if [ ! -x "$CACHED" ]; then
+            BOX3D_RELEASE="$(cat .github/box3d_release)"
+            mkdir -p "$(dirname "$CACHED")"
+            curl -fSL -o "$CACHED" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
+            chmod +x "$CACHED"
+          fi
+          sudo install -m 755 "$CACHED" "$DEST"
+          "$DEST" --version
 
       - name: Ensure reports directory
         run: mkdir -p reports

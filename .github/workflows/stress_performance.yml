@@ -30,7 +30,7 @@ jobs:
     uses: ./.github/workflows/_setup_godot.yml
     with:
       cache_key_suffix: 'stress'
-      cache_import: 'true'
+      cache_import: true
       # Key estable alineada con export_all/determinism: solo project.godot + *.import
       import_cache_paths: '[]'
 
@@ -60,6 +60,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # setup-godot instala el binario en su runner; este job corre en otro,
+      # asi que se restaura desde la cache (misma key) e instala en PATH.
+      - name: Restore Godot binary
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.ci-cache/godot/box3d/godot
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-box3d-
+
+      - name: Install Godot binary
+        run: |
+          set -euo pipefail
+          CACHED="${{ github.workspace }}/.ci-cache/godot/box3d/godot"
+          if [ ! -x "$CACHED" ]; then
+            BOX3D_RELEASE="$(cat .github/box3d_release)"
+            mkdir -p "$(dirname "$CACHED")"
+            curl -fSL -o "$CACHED" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
+            chmod +x "$CACHED"
+          fi
+          sudo install -m 755 "$CACHED" /usr/local/bin/godot
+          godot --version
 
       - name: Setup Environment
         run: |
