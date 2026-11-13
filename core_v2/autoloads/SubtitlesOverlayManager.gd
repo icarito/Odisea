@@ -30,6 +30,14 @@ func clear_subtitles(immediate: bool = false) -> void:
 	if _overlay and _overlay.has_method("clear_subtitles"):
 		_overlay.clear_subtitles(immediate)
 
+# Read-only: rect del stack actual de subtitulos para que el HUD no lo tape.
+# No crea el overlay si todavia no existe.
+func get_stack_rect() -> Rect2:
+	if not is_instance_valid(_overlay) or not _overlay.has_method("get_visible_stack_rect"):
+		return Rect2()
+	var rect = _overlay.call("get_visible_stack_rect")
+	return rect if rect is Rect2 else Rect2()
+
 func is_enabled() -> bool:
 	var env = OS.get_environment("OYS_SUBTITLES").strip_edges().to_lower()
 	if env != "":

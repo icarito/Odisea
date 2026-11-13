@@ -6,6 +6,12 @@ const HUDableComponentScript = preload("res://core_v2/components/HUDableComponen
 const SuitOSWidgetHostScript = preload("res://core_v2/ui/hud/SuitOSWidgetHost.gd")
 const HoloTerminalWidgetScript = preload("res://core_v2/ui/hud/HoloTerminalWidget.gd")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
+const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
+
+class FakeSubtitleOverlay extends Node:
+	var stack_rect := Rect2()
+	func get_visible_stack_rect() -> Rect2:
+		return stack_rect
 
 class FakeInteractable extends Node:
 	var interaction_title := "Válvula"
@@ -113,6 +119,47 @@ func test_a_long_context_description_scales_to_fit_inside_the_safe_rect() -> voi
 	assert_float(bounds.get_center().x).is_equal_approx(safe.get_center().x, 1.0)
 	assert_float(bounds.end.y).is_less(safe.end.y)
 	_widget_host.clear_context()
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+
+
+# El contexto del pie y los subtitulos se anclaban por separado al borde inferior y se
+# solapaban. Con un stack visible, el contexto debe quedar por encima; ademas el ancho
+# deja libres las esquinas inferiores (indicador de modo/debug) y el texto no se achica.
+func test_long_context_sits_above_subtitles_and_clears_bottom_corners() -> void:
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+	var manager = get_node_or_null("/root/SubtitlesOverlayManager")
+	assert_object(manager).is_not_null()
+	var previous_overlay = manager._overlay
+	var fake = FakeSubtitleOverlay.new()
+	fake.stack_rect = Rect2(0, 300, 960, 120)
+	manager._overlay = fake
+	var long_description := ""
+	for _i in range(60):
+		long_description += "Circuito de refrigerante del colector principal "
+	_widget_host.show_context({
+		"title": "Válvula de mantenimiento del colector principal",
+		"description": long_description,
+		"action": "Cerrar",
+	})
+	yield(await_idle_frame(), "completed")
+	yield(await_idle_frame(), "completed")
+	var context: Control = _widget_host.get_widget_root().get_node_or_null("SuitOS_Context")
+	assert_object(context).is_not_null()
+	var safe: Rect2 = _widget_host._safe_rect()
+	var k: float = UIScaleCompensatorScript.scale_for(_widget_host)
+	var bounds := Rect2(context.rect_position, context.rect_size * context.rect_scale)
+	var gap: float = _widget_host.CONTEXT_STACK_GAP * k
+	assert_float(bounds.end.y).is_less_equal(300.0 - gap + 0.5)
+	var corner: float = _widget_host.CONTEXT_CORNER_RESERVE * k
+	assert_float(bounds.position.x).is_greater_equal(safe.position.x + corner - 1.0)
+	assert_float(bounds.end.x).is_less_equal(safe.end.x - corner + 1.0)
+	# La descripcion se recorta a 3 lineas: la tipografia no se encoge para meterla.
+	assert_float(context.rect_scale.x / max(k, 0.001)).is_greater_equal(0.95)
+	_widget_host.clear_context()
+	manager._overlay = previous_overlay if is_instance_valid(previous_overlay) else null
+	fake.free()
 	for i in range(HudSlots.COUNT):
 		SuitOS.clear_slot(i)
 

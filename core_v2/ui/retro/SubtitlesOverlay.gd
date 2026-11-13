@@ -39,6 +39,30 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_instance_valid(_layer):
 		_reflow(false)
 
+# Rect (coordenadas de viewport) del stack visible de subtitulos. Lo consulta el HUD
+# para colocar el contexto del pie por encima en vez de superponerlo. Read-only.
+func get_visible_stack_rect() -> Rect2:
+	if not is_instance_valid(_layer) or not is_visible_in_tree():
+		return Rect2()
+	var out := Rect2()
+	var found := false
+	for entry in _entries:
+		var node = entry.get("node", null)
+		if not is_instance_valid(node) or not node.is_visible_in_tree():
+			continue
+		if node.modulate.a <= 0.01:
+			continue
+		var size: Vector2 = node.rect_size
+		if size.x <= 0.0 or size.y <= 0.0:
+			size = node.rect_min_size
+		var rect := Rect2(node.rect_position + _layer.rect_position, size)
+		if found:
+			out = out.merge(rect)
+		else:
+			out = rect
+			found = true
+	return out if found else Rect2()
+
 func show_subtitle(text: String, color: Color = Color.white, duration: float = 2.5) -> void:
 	_show_entry(text, color, duration, false)
 

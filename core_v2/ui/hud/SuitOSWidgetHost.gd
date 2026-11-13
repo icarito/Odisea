@@ -59,6 +59,16 @@ const DENY_MSEC := 450
 # vive en un slot libre mientras el jugador apunta al prop, y se va solo.
 const CONTEXT_WIDGET_NAME := "SuitOS_Context"
 const CONTEXT_ICON_SIZE := Vector2(44, 44)
+# El contexto del pie envuelve texto en este ancho nominal; el host lo escala si no entra.
+const CONTEXT_CONTENT_WIDTH := 420.0
+# Esquinas inferiores reservadas para el indicador de modo del multi-tool y el debug:
+# el contexto se centra entre ellas para no pisarlos aunque la descripcion sea larga.
+const CONTEXT_CORNER_RESERVE := 228.0
+const CONTEXT_BOTTOM_MARGIN := 24.0
+# Separacion con el stack de subtitulos cuando hay alguno visible.
+const CONTEXT_STACK_GAP := 10.0
+# Tope de alto del contexto: puede medir mas que un slot, pero no comerse el centro.
+const CONTEXT_MAX_HEIGHT_RATIO := 0.40
 # Slot logico del widget del pie: comparte el arrastre de los widgets de slot sin ser uno.
 const CONTEXT_SLOT := "__context__"
 # B4: en gameplay, sin actividad durante la misma inactividad que usa MobileUI, los widgets
@@ -347,6 +357,12 @@ func _process(delta: float) -> void:
 	if scene_id != _visibility_scene_id:
 		_visibility_scene_id = scene_id
 		refresh_visibility()
+	# El texto envuelve y el contenedor puede cambiar de tamano despues del primer
+	# layout; los subtitulos tambien se apilan/expiran por su cuenta. Reubicar cada
+	# frame mientras el contexto esta visible mantiene el pie por encima del stack
+	# y dentro del area segura sin caches que se desincronicen.
+	if is_instance_valid(_context_widget) and _context_widget.visible:
+		_place_context(_context_widget)
 	# Tarea GG: el fade por inactividad es animacion de presentacion; a 10 Hz alcanza y libera
 	# el tick de GDScript por frame en el handheld. Fuera de LOW step() devuelve el mismo delta.
 	var fade_delta: float = _low_hz.step(delta)
@@ -571,6 +587,8 @@ func _build_context_widget() -> Control:
 	panel.name = CONTEXT_WIDGET_NAME
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_stylebox_override("panel", _widget_panel_style())
+	if panel.has_method("configure_context"):
+		panel.call("configure_context", CONTEXT_CONTENT_WIDTH)
 	return panel
 
 func _place_context(control: Control) -> void:
@@ -579,23 +597,43 @@ func _place_context(control: Control) -> void:
 	var k: float = UIScaleCompensatorScript.scale_for(self)
 	var min_size: Vector2 = control.get_combined_minimum_size()
 	var width: float = max(max(control.rect_size.x, min_size.x), 1.0)
-	var height: float = max(min_size.y, 1.0)
+	# El contenedor puede asentar un alto mayor que el minimo (texto envuelto): usar el
+	# real evita que el borde inferior se escape del area segura tras el primer layout.
+	var height: float = max(max(control.rect_size.y, min_size.y), 1.0)
 	var safe: Rect2 = _safe_rect()
-	# El ajuste es uniforme y mira alto Y ancho: una descripcion larga estiraba el widget a lo ancho
-	# y lo sacaba del area segura (en 960x540 el texto se pierde fuera del recorte). El ancho util
-	# descuenta el mismo padding que usan los slots a cada lado. Solo contencion: un texto muy largo
-	# queda chico (no envuelve ni elide).
 	var margin: float = HudSlots.SLOT_PADDING * k
-	var max_width: float = max(safe.size.x - margin * 2.0, 1.0)
-	var fit: float = min(1.0, min(HudSlots.SLOT_ROW_HEIGHT / height,
-		max_width / max(width * k, 0.001)))
+	# Deja libres las esquinas inferiores (indicador de modo del multi-tool, debug):
+	# el ancho util descuenta esa reserva a cada lado. El texto envuelve, no se estira.
+	var corner: float = CONTEXT_CORNER_RESERVE * k
+	var max_width: float = max(safe.size.x - max(margin * 2.0, corner * 2.0), 1.0)
+	# El contexto puede medir mas que un slot (2-3 lineas); el tope es vertical, no la
+	# altura de fila de los slots, para no achicar la tipografia.
+	var max_height: float = max(safe.size.y * CONTEXT_MAX_HEIGHT_RATIO, 1.0)
+	var fit: float = min(1.0, min(max_width / max(width * k, 0.001),
+		max_height / max(height * k, 0.001)))
 	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	control.rect_scale = Vector2.ONE * fit * k
 	var size: Vector2 = Vector2(width, height) * fit * k
-	# Abajo-centro del area segura: centrado entre los controles tactiles, pegado al pie.
+	# Abajo-centro, pero por encima del stack de subtitulos si hay alguno visible:
+	# antes ambos se anclaban al pie por separado y se solapaban.
+	var stack: Rect2 = _subtitle_stack_rect()
+	var bottom: float = safe.end.y - CONTEXT_BOTTOM_MARGIN * k
+	if stack.size.y > 0.0:
+		bottom = min(bottom, stack.position.y - CONTEXT_STACK_GAP * k)
+	var pos_y: float = max(bottom - size.y, safe.position.y + margin)
 	control.rect_position = Vector2(
-		safe.position.x + (safe.size.x - size.x) * 0.5,
-		safe.position.y + safe.size.y - size.y - 24.0 * k)
+		safe.position.x + (safe.size.x - size.x) * 0.5, pos_y)
+
+
+# Rect (en coordenadas de viewport) que ocupa el stack actual de subtitulos. Vacio si no
+# hay subtitulos o si el overlay todavia no existe; el host no lo crea.
+func _subtitle_stack_rect() -> Rect2:
+	var manager = get_node_or_null("/root/SubtitlesOverlayManager")
+	if manager != null and manager.has_method("get_stack_rect"):
+		var rect = manager.call("get_stack_rect")
+		if rect is Rect2:
+			return rect
+	return Rect2()
 
 # Uno por slot, fijo: se muestra u oculta (refresh_visibility), nunca se crea y destruye con cada
 # cambio de widget.

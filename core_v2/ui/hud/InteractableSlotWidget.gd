@@ -13,6 +13,7 @@ var _title: Label = null
 var _status: Label = null
 var _description: Label = null
 var _action: Label = null
+var _box: VBoxContainer = null
 
 var _signal_strength: float = 1.0
 var _is_fuera_de_rango: bool = false
@@ -41,6 +42,7 @@ func _init() -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(box)
+	_box = box
 	_title = Label.new()
 	_title.name = "Title"
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -62,6 +64,26 @@ func _init() -> void:
 
 func set_snapshot(snapshot: Dictionary) -> void:
 	update_snapshot(snapshot)
+
+# FD-310: el widget de contexto del pie recibe descripciones largas. En vez de estirarse
+# a lo ancho y achicarse entero, envuelve el texto en un ancho fijo y crece en alto.
+# Solo aplica al contexto; los slots fijos conservan su geometria.
+func configure_context(content_width: float) -> void:
+	if is_instance_valid(_box) and content_width > 0.0:
+		_box.rect_min_size = Vector2(content_width, 0.0)
+	for label in [_title, _status, _description, _action]:
+		if is_instance_valid(label):
+			label.autowrap = true
+	# Una descripcion enorme no debe encoger la tipografia hasta ser ilegible: se
+	# recorta a unas pocas lineas y el texto conserva su tamano.
+	if is_instance_valid(_title):
+		_title.max_lines_visible = 2
+	if is_instance_valid(_status):
+		_status.max_lines_visible = 1
+	if is_instance_valid(_description):
+		_description.max_lines_visible = 3
+	if is_instance_valid(_action):
+		_action.max_lines_visible = 1
 
 func update_snapshot(snapshot: Dictionary) -> void:
 	if is_instance_valid(_title):
