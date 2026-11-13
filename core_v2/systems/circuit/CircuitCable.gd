@@ -5,6 +5,9 @@ const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
 # FD-290: trimesh cacheado por Mesh en vez de un BVH nuevo por cable (mismo helper que el
 # streamer de ductos y ScaffoldHubRing).
 const ShapeBounds = preload("res://core_v2/systems/collision/ShapeBounds.gd")
+# Frames mínimos de simulación al arrancar para que la cuerda forme su catenaria
+# bajo gravedad antes de entrar en reposo (3 s a 60 Hz).
+const INITIAL_SETTLE_FRAMES := 180
 
 # CircuitCable.gd
 # Procedurally generated cable that connects circuit nodes.
@@ -19,24 +22,33 @@ export(float) var health := 10.0
 export(float) var cable_radius := 0.05
 export(int) var cable_sides := 8
 
-# --- Catenaria: interacción física con cuerpos (determinista) ---
+# --- Catenaria: cuerda física (Verlet/PBD determinista) ---
+# El motor Box3D aporta la detección de contacto (Area hurtbox) y el estado vivo de
+# los cuerpos; la deformación de la cuerda es pura simulación determinista integrada
+# en _physics_process (sin randf/Tween/tiempo de pared), compatible con replay.
 export(bool) var sway_enabled := true
 # Capas que disparan el balanceo: jugador (2) + props/rigid bodies (4, 64).
 export(int) var body_collision_mask := 2 | 4 | 64
 export(float) var hurtbox_radius := 0.22          # radio de proximidad (m)
-export(float) var sway_stiffness := 26.0          # rigidez del oscilador (1/s^2)
-export(float) var sway_damping := 4.2             # amortiguación (1/s)
-export(float) var sway_max_offset := 0.6          # deflexión máxima (m)
-export(float) var sway_impulse_scale := 0.10      # velocidad por (m/s) del cuerpo
-export(float) var sway_push_force := 1.8          # empuje sostenido de un cuerpo en movimiento
+export(float) var sway_stiffness := 0.9           # rigidez PBD (0..1): corrección por iteración
+export(float) var sway_damping := 3.0             # arrastre de velocidad (1/s)
+export(float) var sway_max_offset := 0.6          # desviación máxima por partícula (m)
+export(float) var sway_impulse_scale := 0.10      # velocidad ganada por (m/s) del cuerpo
+export(float) var sway_push_force := 1.8          # aceleración de empuje sostenido (m/s^2)
 export(float) var sway_settle_epsilon := 0.002    # umbral de reposo (m)
+export(float) var rope_gravity := 2.5             # gravedad del cable (m/s^2)
+export(float) var rope_segment_spacing := 0.35    # espaciado entre partículas (m)
+export(int) var rope_constraint_iterations := 8   # iteraciones del solver PBD
 
 var _hurtbox: Area
 var _base_points := PoolVector3Array()
-var _sway_offset := Vector3.ZERO
-var _sway_velocity := Vector3.ZERO
+var _points := PoolVector3Array()      # posición actual de cada partícula (cuerda)
+var _prev_points := PoolVector3Array() # posición anterior (velocidad implícita Verlet)
+var _kick_v := PoolVector3Array()      # impulso pendiente por partícula (m/s)
+var _anchored := []                    # bool por partícula: extremos fijos
+var _seg_rest := 0.0                   # longitud de descanso de cada tramo
 var _inside_bodies: Array = []
-var _mesh_deformed := false
+var _settle_frames := 0
 var _energy_material: SpatialMaterial = null
 var _last_visual_t := -1.0
 var _visual_clock := 0.0
@@ -76,12 +88,10 @@ func build():
 
 	_setup_hurtbox()
 
-	# Cache de la forma base para deformar la catenaria sin reconstruir la colisión.
-	_base_points = path_curve.get_baked_points()
-	_sway_offset = Vector3.ZERO
-	_sway_velocity = Vector3.ZERO
+	# Inicializar la cuerda sobre la curva horneada (extremos anclados, sin
+	# reconstruir la colisión estática).
+	_init_rope()
 	_inside_bodies.clear()
-	_mesh_deformed = false
 
 func _build_csg():
 	var path_node = Path.new()
@@ -151,8 +161,6 @@ func _setup_hurtbox():
 
 	if not _hurtbox.is_connected("body_entered", self, "_on_hurtbox_body_entered"):
 		_hurtbox.connect("body_entered", self, "_on_hurtbox_body_entered")
-	if not _hurtbox.is_connected("body_exited", self, "_on_hurtbox_body_exited"):
-		_hurtbox.connect("body_exited", self, "_on_hurtbox_body_exited")
 
 	if not path_curve:
 		return
@@ -224,21 +232,34 @@ func init_from_curve(curve: Curve3D) -> void:
 	path_curve = curve
 	build()
 
-# --- Catenaria: balanceo determinista por contacto de cuerpos ---
+# --- Catenaria: cuerda física determinista ---
 #
-# El estado del balanceo (offset + velocidad) es simulación pura y se integra en
-# _physics_process con un oscilador armónico amortiguado semi-implícito. Nada de
-# randf/Tween/tiempo de pared: dos corridas con la misma secuencia de entrada dan
-# el mismo resultado. La COLISIÓN del cable no se reconstruye nunca; sólo se
-# regenera la malla visual (TubeBuilder) mientras hay deflexión.
+# La catenaria se modela como una cadena de partículas (Verlet) unidas por
+# restricciones de distancia (Position-Based Dynamics). Los extremos quedan
+# anclados al circuito; la gravedad la hace colgar como catenaria real, y el
+# contacto con el jugador/props (detectado por el Area de Box3D) la deforma
+# localmente, propagando ondas a lo largo del cable. Todo se integra en
+# _physics_process con paso fijo, sin randf/Tween/tiempo de pared: dos corridas
+# con la misma secuencia de entrada dan el mismo resultado. La COLISIÓN del
+# cable nunca se reconstruye; sólo se regenera la malla visual (TubeBuilder)
+# mientras hay movimiento.
 
 func _wants_continuous_step() -> bool:
 	return sway_enabled and _sway_is_active()
 
 func _sway_is_active() -> bool:
-	return _sway_offset.length_squared() > sway_settle_epsilon * sway_settle_epsilon \
-		or _sway_velocity.length_squared() > 0.000001 \
-		or _spark > 0.0
+	if not _inside_bodies.empty() or _spark > 0.0:
+		return true
+	if _points.size() < 2:
+		return false
+	# Asentamiento inicial bajo gravedad: correr al menos INITIAL_SETTLE_FRAMES
+	# frames aunque el cable arranque en reposo, para que forme su catenaria.
+	if _settle_frames < INITIAL_SETTLE_FRAMES:
+		return true
+	var sq: float = 0.0
+	for i in range(1, _points.size() - 1):
+		sq += (_points[i] - _prev_points[i]).length_squared()
+	return sq > sway_settle_epsilon * sway_settle_epsilon
 
 func _cable_axis_local() -> Vector3:
 	if _base_points.size() < 2:
@@ -272,108 +293,255 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 		var dir: Vector3 = _lateral_local(-rel)
 		if dir.length_squared() > 0.000001:
 			lateral = dir.normalized() * 0.6
-	_apply_impulse(lateral)
+	_kick_body(body, lateral)
 
 func _on_hurtbox_body_exited(body: Node) -> void:
 	_inside_bodies.erase(body)
 
-func _apply_impulse(lateral: Vector3) -> void:
-	_sway_velocity += lateral * sway_impulse_scale
-	# Techo de velocidad: evita que un cuerpo muy rápido dispare la deformación.
-	var max_v: float = sway_max_offset * sway_stiffness
-	if _sway_velocity.length() > max_v:
-		_sway_velocity = _sway_velocity.normalized() * max_v
+func _kick_body(body: Node, lateral: Vector3) -> void:
+	if _points.size() < 3:
+		return
+	var body_pos: Vector3 = global_transform.affine_inverse().xform(body.global_transform.origin)
+	var influence: float = max(hurtbox_radius * 3.0, 1.0)
+	var n: int = _points.size()
+	for i in range(1, n - 1):
+		var dist: float = _points[i].distance_to(body_pos)
+		var w: float = 1.0 - clamp(dist / influence, 0.0, 1.0)
+		if w > 0.01:
+			_kick_v[i] += lateral * (sway_impulse_scale * w)
 	if is_active:
 		_spark = max(_spark, clamp(lateral.length() * 0.25, 0.0, 1.0))
 	set_physics_process(true)
 
 func _physics_process(delta: float) -> void:
 	if sway_enabled and not Engine.editor_hint:
-		_step_sway(delta)
+		_step_rope(delta)
 	._physics_process(delta)
 
-func _step_sway(dt: float) -> void:
-	# Empuje sostenido de los cuerpos que siguen dentro y se mueven.
-	if not _inside_bodies.empty():
-		var push := Vector3.ZERO
-		var i: int = _inside_bodies.size() - 1
-		while i >= 0:
-			var b = _inside_bodies[i]
-			if not is_instance_valid(b):
-				_inside_bodies.remove(i)
-			else:
-				push += _lateral_local(_body_velocity_local(b))
-			i -= 1
-		if push.length_squared() > 0.0001:
-			_sway_velocity += push * sway_push_force * dt
+func _init_rope() -> void:
+	var raw := path_curve.get_baked_points() if path_curve != null else PoolVector3Array()
+	if raw.size() < 2:
+		_points = PoolVector3Array()
+		_prev_points = PoolVector3Array()
+		_kick_v = PoolVector3Array()
+		_anchored = []
+		_seg_rest = 0.0
+		return
+	var n: int = _particle_count(raw)
+	# Base remuestreada uniformemente por arco: así las partículas (y sus índices)
+	# coinciden 1:1 con la base (los puntos horneados del Curve3D vienen en otra
+	# parametrización y rompen el mapeo índice a índice).
+	_base_points = _resample_uniform(raw, n)
+	_points.resize(n)
+	_prev_points.resize(n)
+	_kick_v.resize(n)
+	_anchored.resize(n)
+	var total: float = _curve_length(_base_points)
+	var seg: float = total / float(n - 1)
+	for i in range(n):
+		var p: Vector3 = _base_points[i]
+		_points[i] = p
+		_prev_points[i] = p
+		_kick_v[i] = Vector3.ZERO
+		_anchored[i] = (i == 0 or i == n - 1)
+	_seg_rest = seg
+	_settle_frames = 0
+	# Correr la simulación desde el arranque para que la cuerda forme su catenaria.
+	set_physics_process(true)
 
-	# Oscilador armónico amortiguado (integración semi-implícita, determinista).
-	var accel: Vector3 = -sway_stiffness * _sway_offset - sway_damping * _sway_velocity
-	_sway_velocity += accel * dt
-	_sway_offset += _sway_velocity * dt
+func _particle_count(raw: PoolVector3Array) -> int:
+	var total: float = _curve_length(raw)
+	var n: int = int(ceil(total / max(rope_segment_spacing, 0.05))) + 1
+	if n < 2:
+		n = 2
+	elif n > 256:
+		n = 256
+	return n
 
-	if _sway_offset.length() > sway_max_offset:
-		_sway_offset = _sway_offset.normalized() * sway_max_offset
-		if _sway_velocity.dot(_sway_offset) > 0.0:
-			_sway_velocity = Vector3.ZERO
+static func _resample_uniform(points: PoolVector3Array, count: int) -> PoolVector3Array:
+	var out := PoolVector3Array()
+	if count < 2:
+		return out
+	for i in range(count):
+		out.append(_point_at_parameter(points, float(i) / float(count - 1)))
+	return out
 
+static func _curve_length(points: PoolVector3Array) -> float:
+	var len_val := 0.0
+	for i in range(1, points.size()):
+		len_val += points[i - 1].distance_to(points[i])
+	return len_val
+
+static func _point_at_parameter(points: PoolVector3Array, t: float) -> Vector3:
+	var n: int = points.size()
+	if n == 0:
+		return Vector3.ZERO
+	if n == 1 or t <= 0.0:
+		return points[0]
+	if t >= 1.0:
+		return points[n - 1]
+	var total: float = _curve_length(points)
+	var target := total * t
+	var acc := 0.0
+	for i in range(1, n):
+		var seg: float = points[i - 1].distance_to(points[i])
+		if acc + seg >= target:
+			var u: float = 0.0 if seg < 0.000001 else (target - acc) / seg
+			return points[i - 1].linear_interpolate(points[i], u)
+		acc += seg
+	return points[n - 1]
+
+func _step_rope(dt: float) -> void:
+	if _points.size() < 3:
+		return
 	_visual_clock += dt
+	var down: Vector3 = global_transform.basis.inverse().xform(Vector3(0, -1, 0))
+	var drag: float = clamp(1.0 - sway_damping * dt, 0.0, 1.0)
+	var g: Vector3 = down * rope_gravity * dt * dt
+	var n: int = _points.size()
+
+	# Verlet: integrar posición con gravedad + arrastre + impulso pendiente.
+	for i in range(1, n - 1):
+		var cur: Vector3 = _points[i]
+		var prev: Vector3 = _prev_points[i]
+		var next: Vector3 = cur + (cur - prev) * drag + g + _kick_v[i] * dt
+		_prev_points[i] = cur
+		_points[i] = next
+		_kick_v[i] = Vector3.ZERO
+
+	# Contacto geométrico con cuerpos (jugador/props) + empuje por velocidad.
+	_apply_body_contacts(dt)
+
+	# Solver PBD: mantener las longitudes de cada tramo (cuerda inextensible).
+	var stiff: float = clamp(sway_stiffness, 0.0, 1.0)
+	for _it in range(rope_constraint_iterations):
+		for i in range(n - 1):
+			var a: Vector3 = _points[i]
+			var b: Vector3 = _points[i + 1]
+			var delta: Vector3 = b - a
+			var d: float = delta.length()
+			if d < 0.000001:
+				continue
+			var diff: float = (d - _seg_rest) / d
+			var fix_a: bool = _anchored[i]
+			var fix_b: bool = _anchored[i + 1]
+			if fix_a and fix_b:
+				continue
+			elif fix_a:
+				_points[i + 1] = b - delta * (diff * stiff)
+			elif fix_b:
+				_points[i] = a + delta * (diff * stiff)
+			else:
+				_points[i] = a + delta * (diff * stiff * 0.5)
+				_points[i + 1] = b - delta * (diff * stiff * 0.5)
+
+	# Techo de desviación por partícula respecto al reposo (evita explosiones).
+	if sway_max_offset > 0.0:
+		for i in range(1, n - 1):
+			var off: Vector3 = _points[i] - _base_points[i]
+			if off.length_squared() > sway_max_offset * sway_max_offset:
+				_points[i] = _base_points[i] + off.normalized() * sway_max_offset
+
 	if _spark > 0.0:
 		_spark = max(_spark - dt * 4.0, 0.0)
 
-	if _sway_offset.length_squared() <= sway_settle_epsilon * sway_settle_epsilon \
-			and _sway_velocity.length_squared() <= 0.000001 and _inside_bodies.empty() \
-			and _spark <= 0.0:
-		_sway_offset = Vector3.ZERO
-		_sway_velocity = Vector3.ZERO
+	_settle_frames += 1
 
-	# Deformar la malla visual (nunca la colisión). Al volver al reposo, restaurar la base.
-	if _sway_offset.length_squared() > 0.000001:
-		_rebuild_sway_mesh()
-		_mesh_deformed = true
-	elif _mesh_deformed:
-		_rebuild_sway_mesh()
-		_mesh_deformed = false
+	if _rope_changed():
+		_rebuild_rope_mesh()
 
-func _rebuild_sway_mesh() -> void:
+func _apply_body_contacts(dt: float) -> void:
+	if _inside_bodies.empty():
+		return
+	var radius: float = max(hurtbox_radius, cable_radius * 2.0)
+	var influence: float = radius * 3.0
+	var down: Vector3 = global_transform.basis.inverse().xform(Vector3(0, -1, 0))
+	var n: int = _points.size()
+	var index: int = _inside_bodies.size() - 1
+	while index >= 0:
+		var b = _inside_bodies[index]
+		if not is_instance_valid(b):
+			_inside_bodies.remove(index)
+			index -= 1
+			continue
+		var body_pos: Vector3 = global_transform.affine_inverse().xform(b.global_transform.origin)
+		var lat: Vector3 = _lateral_local(_body_velocity_local(b))
+		for i in range(1, n - 1):
+			var rel: Vector3 = _points[i] - body_pos
+			var dist: float = rel.length()
+			# Empuje geométrico: no dejar que el cuerpo atraviese la cuerda.
+			if dist < radius:
+				if dist < 0.000001:
+					_points[i] = body_pos + down * radius * 0.5
+				else:
+					var push_scale: float = clamp(sway_push_force * dt * 4.0, 0.0, 1.0)
+					_points[i] += rel / dist * ((radius - dist) * push_scale)
+			# Empuje por velocidad: contribuye sólo la componente lateral.
+			var w: float = 1.0 - clamp(dist / influence, 0.0, 1.0)
+			if w > 0.01:
+				_kick_v[i] += lat * (sway_push_force * w) * dt
+		index -= 1
+
+func _rope_changed() -> bool:
+	if _base_points.size() != _points.size():
+		return true
+	var thresh: float = max(sway_settle_epsilon * 0.5, 0.0001)
+	for i in range(_points.size()):
+		if _points[i].distance_squared_to(_base_points[i]) > thresh * thresh:
+			return true
+	return false
+
+func _rebuild_rope_mesh() -> void:
 	var mesh_inst = get_node_or_null("CableVis")
 	if not (mesh_inst is MeshInstance):
 		return
-	if _base_points.size() < 2:
+	if _points.size() < 2:
 		return
 	var deformed := Curve3D.new()
 	if path_curve != null:
 		deformed.bake_interval = path_curve.bake_interval
-	var n: int = _base_points.size()
-	for i in range(n):
-		var t: float = float(i) / float(max(n - 1, 1))
-		var weight: float = sin(PI * t)  # extremos fijos (anclados al circuito)
-		deformed.add_point(_base_points[i] + _sway_offset * weight)
+	for p in _points:
+		deformed.add_point(p)
 	var new_mesh: ArrayMesh = TubeBuilder.generate_tube_mesh(deformed, cable_radius, cable_sides)
 	if new_mesh != null and new_mesh.get_surface_count() > 0:
 		(mesh_inst as MeshInstance).mesh = new_mesh
 
 func get_snapshot() -> Dictionary:
 	var d: Dictionary = .get_snapshot()
-	d["sway"] = [_sway_offset.x, _sway_offset.y, _sway_offset.z]
-	d["sway_vel"] = [_sway_velocity.x, _sway_velocity.y, _sway_velocity.z]
+	d["rope"] = _points_to_list(_points)
+	d["rope_prev"] = _points_to_list(_prev_points)
+	d["rope_kick"] = _points_to_list(_kick_v)
 	d["spark"] = _spark
 	return d
 
 func restore_snapshot(data: Dictionary) -> void:
 	.restore_snapshot(data)
-	var so = data.get("sway", null)
-	if so is Array and so.size() == 3:
-		_sway_offset = Vector3(float(so[0]), float(so[1]), float(so[2]))
-	var sv = data.get("sway_vel", null)
-	if sv is Array and sv.size() == 3:
-		_sway_velocity = Vector3(float(sv[0]), float(sv[1]), float(sv[2]))
+	var rope = data.get("rope", null)
+	if rope is Array:
+		_points = _list_to_points(rope)
+	var prev = data.get("rope_prev", null)
+	if prev is Array:
+		_prev_points = _list_to_points(prev)
+	var kick = data.get("rope_kick", null)
+	if kick is Array:
+		_kick_v = _list_to_points(kick)
 	_spark = float(data.get("spark", 0.0))
-	if _sway_offset.length_squared() > 0.000001:
-		_rebuild_sway_mesh()
-		_mesh_deformed = true
+	if _points.size() >= 2:
+		_rebuild_rope_mesh()
 	set_physics_process(_sway_is_active())
 	_update_visuals()
+
+static func _points_to_list(points: PoolVector3Array) -> Array:
+	var out := []
+	for p in points:
+		out.append([p.x, p.y, p.z])
+	return out
+
+static func _list_to_points(list) -> PoolVector3Array:
+	var arr := PoolVector3Array()
+	for item in list:
+		arr.append(Vector3(item[0], item[1], item[2]))
+	return arr
 
 # --- Energy Reactivity ---
 
