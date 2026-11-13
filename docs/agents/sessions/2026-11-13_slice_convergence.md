@@ -38,10 +38,27 @@ La prueba de checkpoints usa caída real, nuevo Pilot y consulta de su cápsula 
 - Poses de inspección: spawn `(0, 0.65, -2)`, yaw PI, pitch -0.12; aproximación `(0, 3.5, 14)`. Son teletransportes de inspección, NO prueba de tránsito.
 - Observación: superficies oscuras, textura metálica de gran escala en carcasa, señales lejanas ilegibles. No inferir geometría ni corrección del recorrido de esos píxeles. No cambiar física para corregir composición.
 - HUD informa 1 fps en instancia sin foco: no usarlo como presupuesto de rendimiento del dispositivo final.
+- Ensayo visual de carcasa: desactivar el albedo usado como normal y aumentar tiling redujo ruido de pared en spawn/péndulo; suites machine_bay y machine_level pasaron (101.14s). Se revirtió exclusivamente ese ensayo: la función de materiales completa era trabajo previo sin commit y no se debe incorporarla por accidente. Queda propuesta visual, no cambio entregado.
+- La captura `night_sign1_close` tuvo input de hardware activo (láser/disparos y subtítulos de otras estaciones): no es comparativa controlada y se descarta para aceptación. En futuras capturas deshabilitar hardware_input_enabled antes de fijar poses. No inferir juego correcto de esta evidencia contaminada.
+
+## Segundo bloque: integración y señalética
+
+- `2eb0943b`: FD-320 e índice reconciliados con alcance vigente; se separan backlog, implementación y aceptación humana.
+- `47fb1cf6`: dos casos prueban productores reales de payload de entrada/regreso a través de la cola real de SceneManager, sin swap ni escritura de saves. pytest focalizado: 1 suite correcta en 0.77s. No equivale a probar el fade/swap completo.
+- Capturas controladas a 960×540, Intel Iris Xe: rotor `(0,13.6,61)` y válvula `(0,10.6,80)`, yaw PI/pitch -0.12, hardware input deshabilitado. Se abrieron ambas. Válvula/controles visibles; letreros pequeños y textura de carcasa aún ruidosa.
+- Señalética: alternar material de una/dos caras y opacidad no arregló por sí solo la lectura (ensayos solo runtime). El viewport de origen sí contiene letras completas: no atribuir el fallo al texto sin evidencia.
+- `848dd6d9`: corregida escala de carteles que `_place` borraba al asignar transform; ahora escala escalar/array se conserva al colocar y rearmar. Regresión inicial/reset y machine_level: 2 suites correctas en 7.58s. Captura posterior a arranque limpio abierta; runtime confirmó `SignStation1.scale == (1.6,1.6,1)`. Aumenta tamaño correcto, pero no resuelve por sí solo lectura/contraste ni saturación del HUD.
+- Precaución de captura: las suites comparten el player_id persistido con el juego gráfico; no enviar comandos mientras otro proceso esté conectado con la misma identidad. La instancia gráfica puede ser desplazada del peer por el runner. Seleccionar/reconectar y verificar sesión antes de actuar.
+- Test adicional de lanzamiento `test_machine_launch`: 1 suite correcta en 12.10s. Manifests revalidados: 952 y 19 críticos, sin limpieza de imports.
+- No quedó aplicada ninguna modificación nueva de luz/carcasa. Se cerraron las instancias gráficas propias al acabar las comparativas; no se cerró el editor del usuario.
+
+## Regresión combinada al cerrar el bloque
+
+`pytest tests/test_odisea_runner.py -q -k 'test_machine_bay or test_machine_level or test_machine_sign_scale or test_ringhub_wakeup or test_ringhub_light_state or test_menu_checkpoint_flow or test_multitool_laser'`: **9 suites correctas, 169 excluidas, 129.21s**. Incluye retorno y ruta de entrada por coincidencia del nombre `test_machine_bay`. No se ejecutó suite completa.
 
 ## Pendiente / aceptación humana
 
-1. Segmentos reproducibles por input público con checkpoints activos.
+1. Extender segmentos reproducibles por input público hacia abordaje/aterrizajes. Primer segmento entregado en `d4be0d54`: spawn → aproximación de palanca 1 caminando con InputMap/InputProvider reales, checkpoint y KillFloor activos, sin teleport al destino ni velocidades privadas. Con retorno: 2 suites correctas en 3.02s. Esto NO prueba las cuatro estaciones de corrido.
 2. Comparativas controladas de aproximación/acción/llegada en las cuatro estaciones y válvula.
 3. Revisar transición real menú → hub → bahía → regreso, no solo productor/consumidor aislados.
 4. Dos recorridos completos con gamepad sin consola; claridad del destino, abordaje, ventana de salto y rearme.

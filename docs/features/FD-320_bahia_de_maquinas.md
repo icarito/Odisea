@@ -56,6 +56,17 @@ jugador, cuándo salta) y no hay umbral mágico.
    a los 5 s (1.8 rad/s, ~8 m/s en la punta). El jugador elige cuándo saltar: sale por la
    tangente y cae en la plataforma de salida, 15 m más allá.
 
+## Plan de ejecución de cierre — 2026-11-13
+
+| Paquete | Estado / evidencia | Pendiente de aceptación |
+|---|---|---|
+| Retry, rearme y Continue | Regresiones de cola mecánica, snapshots y caída real en cuatro checkpoints; commits `4aa156bc`, `f859f472` | Reiniciar y continuar jugando a mitad de ruta |
+| Rotor y válvula | Un reloj de arranque, cierre idempotente ligado a válvula; `aa7de4f9` | Comprensión/ventana de salto con gamepad |
+| Retorno al hub | Consumidor probado sin repetir despertar (`a7423e73`), payload independiente (`d5ab933f`), productores/cola real (`47fb1cf6`) | Fade/swap y cámara en recorrido real |
+| Segmento por input | Spawn → aproximación de estación 1, checkpoints/KillFloor activos (`d4be0d54`) | Abordaje y recorrido continuo de cuatro estaciones |
+| Visual | Capturas reales Intel Iris Xe abiertas; escala de carteles corregida y probada en build/reset (`848dd6d9`); ensayo de carcasa no entregado | Legibilidad/contraste de señales y HUD, destinos y capturas aprobadas |
+| Documentación | FD/índice reconciliados con alcance vigente | Registrar resultados finales sin confundir tests con playtest |
+
 ## Cómo probar
 
 ```bash
