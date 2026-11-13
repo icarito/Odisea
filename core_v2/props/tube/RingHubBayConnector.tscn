@@ -8,10 +8,18 @@
 ; para el azimut de la boca (5.75gr) y la boca de la cascara cortada por
 ; tools/cut_ringhub_dome_opening.gd.
 ;
-; Interior: 4.6 m de ancho (z +/-2.3), 3.1 m de alto, piso en y=0.02, de x=4 a
-; x=22 (r=32 a r=50). El tramo medio lleva un WindTunnelV2 que empuja hacia
-; adentro (hazard). En el extremo externo hay una IrisDoorV2 (estetica FD-025) y
-; un BayAirlockTrigger que enruta a la bahia por RingHubLightState.enter_machine_bay.
+; Interior: 4.9 m de ancho (z +/-2.45), 4.4 m de alto (cara interna del techo),
+; piso en y=0.02, de x=4 a x=22 (r=32 a r=50). El tramo medio lleva un
+; WindTunnelV2 que empuja hacia adentro (hazard). En el extremo externo hay una
+; IrisDoorV2 (estetica FD-025) y un BayAirlockTrigger que enruta a la bahia por
+; RingHubLightState.enter_machine_bay.
+;
+; El alto (4.4 m) supera a proposito la boca de la cascara (5.0 x 3.4): el
+; spring arm del jugador (pivote ~2.27 m, sube 0.334 por unidad, esfera r=0.45)
+; latchaba contra un techo de 3.1 m y colapsaba la camara a ~1.0 m dentro del
+; tunel. Con el techo a 4.4 el arm mantiene ~2.4 m; solo la boca (limitada por
+; el corte de 3.4 m) hace una retraccion breve y suave al cruzar el umbral.
+; Las luces propias mantienen el tramo legible en el estado DARK del hub.
 
 [ext_resource path="res://core_v2/props/tube/BayAirlockTrigger.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/tube/TubeSection.tscn" type="PackedScene" id=2]
@@ -35,13 +43,13 @@ size = Vector3( 17, 0.3, 4.9 )
 
 [sub_resource type="CubeMesh" id=22]
 material = SubResource( 2 )
-size = Vector3( 17, 3.1, 0.3 )
+size = Vector3( 17, 4.4, 0.3 )
 
 [sub_resource type="BoxShape" id=11]
 extents = Vector3( 8.5, 0.15, 2.45 )
 
 [sub_resource type="BoxShape" id=12]
-extents = Vector3( 8.5, 1.55, 0.15 )
+extents = Vector3( 8.5, 2.2, 0.15 )
 
 [sub_resource type="BoxShape" id=14]
 extents = Vector3( 4, 1.6, 2.3 )
@@ -64,32 +72,32 @@ mesh = SubResource( 21 )
 [node name="WallLeft" type="StaticBody" parent="."]
 
 [node name="CollisionShape" type="CollisionShape" parent="WallLeft"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 1.57, 2.45 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 2.2, 2.45 )
 shape = SubResource( 12 )
 
 [node name="Mesh" type="MeshInstance" parent="WallLeft"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 1.57, 2.45 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 2.2, 2.45 )
 mesh = SubResource( 22 )
 
 [node name="WallRight" type="StaticBody" parent="."]
 
 [node name="CollisionShape" type="CollisionShape" parent="WallRight"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 1.57, -2.45 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 2.2, -2.45 )
 shape = SubResource( 12 )
 
 [node name="Mesh" type="MeshInstance" parent="WallRight"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 1.57, -2.45 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 2.2, -2.45 )
 mesh = SubResource( 22 )
 
 [node name="Ceiling" type="StaticBody" parent="."]
 
 [node name="CollisionShape" type="CollisionShape" parent="Ceiling"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 3.25, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 4.55, 0 )
 shape = SubResource( 11 )
 
 [node name="Mesh" type="MeshInstance" parent="Ceiling"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 3.25, 0 )
-mesh = SubResource( 22 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 4.55, 0 )
+mesh = SubResource( 21 )
 
 [node name="TubeSection" parent="." instance=ExtResource( 2 )]
 transform = Transform( 0, 2, 0, -0.575, 0, 0, 0, 0, 0.575, 13, 1.56, 0 )
@@ -122,14 +130,26 @@ shape = SubResource( 15 )
 [node name="IrisDoorV2" parent="." instance=ExtResource( 5 )]
 transform = Transform( 0, 0, -0.85, 0, 0.85, 0, 0.85, 0, 0, 19, 1.56, 0 )
 
+[node name="TunnelLightMouth" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 3.7, 0 )
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 3.2
+omni_range = 14.0
+
 [node name="TunnelLightMid" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 2.9, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 3.8, 0 )
 light_color = Color( 0.7, 0.82, 1, 1 )
-light_energy = 2.2
-omni_range = 16.0
+light_energy = 4.2
+omni_range = 22.0
+
+[node name="TunnelLightInner" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 17.5, 3.8, 0 )
+light_color = Color( 0.7, 0.82, 1, 1 )
+light_energy = 3.8
+omni_range = 18.0
 
 [node name="TunnelLightOuter" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 20.5, 2.9, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 20.5, 3.8, 0 )
 light_color = Color( 0.7, 0.82, 1, 1 )
-light_energy = 2.0
-omni_range = 12.0
+light_energy = 3.6
+omni_range = 16.0

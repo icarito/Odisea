@@ -213,3 +213,64 @@ juego, del pedestal); en DARK el túnel queda casi negro (ver follow-ups).
    nota de memoria (suite físico-sensible, CI la rescata con `ODISEA_RETRY_ISOLATED=1`). No lo
    atribuyo a este cambio (el caso fallido es de criopods).
 
+## Seguimiento 2026-11-13 (tarea src-17): el conector colapsaba la cámara y quedaba a oscuras
+
+Síntoma del usuario: *«el túnel que une los mapas está mal, no funciona correctamente»*.
+Se reprodujo con medición real, no inferida.
+
+### Evidencia (medido)
+
+Sonda GdUnit temporal (no commiteada) que arranca en el piso del domo (r=29) y **camina con
+input** hacia afuera por la boca, registrando `SpringArm.current_length` cada frame:
+
+- Antes: en el domo ~2.5 m; a r=37 (entrada al túnel) **colapsaba a 1.03 m y quedaba ahí** —
+  cámara pegada al personaje. `ODISEA_ARM_DEBUG=1` mostró que el collider bloqueante era
+  **`Ceiling`** (cara interna a 3.1 m), a `d≈0.98`.
+- Geometría del arm: pivote a y≈2.27 m, sube `0.334` por unidad de largo, esfera r=0.45,
+  `spring_length=2.5`. Con techo a 3.1 m el arm no puede pasar de ~1.0 m.
+- La boca de la cáscara (`tools/cut_ringhub_dome_opening.gd`) es de **5.0 × 3.4**
+  (top a y=3.25), así que en el umbral el límite físico es ~1.2 m: subir el techo del túnel
+  por encima de la boca no ayuda en la boca, pero sí adentro.
+
+### Cambio (un archivo: `RingHubBayConnector.tscn`)
+
+1. Techo alzado: paredes de 3.1 → 4.4 m y `Ceiling` de y=3.25 → 4.55 (cara interna 4.4).
+2. **Bug de mesh**: el `Mesh` del techo reusaba `SubResource(22)` (el mesh de **pared**,
+   `17×3.1×0.3`) sin rotar → una losa *vertical* cruzando el túnel. Ahora usa `SubResource(21)`
+   (el del piso, `17×0.3×4.9`), horizontal.
+3. Luces propias reforzadas: `Mid`/`Outer` de 2.2/2.0 a 4.2/3.6 (y otra `Inner`), más una
+   `Mouth`; energía ≥3.0 con rango 14–22, para leer el tramo en DARK.
+
+### Resultado (medido)
+
+- Arm caminando con input dentro del túnel (r 38…44): **~2.3–2.5 m** (antes 1.03). En la boca
+  hay una caída breve a ~1.5 m (la limita el corte de 3.4 m) que se recupera a los ~2 m al
+  avanzar: es el paso por un umbral, no un colapso.
+- El colapso final (~1.0 m a r≈46.4) **no es el túnel**: en ese frame `AirlockTrigger._has_triggered`
+  ya es `true` (arrancó la transición a la bahía) y el `cast_motion` del arm da `frac=1`.
+- Luminancia del túnel (capturas 960×540, cámara dentro del tramo, r=43), en estado **DARK**:
+  píxeles >64 = **3.2 % → 79.9 %**; media 49 → 90; sin sobreexposición (<0.3 % >200). En LIT
+  queda en 88.7 % >64.
+- Tests focalizados verdes: `test_ringhub_bay_connector` (incluye aserción nueva: el arm no
+  colapsa en tránsito y el techo/mesh/luces cumplen), `ringhub_wakeup`, `machine_bay_return`,
+  más `hazard_determinism`/`tube_builder`/`fd282` y el set de hub (10 passed).
+  `runtest.sh -a ./core_v2/tests/test_determinism_v2.gd` → PASSED.
+- El acceso viejo `Hub/PedestalMachineBay` y el retorno desde la bahía quedan intactos.
+
+### Capturas
+
+`/home/icarito/.ao/data/artifacts/src-17/ringhub_bay_connector/`: `mouth_lit`,
+`through_lit`, `tunnel43_dark2` y `tunnel43_lit2` (960×540). La QA visual es humana.
+
+### Pendiente / sigue roto
+
+- **Boca baja (3.4 m)**: al cruzar el umbral el arm hace una retracción breve (~1.5 m) porque
+  el corte de la cáscara es de 3.4 m y no se toca en esta tarea. Si se quiere cero retracción
+  habría que subir el corte (fuera del alcance permitido aquí).
+- La IrisDoor del extremo está **cerrada** por defecto (`DoorBlocker.disabled = anim_progress > 0.15`);
+  el `AirlockTrigger` está 0.5 m detrás y su caja alcanza al jugador bloqueado (el trigger dispara
+  igual, verificado), pero el jugador no atraviesa la compuerta si no la abre.
+- Visual de la caja del techo/paredes dentro del domo (r 33–35 por delante de la boca): queda
+  tapado por la cáscara, pero conviene una mirada humana.
+
+
