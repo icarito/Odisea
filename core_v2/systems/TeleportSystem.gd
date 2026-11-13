@@ -35,6 +35,10 @@ func _restore_requested_continue() -> void:
 	var target_transform = slot.get("transform", null) if typeof(slot) == TYPE_DICTIONARY else slot
 	if not target_transform is Transform:
 		return
+	# Restore replay_sync first: its snapshot may also contain the player's pose.
+	var checkpoint_manager: Node = get_node_or_null("/root/CheckpointManager")
+	if typeof(slot) == TYPE_DICTIONARY and checkpoint_manager and checkpoint_manager.has_method("restore_replay_sync_state"):
+		checkpoint_manager.restore_replay_sync_state(slot.get("replay_snapshot", {}))
 	teleport_to(target_transform)
 	if typeof(slot) == TYPE_DICTIONARY:
 		if "yaw" in player_controller:
@@ -624,7 +628,16 @@ func _on_player_killed():
 		_clear_respawn_flag()
 
 func _on_checkpoint_reached(transform):
+	# Areas overlap the replacement Pilot before respawn updates controller references.
+	var session: Node = get_node_or_null("/root/SessionManager")
+	if not is_instance_valid(player_controller) or (session != null and session.is_respawning):
+		return
 	print("[TeleportSystem] Señal recibida: checkpoint_reached, transform=", transform)
+	var cp_yaw: float = float(player_controller.get("yaw")) if is_instance_valid(player_controller) and "yaw" in player_controller else 0.0
+	var cp_pitch: float = float(player_controller.get("pitch")) if is_instance_valid(player_controller) and "pitch" in player_controller else 0.0
+	var cm = get_node_or_null("/root/CheckpointManager")
+	if cm and cm.has_method("set_active_checkpoint") and transform is Transform:
+		cm.set_active_checkpoint(transform.origin, cp_yaw, cp_pitch)
 	# Guardar el checkpoint en el slot 'last' y persistirlo, incluyendo rotación
 	var persistence_manager = get_node_or_null("/root/PersistenceManager")
 	var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
