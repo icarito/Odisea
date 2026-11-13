@@ -15,7 +15,7 @@ extends Spatial
 #            "to": "@level" apunta a este nodo (p. ej. method "say", args [texto, segundos])
 #
 # Emitida por say(): avisa que Odisea está hablando (texto, duración en segundos).
-# La consume OdiseaHologramV2 (autoload) para mostrar el NPC-holograma.
+# La consume _show_subtitle_now() para invocar ProgrammerHoloNPC.summon() (NPC-holograma).
 signal said(text, duration)
 
 const MachinePart = preload("res://core_v2/props/machines/MachinePart.gd")
