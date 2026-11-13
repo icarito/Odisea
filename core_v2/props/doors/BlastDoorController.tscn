@@ -1,0 +1,275 @@
+[gd_scene load_steps=13 format=2]
+
+[ext_resource path="res://core_v2/props/doors/BlastDoorController.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/shaders/airlock_floor.shader" type="Shader" id=2]
+[ext_resource path="res://core_v2/components/TremorZoneV2.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=4]
+[ext_resource path="res://assets/sfx/freesound_community-heavy-mechancial-door-open-6934.mp3" type="AudioStream" id=5]
+
+[sub_resource type="ShaderMaterial" id=1]
+resource_name = "FrameMetal"
+shader = ExtResource( 2 )
+shader_param/base_color = Color( 0.26, 0.28, 0.3, 1 )
+shader_param/accent_color = Color( 0.92, 0.55, 0.06, 1 )
+shader_param/grid_scale = 16.0
+shader_param/line_width = 0.025
+shader_param/accent_emission = 0.9
+shader_param/metallic_value = 1.0
+shader_param/roughness_value = 0.24
+shader_param/tread_depth = 0.6
+shader_param/stripe_width = 0.1
+
+[sub_resource type="ShaderMaterial" id=2]
+resource_name = "PanelMetal"
+shader = ExtResource( 2 )
+shader_param/base_color = Color( 0.4, 0.42, 0.44, 1 )
+shader_param/accent_color = Color( 0.9, 0.5, 0.05, 1 )
+shader_param/grid_scale = 8.0
+shader_param/line_width = 0.03
+shader_param/accent_emission = 0.7
+shader_param/metallic_value = 1.0
+shader_param/roughness_value = 0.2
+shader_param/tread_depth = 0.55
+shader_param/stripe_width = 0.06
+
+[sub_resource type="ShaderMaterial" id=3]
+resource_name = "WarnStripe"
+shader = ExtResource( 2 )
+shader_param/base_color = Color( 0.06, 0.07, 0.08, 1 )
+shader_param/accent_color = Color( 0.85, 0.68, 0.08, 1 )
+shader_param/grid_scale = 14.0
+shader_param/line_width = 0.025
+shader_param/accent_emission = 1.2
+shader_param/metallic_value = 0.9
+shader_param/roughness_value = 0.22
+shader_param/tread_depth = 0.6
+shader_param/stripe_width = 0.5
+
+[sub_resource type="SpatialMaterial" id=4]
+resource_name = "BorderGlow"
+resource_local_to_scene = true
+albedo_color = Color( 0.08, 0.09, 0.1, 1 )
+emission_enabled = true
+emission = Color( 0.6, 0.06, 0.06, 1 )
+emission_energy = 0.6
+metallic = 0.4
+roughness = 0.3
+flags_unshaded = true
+
+[sub_resource type="BoxShape" id=6]
+extents = Vector3( 2.75, 0.2, 5.5 )
+
+[sub_resource type="BoxShape" id=7]
+extents = Vector3( 6, 1, 6 )
+
+[node name="BlastDoorController" type="Spatial"]
+script = ExtResource( 1 )
+is_interactable = false
+anim_duration = 3.0
+panel_slide = 5.7
+
+[node name="Frame" type="CSGCombiner" parent="."]
+use_collision = true
+
+[node name="Floor" type="CSGBox" parent="Frame"]
+cast_shadow = 0
+width = 12.0
+height = 0.5
+depth = 12.0
+material = SubResource( 1 )
+
+[node name="Hole" type="CSGBox" parent="Frame/Floor"]
+cast_shadow = 0
+operation = 2
+width = 11.0
+height = 0.6
+depth = 11.0
+
+[node name="WellLining" type="CSGCombiner" parent="."]
+use_collision = true
+
+[node name="WallXNeg" type="CSGBox" parent="WellLining"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.7, -6, 0 )
+cast_shadow = 0
+width = 0.4
+height = 12.0
+depth = 12.0
+material = SubResource( 1 )
+
+[node name="WallXPos" type="CSGBox" parent="WellLining"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.7, -6, 0 )
+cast_shadow = 0
+width = 0.4
+height = 12.0
+depth = 12.0
+material = SubResource( 1 )
+
+[node name="WallZNeg" type="CSGBox" parent="WellLining"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -6, -5.7 )
+cast_shadow = 0
+width = 12.4
+height = 12.0
+depth = 0.4
+material = SubResource( 1 )
+
+[node name="WallZPos" type="CSGBox" parent="WellLining"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -6, 5.7 )
+cast_shadow = 0
+width = 12.4
+height = 12.0
+depth = 0.4
+material = SubResource( 1 )
+
+[node name="ServiceRamp" type="CSGCombiner" parent="."]
+use_collision = true
+
+[node name="Flight1" type="CSGBox" parent="ServiceRamp"]
+transform = Transform( 0.857493, -0.514496, 0, 0.514496, 0.857493, 0, 0, 0, 1, -0.5, -3, -4.2 )
+cast_shadow = 0
+width = 11.6619
+height = 0.4
+depth = 2.5
+material = SubResource( 1 )
+
+[node name="Landing" type="CSGBox" parent="ServiceRamp"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, -6, 0 )
+cast_shadow = 0
+width = 2.0
+height = 0.4
+depth = 10.9
+material = SubResource( 1 )
+
+[node name="Flight2" type="CSGBox" parent="ServiceRamp"]
+transform = Transform( -0.857493, -0.514496, 0, 0.514496, -0.857493, 0, 0, 0, 1, 0.5, -9, 4.2 )
+cast_shadow = 0
+width = 11.6619
+height = 0.4
+depth = 2.5
+material = SubResource( 1 )
+
+[node name="PanelA" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.75, -0.2, 0 )
+
+[node name="CollisionShape" type="CollisionShape" parent="PanelA"]
+shape = SubResource( 6 )
+
+[node name="Mesh" type="CSGBox" parent="PanelA"]
+cast_shadow = 0
+width = 5.5
+height = 0.4
+depth = 11.0
+material = SubResource( 2 )
+
+[node name="Stripe" type="CSGBox" parent="PanelA"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.21, 0 )
+cast_shadow = 0
+width = 5.5
+height = 0.02
+depth = 0.35
+material = SubResource( 3 )
+
+[node name="PanelB" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.75, -0.2, 0 )
+
+[node name="CollisionShape" type="CollisionShape" parent="PanelB"]
+shape = SubResource( 6 )
+
+[node name="Mesh" type="CSGBox" parent="PanelB"]
+cast_shadow = 0
+width = 5.5
+height = 0.4
+depth = 11.0
+material = SubResource( 2 )
+
+[node name="Stripe" type="CSGBox" parent="PanelB"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.21, 0 )
+cast_shadow = 0
+width = 5.5
+height = 0.02
+depth = 0.35
+material = SubResource( 3 )
+
+[node name="EdgeLights" type="Spatial" parent="."]
+
+[node name="BorderXNeg" type="CSGBox" parent="EdgeLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5, 0.03, 0 )
+cast_shadow = 0
+width = 0.25
+height = 0.06
+depth = 11.2
+material = SubResource( 4 )
+
+[node name="BorderXPos" type="CSGBox" parent="EdgeLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, 0.03, 0 )
+cast_shadow = 0
+width = 0.25
+height = 0.06
+depth = 11.2
+material = SubResource( 4 )
+
+[node name="BorderZNeg" type="CSGBox" parent="EdgeLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -5.5 )
+cast_shadow = 0
+width = 11.2
+height = 0.06
+depth = 0.25
+material = SubResource( 4 )
+
+[node name="BorderZPos" type="CSGBox" parent="EdgeLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 5.5 )
+cast_shadow = 0
+width = 11.2
+height = 0.06
+depth = 0.25
+material = SubResource( 4 )
+
+[node name="EdgeLightNW" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.9, 0.4, -4.9 )
+shadow_enabled = false
+light_color = Color( 0.6, 0.06, 0.06, 1 )
+light_energy = 0.6
+omni_range = 9.0
+
+[node name="EdgeLightNE" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.9, 0.4, -4.9 )
+shadow_enabled = false
+light_color = Color( 0.6, 0.06, 0.06, 1 )
+light_energy = 0.6
+omni_range = 9.0
+
+[node name="EdgeLightSW" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.9, 0.4, 4.9 )
+shadow_enabled = false
+light_color = Color( 0.6, 0.06, 0.06, 1 )
+light_energy = 0.6
+omni_range = 9.0
+
+[node name="EdgeLightSE" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.9, 0.4, 4.9 )
+shadow_enabled = false
+light_color = Color( 0.6, 0.06, 0.06, 1 )
+light_energy = 0.6
+omni_range = 9.0
+
+[node name="TremorZone" type="Area" parent="."]
+script = ExtResource( 3 )
+impulse_strength = 8.0
+period = 0.12
+frequency = 10.0
+duration = 0.9
+rng_seed = 320
+camera_amplitude = 0.07
+is_active = false
+
+[node name="CollisionShape" type="CollisionShape" parent="TremorZone"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+shape = SubResource( 7 )
+
+[node name="SFX" type="Spatial" parent="."]
+
+[node name="SFX Open" type="AudioStreamPlayer3D" parent="SFX"]
+stream = ExtResource( 5 )
+unit_size = 14.0
+script = ExtResource( 4 )
+sound_name = ""
+trigger_mode = "OneShotInteract"
