@@ -18,6 +18,19 @@ export(float) var light_energy_active := 1.4
 export(bool) var momentary = false
 export(float) var momentary_duration = 0.5
 
+# --- FEEDBACK DIEGÉTICO ---
+# El botón comunica estado y alcance por luz propia (no solo el texto del HUD):
+# bisel armado (en rango/enfoque) y pulso de emisión al activarse, contado en
+# ticks de física para mantener el determinismo del Core (sin Tween ni randf).
+const PULSE_TICKS := 16
+export(Color) var bezel_color_armed := Color(1.0, 0.72, 0.22)
+export(float) var pulse_energy_boost := 1.0
+export(float) var armed_energy_boost := 0.35
+var _pulse_ticks := 0
+var _arm_visual := false
+var _was_active := false
+var _owns_bezel_material := false
+
 onready var light_mesh = get_node_or_null(light_mesh_path)
 
 # The indicator material has to belong to this button alone. ElevatorController
@@ -55,6 +68,35 @@ func _on_momentary_timeout():
 	set_active(false, true)
 	_momentary_timer = null
 
+func _own_bezel_material():
+	var bezel := get_node_or_null("ConsoleBezel") as MeshInstance
+	if bezel == null:
+		return null
+	if not _owns_bezel_material:
+		# Siempre un SpatialMaterial propio: PropDitherManager puede haber reemplazado
+		# material_override por un ShaderMaterial y el control de emisión necesita un
+		# material espacial. Se conserva el albedo del material base del mesh.
+		var mat := SpatialMaterial.new()
+		mat.resource_local_to_scene = true
+		var base_mat = bezel.get_active_material(0) if bezel.mesh != null else null
+		if base_mat is SpatialMaterial:
+			mat.albedo_color = (base_mat as SpatialMaterial).albedo_color
+		bezel.material_override = mat
+		_owns_bezel_material = true
+	return bezel.material_override
+
+func set_proximity_highlight(enabled: bool, color: Color = Color(0.0, 1.0, 1.0, 0.1)) -> void:
+	.set_proximity_highlight(enabled, color)
+	if _arm_visual != enabled:
+		_arm_visual = enabled
+		_update_visuals()
+
+func set_highlighted(enabled: bool, color: Color = Color.cyan) -> void:
+	.set_highlighted(enabled, color)
+	if _arm_visual != enabled:
+		_arm_visual = enabled
+		_update_visuals()
+
 func _update_visuals():
 	if not is_inside_tree():
 		return
@@ -67,9 +109,28 @@ func _update_visuals():
 			mat.albedo_color = color
 			mat.emission_enabled = true
 			mat.emission = color
-			mat.emission_energy = 1.0 if is_active else 0.2
+			var energy := 1.0 if is_active else 0.2
+			if _pulse_ticks > 0:
+				energy += pulse_energy_boost * float(_pulse_ticks) / float(PULSE_TICKS)
+			elif _arm_visual and not is_active:
+				energy += armed_energy_boost
+			mat.emission_energy = energy
 
 	_update_indicator_light(color)
+
+	# Bisel: señal armada (en rango/enfoque) y pulso al activar.
+	var bezel_mat = _own_bezel_material()
+	if bezel_mat is SpatialMaterial:
+		var bm := bezel_mat as SpatialMaterial
+		var armed := _arm_visual and not is_active
+		bm.emission_enabled = armed or _pulse_ticks > 0
+		bm.emission = bezel_color_armed if armed else (color if _pulse_ticks > 0 else Color(0, 0, 0))
+		var ben := 0.0
+		if armed:
+			ben = 0.35
+		if _pulse_ticks > 0:
+			ben = 0.8 * float(_pulse_ticks) / float(PULSE_TICKS)
+		bm.emission_energy = ben
 
 
 # Mirrors the button state on the optional indicator light. Lazily resolved so an
@@ -101,5 +162,36 @@ func _own_light_material():
 
 # Optional: expose state change for editor tweaking
 func set_active(value: bool, immediate: bool = false):
+	var rising := value and not _was_active
+	_was_active = value
 	.set_active(value, immediate) # Call parent to update state and anim_progress
+	if rising:
+		_pulse_ticks = PULSE_TICKS
+		if immediate:
+			set_physics_process(_pulse_ticks > 0)
+	_update_visuals()
+
+func _wants_continuous_step() -> bool:
+	return _pulse_ticks > 0
+
+func step(dt: float) -> void:
+	.step(dt)
+	if _pulse_ticks > 0:
+		_pulse_ticks -= 1
+		if _pulse_ticks <= 0:
+			_pulse_ticks = 0
+			_update_visuals()
+
+func get_snapshot() -> Dictionary:
+	var snap := .get_snapshot()
+	snap["pulse_ticks"] = _pulse_ticks
+	snap["was_active"] = _was_active
+	return snap
+
+func restore_snapshot(data: Dictionary) -> void:
+	.restore_snapshot(data)
+	_pulse_ticks = int(data.get("pulse_ticks", 0))
+	_was_active = bool(data.get("was_active", is_active))
+	_arm_visual = false
+	set_physics_process(_pulse_ticks > 0)
 	_update_visuals()

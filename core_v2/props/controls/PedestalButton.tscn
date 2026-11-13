@@ -71,7 +71,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.94, 0 )
 mesh = SubResource( 7 )
 material/0 = ExtResource( 7 )
 
-[node name="ConsoleBezel" type="MeshInstance" parent="."]
+[node name="ConsoleBezel" type="MeshInstance" parent="." groups=["no_occlusion"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0 )
 mesh = SubResource( 8 )
 material/0 = ExtResource( 6 )
