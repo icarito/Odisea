@@ -186,6 +186,10 @@ var _ledge_regrab_cooldown := 0.0
 var _ladder_regrab_cooldown := 0.0
 var _jump_was_pressed := false
 var _crouch_was_pressed := false
+var _pre_land_vy := 0.0
+var _landed_impact_vy := 0.0
+var _landed_roll_grace_timer := 0.0
+var _roll_crouch_buffer_timer := 0.0
 var _camera_collision_grace_left := 0.0
 var _traversal_strafe_latch_active := false
 # FD-314: durante el despertar el Pilot nace dentro de la capsula, cuyo interior
@@ -488,8 +492,15 @@ func get_full_snapshot() -> Dictionary:
 		snapshot["jump_state"] = {
 			"coyote_timer": jump_logic.coyote_timer,
 			"jump_buffer_timer": jump_logic.jump_buffer_timer,
-			"is_jumping": jump_logic._is_jumping
+			"is_jumping": jump_logic._is_jumping,
+			"launched": jump_logic._launched,
+			"internal_velocity": jump_logic.internal_velocity
 		}
+	snapshot["rigid_platform_grace"] = _rigid_platform_grace
+	snapshot["pre_land_vy"] = _pre_land_vy
+	snapshot["landed_impact_vy"] = _landed_impact_vy
+	snapshot["landed_roll_grace"] = _landed_roll_grace_timer
+	snapshot["roll_crouch_buffer"] = _roll_crouch_buffer_timer
 	return snapshot
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -523,6 +534,14 @@ func restore_snapshot(data: Dictionary) -> void:
 		jump_logic.coyote_timer = js.get("coyote_timer", 0.0)
 		jump_logic.jump_buffer_timer = js.get("jump_buffer_timer", 0.0)
 		jump_logic._is_jumping = js.get("is_jumping", false)
+		jump_logic._launched = bool(js.get("launched", false))
+		if js.has("internal_velocity"):
+			jump_logic.internal_velocity = float(js["internal_velocity"])
+	_rigid_platform_grace = int(data.get("rigid_platform_grace", 0))
+	_pre_land_vy = float(data.get("pre_land_vy", 0.0))
+	_landed_impact_vy = float(data.get("landed_impact_vy", 0.0))
+	_landed_roll_grace_timer = float(data.get("landed_roll_grace", 0.0))
+	_roll_crouch_buffer_timer = float(data.get("roll_crouch_buffer", 0.0))
 
 	if camera_rig:
 		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
@@ -549,6 +568,12 @@ func full_reset() -> void:
 	if is_instance_valid(movement_logic):
 		movement_logic.horizontal_velocity = Vector3.ZERO
 		movement_logic.wish_direction = Vector3.ZERO
+		movement_logic._roll_timer = 0.0
+		movement_logic._roll_direction = Vector3.ZERO
+	_pre_land_vy = 0.0
+	_landed_impact_vy = 0.0
+	_landed_roll_grace_timer = 0.0
+	_roll_crouch_buffer_timer = 0.0
 		
 	if is_instance_valid(jump_logic):
 		jump_logic.internal_velocity = 0.0
@@ -1773,7 +1798,8 @@ func _can_start_mantle() -> bool:
 	stand_shape.height = max(0.1, _standing_capsule_height)
 	var params = PhysicsShapeQueryParameters.new()
 	params.set_shape(stand_shape)
-	params.transform = Transform(global_transform.basis, target_top) * Transform(Basis.IDENTITY, _standing_collision_origin)
+	var shape_basis := _body_collision_shape.transform.basis if _body_collision_shape else Basis.IDENTITY
+	params.transform = Transform(global_transform.basis, target_top + Vector3.UP * 0.08) * Transform(shape_basis, _standing_collision_origin)
 	params.exclude = [self]
 	params.collision_mask = collision_mask
 	var hits = space_state.intersect_shape(params, 1)
@@ -1785,8 +1811,9 @@ func _get_mantle_target_points() -> Dictionary:
 	if traversal_logic.current_state != traversal_logic.TraversalState.HANGING:
 		return {}
 	var tangent = traversal_logic.ledge_normal.cross(Vector3.UP).normalized()
-	var nominal_vertical = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset + Vector3.UP * traversal_logic.mantle_up_offset
-	var nominal_top = nominal_vertical + traversal_logic.ledge_normal * traversal_logic.mantle_forward_offset
+	var back_offset := traversal_logic.hang_body_back_offset
+	var nominal_vertical = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset - traversal_logic.ledge_normal * back_offset + Vector3.UP * traversal_logic.mantle_up_offset
+	var nominal_top = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset + Vector3.UP * traversal_logic.mantle_up_offset + traversal_logic.ledge_normal * traversal_logic.mantle_forward_offset
 	var space_state = get_world().direct_space_state
 	var support_offsets = [
 		Vector3.ZERO,
@@ -1806,7 +1833,7 @@ func _get_mantle_target_points() -> Dictionary:
 		break
 	if best_hit.empty():
 		return {}
-	var support_y = best_hit.position.y
+	var support_y = best_hit.position.y + 0.06
 	var target_vertical = Vector3(nominal_vertical.x, support_y, nominal_vertical.z)
 	var target_top = Vector3(nominal_top.x, support_y, nominal_top.z)
 	return {
@@ -2783,8 +2810,10 @@ func step(dt: float, input: InputDataV2) -> void:
 
 		# Mantle auto-exit
 		if traversal_logic.current_state == traversal_logic.TraversalState.MANTLING and traversal_logic.anim_progress >= 1.0:
+			var top_target := traversal_logic.get_mantle_target_top()
 			traversal_logic.exit()
 			_start_ledge_regrab_cooldown(global_transform.origin.y, ledge_y_before)
+			global_transform.origin = top_target
 			if traversal_logic.ledge_normal.length_squared() > 0.001:
 				global_transform.origin += traversal_logic.ledge_normal.normalized() * 0.12
 
@@ -2908,6 +2937,24 @@ func step(dt: float, input: InputDataV2) -> void:
 				or input.interact or input.interact_held or input.focus or input.crouch:
 			_process_interaction(input)
 
+	if crouch_just_pressed:
+		_roll_crouch_buffer_timer = 0.22
+	elif _roll_crouch_buffer_timer > 0.0:
+		_roll_crouch_buffer_timer = max(0.0, _roll_crouch_buffer_timer - dt)
+
+	if not physics_grounded:
+		if velocity.y < _pre_land_vy:
+			_pre_land_vy = velocity.y
+		_landed_roll_grace_timer = 0.0
+	else:
+		var min_roll_vy: float = movement_logic.landing_roll_min_fall_vy if is_instance_valid(movement_logic) else -6.0
+		if _pre_land_vy <= min_roll_vy:
+			_landed_impact_vy = _pre_land_vy
+			_landed_roll_grace_timer = 0.14
+			_pre_land_vy = 0.0
+		elif velocity.y <= 0.0:
+			_pre_land_vy = 0.0
+
 	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
 		velocity.y = 0
 		if is_instance_valid(jump_logic):
@@ -2973,13 +3020,29 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
-	var wants_crouch = input.crouch and physics_grounded
+	if _landed_roll_grace_timer > 0.0:
+		_landed_roll_grace_timer = max(0.0, _landed_roll_grace_timer - dt)
+		if physics_grounded and (input.crouch or _roll_crouch_buffer_timer > 0.0) \
+				and is_instance_valid(movement_logic) and not movement_logic.is_rolling():
+			var roll_dir := world_dir
+			if roll_dir.length_squared() < 0.001:
+				var carried := movement_logic.get_horizontal_velocity()
+				roll_dir = Vector3(carried.x, 0.0, carried.z)
+			if roll_dir.length_squared() < 0.001:
+				var cam_b := get_camera_basis()
+				roll_dir = Vector3(-cam_b.z.x, 0.0, -cam_b.z.z)
+			movement_logic.start_landing_roll(roll_dir, _landed_impact_vy)
+			_landed_roll_grace_timer = 0.0
+			_roll_crouch_buffer_timer = 0.0
+
+	var is_rolling_now := is_instance_valid(movement_logic) and movement_logic.is_rolling()
+	var wants_crouch = (input.crouch or is_rolling_now) and physics_grounded
 	is_crouching = _resolve_crouch_state(wants_crouch)
 	_apply_crouch_collision_state(is_crouching)
-	var effective_sprint = input.sprint and not is_crouching
+	var effective_sprint = (input.sprint and not is_crouching) or is_rolling_now
 
 	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.movement")
-	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching)
+	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching and not is_rolling_now)
 	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.movement")
 
 	var h_vel = movement_logic.get_horizontal_velocity()

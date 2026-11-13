@@ -17,3 +17,7 @@ func update_info(mode: int, current_count: int, max_count: int):
 			_mode_label.add_color_override("font_color", Color.cyan)
 			_count_label.visible = true
 			_count_label.text = "GLOO: %d/%d" % [current_count, max_count]
+		2: # GRAB
+			_mode_label.text = "MODE: GRAB"
+			_mode_label.add_color_override("font_color", Color(1.0, 0.72, 0.15))
+			_count_label.visible = false

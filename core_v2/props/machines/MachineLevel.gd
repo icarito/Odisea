@@ -19,6 +19,7 @@ const MachineHinge = preload("res://core_v2/props/machines/MachineHinge.gd")
 const TriggerScript = preload("res://core_v2/props/machines/MachineTrigger.gd")
 const LedgeV2 = preload("res://core_v2/components/LedgeV2.gd")
 const SignagePanelScene = preload("res://core_v2/props/signage/SignagePanel.tscn")
+const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
 const DiamondPlateTex = preload("res://materials/diamondplate.png")
 const DiamondPlateSpec = preload("res://materials/diamondplate_spec.png")
 const IndFloorTex = preload("res://textures/kenney_prototype_textures/dark/texture_08.png")
@@ -221,6 +222,8 @@ func _make(item: Dictionary) -> Spatial:
 				inst.set(key, value)
 			if bool(item.get("optional", false)) or not bool(item.get("cast_shadow", true)):
 				_disable_shadow_casting(inst)
+			if str(item.get("name", "")) == "BayShell":
+				_enhance_bay_shell_materials(inst)
 			return inst as Spatial
 	push_error("MachineLevel: tipo de item desconocido: " + str(item.get("type", "")))
 	return null
@@ -283,10 +286,10 @@ func _make_block(item: Dictionary) -> StaticBody:
 		for sz in [-1.0, 1.0]:
 			var lip := MeshInstance.new()
 			var lc := CubeMesh.new()
-			lc.size = Vector3(size.x, 0.14, 0.12)
+			lc.size = Vector3(size.x, 0.04, 0.14)
 			lip.mesh = lc
 			lip.material_override = HazardMat
-			lip.translation = Vector3(0, size.y * 0.5 - 0.06, sz * (size.z * 0.5 + 0.03))
+			lip.translation = Vector3(0, size.y * 0.5 - 0.015, sz * (size.z * 0.5 - 0.07))
 			body.add_child(lip)
 	return body
 
@@ -328,30 +331,61 @@ func _make_conduit(from_node: Spatial, to_node: Spatial, from_name: String) -> v
 	if from_node == null or to_node == null:
 		return
 	var p_a: Vector3 = from_node.transform.origin + Vector3(0.0, 0.35, 0.0)
+	if from_node.has_node("CableAnchor"):
+		var anchor := from_node.get_node("CableAnchor") as Spatial
+		if anchor != null:
+			p_a = from_node.transform.xform(anchor.transform.origin)
 	var p_b: Vector3 = to_node.transform.origin
 	var dist := p_a.distance_to(p_b)
 	if dist < 0.25 or dist > 35.0:
 		return
+	var horiz_dist := Vector2(p_b.x - p_a.x, p_b.z - p_a.z).length()
+	var sag_depth := clamp(horiz_dist * 0.18 + dist * 0.06, 0.35, 2.2)
+	var curve := Curve3D.new()
+	var samples := 16
+	var cosh_1 := 0.5 * (exp(1.2) + exp(-1.2))
+	for i in range(samples + 1):
+		var t := float(i) / float(samples)
+		var u := (t - 0.5) * 2.0
+		var cosh_u := 0.5 * (exp(1.2 * u) + exp(-1.2 * u))
+		var sag_profile := (cosh_1 - cosh_u) / max(0.0001, cosh_1 - 1.0)
+		var pt := p_a.linear_interpolate(p_b, t)
+		pt.y -= sag_depth * sag_profile
+		curve.add_point(pt)
 	var mesh_inst := MeshInstance.new()
 	mesh_inst.name = "Conduit_%s_%s" % [from_name, to_node.name]
-	var cube := CubeMesh.new()
-	cube.size = Vector3(0.045, 0.045, dist)
-	mesh_inst.mesh = cube
+	var tube_mesh: ArrayMesh = TubeBuilder.generate_tube_mesh(curve, 0.032, 8, true, 1.0, 0.0)
+	if tube_mesh != null:
+		mesh_inst.mesh = tube_mesh
+	else:
+		var fallback := CubeMesh.new()
+		fallback.size = Vector3(0.045, 0.045, dist)
+		mesh_inst.mesh = fallback
 	var mat := SpatialMaterial.new()
 	mat.albedo_color = Color("#d96b1f")
+	mat.metallic = 0.35
 	mat.roughness = 0.4
 	mat.emission_enabled = true
 	mat.emission = Color("#d96b1f")
 	mat.emission_energy = 1.15
 	mesh_inst.material_override = mat
 	mesh_inst.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	var mid := (p_a + p_b) * 0.5
-	var dir := (p_b - p_a).normalized()
-	var up := Vector3.UP if abs(dir.dot(Vector3.UP)) < 0.98 else Vector3.RIGHT
-	var z_axis := -dir
-	var x_axis := up.cross(z_axis).normalized()
-	var y_axis := z_axis.cross(x_axis).normalized()
-	mesh_inst.transform = Transform(Basis(x_axis, y_axis, z_axis), mid)
+	var socket_mat := SpatialMaterial.new()
+	socket_mat.albedo_color = Color(0.16, 0.18, 0.21)
+	socket_mat.metallic = 0.85
+	socket_mat.roughness = 0.32
+	for endpoint in [p_a, p_b]:
+		var sock := MeshInstance.new()
+		var sc := SphereMesh.new()
+		sc.radius = 0.065
+		sc.height = 0.13
+		sc.radial_segments = 10
+		sc.rings = 5
+		sock.mesh = sc
+		sock.material_override = socket_mat
+		sock.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		sock.translation = endpoint
+		mesh_inst.add_child(sock)
 	add_child(mesh_inst)
 	_conduits.append({
 		"from": from_name,
@@ -490,6 +524,39 @@ func _disable_shadow_casting(root: Node) -> void:
 		var current: Node = stack.pop_back()
 		if current is GeometryInstance:
 			(current as GeometryInstance).cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		for child in current.get_children():
+			stack.push_back(child)
+
+
+func _enhance_bay_shell_materials(root: Node) -> void:
+	var upgraded := {}
+	var stack := [root]
+	while not stack.empty():
+		var current: Node = stack.pop_back()
+		if current is MeshInstance:
+			var mi := current as MeshInstance
+			if mi.mesh != null:
+				var surf_count := mi.mesh.get_surface_count()
+				for s in range(surf_count):
+					var base_mat: Material = mi.get_surface_material(s)
+					if base_mat == null:
+						base_mat = mi.mesh.surface_get_material(s)
+					if base_mat is SpatialMaterial:
+						var sm := base_mat as SpatialMaterial
+						if sm.emission_enabled:
+							continue
+						if not upgraded.has(sm):
+							var dup := sm.duplicate() as SpatialMaterial
+							dup.uv1_triplanar = true
+							dup.uv1_triplanar_sharpness = 4.0
+							dup.albedo_texture = IndFloorTex
+							dup.metallic_texture = DiamondPlateSpec
+							dup.normal_enabled = true
+							dup.normal_texture = DiamondPlateTex
+							dup.normal_scale = 0.42
+							dup.uv1_scale = Vector3(0.16, 0.16, 0.16)
+							upgraded[sm] = dup
+						mi.set_surface_material(s, upgraded[sm])
 		for child in current.get_children():
 			stack.push_back(child)
 
@@ -656,7 +723,7 @@ func _physics_process(_delta: float) -> void:
 				continue
 			if enable_player_multi_tool and "multi_tool" in player and player.multi_tool == null and player.has_method("set_multi_tool_enabled"):
 				player.set_multi_tool_enabled(true)
-			if parent_node != null and parent_node.is_a_parent_of(player) and player is Spatial:
+			if parent_node != null and parent_node == get_tree().current_scene and parent_node.is_a_parent_of(player) and player is Spatial:
 				var py: float = (player as Spatial).global_transform.origin.y
 				if py < -13.5 and _void_kill_cooldown_ticks <= 0:
 					_void_kill_cooldown_ticks = 240

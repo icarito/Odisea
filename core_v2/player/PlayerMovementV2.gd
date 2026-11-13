@@ -32,6 +32,14 @@ export var enable_slope_resistance := true
 export(float, 0, 1) var slope_resistance_factor := 0.2 # Reduced for agile character
 export(float, 0, 90) var min_resistance_angle_degrees := 25.0 # Only resist on steeper slopes
 
+# FD-320: Landing Roll / Slide (Mirror's Edge + Mario 64 momentum conservation)
+export(float) var landing_roll_duration := 0.48
+export(float) var landing_roll_min_fall_vy := -6.0
+export(float) var landing_roll_vertical_conversion := 0.45
+export(float) var landing_roll_min_speed := 8.5
+export(float) var landing_roll_max_speed := 13.5
+export(float) var landing_roll_friction := 3.5
+
 # State
 var horizontal_velocity := Vector3.ZERO
 var _floor_normal := Vector3.UP # Cached floor normal for alignment
@@ -39,6 +47,8 @@ var wish_direction := Vector3.ZERO
 # FD-320: ticks de vuelo balistico pendientes de confirmar despegue (>0 = lanzado).
 var _ballistic_ticks := 0
 const BALLISTIC_LIFTOFF_TICKS := 4
+var _roll_timer := 0.0
+var _roll_direction := Vector3.ZERO
 
 # External Velocity State
 var external_velocity := Vector3.ZERO
@@ -79,6 +89,28 @@ func set_external_source_is_static(is_static: bool) -> void:
 func add_launch_velocity(v: Vector3) -> void:
 	horizontal_velocity += Vector3(v.x, 0.0, v.z)
 	_ballistic_ticks = BALLISTIC_LIFTOFF_TICKS
+
+func start_landing_roll(forward_dir: Vector3, impact_vy: float) -> void:
+	var dir := Vector3(forward_dir.x, 0.0, forward_dir.z)
+	if dir.length_squared() < 0.0001:
+		dir = Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z)
+	if dir.length_squared() < 0.0001:
+		dir = Vector3.BACK
+	dir = dir.normalized()
+	_roll_direction = dir
+	_roll_timer = landing_roll_duration
+	var h_speed := Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z).length()
+	var converted := max(0.0, -impact_vy) * landing_roll_vertical_conversion
+	var roll_speed := clamp(
+		max(h_speed + converted * 0.5, landing_roll_min_speed + converted * 0.25),
+		landing_roll_min_speed,
+		landing_roll_max_speed
+	)
+	horizontal_velocity = dir * roll_speed
+	_ballistic_ticks = 0
+
+func is_rolling() -> bool:
+	return _roll_timer > 0.0
 
 func integrate_external_velocity(delta: float) -> Vector3:
 	if external_velocity.length() < 0.001:
@@ -182,7 +214,10 @@ func get_full_snapshot() -> Dictionary:
 		"camera_input_timer": camera_input_timer,
 		"is_tank_turn_mode": is_tank_turn_mode,
 		"current_turn_time": current_turn_time,
-		"_mouse_used_this_move": _mouse_used_this_move
+		"_mouse_used_this_move": _mouse_used_this_move,
+		"_ballistic_ticks": _ballistic_ticks,
+		"_roll_timer": _roll_timer,
+		"_roll_direction": [_roll_direction.x, _roll_direction.y, _roll_direction.z]
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -194,6 +229,10 @@ func restore_snapshot(data: Dictionary) -> void:
 	is_tank_turn_mode = data.get("is_tank_turn_mode", true)
 	current_turn_time = data.get("current_turn_time", 0.0)
 	_mouse_used_this_move = data.get("_mouse_used_this_move", false)
+	_ballistic_ticks = int(data.get("_ballistic_ticks", 0))
+	_roll_timer = float(data.get("_roll_timer", 0.0))
+	var rd = data.get("_roll_direction", [0, 0, 0])
+	_roll_direction = Vector3(rd[0], rd[1], rd[2])
 
 static func tank_lateral_input(x: float, zone_end: float, blend: float) -> float:
 	var ax := abs(x)
@@ -228,9 +267,23 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO
 	wish_dir = wish_direction * target_speed * input_strength
 	
-	# print("[PlayerMovementV2] move_vec=%s forward=%s wish_dir=%s" % [move_vec, forward, wish_dir])
+	if _roll_timer > 0.0:
+		if not is_on_floor:
+			_roll_timer = 0.0
+		else:
+			_roll_timer = max(0.0, _roll_timer - dt)
+			if wish_direction.length_squared() > 0.001:
+				_roll_direction = _roll_direction.linear_interpolate(wish_direction, min(1.0, 6.0 * dt)).normalized()
+			wish_direction = _roll_direction
+			var flat_speed := Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z).length()
+			var floor_speed := move_speed * run_speed_multiplier * ice_movement_multiplier
+			var next_roll_speed := max(floor_speed, flat_speed - landing_roll_friction * dt)
+			horizontal_velocity = _roll_direction * next_roll_speed
+			if horizontal_velocity.length_squared() > 0.001:
+				horizontal_velocity = align_to_floor(horizontal_velocity)
+				horizontal_velocity = apply_slope_resistance(horizontal_velocity)
+			return
 
-	
 	# Aplicar fricción más agresiva cuando no hay input
 	var accel: float
 	if wish_dir.length_squared() > 0.0:

@@ -154,3 +154,26 @@ func test_hinge_motor_spins_when_active() -> void:
 	assert_float(abs(arm.angular_velocity.z)).is_between(2.0, 4.0)
 	root.queue_free()
 	yield(get_tree(), "idle_frame")
+
+
+func test_landing_roll_preserves_and_converts_launch_momentum() -> void:
+	var root := _setup_root()
+	root.add_child(_box_body(StaticBody.new(), Vector3(40, 0.5, 40), Vector3(0, -0.5, 0)))
+	var player := _setup_player(root, Vector3(0, 5.0, 0))
+	yield(_settle(2), "completed")
+	# Lanzar al jugador hacia +Z con caida vertical fuerte.
+	player._apply_launch_momentum(Vector3(0, -2.0, 7.5))
+	var landed := false
+	for _i in range(60):
+		player.inject_input({"crouch": true, "move_vec": Vector2(0, -1)})
+		yield(get_tree(), "physics_frame")
+		if player.is_on_floor() and player.movement_logic.is_rolling():
+			landed = true
+			break
+	assert_bool(landed).is_true()
+	var roll_speed: float = player.movement_logic.get_horizontal_velocity().length()
+	prints("[machine_launch] landing roll speed:", roll_speed, "crouching:", player.is_crouching)
+	assert_bool(roll_speed >= 8.5).is_true()
+	assert_bool(player.is_crouching).is_true()
+	root.queue_free()
+	yield(get_tree(), "idle_frame")

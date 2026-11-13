@@ -23,6 +23,9 @@ func _render(snapshot: Dictionary) -> void:
 		var max_gloo: int = int(charge.get("max", 18))
 		if mode == "GLOO":
 			_charge_label.text = tr("GLOO ACTIVO: %d / %d") % [active_gloo, max_gloo]
+		elif mode == "GRAB":
+			var grabbing: bool = bool(charge.get("grabbing", false))
+			_charge_label.text = tr("TRACTOR: SOSTENIENDO") if grabbing else tr("TRACTOR: LISTO")
 		else:
 			_charge_label.text = tr("LASER: LISTO")
 

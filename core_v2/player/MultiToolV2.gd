@@ -7,11 +7,18 @@ signal tool_state_changed()
 
 enum Mode {
 	LASER,
-	GLOO
+	GLOO,
+	GRAB
 }
 
 export(Mode) var current_mode := Mode.LASER
 export(int, 1, 64) var max_gloo_projectiles := 18
+export(float, 1.0, 25.0) var grab_max_range := 8.5
+export(float, 1.2, 12.0) var grab_min_distance := 1.8
+export(float, 1.0, 5000.0) var grab_max_mass := 1600.0
+export(float, 1.0, 120.0) var grab_spring_gain := 14.0
+export(float, 1.0, 60.0) var grab_max_speed := 16.0
+export(float, 0.1, 30.0) var grab_angular_damping := 10.0
 export(float, 0.0, 5.0) var gloo_fire_cooldown := 0.18
 export(float, 1.0, 80.0) var gloo_projectile_speed := 18.0
 export(float, 0.0, 30.0) var gloo_projectile_gravity := 7.5
@@ -49,6 +56,8 @@ export(float, 0.0, 8.0) var laser_emission_energy := 2.0
 var _active_gloo_projectiles := []
 var _is_firing_primary := false
 var _gloo_cooldown_left := 0.0
+var _grabbed_body: RigidBody = null
+var _grab_distance := 2.8
 
 onready var _laser: Spatial = $Laser
 onready var _gloo_spawn_point: Position3D = $GlooSpawnPoint
@@ -83,6 +92,8 @@ func step(dt: float, input):
 		Mode.GLOO:
 			if input.tool_fire_primary:
 				_fire_gloo()
+		Mode.GRAB:
+			_step_grab(dt, input.tool_fire_primary)
 
 	# Clean up any freed projectiles from our list
 	var prev_count: int = _active_gloo_projectiles.size()
@@ -106,6 +117,8 @@ func _switch_mode(dir: int):
 	# Stop firing current weapon if switching
 	if _is_firing_primary:
 		_handle_laser_input(false)
+	if _grabbed_body != null:
+		release_grab()
 	
 	_update_mode_visuals()
 	emit_signal("tool_state_changed")
@@ -123,6 +136,8 @@ func _update_mode_visuals():
 			mat.albedo_color = Color.red
 		Mode.GLOO:
 			mat.albedo_color = Color.cyan
+		Mode.GRAB:
+			mat.albedo_color = Color(1.0, 0.72, 0.15)
 
 func _apply_exported_settings() -> void:
 	if _laser and _laser.has_method("configure"):
@@ -161,6 +176,100 @@ func _fire_gloo():
 
 	emit_signal("tool_state_changed")
 
+func _step_grab(dt: float, is_holding: bool) -> void:
+	if not is_holding:
+		if _grabbed_body != null:
+			release_grab()
+		return
+	if _grabbed_body == null or not is_instance_valid(_grabbed_body) or _grabbed_body.mode != RigidBody.MODE_RIGID:
+		_grabbed_body = null
+		var candidate := _find_grab_candidate()
+		if candidate != null:
+			grab_body(candidate)
+	if _grabbed_body == null or not is_instance_valid(_grabbed_body):
+		return
+	if _is_player_standing_on(_grabbed_body):
+		release_grab()
+		return
+	var origin: Vector3 = global_transform.origin
+	var forward: Vector3 = -global_transform.basis.z.normalized()
+	var target_pos: Vector3 = origin + forward * _grab_distance
+	var to_target: Vector3 = target_pos - _grabbed_body.global_transform.origin
+	var desired_vel: Vector3 = to_target * grab_spring_gain
+	if desired_vel.length() > grab_max_speed:
+		desired_vel = desired_vel.normalized() * grab_max_speed
+	_grabbed_body.linear_velocity = desired_vel
+	_grabbed_body.angular_velocity = _grabbed_body.angular_velocity.move_toward(Vector3.ZERO, grab_angular_damping * dt)
+	_grabbed_body.sleeping = false
+
+func _find_grab_candidate() -> RigidBody:
+	if not is_inside_tree():
+		return null
+	var origin: Vector3 = global_transform.origin
+	var forward: Vector3 = -global_transform.basis.z.normalized()
+	var space_state := get_world().direct_space_state
+	var exclude := []
+	var player := _find_owner_player()
+	if player != null:
+		exclude.append(player)
+	var hit := space_state.intersect_ray(origin, origin + forward * grab_max_range, exclude, gloo_collision_mask)
+	if hit and hit.get("collider", null) is RigidBody:
+		var rb := hit["collider"] as RigidBody
+		if _can_grab_body(rb):
+			return rb
+	return null
+
+func _can_grab_body(rb: RigidBody) -> bool:
+	if rb == null or not is_instance_valid(rb):
+		return false
+	if rb.mode != RigidBody.MODE_RIGID:
+		return false
+	if rb.mass > grab_max_mass:
+		return false
+	if _is_player_standing_on(rb):
+		return false
+	return true
+
+func _find_owner_player() -> Node:
+	var n: Node = get_parent()
+	for _i in range(6):
+		if n == null:
+			return null
+		if n.is_in_group("player"):
+			return n
+		n = n.get_parent()
+	return null
+
+func _is_player_standing_on(rb: RigidBody) -> bool:
+	var player := _find_owner_player()
+	if player != null and "_platform_collider" in player and player._platform_collider == rb:
+		return true
+	return false
+
+func grab_body(rb: RigidBody, hold_distance: float = -1.0) -> bool:
+	if not _can_grab_body(rb):
+		return false
+	_grabbed_body = rb
+	if hold_distance > 0.0:
+		_grab_distance = clamp(hold_distance, grab_min_distance, grab_max_range)
+	else:
+		var d: float = global_transform.origin.distance_to(rb.global_transform.origin)
+		_grab_distance = clamp(d, grab_min_distance, grab_max_range)
+	_grabbed_body.sleeping = false
+	emit_signal("tool_state_changed")
+	return true
+
+func release_grab() -> void:
+	if _grabbed_body != null and is_instance_valid(_grabbed_body):
+		_grabbed_body.sleeping = false
+	_grabbed_body = null
+	emit_signal("tool_state_changed")
+
+func get_grabbed_body() -> RigidBody:
+	if _grabbed_body != null and is_instance_valid(_grabbed_body):
+		return _grabbed_body
+	return null
+
 # --- PUBLIC QUERY API FOR SUITOS / MULTITOOL SCREEN ---
 # Note: MultiToolV2 currently has no real thermal heat simulation (only export configs
 # in MultiToolLaser). Heat is intentionally excluded from state readouts.
@@ -169,6 +278,7 @@ func get_mode_name() -> String:
 	match current_mode:
 		Mode.LASER: return "LASER"
 		Mode.GLOO: return "GLOO"
+		Mode.GRAB: return "GRAB"
 	return "LASER"
 
 func get_charge_info() -> Dictionary:
@@ -178,7 +288,8 @@ func get_charge_info() -> Dictionary:
 			active_count += 1
 	return {
 		"active": active_count,
-		"max": max_gloo_projectiles
+		"max": max_gloo_projectiles,
+		"grabbing": _grabbed_body != null and is_instance_valid(_grabbed_body)
 	}
 
 func get_snapshot() -> Dictionary:
@@ -186,10 +297,15 @@ func get_snapshot() -> Dictionary:
 	for p in _active_gloo_projectiles:
 		if is_instance_valid(p):
 			proj_paths.append(str(p.get_path()))
+	var grabbed_path := ""
+	if _grabbed_body != null and is_instance_valid(_grabbed_body) and _grabbed_body.is_inside_tree():
+		grabbed_path = str(_grabbed_body.get_path())
 	
 	return {
 		"mode": current_mode,
-		"projectiles": proj_paths
+		"projectiles": proj_paths,
+		"grabbed": grabbed_path,
+		"grab_dist": _grab_distance
 	}
 
 func restore_snapshot(data: Dictionary):
@@ -203,3 +319,10 @@ func restore_snapshot(data: Dictionary):
 			var p = get_node_or_null(path)
 			if is_instance_valid(p):
 				_active_gloo_projectiles.append(p)
+	_grabbed_body = null
+	if data.has("grabbed") and String(data["grabbed"]) != "":
+		var g = get_node_or_null(String(data["grabbed"]))
+		if is_instance_valid(g) and g is RigidBody:
+			_grabbed_body = g as RigidBody
+	if data.has("grab_dist"):
+		_grab_distance = float(data["grab_dist"])

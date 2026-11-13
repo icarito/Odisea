@@ -672,6 +672,22 @@ light_color = Color( 1, 0, 0, 1 )
 light_energy = 0.8
 omni_range = 3.0
 
+[node name="PedestalMachineBay" parent="Hub" instance=ExtResource( 75 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 31.8, 0, 3.2 )
+interaction_text = "Acceder"
+interaction_title = "Esclusa de Mantenimiento — Bahía 3"
+interaction_description = "Orden de Trabajo 0001: Restablecer flujo principal en la Bahía de Máquinas 3."
+interaction_verb_active = "Entrar a Bahía 3"
+interaction_verb_inactive = "Entrar a Bahía 3"
+light_path = NodePath("ButtonLight")
+momentary = true
+
+[node name="ButtonLight" type="OmniLight" parent="Hub/PedestalMachineBay"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0 )
+light_color = Color( 0.91, 0.36, 0.02, 1 )
+light_energy = 0.8
+omni_range = 3.0
+
 [node name="WallLights" type="Spatial" parent="Hub" groups=["light_budget_aggressive"]]
 script = ExtResource( 66 )
 snap_to_surface = false

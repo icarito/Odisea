@@ -4,6 +4,11 @@ extends KinematicBody
 # Forwards interaction calls to parent and mirrors parent's state.
 
 var interaction_text = "Interactuar" setget set_interaction_text, get_interaction_text
+var interaction_title := "" setget set_interaction_title, get_interaction_title
+var interaction_description := "" setget set_interaction_description, get_interaction_description
+var interaction_verb_active := "" setget set_interaction_verb_active, get_interaction_verb_active
+var interaction_verb_inactive := "" setget set_interaction_verb_inactive, get_interaction_verb_inactive
+var interaction_icon: Texture = null setget set_interaction_icon, get_interaction_icon
 var is_active = false setget , get_is_active
 var one_off = false setget , get_one_off
 var auto_interact = false setget , get_auto_interact
@@ -112,3 +117,68 @@ func get_interaction_text() -> String:
 
 func set_interaction_text(val):
 	interaction_text = val
+
+func get_interaction_title() -> String:
+	var p = get_parent()
+	if p and "interaction_title" in p: return String(p.interaction_title)
+	return interaction_title
+
+func set_interaction_title(val: String) -> void:
+	interaction_title = val
+	var p = get_parent()
+	if p and "interaction_title" in p: p.interaction_title = val
+
+func get_interaction_description() -> String:
+	var p = get_parent()
+	if p and "interaction_description" in p: return String(p.interaction_description)
+	return interaction_description
+
+func set_interaction_description(val: String) -> void:
+	interaction_description = val
+	var p = get_parent()
+	if p and "interaction_description" in p: p.interaction_description = val
+
+func get_interaction_verb_active() -> String:
+	var p = get_parent()
+	if p and "interaction_verb_active" in p: return String(p.interaction_verb_active)
+	return interaction_verb_active
+
+func set_interaction_verb_active(val: String) -> void:
+	interaction_verb_active = val
+	var p = get_parent()
+	if p and "interaction_verb_active" in p: p.interaction_verb_active = val
+
+func get_interaction_verb_inactive() -> String:
+	var p = get_parent()
+	if p and "interaction_verb_inactive" in p: return String(p.interaction_verb_inactive)
+	return interaction_verb_inactive
+
+func set_interaction_verb_inactive(val: String) -> void:
+	interaction_verb_inactive = val
+	var p = get_parent()
+	if p and "interaction_verb_inactive" in p: p.interaction_verb_inactive = val
+
+func get_interaction_icon() -> Texture:
+	var p = get_parent()
+	if p and "interaction_icon" in p: return p.interaction_icon
+	return interaction_icon
+
+func set_interaction_icon(val: Texture) -> void:
+	interaction_icon = val
+	var p = get_parent()
+	if p and "interaction_icon" in p: p.interaction_icon = val
+
+func get_interaction_prompt() -> String:
+	var p = get_parent()
+	if p and p.has_method("get_interaction_prompt"):
+		return String(p.get_interaction_prompt())
+	return get_interaction_text()
+
+func screen_title() -> String:
+	var title := get_interaction_title().strip_edges()
+	if title != "":
+		return title
+	var p = get_parent()
+	if p and is_instance_valid(p):
+		return String(p.name).replace("_", " ")
+	return String(name).replace("_", " ")

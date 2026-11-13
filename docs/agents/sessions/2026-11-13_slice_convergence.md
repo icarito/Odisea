@@ -71,4 +71,12 @@ Diagnóstico solo lectura de Kilo: `_place_context` limita fit por altura, no po
 5. Reiniciar/Continuar a mitad del recorrido y comprobar mundo/pose/objetivo.
 6. Aprobar capturas y medir rendimiento en hardware elegido.
 
-No declarar terminado el slice antes del checkpoint humano. No push, merge ni cambios del motor en este bloque.
+No declarar terminado el slice antes del checkpoint humano. La restricción inicial de no push/merge fue reemplazada por autorización explícita de Sebastián: incluir todo el trabajo pendiente, integrar en main y hacer push para un release nuevo. No cambiar el motor adicionalmente.
+
+## Preintegración autorizada
+
+- 14 suites focalizadas correctas (146.47s): máquinas, lanzamiento/roll, ruta/retorno, multitool, guardado, despertar/luces, HUD.
+- `--oys test_salto_desplazamiento`: grabación/replay correctos, drift posicional y rotacional dentro de umbral. El JSON generado se restauró a su versión previa: no es un cambio de producto.
+- Invocación directa de `test_determinism_v2` sin flag ejecuta skip, por eso NO se cuenta como cobertura de determinismo; se usó el OYS explícito anterior.
+- Smoke rápido de imports con fork correcto, sin limpieza de cache. Manifests: 952/19 críticos correctos; 8 presets coherentes.
+- Incluye cambios pendientes autorizados de movimiento/traversal, tractor/corte, props, escenas y artefactos versionados. El cascarón `build/machine_bay/bay_shell.glb` continúa opcional/ignorado: la captura local con carcasa no demuestra su presencia en release.

@@ -78,7 +78,7 @@ export(float) var ladder_regrab_cooldown_time := 0.2
 export(float) var swing_frequency := 1.5
 export(float) var rope_slide_speed := 8.0
 export(float) var hang_body_down_offset := 1.15
-export(float) var hang_body_back_offset := 0.45
+export(float) var hang_body_back_offset := 0.52
 export(float) var hang_crouch_drop_grace := 0.25
 export(float) var hang_mantle_input_grace := 0.18
 export(float) var hang_attach_speed := 8.5
@@ -266,15 +266,17 @@ func _step_mantling(dt: float, pos: Vector3) -> Vector3:
 	var target_top = get_mantle_target_top()
 
 	var next_pos = pos
-	var phase_duration = mantle_duration * 0.5
-	var step_speed = mantle_up_offset / phase_duration # meters per second
+	var phase_duration = max(0.05, mantle_duration * 0.5)
+	var vertical_span = max(mantle_up_offset, abs(target_vertical.y - (ledge_anchor_point.y - hang_body_down_offset)) + 0.2)
+	var step_speed = vertical_span / phase_duration # meters per second
 
 	if anim_progress < 0.5:
-		# Vertical phase
+		# Vertical phase: climb straight up outside the ledge face before moving onto the floor
 		next_pos = pos.move_toward(target_vertical, step_speed * dt)
 	else:
-		# Forward phase
-		var forward_step_speed = mantle_forward_offset / phase_duration
+		# Forward phase: move onto the top surface at full clearance height
+		var forward_span = max(mantle_forward_offset, target_vertical.distance_to(target_top) + 0.15)
+		var forward_step_speed = forward_span / phase_duration
 		next_pos = pos.move_toward(target_top, forward_step_speed * dt)
 
 	return next_pos
@@ -283,12 +285,13 @@ func get_mantle_target_vertical() -> Vector3:
 	if _mantle_target_vertical != Vector3.ZERO:
 		return _mantle_target_vertical
 	var tangent = ledge_normal.cross(Vector3.UP).normalized()
-	return ledge_anchor_point + tangent * hang_lateral_offset + Vector3.UP * mantle_up_offset
+	return ledge_anchor_point + tangent * hang_lateral_offset - ledge_normal * hang_body_back_offset + Vector3.UP * mantle_up_offset
 
 func get_mantle_target_top() -> Vector3:
 	if _mantle_target_top != Vector3.ZERO:
 		return _mantle_target_top
-	return get_mantle_target_vertical() + ledge_normal * mantle_forward_offset
+	var tangent = ledge_normal.cross(Vector3.UP).normalized()
+	return ledge_anchor_point + tangent * hang_lateral_offset + Vector3.UP * mantle_up_offset + ledge_normal * mantle_forward_offset
 
 func configure_mantle_targets(target_vertical: Vector3, target_top: Vector3) -> void:
 	_mantle_target_vertical = target_vertical
@@ -360,7 +363,7 @@ func enter_hanging(anchor: Vector3, normal: Vector3, p_half_width: float = 0.85,
 	var hang_origin = ledge_anchor_point + Vector3.DOWN * hang_body_down_offset - ledge_normal * hang_body_back_offset
 	_hang_attach_target = hang_origin + tangent * hang_lateral_offset
 	configure_mantle_targets(
-		ledge_anchor_point + tangent * hang_lateral_offset + Vector3.UP * mantle_up_offset,
+		ledge_anchor_point + tangent * hang_lateral_offset - ledge_normal * hang_body_back_offset + Vector3.UP * mantle_up_offset,
 		ledge_anchor_point + tangent * hang_lateral_offset + Vector3.UP * mantle_up_offset + ledge_normal * mantle_forward_offset
 	)
 	_hang_attach_active = start_pos.distance_squared_to(_hang_attach_target) > 0.0025

@@ -3377,10 +3377,6 @@ common/max_physics_steps_per_frame=4
 [rendering]
 
 quality/intended_usage/framebuffer_allocation.mobile=2
-; FD-316 (tarea EE): RingHub agrega anillos de oclusion por piso + el nucleo central
-; (ver core_v2/levels/RingHubOccluders.gd). El presupuesto por defecto (8) no alcanza
-; para tener el hub entero ocluido; 64 deja margen sin costo perceptible.
-misc/occlusion_culling/max_active_polygons=64
 threads/thread_model=0
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
@@ -3395,6 +3391,7 @@ quality/spatial_partitioning/render_tree_balance=0.48
 batching/options/single_rect_fallback=true
 batching/parameters/max_join_item_commands=32
 batching/parameters/batch_buffer_size=32768
+misc/occlusion_culling/max_active_polygons=64
 gles3/shaders/shader_compilation_mode=2
 gles3/shaders/shader_compilation_mode.mobile=2
 gles3/shaders/shader_compilation_mode.web=2

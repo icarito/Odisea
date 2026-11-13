@@ -35,6 +35,9 @@ func _load_bay(pilot_pos: Vector3) -> KinematicBody:
 	for zone in get_tree().get_nodes_in_group("CheckZoneV2"):
 		if _bay.is_a_parent_of(zone):
 			zone.queue_free()
+	for kzone in get_tree().get_nodes_in_group("KillZoneV2"):
+		if _bay.is_a_parent_of(kzone):
+			kzone.queue_free()
 	return pilot
 
 
@@ -397,5 +400,23 @@ func test_spawn_on_floor_lighting_and_kill_floor_detection() -> void:
 	assert_object(sign1).is_not_null()
 	assert_str(String(sign1.get("text"))).contains("ESTACIÓN 1")
 	var level_node := _bay.get_node("Level")
-	assert_object(level_node.get_node_or_null("Conduit_SeesawLever_SeesawStrut")).is_not_null()
+	var conduit := level_node.get_node_or_null("Conduit_SeesawLever_SeesawStrut") as MeshInstance
+	assert_object(conduit).is_not_null()
+	assert_bool(conduit.mesh is ArrayMesh).is_true()
+	assert_int(conduit.mesh.get_faces().size()).is_greater(40)
+	# 5. Los ledges apuntan su normal (+Z) hacia adentro de la plataforma, dejando hang_origin libre en el aire.
+	var col_node: CollisionShape = pilot.get_node("CollisionShape")
+	for ledge_name in ["Ledge1Edge", "Dock2Edge", "Ledge3Edge", "ExitPadEdge"]:
+		var ledge := _item(ledge_name) as Spatial
+		assert_object(ledge).is_not_null()
+		var normal: Vector3 = -ledge.global_transform.basis.z
+		assert_float(normal.z).is_greater(0.99)
+		var hang_origin: Vector3 = ledge.global_transform.origin + Vector3.DOWN * 1.15 - normal * 0.52
+		var q := PhysicsShapeQueryParameters.new()
+		q.set_shape(col_node.shape)
+		q.transform = Transform(Basis.IDENTITY, hang_origin) * col_node.transform
+		q.collision_mask = 1
+		q.exclude = [pilot.get_rid(), (ledge as CollisionObject).get_rid()]
+		q.collide_with_areas = false
+		assert_array(pilot.get_world().direct_space_state.intersect_shape(q)).is_empty()
 	yield(_free_bay(), "completed")

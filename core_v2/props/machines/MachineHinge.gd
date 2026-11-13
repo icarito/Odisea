@@ -93,16 +93,32 @@ func _build_axle() -> void:
 	var mesh := MeshInstance.new()
 	mesh.name = "Axle"
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.12
-	cyl.bottom_radius = 0.12
-	cyl.height = 1.4
-	cyl.radial_segments = 12
+	cyl.top_radius = 0.14
+	cyl.bottom_radius = 0.14
+	cyl.height = 1.6
+	cyl.radial_segments = 16
 	mesh.mesh = cyl
 	# El cilindro nace sobre Y; el eje de la bisagra es Z.
 	mesh.rotation = Vector3(PI * 0.5, 0, 0)
 	var mat := SpatialMaterial.new()
-	mat.albedo_color = Color(0.9, 0.45, 0.1)
-	mat.metallic = 0.7
-	mat.roughness = 0.4
+	mat.albedo_color = Color(0.92, 0.48, 0.12)
+	mat.metallic = 0.78
+	mat.roughness = 0.34
 	mesh.material_override = mat
 	add_child(mesh)
+	var col_mat := SpatialMaterial.new()
+	col_mat.albedo_color = Color(0.18, 0.2, 0.23)
+	col_mat.metallic = 0.88
+	col_mat.roughness = 0.28
+	for sz in [-0.58, 0.58]:
+		var collar := MeshInstance.new()
+		var cc := CylinderMesh.new()
+		cc.top_radius = 0.24
+		cc.bottom_radius = 0.24
+		cc.height = 0.16
+		cc.radial_segments = 16
+		collar.mesh = cc
+		collar.rotation = Vector3(PI * 0.5, 0, 0)
+		collar.translation = Vector3(0, 0, sz)
+		collar.material_override = col_mat
+		add_child(collar)
