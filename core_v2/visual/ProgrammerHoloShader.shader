@@ -99,8 +99,13 @@ void fragment() {
 	float grain = (hash(v_world_pos.xz * 64.0 + vec2(TIME * 2.0)) - 0.5) * 0.20;
 	float noise_mask = 1.0 + grain * glitch_strength;
 
-	vec3 screen_color = texture(SCREEN_TEXTURE, SCREEN_UV + noise_offset * 0.5).rgb;
-	vec3 holo_color = mix(body_color, screen_color, background_mix);
+	// Mobile-safe: sin lecturas de screen/depth texture. Bajo framebuffer_allocation.Android=3
+	// (USAGE_3D_NO_EFFECTS, contrato AGENTS.md §11.9) no hay backbuffer de pantalla y un
+	// shader que lo muestree puede fallar en silencio (log limpio, mesh invisible) en GLES3
+	// movil. El mix de fondo se aproxima con un velo propio derivado del albedo del holo,
+	// modulado por el scanline.
+	vec3 backdrop_color = body_color * (0.30 + 0.20 * scanline_mask);
+	vec3 holo_color = mix(body_color, backdrop_color, background_mix);
 	vec3 core_color = holo_color * scanline_mask * flicker_mask * noise_mask;
 	vec3 edge_color = base_color.rgb * (1.2 + glitch_gate * 0.8);
 

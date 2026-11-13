@@ -4,6 +4,9 @@ const HOLO_NPC_SCENE = preload("res://core_v2/actors/ProgrammerHoloNPC.tscn")
 const ProgrammerHoloNPC = preload("res://core_v2/actors/ProgrammerHoloNPC.gd")
 const MachineLevelScript = preload("res://core_v2/props/machines/MachineLevel.gd")
 
+const HOLO_SHADER_PATH = "res://core_v2/visual/ProgrammerHoloShader.shader"
+const HOLO_MATERIAL_PATH = "res://core_v2/visual/ProgrammerHoloMaterial.tres"
+
 
 class SignalSpy extends Node:
 	var arrived_positions: Array = []
@@ -295,3 +298,36 @@ func test_focus_camera_and_release_camera_manages_cinematic_request() -> void:
 		assert_bool(cm._active_requests.has(req_id_2)).is_false()
 
 	root.queue_free()
+
+
+# Contrato mobile (AGENTS.md §11.9): con framebuffer_allocation.Android=3
+# (USAGE_3D_NO_EFFECTS) no hay screen/depth texture disponible. Un shader de gameplay
+# que la lea puede fallar en silencio (log limpio, mesh invisible) en GLES3 movil. Este
+# test es la guardia de regresion del fix: el shader del holograma no debe depender de
+# SCREEN_TEXTURE ni DEPTH_TEXTURE.
+func test_holo_shader_has_no_screen_or_depth_texture_dependency() -> void:
+	var src := _read_text(HOLO_SHADER_PATH)
+	assert_str(src).is_not_equal("")
+	assert_int(src.find("SCREEN_TEXTURE")).is_equal(-1)
+	assert_int(src.find("SCREEN_UV")).is_equal(-1)
+	assert_int(src.find("DEPTH_TEXTURE")).is_equal(-1)
+
+
+# El reemplazo del screen mix conserva el uniform background_mix para no dejar
+# huerfano el parametro ya serializado en ProgrammerHoloMaterial.tres.
+func test_holo_shader_keeps_background_mix_uniform_and_material_sets_it() -> void:
+	var shader_src := _read_text(HOLO_SHADER_PATH)
+	assert_int(shader_src.find("background_mix")).is_not_equal(-1)
+
+	var material := load(HOLO_MATERIAL_PATH) as ShaderMaterial
+	assert_object(material).is_not_null()
+	assert_object(material.shader).is_not_null()
+
+
+func _read_text(path: String) -> String:
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return ""
+	var text := f.get_as_text()
+	f.close()
+	return text
