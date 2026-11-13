@@ -164,6 +164,9 @@ func _player_has_interactable() -> bool:
 # puntero se recupera cuando se mueve el mouse de verdad, que es cuando hace falta.
 func _deactivate_touch() -> void:
 	_is_touch_active = false
+	# Ningun control tactil puede quedar apoyado al apagarse el modo (idle, clear-tap o mouse real
+	# recuperando el mando), asi que tampoco puede quedar una accion explicita colgada.
+	_explicit_touch_actions.clear()
 	emit_signal("touch_active_changed", false)
 	_reset_move_joystick()
 	_notify_input_provider_touch_active(false)
@@ -577,6 +580,24 @@ func hud_button_drag() -> Vector2:
 # El boton tactil del HUD avisa al apretarlo; el modo HUD lo consume en el release del hold para
 # saber que ese hold no vino del stick ni del mouse (ver HudModeOverlay._release_tab_hold).
 var _hud_touch_pending := false
+
+# Un TouchActionButton explicito sintetiza su accion con Input.action_press MIENTRAS hay un dedo
+# apoyado, que es exactamente la ventana en que el juego suprime tool_fire_primary por el click
+# fantasma que el X server emula de cada toque (ver is_pointer_from_touch). Sin esta marca el
+# boton de disparo quedaria anulado; con ella el provider distingue "boton explicito" de
+# "click fantasma sobre el joystick/area de juego" sin reabrir el bug.
+var _explicit_touch_actions := {}
+
+func note_touch_action(action_name: String, pressed: bool) -> void:
+	if action_name == "":
+		return
+	if pressed:
+		_explicit_touch_actions[action_name] = true
+	else:
+		_explicit_touch_actions.erase(action_name)
+
+func is_touch_action_explicit(action_name: String) -> bool:
+	return _explicit_touch_actions.has(action_name)
 
 func note_hud_touch() -> void:
 	_hud_touch_pending = true

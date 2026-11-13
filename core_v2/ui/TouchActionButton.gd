@@ -125,6 +125,11 @@ func _release() -> void:
 func _set_action_pressed(is_pressed: bool) -> void:
 	if action_name == "":
 		return
+	# El provider suprime tool_fire_primary mientras el puntero es "de touch" (el click fantasma
+	# del X server); esta marca dice que la accion viene de un boton explicito y no del fantasma.
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	if mobile != null and mobile.has_method("note_touch_action"):
+		mobile.note_touch_action(action_name, is_pressed)
 	if action_name != "hud_mode":
 		if is_pressed:
 			Input.action_press(action_name)

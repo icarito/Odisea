@@ -118,6 +118,18 @@ static func pointer_is_from_touch() -> bool:
 		and mgr.is_pointer_from_touch()
 
 
+# Un TouchActionButton marca la accion que sintetiza (MobileUIManager.note_touch_action): es un
+# boton explicito, no el puntero fantasma que el X server emula del mismo toque. Solo entonces
+# se deja pasar tool_fire_primary aunque is_pointer_from_touch() sea true.
+static func touch_action_is_explicit(action_name: String) -> bool:
+	var loop = Engine.get_main_loop()
+	if loop == null or loop.root == null:
+		return false
+	var mgr = loop.root.get_node_or_null("MobileUIManager")
+	return is_instance_valid(mgr) and mgr.has_method("is_touch_action_explicit") \
+		and mgr.is_touch_action_explicit(action_name)
+
+
 # Universal input getter
 # Ultimo input entregado por get_input() en este frame. Existe para que otros sistemas
 # (consolas, menus de prop) puedan LEER el input del frame sin consumirlo: get_input()
@@ -287,8 +299,10 @@ func _read_live_input() -> InputDataV2:
 		d.roll_left = _action_pressed("zero_g_roll_left")
 		d.roll_right = _action_pressed("zero_g_roll_right")
 		# tool_fire_primary es la unica accion en el boton izquierdo, que es el que aprieta el
-		# puntero fantasma del touch en cada toque.
-		d.tool_fire_primary = _action_pressed("tool_fire_primary") and not pointer_is_from_touch()
+		# puntero fantasma del touch en cada toque. Se suprime salvo que venga de un boton tactil
+		# explicito (FireButton), que la sintetiza con Input.action_press.
+		d.tool_fire_primary = _action_pressed("tool_fire_primary") \
+			and (not pointer_is_from_touch() or touch_action_is_explicit("tool_fire_primary"))
 		d.tool_fire_secondary = _action_pressed("tool_fire_secondary")
 		d.tool_next_mode = _action_just_pressed("tool_next_mode")
 		d.tool_prev_mode = _action_just_pressed("tool_prev_mode")
