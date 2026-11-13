@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/machines/MachineLevel.gd" type="Script" id=2]
@@ -6,6 +6,8 @@
 [ext_resource path="res://core_v2/levels/machines/LabyrinthSection.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/components/CameraZone.gd" type="Script" id=5]
 [ext_resource path="res://core_v2/visual/CinematicRig.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/levels/machines/MachineBayLabyrinthStreamer.tscn" type="PackedScene" id=7]
+[ext_resource path="res://textures/trenchbroom/steel_grate_platform.tres" type="Resource" id=8]
 
 [sub_resource type="ProceduralSky" id=1]
 sky_top_color = Color( 0.08, 0.11, 0.15, 1 )
@@ -18,16 +20,34 @@ sun_energy = 0.0
 background_mode = 2
 background_sky = SubResource( 1 )
  ambient_light_color = Color( 0.38, 0.48, 0.62, 1 )
- ambient_light_energy = 0.59
- ambient_light_sky_contribution = 0.35
+ ambient_light_energy = 0.38
+ ambient_light_sky_contribution = 0.25
  glow_enabled = true
- glow_strength = 0.4
+ glow_intensity = 0.45
+ glow_strength = 0.7
  glow_bloom = 0.0
+ glow_hdr_threshold = 1.05
  glow_blend_mode = 1
+ fog_enabled = true
+ fog_color = Color( 0.05, 0.08, 0.12, 1 )
+ fog_depth_enabled = true
+ fog_depth_begin = 10.0
+ fog_depth_end = 110.0
+ fog_depth_curve = 0.8
+ fog_height_enabled = true
+ fog_height_min = -3.0
+ fog_height_max = -20.0
+ fog_height_curve = 1.0
  adjustment_enabled = true
- adjustment_contrast = 1.05
- adjustment_brightness = 1.15
- adjustment_saturation = 1.1
+ adjustment_contrast = 1.15
+ adjustment_brightness = 1.02
+ adjustment_saturation = 0.9
+
+[sub_resource type="CubeMesh" id=3]
+size = Vector3( 6.5, 0.12, 3.4 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 3.25, 0.12, 1.7 )
 
 [node name="MachineBay" type="Spatial"]
 
@@ -117,6 +137,28 @@ layout_path = "res://core_v2/levels/machines/machine_bay.json"
 
 [node name="LabyrinthSection" parent="." instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 0, 6 )
+exit_use = true
+exit_cell = Vector2( 3, 7 )
+
+[node name="MachineBayLabyrinthStreamer" parent="." instance=ExtResource( 7 )]
+
+[node name="MazeEntryBridge" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 22.2, -0.06, 29 )
+collision_layer = 64
+collision_mask = 255
+
+[node name="Mesh" type="MeshInstance" parent="MazeEntryBridge"]
+mesh = SubResource( 3 )
+material_override = ExtResource( 8 )
+
+[node name="CollisionShape" type="CollisionShape" parent="MazeEntryBridge"]
+shape = SubResource( 4 )
+
+[node name="MazeEntryLight" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 22.6, 3.6, 29.2 )
+light_color = Color( 1, 0.78, 0.45, 1 )
+light_energy = 1.8
+omni_range = 16.0
 
 [node name="Pilot" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -2 )
