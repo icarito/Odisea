@@ -195,3 +195,82 @@ func test_gloo_merges_nearby_blob_on_same_anchor():
 	
 	projectile_a.queue_free()
 	body.queue_free()
+
+# ---------------------------------------------------------------------------
+# Puente / escalera: el gloo ENDURECIDO debe sostener al jugador.
+# Estos tests dejan caer un Pilot_v2 real (su propio gravity + move_and_slide) sobre
+# gloo curado, asi que fallan si el gloo deja de colisionar contra el jugador.
+
+func _add_static_slab(slab: StaticBody, extents: Vector3, origin: Vector3) -> void:
+	var cs := CollisionShape.new()
+	var box := BoxShape.new()
+	box.extents = extents
+	cs.shape = box
+	slab.add_child(cs)
+	add_child(slab)
+	slab.global_transform.origin = origin
+
+func _add_cured_gloo_on(anchor, pos: Vector3, normal: Vector3):
+	var gloo = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	add_child(gloo)
+	yield(get_tree(), "idle_frame")
+	gloo._stick_at(anchor, pos, normal)
+	gloo.cure_time = 0.01
+	gloo.step(0.05)
+	return gloo
+
+func test_gloo_cured_blob_supports_player_as_bridge() -> void:
+	# Puente a ras de piso: el jugador real (su propio gravity/move_and_slide) se para
+	# sobre el gloo curado, no sobre el piso.
+	var slab := StaticBody.new()
+	_add_static_slab(slab, Vector3(6, 0.05, 6), Vector3(100, 0, 0))
+	var gloo = yield(_add_cured_gloo_on(slab, Vector3(100, 0.05, 0), Vector3.UP), "completed")
+
+	var player = load("res://core_v2/actors/Pilot_v2.tscn").instance()
+	add_child(player)
+	player.global_transform.origin = Vector3(100, 2.0, 0)
+	yield(get_tree(), "idle_frame")
+	for _i in range(150):
+		yield(get_tree(), "physics_frame")
+
+	# El piso esta a y=0.05; el gloo curado suma ~0.43 de alto. Pararse en el piso
+	# daria y<=0.05: exigir mas prueba que el jugador quedo SOBRE el gloo.
+	print("BRIDGE_PLAYER y=", player.global_transform.origin.y)
+	assert_float(player.global_transform.origin.y).is_greater(0.25)
+
+	player.queue_free()
+	gloo.queue_free()
+	slab.queue_free()
+
+func test_gloo_cured_blobs_support_player_as_ladder() -> void:
+	# Escalera: 3 blobs curados en altura sobre un pedestal ancho. El jugador debe
+	# quedar apoyado sobre el blob mas alto, no sobre el pedestal.
+	var heights := [0.0, 0.7, 1.4]
+	var gloo_blobs := []
+	var slabs := []
+	for h in heights:
+		var slab := StaticBody.new()
+		_add_static_slab(slab, Vector3(6, 0.05, 6), Vector3(200, float(h), 0))
+		slabs.append(slab)
+		var gloo = yield(_add_cured_gloo_on(slab, Vector3(200, float(h) + 0.05, 0), Vector3.UP), "completed")
+		gloo_blobs.append(gloo)
+
+	var top_h: float = 1.4
+	var player = load("res://core_v2/actors/Pilot_v2.tscn").instance()
+	add_child(player)
+	player.global_transform.origin = Vector3(200, top_h + 2.2, 0)
+	yield(get_tree(), "idle_frame")
+	for _i in range(180):
+		yield(get_tree(), "physics_frame")
+
+	# Tope del blob superior ~= 1.45 + 0.08 + 0.35 = 1.88. Exigir mas que el pedestal
+	# pelado (1.45) confirma que se apoya en el gloo mas alto.
+	print("LADDER_PLAYER y=", player.global_transform.origin.y, " top_blob_top=1.88")
+	assert_float(player.global_transform.origin.y).is_greater(1.6)
+
+	player.queue_free()
+	for gloo in gloo_blobs:
+		if gloo != null:
+			gloo.queue_free()
+	for slab in slabs:
+		slab.queue_free()
