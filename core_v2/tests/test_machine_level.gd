@@ -228,6 +228,7 @@ func test_snapshot_pending_uses_names_and_restores_into_new_level() -> void:
 	source._on_link_fired(source.get_item("Door"), "set_active", args, 4, "Switch")
 	source._on_link_fired(source, "reset_station", [99], 6, "Switch")
 	source._physics_process(1.0 / 60.0)
+	source._ringhub_return_state = {"wakeup": {"wakeup_completed": true}, "player_snapshot": {"yaw": 0.7}}
 	var snapshot: Dictionary = source.get_snapshot()
 	var pending: Array = snapshot.get("pending", [])
 	assert_int(pending.size()).is_equal(2)
@@ -236,6 +237,9 @@ func test_snapshot_pending_uses_names_and_restores_into_new_level() -> void:
 		assert_str(pending[1][1]).is_equal("@level")
 	args[0] = false # El snapshot no comparte argumentos con la cola viva.
 	target.restore_snapshot(snapshot)
+	assert_bool(target._ringhub_return_state["wakeup"]["wakeup_completed"]).is_true()
+	source._ringhub_return_state["player_snapshot"]["yaw"] = 2.0
+	assert_float(target._ringhub_return_state["player_snapshot"]["yaw"]).is_equal(0.7)
 	for _i in range(2):
 		target._physics_process(1.0 / 60.0)
 	assert_bool(target.get_item("Door").held).is_true()
