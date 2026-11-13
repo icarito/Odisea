@@ -2,10 +2,15 @@ extends SceneTree
 
 # Captura de la bahía + laberinto industrial streamed (MachineBayLabyrinthStreamer).
 # Uso:  DISPLAY=:0 tools/godot --path . -s scripts/_maze_shot.gd
-# Genera PNGs en test_output/maze/.
+# Genera PNGs en test_output/maze/ (puente de entrada + interior del laberinto).
 
 var _frames := 0
-var _phase := 0
+var _shot_frames := -1
+var _shot_tag := ""
+var _shot_eye := Vector3.ZERO
+var _shot_target := Vector3.ZERO
+var _shot_fov := 70.0
+var _cam: Camera = null
 var _bay: Node = null
 var _dummy: Node = null
 var _out_dir := "res://test_output/maze"
@@ -22,74 +27,58 @@ func _init() -> void:
 	var streamer: Node = _bay.get_node("MachineBayLabyrinthStreamer")
 	streamer.player_path = streamer.get_path_to(_dummy)
 	streamer.activate_now()
-	streamer.debug_verbose = true
+	var cinematics = _bay.get_node_or_null("Cinematics")
+	if cinematics != null:
+		cinematics.queue_free()
+	var pilot = _bay.get_node_or_null("Pilot")
+	if pilot != null:
+		pilot.queue_free()
 	connect("physics_frame", self, "_tick")
 
-func _move_dummy(pos: Vector3) -> void:
-	_dummy.global_transform.origin = pos
-
 func _tick() -> void:
+	if _shot_frames >= 0:
+		_shot_frames += 1
+		if _shot_frames == 16:
+			_capture()
+		return
 	_frames += 1
-	match _phase:
-		0:
-			if _frames < 150:
-				return
-			_shoot("bay_entry", Vector3(20.0, 6.5, 10.0), Vector3(33.0, 0.5, 29.0))
-			_phase = 1
-			_frames = 0
-		1:
-			if _frames < 30:
-				return
-			_move_dummy(Vector3(36.0, 0.0, 40.0))
-			var st0: Node = _bay.get_node("MachineBayLabyrinthStreamer")
-			st0.force_request_keys([Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(1, 1), Vector2(2, 0), Vector2(0, 2)])
-			_phase = 2
-			_frames = 0
-		2:
-			if _frames < 500:
-				return
+	match _frames:
+		150:
+			_start_shot("bay_bridge", Vector3(27.0, 7.0, 23.0), Vector3(27.0, 1.5, 32.0), 66.0)
+		180:
+			_dummy.global_transform.origin = Vector3(36.0, 0.0, 40.0)
 			var st: Node = _bay.get_node("MachineBayLabyrinthStreamer")
-			print("[maze_shot] active=", st.get_active_chunk_keys(), " touched=", st.get("_chunk_touched").size(), " pending=", st.get("_pending_chunks").size())
-			_shoot("maze_interior", Vector3(27.0, 4.5, 45.0), Vector3(41.0, 0.5, 40.0))
-			_phase = 3
-			_frames = 0
-		3:
-			if _frames < 30:
-				return
-			_move_dummy(Vector3(58.0, 0.0, 72.0))
-			var st1: Node = _bay.get_node("MachineBayLabyrinthStreamer")
-			st1.force_request_keys([Vector2(1, 1), Vector2(2, 1), Vector2(1, 2), Vector2(2, 2), Vector2(3, 1), Vector2(1, 3)])
-			_phase = 4
-			_frames = 0
-		4:
-			if _frames < 500:
-				return
+			st.force_request_keys([Vector2(0, 0), Vector2(1, 0), Vector2(0, 1), Vector2(1, 1), Vector2(2, 0), Vector2(0, 2)])
+		700:
 			var st2: Node = _bay.get_node("MachineBayLabyrinthStreamer")
-			print("[maze_shot] deep active=", st2.get_active_chunk_keys().size(), " touched=", st2.get("_chunk_touched").size())
-			_shoot("maze_deep", Vector3(52.0, 6.0, 82.0), Vector3(66.0, 0.5, 74.0))
-			_phase = 5
-			_frames = 0
-		5:
-			if _frames < 20:
-				return
-			quit(0)
+			print("[maze_shot] active=", st2.get_active_chunk_keys(), " touched=", st2.get("_chunk_touched").size())
+			_start_shot("maze_interior", Vector3(30.0, 4.4, 44.0), Vector3(40.0, 1.8, 40.0), 68.0)
 
-func _shoot(tag: String, eye: Vector3, target: Vector3) -> void:
-	var cam := Camera.new()
-	cam.name = "ShotCam_" + tag
-	_look_at(cam, eye, target)
-	cam.fov = 70.0
-	cam.far = 400.0
-	root.add_child(cam)
-	cam.current = true
-	for _i in range(12):
-		yield(self, "idle_frame")
+func _start_shot(tag: String, eye: Vector3, target: Vector3, fov: float) -> void:
+	_shot_tag = tag
+	_shot_eye = eye
+	_shot_target = target
+	_shot_fov = fov
+	_shot_frames = 0
+	_cam = Camera.new()
+	_cam.name = "ShotCam_" + tag
+	_look_at(_cam, eye, target)
+	_cam.fov = fov
+	_cam.far = 400.0
+	root.add_child(_cam)
+	_cam.current = true
+
+func _capture() -> void:
 	var img = root.get_texture().get_data()
 	img.flip_y()
-	var path := "%s/%s.png" % [_out_dir, tag]
+	var path := "%s/%s.png" % [_out_dir, _shot_tag]
 	var err: int = img.save_png(path)
 	print("[maze_shot] saved=", path, " err=", err)
-	cam.queue_free()
+	if _cam != null:
+		_cam.queue_free()
+	_shot_frames = -1
+	if _shot_tag == "maze_interior":
+		quit(0)
 
 func _look_at(cam: Camera, eye: Vector3, target: Vector3) -> void:
 	var dir := (target - eye).normalized()
