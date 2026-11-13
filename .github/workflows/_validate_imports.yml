@@ -22,9 +22,6 @@ on:
         default: 'false'
         type: boolean
 
-    secrets:
-      # No secrets needed
-
 jobs:
   validate:
     runs-on: ubuntu-latest

@@ -86,9 +86,6 @@ on:
         default: 'reports/resource_smoke_retry.log'
         type: string
 
-    secrets:
-      # No secrets needed
-
 jobs:
   import_smoke:
     runs-on: ubuntu-latest

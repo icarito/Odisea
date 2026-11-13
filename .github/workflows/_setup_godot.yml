@@ -26,19 +26,19 @@ on:
         default: '[]'
         type: string
 
+    # Los outputs de workflow_call deben mapear outputs a nivel de job
+    # (jobs.<job>.outputs.<name>), no `steps.*` directo: GitHub rechaza el
+    # archivo si se usa el contexto `steps` aca.
     outputs:
       godot_bin:
         description: 'Path to installed Godot binary'
-        value: ${{ steps.install.outputs.godot_bin }}
+        value: ${{ jobs.setup.outputs.godot_bin }}
       box3d_release:
         description: 'Resolved Box3D release tag'
-        value: ${{ steps.install.outputs.box3d_release }}
+        value: ${{ jobs.setup.outputs.box3d_release }}
       import_cache_hit:
         description: 'Whether import cache was hit'
-        value: ${{ steps.import_cache.outputs.cache-hit }}
-
-    secrets:
-      # No secrets needed for setup
+        value: ${{ jobs.setup.outputs.import_cache_hit }}
 
 jobs:
   setup:
@@ -46,6 +46,10 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    outputs:
+      godot_bin: ${{ steps.install.outputs.godot_bin }}
+      box3d_release: ${{ steps.install.outputs.box3d_release }}
+      import_cache_hit: ${{ steps.import_cache.outputs.cache-hit || steps.import_cache_miss.outputs.cache-hit || 'false' }}
 
     steps:
       - name: Checkout repository
@@ -101,5 +105,5 @@ jobs:
 
       - name: No import cache
         if: inputs.cache_import != 'true'
-        id: import_cache
+        id: import_cache_miss
         run: echo "cache-hit=false" >> "$GITHUB_OUTPUT"
