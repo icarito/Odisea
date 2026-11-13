@@ -5,15 +5,8 @@ on:
   schedule:
     # Run nightly at 2 AM UTC
     - cron: '0 2 * * *'
-  push:
-    branches: [main]
-    paths:
-      - 'core_v2/**/*.gd'
-      - 'core_v2/tests/*.oys'
-      - 'core_v2/tests/*.json'
-      - 'runtest.sh'
-      - 'tests/**'
-      - '.github/workflows/determinism_tests.yml'
+  # Se quitó el trigger `push: [main]` (autorizado por Sebastián): un merge a
+  # main ya pasó por la corrida del PR y el nightly cubre la rama.
   pull_request:
     branches: [main]
     paths:
@@ -23,6 +16,10 @@ on:
       - 'runtest.sh'
       - 'tests/**'
       - '.github/workflows/determinism_tests.yml'
+      # Reusables: cambiarlos debe disparar el workflow (gap que ocultó #378).
+      - '.github/workflows/_setup_godot.yml'
+      - '.github/workflows/_validate_imports.yml'
+      - '.github/workflows/_import_smoke.yml'
 
 concurrency:
   group: determinism-tests-${{ github.ref }}

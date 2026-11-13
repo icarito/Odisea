@@ -20,6 +20,10 @@ on:
       - 'core_v2/levels/**'
       - '**/*.import'
       - '.import/**'
+      # Reusables de CI: cambiarlos debe disparar este workflow (gap de #378).
+      - '.github/workflows/_setup_godot.yml'
+      - '.github/workflows/_validate_imports.yml'
+      - '.github/workflows/_import_smoke.yml'
   pull_request:
     branches: [ main ]
     paths:
@@ -39,6 +43,10 @@ on:
       - 'core_v2/levels/**'
       - '**/*.import'
       - '.import/**'
+      # Reusables de CI: cambiarlos debe disparar este workflow (gap de #378).
+      - '.github/workflows/_setup_godot.yml'
+      - '.github/workflows/_validate_imports.yml'
+      - '.github/workflows/_import_smoke.yml'
   workflow_dispatch:
 
 concurrency:
