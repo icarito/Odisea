@@ -111,9 +111,9 @@ func _restore_gate(saved: Dictionary) -> void:
 	if saved.empty():
 		return
 	var gate = saved["node"]
-	gate.set("_flat_ambient", saved["flat_ambient"])
-	gate.set("_world_light", saved["world_light"])
-	gate.set("_glow_floor", saved["glow_floor"])
+	gate.set_flat_ambient(saved["flat_ambient"])
+	gate.set_flat_world_light(saved["world_light"])
+	gate.set_flat_glow_floor(saved["glow_floor"])
 
 
 # --- Casos ------------------------------------------------------------------

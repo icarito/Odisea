@@ -170,6 +170,10 @@ func test_entry_walk_reaches_station1_approach_with_active_zones() -> void:
 	var tree: SceneTree = get_tree()
 	_previous_scene = tree.current_scene
 	_save_autoload_state()
+	# Este segmento usa el esquema FREE sin latch; otros modos requieren otra ruta.
+	var cinematic: Node = get_node("/root/CinematicManager")
+	assert_int(cinematic.get_control_mode()).is_equal(cinematic.ControlMode.FREE)
+	assert_bool(cinematic.is_input_latched()).is_false()
 
 	# Directorio de checkpoints aislado: toda escritura de campana queda contenida.
 	var persistence: Node = get_node("/root/PersistenceManager")
