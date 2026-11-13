@@ -30,7 +30,7 @@ export(DynamicFont) var font: DynamicFont = null setget set_font
 export(int, 0, 256) var font_size: int = 0 setget set_font_size
 export(int, "Left", "Center", "Right") var alignment: int = Label.ALIGN_CENTER setget set_alignment
 export(int, "None", "Upper", "Lower") var case_mode: int = 0 setget set_case_mode
-export(float) var padding: float = 8.0 setget set_padding
+export(float) var padding: float = 14.0 setget set_padding
 export(Color) var outline_color: Color = Color(0, 0, 0, 0.6) setget set_outline_color
 export(int, 0, 16) var outline_size: int = 0 setget set_outline_size
 
@@ -60,6 +60,9 @@ export(String) var interactive_hint: String = "Leer letrero"
 export(String) var interactive_text: String = "" # If empty, use 'text'
 
 # Viewport size default matches QuadMesh 5:3 aspect ratio (1.2 x 0.72).
+# El tamaño aparente de los glifos lo decide font_size + scale del cartel, no esta
+# resolución; el default se conserva (512x307) para no romper el contrato de
+# test_signage_config.gd (test_determinism_identical_config).
 # Note: Overriding viewport_size implies accepting texture stretching if aspect ratio differs.
 export(Vector2) var viewport_size: Vector2 = Vector2(512, 307) setget set_viewport_size
 
@@ -245,15 +248,40 @@ func _ready() -> void:
 	update_text()
 	_update_process_mode()
 
-func _measure_string_size(p_font: Font, p_string: String) -> Vector2:
-	var lines = p_string.split("\n")
-	var max_w: float = 0.0
-	for line in lines:
-		var line_sz = p_font.get_string_size(line)
-		if line_sz.x > max_w:
-			max_w = line_sz.x
-	var total_h: float = lines.size() * p_font.get_height()
-	return Vector2(max_w, total_h)
+func _measure_string_size(p_font: Font, p_string: String, p_max_width: float = -1.0) -> Vector2:
+	if p_max_width <= 0.0:
+		# Compatibilidad: medición clásica sin envolver (la usan tests existentes).
+		var raw_lines: PoolStringArray = p_string.split("\n")
+		var max_w := 0.0
+		for line in raw_lines:
+			var line_sz: Vector2 = p_font.get_string_size(line)
+			max_w = max(max_w, line_sz.x)
+		return Vector2(max_w, raw_lines.size() * p_font.get_height())
+	# El Label usa autowrap: doblar por palabras para estimar cuántas líneas visuales
+	# ocupa el texto, en vez de contar solo los saltos \n. Sin esto, una línea larga
+	# forzaba a encoger la fuente hasta caber sin envolver y los carteles lejanos
+	# quedaban ilegibles.
+	var raw_lines: PoolStringArray = p_string.split("\n")
+	var total_lines := 0
+	var max_line_w := 0.0
+	var space_w := p_font.get_string_size(" ").x
+	for line in raw_lines:
+		var words: PoolStringArray = line.split(" ", false)
+		if words.size() == 0:
+			total_lines += 1
+			continue
+		var cur_w := 0.0
+		for w in words:
+			var word_w := p_font.get_string_size(w).x
+			if cur_w > 0.0 and cur_w + word_w > p_max_width:
+				max_line_w = max(max_line_w, cur_w)
+				total_lines += 1
+				cur_w = word_w
+			else:
+				cur_w += word_w + (space_w if cur_w > 0.0 else 0.0)
+		max_line_w = max(max_line_w, cur_w)
+		total_lines += 1
+	return Vector2(max_line_w, total_lines * p_font.get_height())
 
 func update_text() -> void:
 	if not _is_ready: return
@@ -321,22 +349,22 @@ func update_text() -> void:
 			var avail_w = max(1.0, viewport_size.x - 2.0 * padding)
 			var avail_h = max(1.0, viewport_size.y - 2.0 * padding)
 
-			if font_size > 0:
-				font_to_use.size = font_size
-			else:
-				var low: int = 1
-				var high: int = int(avail_h)
-				var best_size: int = 1
-				while low <= high:
-					var mid: int = (low + high) / 2
-					font_to_use.size = mid
-					var measured = _measure_string_size(font_to_use, formatted_text)
-					if measured.x <= avail_w and measured.y <= avail_h:
-						best_size = mid
-						low = mid + 1
-					else:
-						high = mid - 1
-				font_to_use.size = best_size
+			# El auto-fit busca la fuente más grande que quepa; si el cartel declara un
+			# font_size, ese valor es el TOPE superior (no un tamaño forzado), así el texto
+			# nunca se corta aunque una línea larga deba envolver.
+			var low: int = 1
+			var high: int = font_size if font_size > 0 else int(avail_h)
+			var best_size: int = 1
+			while low <= high:
+				var mid: int = (low + high) / 2
+				font_to_use.size = mid
+				var measured = _measure_string_size(font_to_use, formatted_text, avail_w)
+				if measured.x <= avail_w and measured.y <= avail_h:
+					best_size = mid
+					low = mid + 1
+				else:
+					high = mid - 1
+			font_to_use.size = best_size
 
 			var lbl = Label.new()
 			lbl.rect_position = Vector2(padding + icon_slot_width, padding)
