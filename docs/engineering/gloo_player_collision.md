@@ -1,46 +1,53 @@
-# Gloo endurecido como puente/escalera — verificación de colisión con el jugador
-
-Estado: verificado (2026-11-13). No requiere cambios de producción.
+# Gloo endurecido como puente/escalera
 
 ## Reporte
 
-Se reportó que el gloo endurecido «no tiene colisiones con el player», por lo que no
-serviría de puente ni de escalera, atribuyéndolo a que `move_and_slide()` de un
-`KinematicBody` no detecta colisión contra otro `KinematicBody` (limitación clásica de
-Godot 3).
+El gloo endurecido servía de puente a ras de piso pero **no de escalera en pared**: el
+jugador resbalaba del blob anclado a una superficie vertical.
+
+## Causa
+
+En el backend Box3D (y con Bullet explícito) el jugador **sí** colisiona con el gloo
+curado (`collision_layer = 64` ⊂ máscara del jugador `79`); la limitación clásica de
+Godot 3 «`move_and_slide` no detecta contra otro `KinematicBody`» **no aplica** aquí.
+El problema era geométrico: la esfera curada sobresale ~0.43 m de la pared y el radio del
+jugador es 0.5 m, así que el jugador no puede centrarse sobre ella y el contacto queda
+demasiado inclinado (> `floor_max_angle` de 45° en cuanto se aleja del borde) → resbala.
+
+## Fix
+
+`MultiToolGlooProjectile` agrega un **segundo `CollisionShape`** (`SolidLedgeShape`, una
+`BoxShape` plana) al mismo cuerpo del blob:
+
+- Se habilita sólo cuando el blob queda sólido (`_set_solid_collision(true, ...)`).
+- Es una superficie **horizontal pisable** con el tope a la altura del tope del blob,
+  centrada en el blob para anclajes horizontales (piso/techo) y extendida
+  `solid_ledge_reach` (0.5 m) hacia afuera de la superficie para anclajes verticales
+  (pared), usando la normal de anclaje (`_stick_normal`).
+- Vive en el **mismo cuerpo** que la esfera, así que no agrega un objetivo de raycast
+  nuevo ni colisionadores extra: el determinismo del gloo en vuelo no cambia.
+
+No se tocó `PlayerControllerV2.gd` ni la máscara del jugador. La escena
+`MultiToolGloo.tscn` no cambia: la repisa se crea en código (`_ready`) para no alterar el
+tipo de nodo del proyectil (que debe seguir siendo `KinematicBody` para volar con
+`move_and_collide`).
 
 ## Verificación
 
-Con el backend actual el jugador **sí** colisiona con el gloo curado y se apoya en él.
-Evidencia:
+- `test_gloo_cured_blob_supports_player_as_bridge`: puente a ras de piso (y≈0.49).
+- `test_gloo_cured_blobs_support_player_as_ladder`: escalera de 3 blobs en altura
+  (y≈1.89).
+- `test_gloo_cured_wall_blob_supports_player_as_step`: blob en pared, el jugador se para
+  sobre la repisa (y>2.1) aunque se acerque lejos del borde (antes resbalaba con
+  spawn_x≥0.7).
+- `test_gloo_cured_wall_blobs_support_player_as_ladder`: escalera de 3 blobs en pared, el
+  jugador queda apoyado en el blob más alto (y≈2.76).
+- `test_determinism_v2` verde.
 
-- `core_v2/tests/test_multitool_gloo.gd`:
-  - `test_gloo_cured_blob_supports_player_as_bridge`: un `Pilot_v2` real (su propio
-    gravity + `move_and_slide_with_snap`) cae sobre un blob curado a ras de piso y queda
-    parado arriba (y≈0.49, tope del blob), no en el piso (y≈0.05).
-  - `test_gloo_cured_blobs_support_player_as_ladder`: el jugador queda apoyado sobre el
-    blob curado más alto de una escalera de 3 blobs (y≈1.89, tope del blob superior),
-    no sobre el pedestal pelado (y≈1.45).
-- Juego en vivo (peer `:4999`): disparando con `MultiToolV2.fire_gloo()`, el blob cura
-  (`collision_layer = 64`, shape habilitada) y el jugador queda parado encima
-  (y = 0.036 ≈ tope del blob).
-- El blob curado conserva `collision_layer = 64` (capa 7, Prop) y la máscara del jugador
-  (`79`, vía `PLAYER_REQUIRED_COLLISION_MASK = 1 << 6`) ya incluye esa capa.
-- También se verificó con `3d/physics_engine="Bullet"` explícito: el jugador sigue
-  apoyándose (Box3D y Bullet de este fork detectan KinematicBody contra KinematicBody).
+## Límites (documentados)
 
-## Por qué el diagnóstico previo no aplicaba
-
-`project.godot` usaba **Bullet** hasta FD-290; desde el commit `3076d990`
-(2026-09-09) usa **Box3D**. El binario stock cae a Bullet en silencio cuando no conoce
-`Box3D` (`.github/README_box3d_release.md`). En el binario del fork (CI, exports,
-`runtest.sh` con `platform=server`) el jugador sí colisiona con el gloo curado.
-
-## Límites reales que sí quedan (fuera del alcance de este reporte)
-
-1. **Anclaje dinámico**: el gloo pegado a un `RigidBody`/`KinematicBody` queda **sin**
+1. **Anclaje dinámico**: el gloo pegado a un `RigidBody`/`KinematicBody` queda sin
    colisión sólida por diseño (`test_gloo_attached_to_dynamic_body_has_no_solid_collision`).
-   No se puede parar sobre gloo pegado a un prop móvil.
-2. **Blob en pared**: el blob sobresale ~0.43 m de la pared y el radio del jugador es
-   0.5 m, así que el jugador no puede centrarse sobre él y resbala; un gloo en pared no
-   sirve como escalera con el tamaño actual del blob.
+2. **Separación vertical**: el jugador mide 2 m, así que un blob directamente encima de
+   otro a menos de ~2.4 m actúa de techo. Una escalera de pared usable necesita esa
+   separación entre blobs (o acercarse por el borde externo de la repisa).

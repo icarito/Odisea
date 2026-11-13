@@ -32,6 +32,13 @@ export(float) var merge_radius_gain := 0.45
 export(float) var joint_bias := 0.15
 export(float) var joint_damping := 0.9
 export(float) var joint_impulse_clamp := 1.2
+# Repisa plana que se habilita sobre el blob curado. La esfera sola deja al jugador
+# resbalar cuando el gloo esta pegado a una pared (sobresale ~0.43 m y el radio del
+# jugador es 0.5 m, asi que no puede centrarse sobre ella). La repisa da una superficie
+# horizontal pisable que si se puede usar para escalar 2-3 blobs.
+export(float) var solid_ledge_reach := 0.5
+export(float) var solid_ledge_half_height := 0.12
+export(float) var solid_ledge_pad := 0.05
 
 var velocity := Vector3.ZERO
 var _is_stuck := false
@@ -44,6 +51,9 @@ var _laser_contact_this_frame := false
 var _current_radius := 0.09
 var _anchor_collider = null
 var _solid_collision_enabled := true
+# Normal (world) de la superficie a la que se pego el blob. Define hacia donde se
+# extiende la repisa plana para que el jugador pueda pararse sobre gloo en pared.
+var _stick_normal := Vector3.UP
 # Fisura que este blob esta tapando, si tapa alguna. El parche vive mientras viva el gloo:
 # sin esta referencia, destruirlo con el laser dejaba la fisura parcheada para siempre.
 var _patched_point = null
@@ -56,6 +66,11 @@ onready var _mesh: MeshInstance = $MeshInstance
 onready var _particles: CPUParticles = $ImpactParticles
 onready var _collision_shape: CollisionShape = $CollisionShape
 
+# Repisa plana (segundo CollisionShape del mismo cuerpo) habilitada solo al
+# solidificarse. Al vivir en el mismo cuerpo que la esfera, no agrega un objetivo
+# de raycast nuevo: el determinismo del gloo en vuelo no cambia.
+var _solid_ledge: CollisionShape = null
+
 const SmokeScene = preload("res://assets/flipbook_particles/assets/smokes/smoke_03/smoke_03.tscn")
 const ExplosionScene = preload("res://assets/flipbook_particles/assets/explosions/explosion_03/explosion_03.tscn")
 
@@ -64,6 +79,7 @@ func _ready():
 	collision_mask = projectile_collision_mask
 	add_collision_exception_with(self)
 	_setup_laser_detection_area()
+	_setup_solid_ledge()
 	_apply_visual_settings()
 	add_to_group("gloo_blob")
 	add_to_group("replay_sync")
@@ -147,6 +163,44 @@ func _setup_laser_detection_area() -> void:
 	shape.radius = max(0.01, _current_radius)
 	_laser_shape.shape = shape
 	_laser_area.add_child(_laser_shape)
+
+func _setup_solid_ledge() -> void:
+	if _solid_ledge:
+		return
+	_solid_ledge = CollisionShape.new()
+	_solid_ledge.name = "SolidLedgeShape"
+	var box := BoxShape.new()
+	box.extents = Vector3(0.01, 0.01, 0.01)
+	_solid_ledge.shape = box
+	_solid_ledge.disabled = true
+	add_child(_solid_ledge)
+
+# Construye la repisa plana en espacio mundo y la expresa en el espacio local del
+# cuerpo (que pudo quedar rotado por el launch y reparentado por el anclaje).
+func _apply_solid_ledge() -> void:
+	if _solid_ledge == null or not (_solid_ledge.shape is BoxShape):
+		return
+	var radius: float = max(0.01, max(collision_radius, _current_radius))
+	var half_h: float = max(0.02, solid_ledge_half_height)
+	var horiz := Vector3(_stick_normal.x, 0.0, _stick_normal.z)
+	var flat := horiz.length_squared() < 0.04
+	if flat:
+		horiz = Vector3.FORWARD
+	else:
+		horiz = horiz.normalized()
+	var up := Vector3.UP
+	var side := horiz.cross(up)
+	if side.length_squared() < 0.0001:
+		side = Vector3.RIGHT
+	side = side.normalized()
+	# En anclaje horizontal (piso/techo) la repisa queda centrada y plana; en pared se
+	# extiende `solid_ledge_reach` hacia afuera de la superficie.
+	var reach: float = 0.0 if flat else max(0.0, solid_ledge_reach)
+	var half_len: float = radius + reach * 0.5
+	_solid_ledge.shape.extents = Vector3(half_len, half_h, radius + solid_ledge_pad)
+	var basis := Basis(horiz, up, side).orthonormalized()
+	var center := global_transform.origin + horiz * (reach * 0.5) + up * (radius - half_h)
+	_solid_ledge.transform = global_transform.affine_inverse() * Transform(basis, center)
 
 func launch(start_transform: Transform):
 	global_transform = start_transform
@@ -269,6 +323,7 @@ func _stick_at(collider, position: Vector3, normal: Vector3):
 	velocity = Vector3.ZERO
 	_cure_elapsed = 0.0
 	_current_radius = launch_radius
+	_stick_normal = normal
 	
 	# Small adjustment to visual position to sit ON the surface
 	global_transform.origin = position + normal * surface_offset
@@ -384,6 +439,10 @@ func _set_solid_collision(enabled: bool, mask: int = 0) -> void:
 	collision_mask = mask if enabled else 0
 	if _collision_shape:
 		_collision_shape.disabled = not enabled
+	if _solid_ledge:
+		if enabled:
+			_apply_solid_ledge()
+		_solid_ledge.disabled = not enabled
 
 func _get_static_gloo_collision_mask() -> int:
 	return projectile_collision_mask | 2

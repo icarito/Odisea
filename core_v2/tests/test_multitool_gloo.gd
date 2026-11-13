@@ -274,3 +274,51 @@ func test_gloo_cured_blobs_support_player_as_ladder() -> void:
 			gloo.queue_free()
 	for slab in slabs:
 		slab.queue_free()
+
+func test_gloo_cured_wall_blob_supports_player_as_step() -> void:
+	# Gloo pegado a PARED: el jugador debe poder pararse sobre el blob. La esfera sola
+	# resbalaba (sobresale ~0.43 m, radio del jugador 0.5 m); la repisa plana solida del
+	# blob curado da una superficie horizontal pisable.
+	var wall := StaticBody.new()
+	_add_static_slab(wall, Vector3(0.5, 8, 4), Vector3(-0.5, 4, 300))
+	var gloo = yield(_add_cured_gloo_on(wall, Vector3(0.0, 2.0, 300), Vector3.RIGHT), "completed")
+
+	var player = load("res://core_v2/actors/Pilot_v2.tscn").instance()
+	add_child(player)
+	player.global_transform.origin = Vector3(0.8, 3.2, 300)
+	yield(get_tree(), "idle_frame")
+	for _i in range(150):
+		yield(get_tree(), "physics_frame")
+
+	print("WALL_STEP player_y=", player.global_transform.origin.y, " blobs_top=2.35")
+	assert_float(player.global_transform.origin.y).is_greater(2.1)
+
+	player.queue_free()
+	gloo.queue_free()
+	wall.queue_free()
+
+func test_gloo_cured_wall_blobs_support_player_as_ladder() -> void:
+	# Escalera de 3 blobs pegados a PARED: el jugador cae sobre el blob mas alto y queda
+	# apoyado en su repisa, sin resbalar hasta el piso.
+	var wall := StaticBody.new()
+	_add_static_slab(wall, Vector3(0.5, 8, 4), Vector3(-0.5, 4, 400))
+	var gloo_blobs := []
+	for h in [1.0, 1.7, 2.4]:
+		var gloo = yield(_add_cured_gloo_on(wall, Vector3(0.0, float(h), 400), Vector3.RIGHT), "completed")
+		gloo_blobs.append(gloo)
+
+	var player = load("res://core_v2/actors/Pilot_v2.tscn").instance()
+	add_child(player)
+	player.global_transform.origin = Vector3(0.8, 3.6, 400)
+	yield(get_tree(), "idle_frame")
+	for _i in range(170):
+		yield(get_tree(), "physics_frame")
+
+	print("WALL_LADDER player_y=", player.global_transform.origin.y, " top_blob_top=2.75")
+	assert_float(player.global_transform.origin.y).is_greater(2.6)
+
+	player.queue_free()
+	for gloo in gloo_blobs:
+		if gloo != null:
+			gloo.queue_free()
+	wall.queue_free()
