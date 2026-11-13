@@ -2,6 +2,7 @@ extends CanvasLayer
 class_name PrologueDirector
 
 export(AudioStream) var music_stream: AudioStream
+export(float) var music_bpm: float = 120.0
 export(String, FILE, "*.tscn") var next_scene_path: String = "res://core_v2/levels/interiors/Dome_Crio.tscn"
 export(String) var skip_action: String = "skip"
 
@@ -24,6 +25,11 @@ func _ready() -> void:
 func start_prologue() -> void:
 	if _running or music_stream == null:
 		return
+	
+	var am = get_node_or_null("/root/AudioManager")
+	if am:
+		am.bpm = music_bpm
+
 	_running = true
 	var playback_stream: AudioStream = music_stream.duplicate()
 	if "loop" in playback_stream:
