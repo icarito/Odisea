@@ -26,7 +26,7 @@ centrifuga con plataformas -> objetivo -> transicion a otra sala.
 |-------|----|---------|--------------------|
 | 1 | FD-021 | Scene Transition System | SceneManager + airlocks con pre-carga, snapshot, camera yank fix. |
 | 2 | FD-042 | Over-the-Shoulder Camera | Camara al hombro en espacios estrechos. |
-| 3 | FD-040 | PlateContentStream Authoring | Sub-escenas de gameplay por plate. |
+| 3 | FD-040 | PlateContentStream Authoring | Implemented | Sub-escenas de gameplay por plate. |
 | 4 | FD-026 | Goal Beacon | Primer loop de final de nivel. |
 | 5 | FD-025 | Tube / Airlock Connector Kit | Conectores para interiores y plates. |
 | 6 | FD-020 | WallManager Area | Camara legible en interiores estrechos. |
@@ -61,7 +61,7 @@ Usar tres capas separadas:
 |----|-------|--------|--------|----------|---------|
 | FD-021 | Scene Transition System | Implemented | Medium | P0 | AirlockZoneV2 con carga async, snapshot, camera yank fix. |
 | FD-042 | Over-the-Shoulder Camera | Implemented | Small | P0 | Desplaza camara al hombro, compensacion de salto. |
-| FD-040 | PlateContentStream Authoring | In Progress | Small | P0 | Sub-escenas jugables por plate. |
+| FD-040 | PlateContentStream Authoring | Implemented | Small | P0 | Sub-escenas jugables por plate. |
 | FD-026 | Goal Beacon | Planned | Small | P0 | Loop de nivel testeable. |
 | FD-025 | Tube / Airlock Connector Kit | Planned | Small | P0 | Kit de conectores. |
 | FD-020 | WallManager Area | In Progress | Medium | P0 | Camara en interiores. |
