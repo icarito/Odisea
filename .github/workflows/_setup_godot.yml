@@ -96,7 +96,10 @@ jobs:
           path: |
             ${{ github.workspace }}/.import
             ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-${{ inputs.import_cache_paths }}
+          # Nota: la cache key de GitHub no admite comas, y import_cache_paths
+          # llega como JSON array ("[...]"). Se normaliza a un separador '-'
+          # para poder incluir el salt de rutas sin comas.
+          key: ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-${{ join(fromJSON(inputs.import_cache_paths), '-') }}
           restore-keys: |
             ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-${{ hashFiles('**/project.godot', '**/*.import') }}-
             ${{ runner.os }}-godot-v3-${{ inputs.cache_key_suffix }}-
