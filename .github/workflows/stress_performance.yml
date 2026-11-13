@@ -30,7 +30,7 @@ jobs:
     uses: ./.github/workflows/_setup_godot.yml
     with:
       cache_key_suffix: 'stress'
-      cache_import: 'true'
+      cache_import: true
       # Key estable alineada con export_all/determinism: solo project.godot + *.import
       import_cache_paths: '[]'
 

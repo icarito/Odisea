@@ -38,7 +38,7 @@ jobs:
     uses: ./.github/workflows/_setup_godot.yml
     with:
       cache_key_suffix: 'determinism'
-      cache_import: 'true'
+      cache_import: true
       # Solo project.godot + *.import para key estable (alineado con export_all)
       import_cache_paths: '[]'
 

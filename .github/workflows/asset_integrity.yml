@@ -54,7 +54,7 @@ jobs:
     uses: ./.github/workflows/_setup_godot.yml
     with:
       cache_key_suffix: 'asset-integrity'
-      cache_import: 'true'
+      cache_import: true
       import_cache_paths: '["assets/**", "textures/**", "models/**", "core_v2/audio/**", "core_v2/actors/**", "core_v2/components/**", "core_v2/props/**", "core_v2/levels/**"]'
 
   validate-imports:
