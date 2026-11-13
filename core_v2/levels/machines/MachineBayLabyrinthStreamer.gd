@@ -306,8 +306,11 @@ func _on_instancing_done(parent_node: Spatial) -> void:
 	if key == Vector2(INF, INF):
 		return
 	_chunk_touched[key] = true
-	if enable_guide_beacons and _grid_cache.has(key):
-		_add_guide_beacons(parent_node, _grid_cache[key])
+	if _grid_cache.has(key):
+		var grid: Array = _grid_cache[key]
+		if enable_guide_beacons:
+			_add_guide_beacons(parent_node, grid)
+		_add_contact_pads(parent_node, grid)
 	_grid_cache.erase(key)
 	_sync_chunk_collision(parent_node, key)
 
@@ -377,10 +380,19 @@ func _beacon_material(color: Color) -> SpatialMaterial:
 	return mat
 
 func _add_guide_beacons(chunk_node: Spatial, grid: Array) -> void:
-	var low_mesh := CubeMesh.new()
-	low_mesh.size = Vector3(0.6, 1.2, 0.6)
-	var amber := _beacon_material(Color(1.0, 0.6, 0.23))
-	var cool := _beacon_material(Color(0.3, 0.78, 0.91))
+	# Barra vertical delgada + tapa, en vez del bloque chato: se lee como
+	# señalización integrada y no como placeholder flotante.
+	var bar_mesh := CubeMesh.new()
+	bar_mesh.size = Vector3(0.12, 1.6, 0.12)
+	var cap_mesh := CubeMesh.new()
+	cap_mesh.size = Vector3(0.18, 0.18, 0.18)
+	# Rampas: tira baja sobre el suelo en vez de barra alta (no "clavada" en
+	# la escalera).
+	var strip_mesh := CubeMesh.new()
+	strip_mesh.size = Vector3(1.2, 0.06, 0.12)
+	# Ámbar de mantenimiento desaturado (no compite con el piso rojo).
+	var amber := _beacon_material(Color(1.0, 0.74, 0.38))
+	var cool := _beacon_material(Color(0.25, 0.8, 0.95))
 	for i in range(grid.size()):
 		var state = grid[i]
 		if state == null:
@@ -393,22 +405,100 @@ func _add_guide_beacons(chunk_node: Spatial, grid: Array) -> void:
 		var z: int = i / chunk_cells
 		var alt: bool = (int(x) + int(z)) % 4 == 0 and vid != "S"
 		var mat: SpatialMaterial = cool if alt else amber
-		# Marcador vertical emisivo: legible desde ángulos altos (toma aérea)
-		# sin costar luces dinámicas.
+		var base_y: float = _state_base_height(state)
+		var cx: float = x * cell_size
+		var cz: float = z * cell_size
+		if vid == "S":
+			var strip := MeshInstance.new()
+			strip.mesh = strip_mesh
+			strip.material_override = mat
+			strip.translation = Vector3(cx, base_y + 0.1, cz)
+			strip.rotation_degrees.y = float(_variant_rotation(v))
+			strip.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+			strip.add_to_group("no_occlusion")
+			chunk_node.add_child(strip)
+			continue
 		var mi := MeshInstance.new()
-		mi.mesh = low_mesh
+		mi.mesh = bar_mesh
 		mi.material_override = mat
-		mi.translation = Vector3(x * cell_size, _state_base_height(state) + 1.4, z * cell_size)
+		mi.translation = Vector3(cx, base_y + 0.9, cz)
 		mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		mi.add_to_group("no_occlusion")
 		chunk_node.add_child(mi)
-		var top := MeshInstance.new()
-		top.mesh = low_mesh
-		top.material_override = mat
-		top.translation = mi.translation + Vector3(0.0, 0.8, 0.0)
-		top.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-		top.add_to_group("no_occlusion")
-		chunk_node.add_child(top)
+		var cap := MeshInstance.new()
+		cap.mesh = cap_mesh
+		cap.material_override = mat
+		cap.translation = mi.translation + Vector3(0.0, 0.9, 0.0)
+		cap.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		cap.add_to_group("no_occlusion")
+		chunk_node.add_child(cap)
+
+# ── Zapatas de contacto (anclaje visual al piso) ──────────────────────────────
+
+var _pad_mat_cache: Dictionary = {}
+
+func _pad_material() -> SpatialMaterial:
+	if _pad_mat_cache.has("pad"):
+		return _pad_mat_cache["pad"]
+	var mat := SpatialMaterial.new()
+	mat.albedo_color = Color(0.1, 0.12, 0.14, 1.0)
+	mat.roughness = 0.5
+	mat.metallic = 0.6
+	_pad_mat_cache["pad"] = mat
+	return mat
+
+func _add_contact_pads(chunk_node: Spatial, grid: Array) -> void:
+	# Zapatas oscuras en las 4 esquinas de cada celda ocupada (donde apoyan las
+	# patas del scaffold): dan peso visual y disimulan el corte contra el piso
+	# sin costar luces ni sombras reales (low-cost).
+	var pad_half := cell_size * 0.34
+	var pad_size := pad_half * 2.0
+	var pad_mesh := CubeMesh.new()
+	pad_mesh.size = Vector3(pad_size, 0.05, pad_size)
+	var mat := _pad_material()
+	var transforms: Array = []
+	var offs: Array = [
+		Vector3(-pad_half, 0.0, -pad_half),
+		Vector3(pad_half, 0.0, -pad_half),
+		Vector3(-pad_half, 0.0, pad_half),
+		Vector3(pad_half, 0.0, pad_half)
+	]
+	for i in range(grid.size()):
+		var state = grid[i]
+		if state == null:
+			continue
+		var v = _state_variant(state)
+		var vid: String = _variant_id(v)
+		if vid == "" or vid == "EMPTY":
+			continue
+		var x: int = i % chunk_cells
+		var z: int = i / chunk_cells
+		var cx: float = x * cell_size
+		var cz: float = z * cell_size
+		for off in offs:
+			transforms.append(Transform(Basis.IDENTITY, Vector3(cx + off.x, 0.06, cz + off.z)))
+	if transforms.empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = pad_mesh
+	mm.instance_count = transforms.size()
+	var buf := PoolRealArray()
+	buf.resize(transforms.size() * 12)
+	var idx := 0
+	for xf in transforms:
+		buf[idx]     = 1.0; buf[idx+1]  = 0.0; buf[idx+2]  = 0.0; buf[idx+3]  = xf.origin.x
+		buf[idx+4]   = 0.0; buf[idx+5]  = 1.0; buf[idx+6]  = 0.0; buf[idx+7]  = xf.origin.y
+		buf[idx+8]   = 0.0; buf[idx+9]  = 0.0; buf[idx+10] = 1.0; buf[idx+11] = xf.origin.z
+		idx += 12
+	mm.set_as_bulk_array(buf)
+	var inst := MultiMeshInstance.new()
+	inst.name = "ContactPads"
+	inst.multimesh = mm
+	inst.material_override = mat
+	inst.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	inst.add_to_group("no_occlusion")
+	chunk_node.add_child(inst)
 
 func _state_variant(state):
 	if typeof(state) == TYPE_DICTIONARY:
@@ -423,6 +513,13 @@ func _variant_id(v) -> String:
 	if typeof(v) == TYPE_DICTIONARY:
 		return String(v.get("id", ""))
 	return v.id
+
+func _variant_rotation(v) -> int:
+	if v == null:
+		return 0
+	if typeof(v) == TYPE_DICTIONARY:
+		return int(v.get("rotation", 0))
+	return v.rotation
 
 func _state_base_height(state) -> float:
 	if typeof(state) == TYPE_DICTIONARY:
