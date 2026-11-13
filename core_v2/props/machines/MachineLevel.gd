@@ -13,6 +13,10 @@ extends Spatial
 #   trigger — zona que emite "entered" una sola vez cuando entra el jugador: "size"
 #   link   — conecta una senal: "from", "signal", "to", "method", "args", "delay" (s).
 #            "to": "@level" apunta a este nodo (p. ej. method "say", args [texto, segundos])
+#
+# Emitida por say(): avisa que Odisea está hablando (texto, duración en segundos).
+# La consume OdiseaHologramV2 (autoload) para mostrar el NPC-holograma.
+signal said(text, duration)
 
 const MachinePart = preload("res://core_v2/props/machines/MachinePart.gd")
 const MachineHinge = preload("res://core_v2/props/machines/MachineHinge.gd")
@@ -410,6 +414,7 @@ func _make_trigger(item: Dictionary) -> Area:
 # registra en el log de comunicaciones del traje (SuitOS / SuitScreen).
 func say(text: String, duration: float = 8.0) -> void:
 	var effective_duration := max(7.5, duration)
+	emit_signal("said", text, effective_duration)
 	var suit_screen := _get_suit_screen()
 	if suit_screen != null and suit_screen.has_method("ensure_model"):
 		var model = suit_screen.ensure_model()
