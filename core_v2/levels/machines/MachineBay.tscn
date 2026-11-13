@@ -1,9 +1,11 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/machines/MachineLevel.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/levels/machines/LabyrinthSection.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/components/CameraZone.gd" type="Script" id=5]
+[ext_resource path="res://core_v2/visual/CinematicRig.tscn" type="PackedScene" id=6]
 
 [sub_resource type="ProceduralSky" id=1]
 sky_top_color = Color( 0.08, 0.11, 0.15, 1 )
@@ -119,3 +121,31 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 0, 6 )
 [node name="Pilot" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -2 )
 yaw_deg = 180.0
+
+[node name="Cinematics" type="Spatial" parent="."]
+
+[node name="ArrivalGate" type="Area" parent="Cinematics"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 10.2 )
+collision_layer = 1
+collision_mask = 2
+script = ExtResource( 5 )
+debug_render = false
+zone_extents = Vector3( 7, 3, 2 )
+cinematic_rig_path = NodePath("../ArrivalRevealRig")
+control_mode = 0
+
+[node name="ArrivalRevealRig" parent="Cinematics" instance=ExtResource( 6 )]
+transform = Transform( -1, 0, 0, 0, 0.988716, 0.149805, 0, 0.149805, -0.988716, 0, 8.5, 1 )
+
+[node name="BridgeFireGate" type="Area" parent="Cinematics"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 84 )
+collision_layer = 1
+collision_mask = 2
+script = ExtResource( 5 )
+debug_render = false
+zone_extents = Vector3( 7, 3.5, 3 )
+cinematic_rig_path = NodePath("../BridgeFireRevealRig")
+control_mode = 0
+
+[node name="BridgeFireRevealRig" parent="Cinematics" instance=ExtResource( 6 )]
+transform = Transform( -1, 0, 0, 0, 0.932005, 0.362446, 0, 0.362446, -0.932005, 0, 16, 80 )
