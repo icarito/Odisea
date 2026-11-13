@@ -39,6 +39,10 @@ func test_light_state_exists_and_button_is_wired() -> void:
 	assert_bool(button.momentary).is_true()
 	assert_bool(button.is_connected("activated", state, "_on_button_activated")).is_true()
 
+	var bay_button = level.get_node_or_null("Hub/PedestalMachineBay")
+	assert_object(bay_button).is_not_null()
+	assert_bool(bay_button.is_connected("activated", state, "_on_machine_bay_button_activated")).is_true()
+
 	# El estado arranca en DARK y el ambient ya quedo aplicado.
 	assert_bool(state.lit).is_false()
 	assert_float(state._level).is_equal(0.0)
@@ -107,6 +111,19 @@ func test_snapshot_restores_mid_flicker_deterministically() -> void:
 	assert_bool(state._flicker_active).is_true()
 	assert_float(state._level).is_equal(state._sample_level(state._flicker_clock))
 	assert_int(state._switch_sounds_played).is_equal(sounds_before)
+
+
+func test_restore_before_initial_deferred_keeps_real_light_state_silently() -> void:
+	for was_lit in [false, true]:
+		var level := _boot_level()
+		var state = level.get_node("LightState")
+		state.restore_snapshot({"lit": was_lit})
+		yield(get_tree(), "idle_frame")
+		yield(get_tree(), "idle_frame")
+		assert_bool(state.is_lit()).is_equal(was_lit)
+		assert_float(state._level).is_equal(1.0 if was_lit else 0.0)
+		assert_int(state._switch_sounds_played).is_equal(0)
+		assert_bool(state.is_flickering()).is_false()
 
 
 func test_flat_path_drives_gate_levers() -> void:

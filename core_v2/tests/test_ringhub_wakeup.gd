@@ -177,6 +177,54 @@ func test_restored_already_woken_state_does_not_reopen_pod() -> void:
 	assert_bool(hatch.is_active).is_false()
 
 
+func test_completed_wakeup_restore_keeps_return_pose_velocity_and_camera() -> void:
+	var level = auto_free(RingHubScene.instance())
+	level.open_pod_terminal_on_start = false
+	add_child(level)
+	var pilot: Spatial = level.get_node("Pilot")
+	_disable_pilot_input(pilot)
+	var return_pose := Transform(Basis(Vector3.UP, 0.4), Vector3(30.0, 3.0, 4.0))
+	pilot.global_transform = return_pose
+	pilot.velocity = Vector3(1.0, 0.0, 2.0)
+	var camera: Spatial = pilot.get_node("CameraRig")
+	var camera_pose: Transform = camera.global_transform
+	level.restore_snapshot({"selected_slot": level._selected_slot, "wakeup_completed": true})
+	assert_bool(pilot.global_transform.is_equal_approx(return_pose)).is_true()
+	assert_vector3(pilot.velocity).is_equal(Vector3(1.0, 0.0, 2.0))
+	assert_bool(camera.global_transform.is_equal_approx(camera_pose)).is_true()
+	level._open_pod_terminal()
+	assert_bool(level._wakeup_completed).is_true()
+
+
+func test_return_payload_before_ready_skips_intro_and_restores_dark_pose() -> void:
+	var manager := get_node("/root/SceneManager")
+	var previous_path: String = manager._next_scene_path
+	var previous_params: Dictionary = manager._transition_params
+	var level = auto_free(RingHubScene.instance())
+	manager._next_scene_path = level.filename
+	manager._transition_params = {"ringhub_return_state": {
+		"wakeup": {"selected_slot": 0, "wakeup_completed": true},
+		"light_state": {"lit": false},
+		"player_snapshot": {"position": [30.0, 3.0, 4.0], "velocity": [1.0, 0.0, 2.0],
+			"yaw": 0.75, "pitch": -0.2}}}
+	add_child(level)
+	manager._next_scene_path = previous_path
+	manager._transition_params = previous_params
+	var pilot: Spatial = level.get_node("Pilot")
+	_disable_pilot_input(pilot)
+	assert_vector3(pilot.global_transform.origin).is_equal(Vector3(30.0, 3.0, 4.0))
+	assert_vector3(pilot.velocity).is_equal(Vector3(1.0, 0.0, 2.0))
+	assert_float(pilot.yaw).is_equal(0.75)
+	assert_float(pilot.pitch).is_equal(-0.2)
+	assert_bool(level._wakeup_completed).is_true()
+	assert_str(level._gated_oys_script).is_empty()
+	yield(get_tree(), "idle_frame")
+	var lights = level.get_node("LightState")
+	assert_bool(lights.is_lit()).is_false()
+	assert_int(lights._switch_sounds_played).is_equal(0)
+	assert_bool(level.get_node("Criopod_Vert/RotatingObjectV2").is_active).is_false()
+
+
 func test_wakeup_keeps_pilot_collision_mask() -> void:
 	var level = auto_free(RingHubScene.instance())
 	level.open_pod_terminal_on_start = false

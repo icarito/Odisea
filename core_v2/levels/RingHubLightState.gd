@@ -35,6 +35,8 @@ export(NodePath) var dark_lighting_path := NodePath("../DarkLevelLighting")
 export(NodePath) var wall_lights_path := NodePath("../Hub/WallLights")
 export(NodePath) var fixture_batch_path := NodePath("../Hub/WallLights/FixtureBatch_00")
 export(NodePath) var button_path := NodePath("../Hub/PedestalLight")
+export(NodePath) var machine_bay_button_path := NodePath("../Hub/PedestalMachineBay")
+export(String) var machine_bay_scene_path := "res://core_v2/levels/machines/MachineBay.tscn"
 
 # --- Ambiente de escritorio (Environment duplicado por DarkLevelLighting) ---
 export(float, 0.0, 4.0, 0.01) var dark_ambient_energy := 0.02
@@ -114,6 +116,7 @@ var _flicker_target := false
 var _flicker_pattern := []
 var _switch_sounds_played := 0
 var _level := 0.0
+var _snapshot_restored := false
 
 var _dark_lighting: Node = null
 var _wall_lights: Node = null
@@ -150,6 +153,9 @@ func _reassign_lightmaps_after_ready() -> void:
 		_lightmap.light_data = data
 
 func _apply_initial() -> void:
+	# Un restore de retorno/checkpoint puede llegar antes de este deferred.
+	if _snapshot_restored:
+		return
 	lit = start_lit
 	_flicker_target = lit
 	_flicker_active = false
@@ -175,6 +181,46 @@ func set_lit(value: bool) -> void:
 		return
 	lit = value
 	_start_flicker(value)
+	if value:
+		_notify_suit_lights_restored()
+
+func enter_machine_bay() -> void:
+	if not is_inside_tree():
+		return
+	var scene_mgr = get_node_or_null("/root/SceneManager")
+	if scene_mgr != null and scene_mgr.has_method("goto_scene"):
+		var hub := get_tree().current_scene
+		var return_state: Dictionary = {}
+		if hub != null and hub.has_method("get_snapshot"):
+			var pilot := hub.get_node_or_null("Pilot")
+			if pilot != null and pilot.has_method("get_full_snapshot"):
+				return_state = {"wakeup": hub.get_snapshot(), "light_state": get_snapshot(),
+					"player_snapshot": pilot.get_full_snapshot()}
+		scene_mgr.goto_scene(machine_bay_scene_path, {"preserve_player_state": false,
+			"wait_for_fade_out": true, "ringhub_return_state": return_state})
+	else:
+		get_tree().change_scene(machine_bay_scene_path)
+
+func _notify_suit_lights_restored() -> void:
+	if not is_inside_tree():
+		return
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null or not suit_os.has_method("get_screen"):
+		return
+	var suit_screen = suit_os.get_screen("suit:status")
+	if suit_screen == null or not suit_screen.has_method("ensure_model"):
+		return
+	var model = suit_screen.ensure_model()
+	if model == null:
+		return
+	model.complete_objective("lights")
+	if not model.objective_ids().has("order_0001"):
+		model.add_objective("order_0001", "Orden 0001: Restablecer flujo en Bahía 3", model.OBJ_ACTIVE)
+	elif model.objective_state("order_0001") != model.OBJ_DONE:
+		model.set_objective_state("order_0001", model.OBJ_ACTIVE)
+	model.add_comms("ODISEA", "Iluminación primaria restablecida. Orden 0001 asignada: acceda a Bahía 3.", "odisea")
+	if suit_screen.has_method("notify_state_changed"):
+		suit_screen.notify_state_changed()
 
 # --- Flicker determinista ---------------------------------------------------
 
@@ -423,13 +469,17 @@ func _prepare_fixture_emission() -> void:
 
 func _connect_button() -> void:
 	var button := get_node_or_null(button_path)
-	if button == null:
-		return
-	if button.has_signal("activated") and not button.is_connected("activated", self, "_on_button_activated"):
+	if button != null and button.has_signal("activated") and not button.is_connected("activated", self, "_on_button_activated"):
 		button.connect("activated", self, "_on_button_activated")
+	var bay_button := get_node_or_null(machine_bay_button_path)
+	if bay_button != null and bay_button.has_signal("activated") and not bay_button.is_connected("activated", self, "_on_machine_bay_button_activated"):
+		bay_button.connect("activated", self, "_on_machine_bay_button_activated")
 
 func _on_button_activated() -> void:
 	toggle()
+
+func _on_machine_bay_button_activated() -> void:
+	enter_machine_bay()
 
 func _build_sound_player() -> void:
 	if switch_sound == null:
@@ -464,6 +514,7 @@ func get_snapshot() -> Dictionary:
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
+	_snapshot_restored = true
 	lit = bool(data.get("lit", lit))
 	_flicker_target = bool(data.get("flicker_target", lit))
 	_flicker_clock = float(data.get("flicker_clock", 0.0))

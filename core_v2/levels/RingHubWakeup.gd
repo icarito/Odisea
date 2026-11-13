@@ -43,7 +43,16 @@ func _ready() -> void:
 		session.register_oys_actor("RingHub", self)
 		if session.has_signal("oys_registry_reset") and not session.is_connected("oys_registry_reset", self, "_on_oys_registry_reset"):
 			session.connect("oys_registry_reset", self, "_on_oys_registry_reset")
-	if open_pod_terminal_on_start:
+	# Payload de ida/vuelta, no persistencia: disponible durante el swap cubierto.
+	var return_state: Dictionary = _get_return_state()
+	if not return_state.empty():
+		var wakeup: Dictionary = return_state.get("wakeup", {})
+		_selected_slot = int(wakeup.get("selected_slot", _selected_slot))
+		_wakeup_completed = bool(wakeup.get("wakeup_completed", false))
+		var lights := get_node_or_null("LightState")
+		if lights != null:
+			lights.restore_snapshot(return_state.get("light_state", {}))
+	if open_pod_terminal_on_start and not _wakeup_completed:
 		_gate_wakeup_sequence()
 		call_deferred("_open_pod_terminal")
 	var hatch := get_node_or_null("Criopod_Vert/RotatingObjectV2")
@@ -68,7 +77,25 @@ func _ready() -> void:
 	if _selected_slot < 0:
 		_selected_slot = _pick_slot(slots)
 	_apply_wakeup_slot()
+	if not return_state.empty():
+		var pilot := get_node_or_null(pilot_path)
+		if pilot != null and pilot.has_method("restore_snapshot"):
+			pilot.restore_snapshot(return_state.get("player_snapshot", {}))
+			if _wakeup_completed and pilot.has_method("set_traversal_entry_suppressed"):
+				pilot.set_traversal_entry_suppressed(false)
+			if pilot.has_method("snap_camera_to_current_state"):
+				pilot.snap_camera_to_current_state()
 	_dev_apply_isolation()
+
+func _get_return_state() -> Dictionary:
+	var manager := get_node_or_null("/root/SceneManager")
+	if manager == null or String(manager.get("_next_scene_path")) != filename:
+		return {}
+	var params = manager.get("_transition_params")
+	if typeof(params) != TYPE_DICTIONARY:
+		return {}
+	var payload = params.get("ringhub_return_state", {})
+	return payload if typeof(payload) == TYPE_DICTIONARY else {}
 
 # ---------------------------------------------------------------------------
 # Toolbox dev (env-gated; inerte sin las envs). Vive en el NIVEL y no en el Menu
@@ -318,6 +345,10 @@ func _apply_wakeup_slot() -> void:
 	var cinematic_setup := terminal.get_node_or_null("CinematicSetup") as Spatial if terminal != null else null
 	if cinematic_setup != null and cinematic_setup.is_set_as_toplevel():
 		cinematic_setup.global_transform = terminal.global_transform
+	# Restaurar un nivel ya visitado solo coloca el pod, nunca al jugador dentro:
+	# el snapshot del Pilot conserva posicion, momentum y camara de retorno.
+	if _wakeup_completed:
+		return
 	var pilot_transform := pod.global_transform
 	pilot_transform.basis = pilot_transform.basis.orthonormalized().scaled(pilot.scale)
 	pilot_transform.origin = pod.to_global(pilot_inside_offset)
