@@ -64,6 +64,10 @@ const CONTEXT_CONTENT_WIDTH := 420.0
 # Esquinas inferiores reservadas para el indicador de modo del multi-tool y el debug:
 # el contexto se centra entre ellas para no pisarlos aunque la descripcion sea larga.
 const CONTEXT_CORNER_RESERVE := 228.0
+# Banda inferior reservada a la fila de esquinas (indicador de modo del multi-tool y debug,
+# abajo a la izquierda/derecha). El contexto descansa por ENCIMA de esa banda: antes su borde
+# inferior (safe.end.y - 24) caia dentro de la fila y lo pisaba a la altura de MODE: LASER.
+const CONTEXT_BOTTOM_BAND := 84.0
 const CONTEXT_BOTTOM_MARGIN := 24.0
 # Separacion con el stack de subtitulos cuando hay alguno visible.
 const CONTEXT_STACK_GAP := 10.0
@@ -617,7 +621,7 @@ func _place_context(control: Control) -> void:
 	# Abajo-centro, pero por encima del stack de subtitulos si hay alguno visible:
 	# antes ambos se anclaban al pie por separado y se solapaban.
 	var stack: Rect2 = _subtitle_stack_rect()
-	var bottom: float = safe.end.y - CONTEXT_BOTTOM_MARGIN * k
+	var bottom: float = safe.end.y - max(CONTEXT_BOTTOM_MARGIN, CONTEXT_BOTTOM_BAND) * k
 	if stack.size.y > 0.0:
 		bottom = min(bottom, stack.position.y - CONTEXT_STACK_GAP * k)
 	var pos_y: float = max(bottom - size.y, safe.position.y + margin)
