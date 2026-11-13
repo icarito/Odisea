@@ -7,6 +7,10 @@ const CAMERA_REQUEST_SOURCE := "odisea_npc"
 const CAMERA_REQUEST_PRIORITY := 20
 const CAMERA_CONTROL_MODE_LOCKED_VIEW := 2
 
+const HOLO_POLICY_SCRIPT := preload("res://core_v2/agents/HoloPolicyController.gd")
+const RL_RAY_COUNT := 8
+const RL_DEFAULT_WEIGHTS_PATH := "res://core_v2/agents/anna_ppo_noorbit_v1_weights.json"
+
 signal arrived(target_pos)
 signal script_finished()
 signal speech_finished()
@@ -19,7 +23,8 @@ enum BehaviorMode {
 	FOLLOW,
 	MOVE_TO,
 	ORBIT_GUIDE,
-	SCRIPTED
+	SCRIPTED,
+	RL
 }
 
 export(float) var spawn_distance := 2.8
@@ -49,6 +54,17 @@ export(float) var walk_speed_threshold := 0.25
 export(float) var jog_speed_threshold := 2.8
 export(float) var sprint_speed_threshold := 5.5
 
+# --- Política RL (opcional, reversible) ---
+# Con use_rl_policy = true, FOLLOW / MOVE_TO / ORBIT_GUIDE delegan su locomoción a
+# HoloPolicyController (PPO obs13 -> Discrete(8)). Con false (default) el
+# comportamiento hand-authored de siempre queda intacto.
+export(bool) var use_rl_policy := false
+export(String) var rl_weights_path := RL_DEFAULT_WEIGHTS_PATH
+export(float) var rl_walk_speed := 4.5
+export(float) var rl_sprint_speed := 7.5
+export(float) var rl_sensor_range := 20.0
+export(int) var rl_collision_mask := 1
+
 var _state: int = State.HIDDEN
 var _behavior_mode: int = BehaviorMode.HIDDEN
 var _remaining_sec: float = 0.0
@@ -71,6 +87,15 @@ var _follow_duration: float = -1.0
 var _guide_waiting: bool = false
 var _arrived_emitted: bool = false
 var _horizontal_speed: float = 0.0
+
+# Estado RL (no determinismo de pared: todo se deriva de delta y estado interno).
+var _rl_controller = null
+var _rl_ready: bool = false
+var _rl_load_attempted: bool = false
+var _rl_target_is_point: bool = false
+var _rl_velocity: Vector3 = Vector3.ZERO
+var _rl_last_action: int = -1
+var _rl_last_obs: Array = []
 
 var _override_anim: String = ""
 var _current_anim_name: String = ""
@@ -219,6 +244,39 @@ func guide_to(target_pos: Vector3, speed: float = 4.0) -> void:
 	_ensure_visible_and_active()
 
 
+func start_rl_follow(target: Spatial = null, duration: float = -1.0) -> void:
+	use_rl_policy = true
+	if is_instance_valid(target):
+		_explicit_viewer = target
+	_behavior_mode = BehaviorMode.RL
+	_rl_target_is_point = false
+	_follow_duration = duration
+	_arrived_emitted = false
+	_guide_waiting = false
+	_script_queue.clear()
+	_step_submode = ""
+	if _state == State.HIDDEN:
+		_place_in_front_of_viewer(target)
+	_ensure_visible_and_active()
+
+
+func start_rl_guide(target_pos: Vector3, speed: float = -1.0) -> void:
+	use_rl_policy = true
+	if speed > 0.0:
+		rl_walk_speed = speed
+		rl_sprint_speed = max(rl_sprint_speed, speed)
+	_behavior_mode = BehaviorMode.RL
+	_rl_target_is_point = true
+	_target_pos = target_pos
+	_guide_waiting = false
+	_arrived_emitted = false
+	_script_queue.clear()
+	_step_submode = ""
+	if _state == State.HIDDEN and is_inside_tree():
+		_anchor_origin = global_transform.origin
+	_ensure_visible_and_active()
+
+
 func run_script(steps: Array) -> void:
 	_script_queue = steps.duplicate(true)
 	_script_index = 0
@@ -353,6 +411,14 @@ func _physics_process(delta: float) -> void:
 
 
 func _update_behavior(delta: float) -> void:
+	# Delegación RL opcional y reversible: con use_rl_policy y pesos cargables,
+	# FOLLOW / MOVE_TO / ORBIT_GUIDE se conducen con la política. Si no aplica,
+	# cae al comportamiento hand-authored de abajo sin cambios.
+	if _should_use_rl():
+		_update_rl_motion(delta)
+		_update_rl_follow_duration(delta)
+		return
+
 	match _behavior_mode:
 		BehaviorMode.APPEAR_SPEAK:
 			_update_appear_speak_motion(delta)
@@ -369,6 +435,9 @@ func _update_behavior(delta: float) -> void:
 			_update_orbit_guide_motion(delta, false)
 		BehaviorMode.SCRIPTED:
 			_update_scripted_behavior(delta)
+		BehaviorMode.RL:
+			_update_rl_motion(delta)
+			_update_rl_follow_duration(delta)
 		_:
 			_horizontal_speed = 0.0
 
@@ -661,6 +730,209 @@ func _move_anchor_towards(target: Vector3, speed: float, delta: float) -> float:
 	if flat_dir.length_squared() > 0.00001:
 		_face_direction(flat_dir, delta)
 	return Vector2(move_vec.x, move_vec.z).length() / max(delta, 0.0001)
+
+
+# --- Locomoción por política RL (opcional, reversible) ---
+
+func is_rl_active() -> bool:
+	if not (use_rl_policy or _behavior_mode == BehaviorMode.RL):
+		return false
+	return _ensure_rl_controller()
+
+
+func get_last_rl_action() -> int:
+	return _rl_last_action
+
+
+func get_last_rl_observation() -> Array:
+	return _rl_last_obs.duplicate()
+
+
+func _should_use_rl() -> bool:
+	if not use_rl_policy:
+		return false
+	if _behavior_mode == BehaviorMode.FOLLOW or _behavior_mode == BehaviorMode.MOVE_TO or _behavior_mode == BehaviorMode.ORBIT_GUIDE:
+		return _ensure_rl_controller()
+	return false
+
+
+func _ensure_rl_controller() -> bool:
+	if _rl_load_attempted:
+		return _rl_ready
+	_rl_load_attempted = true
+	var ctrl = HOLO_POLICY_SCRIPT.new()
+	_rl_ready = ctrl.setup(rl_weights_path)
+	if _rl_ready:
+		_rl_controller = ctrl
+	return _rl_ready
+
+
+func _update_rl_follow_duration(delta: float) -> void:
+	var is_following: bool = _behavior_mode == BehaviorMode.FOLLOW or (_behavior_mode == BehaviorMode.RL and not _rl_target_is_point)
+	if is_following and _follow_duration > 0.0:
+		_follow_duration -= delta
+		if _follow_duration <= 0.0:
+			_follow_duration = -1.0
+			disappear(false)
+
+
+func _rl_facing_basis() -> Basis:
+	# El frente visual del NPC es el +Z del Pivot (base de 180° del proyecto: ver
+	# AGENTS §11.1). El contrato RL del env usa -Z como forward, así que controlamos
+	# con un basis girado 180° para que -basis.z coincida con el frente visual y con
+	# la dirección de asistencia de steering (_face_position alinea el +Z del Pivot).
+	var yaw: float = (_pivot.rotation.y + PI) if is_instance_valid(_pivot) else PI
+	return Basis(Vector3.UP, yaw)
+
+
+func _rl_sample_rays(origin: Vector3, facing: Basis) -> Array:
+	var dists := []
+	dists.resize(RL_RAY_COUNT)
+	var space: PhysicsDirectSpaceState = null
+	if is_inside_tree():
+		var world: World = get_world()
+		if world != null:
+			space = world.direct_space_state
+	var range_len: float = max(rl_sensor_range, 0.001)
+	for i in range(RL_RAY_COUNT):
+		var local_dir := Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, deg2rad((360.0 / float(RL_RAY_COUNT)) * float(i)))
+		var dir: Vector3 = facing.xform(local_dir).normalized()
+		var from: Vector3 = origin
+		var to: Vector3 = origin + dir * range_len
+		var d: float = range_len
+		if space != null:
+			var hit = space.intersect_ray(from, to, [self], rl_collision_mask, true, false)
+			if typeof(hit) == TYPE_DICTIONARY and not (hit as Dictionary).empty():
+				d = from.distance_to(hit["position"])
+		dists[i] = d
+	return dists
+
+
+# Construye obs13 con el estado del NPC y devuelve la acción elegida (argmax).
+func _rl_decide(target_pos: Vector3) -> int:
+	var origin: Vector3 = _anchor_origin + Vector3(0.0, 1.0, 0.0)
+	var facing: Basis = _rl_facing_basis()
+	var ray_dists: Array = _rl_sample_rays(origin, facing)
+	var dist: float = _anchor_origin.distance_to(target_pos)
+	var angle: float = HOLO_POLICY_SCRIPT.signed_angle_to_target(facing, target_pos - _anchor_origin)
+	var local_vel: Vector3 = facing.xform_inv(_rl_velocity)
+	var obs: Array = _rl_controller.build_observation(
+		ray_dists, dist, angle, Vector2(local_vel.x, local_vel.z), _anchor_origin.y, rl_sensor_range)
+	_rl_last_obs = obs
+	_rl_last_action = _rl_controller.select_action(obs)
+	return _rl_last_action
+
+
+# Aplica la acción como movimiento cinemático (misma velocidad/lerp existente).
+func _rl_apply_action(action: int, target_pos: Vector3, delta: float) -> void:
+	# Assisted steering (espejo del env RL del jugador): orientar hacia el objetivo.
+	_face_position(target_pos, delta)
+	var local_move: Vector2 = HOLO_POLICY_SCRIPT.action_to_local_move(action)
+	if local_move.length_squared() <= 0.000001:
+		_horizontal_speed = 0.0
+		return
+	var speed: float = rl_sprint_speed if HOLO_POLICY_SCRIPT.action_is_sprint(action) else rl_walk_speed
+	var world_move: Vector3 = _rl_facing_basis().xform(Vector3(local_move.x, 0.0, local_move.y))
+	world_move.y = 0.0
+	if world_move.length_squared() <= 0.000001:
+		_horizontal_speed = 0.0
+		return
+	world_move = world_move.normalized()
+	_anchor_origin += world_move * speed * delta
+	_horizontal_speed = speed
+
+
+func _rl_resolve_target() -> Dictionary:
+	match _behavior_mode:
+		BehaviorMode.FOLLOW:
+			var viewer := _resolve_viewer()
+			if is_instance_valid(viewer):
+				return {"ok": true, "pos": viewer.global_transform.origin, "guide_wait": false, "emit_arrived": false}
+			return {"ok": false, "pos": _anchor_origin, "guide_wait": false, "emit_arrived": false}
+		BehaviorMode.MOVE_TO:
+			return {"ok": true, "pos": _target_pos, "guide_wait": false, "emit_arrived": true}
+		BehaviorMode.ORBIT_GUIDE:
+			return {"ok": true, "pos": _target_pos, "guide_wait": true, "emit_arrived": true}
+		BehaviorMode.RL:
+			if _rl_target_is_point:
+				return {"ok": true, "pos": _target_pos, "guide_wait": true, "emit_arrived": true}
+			var viewer_rl := _resolve_viewer()
+			if is_instance_valid(viewer_rl):
+				return {"ok": true, "pos": viewer_rl.global_transform.origin, "guide_wait": false, "emit_arrived": false}
+			return {"ok": false, "pos": _anchor_origin, "guide_wait": false, "emit_arrived": false}
+	return {"ok": false, "pos": _anchor_origin, "guide_wait": false, "emit_arrived": false}
+
+
+func _update_rl_motion(delta: float) -> void:
+	if not _ensure_rl_controller():
+		# Degradación segura: modo RL pedido sin pesos -> hand-authored.
+		match _behavior_mode:
+			BehaviorMode.ORBIT_GUIDE:
+				_update_orbit_guide_motion(delta, false)
+			BehaviorMode.MOVE_TO:
+				_update_move_to_motion(delta, false)
+			_:
+				_update_follow_motion(delta)
+		return
+
+	# Timeout de move_to (espejo de _update_move_to_motion).
+	if _behavior_mode == BehaviorMode.MOVE_TO and _move_timeout > 0.0:
+		_move_timeout -= delta
+		if _move_timeout <= 0.0:
+			_move_timeout = -1.0
+			_horizontal_speed = 0.0
+			_apply_hover_transform(delta, true)
+			return
+
+	var target_info: Dictionary = _rl_resolve_target()
+	if not bool(target_info["ok"]):
+		_horizontal_speed = 0.0
+		_apply_hover_transform(delta, true)
+		return
+	var target_pos: Vector3 = target_info["pos"]
+	var emit_arrived: bool = bool(target_info["emit_arrived"])
+
+	# Guía: esperar al jugador si se alejó demasiado (espejo de orbit_guide).
+	if bool(target_info["guide_wait"]):
+		var viewer := _resolve_viewer()
+		if is_instance_valid(viewer):
+			var viewer_pos: Vector3 = viewer.global_transform.origin
+			var flat_dist: float = Vector2(viewer_pos.x - _anchor_origin.x, viewer_pos.z - _anchor_origin.z).length()
+			if not _guide_waiting and flat_dist > guide_wait_distance:
+				_guide_waiting = true
+			elif _guide_waiting and flat_dist <= guide_resume_distance:
+				_guide_waiting = false
+			if _guide_waiting:
+				_horizontal_speed = 0.0
+				_apply_hover_transform(delta, true)
+				_face_position(viewer_pos, delta)
+				return
+		else:
+			_guide_waiting = false
+
+	# Llegada (espejo de move_to/guide).
+	if _anchor_origin.distance_to(target_pos) <= arrival_threshold:
+		_anchor_origin = target_pos
+		_horizontal_speed = 0.0
+		_apply_hover_transform(delta, true)
+		var viewer_arr := _resolve_viewer()
+		if is_instance_valid(viewer_arr):
+			_face_position(viewer_arr.global_transform.origin, delta)
+		if emit_arrived and not _arrived_emitted:
+			_arrived_emitted = true
+			emit_signal("arrived", target_pos)
+		return
+
+	var action: int = _rl_decide(target_pos)
+	var prev_origin: Vector3 = _anchor_origin
+	_rl_apply_action(action, target_pos, delta)
+	if delta > 0.0001:
+		_rl_velocity = (_anchor_origin - prev_origin) / delta
+	_apply_hover_transform(delta, false)
+
+	if emit_arrived and not _arrived_emitted and _anchor_origin.distance_to(target_pos) <= arrival_threshold:
+		_arrived_emitted = true
+		emit_signal("arrived", target_pos)
 
 
 func _apply_hover_transform(delta: float, with_sway: bool) -> void:
