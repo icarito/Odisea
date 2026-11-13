@@ -359,15 +359,17 @@ jobs:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          MAC_APPLE_ID: ${{ secrets.MAC_APPLE_ID }}
         run: |
           if [ -n "$APP_CERT_P12_B64" ] && [ -n "$APP_CERT_PASSWORD" ] && \
              [ -n "$MAC_PROVISION_B64" ] && [ -n "$INSTALLER_CERT_P12_B64" ] && \
              [ -n "$INSTALLER_CERT_PASSWORD" ] && [ -n "$ASC_KEY_ID" ] && \
-             [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_API_KEY_P8" ]; then
+             [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_API_KEY_P8" ] && \
+             [[ "$MAC_APPLE_ID" =~ ^[0-9]+$ ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::macOS App Store upload disabled; configure MAC_PROVISION_B64, MAC_INSTALLER_P12_B64 and MAC_INSTALLER_PASSWORD."
+            echo "::notice::macOS App Store upload disabled; configure the signing credentials and numeric MAC_APPLE_ID (App Store Connect > App Information)."
           fi
 
       - name: Download macOS export
@@ -388,6 +390,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          MAC_APPLE_ID: ${{ secrets.MAC_APPLE_ID }}
           MAC_MARKETING_VERSION: ${{ needs.prep.outputs.base_version }}
           MAC_BUILD_NUMBER: ${{ needs.prep.outputs.build_seq }}
         run: |
@@ -477,6 +480,7 @@ jobs:
           # Sin --validate-app: sube el .pkg entero dos veces para revisar lo
           # mismo que --upload-app revisa antes de aceptar el build.
           xcrun altool --upload-app --type macos --file "$PKG" \
+            --apple-id "$MAC_APPLE_ID" \
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
           echo "macOS TestFlight upload accepted; Apple will now process build $MAC_BUILD_NUMBER."
 
