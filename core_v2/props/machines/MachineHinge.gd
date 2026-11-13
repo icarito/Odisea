@@ -25,6 +25,7 @@ var _anchor: StaticBody = null
 
 func _ready() -> void:
 	add_to_group("machine_hinge")
+	add_to_group("replay_sync")
 	if show_axle:
 		_build_axle()
 	# Diferido: las piezas hermanas terminan su _ready (y entran al espacio fisico) antes
@@ -72,6 +73,20 @@ func set_active(value: bool, _immediate: bool = false) -> void:
 	var body_a := get_node_or_null(body_a_path) as RigidBody
 	if body_a != null:
 		body_a.sleeping = false
+
+
+func get_snapshot() -> Dictionary:
+	return {"motor_enabled": motor_enabled, "motor_speed": motor_speed, "motor_torque": motor_torque}
+
+
+func restore_snapshot(data: Dictionary) -> void:
+	motor_enabled = bool(data.get("motor_enabled", motor_enabled))
+	motor_speed = float(data.get("motor_speed", motor_speed))
+	motor_torque = float(data.get("motor_torque", motor_torque))
+	if _joint != null and is_instance_valid(_joint):
+		_joint.set_param(HingeJoint.PARAM_MOTOR_TARGET_VELOCITY, motor_speed)
+		_joint.set_param(HingeJoint.PARAM_MOTOR_MAX_IMPULSE, motor_torque)
+		_joint.set_flag(HingeJoint.FLAG_ENABLE_MOTOR, motor_enabled)
 
 
 func _build_axle() -> void:

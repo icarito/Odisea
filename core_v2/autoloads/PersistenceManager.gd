@@ -91,6 +91,40 @@ func get_continue_scene_path() -> String:
 		return ""
 	return scene_path
 
+# Solo recursos de campaña del directorio dedicado; nunca settings/consentimiento.
+func _campaign_checkpoint_files() -> Array:
+	var files: Array = []
+	var dir := Directory.new()
+	if dir.open(checkpoint_directory) != OK:
+		return files
+	dir.list_dir_begin(true, true)
+	var entry: String = dir.get_next()
+	while entry != "":
+		if not dir.current_is_dir() and entry.ends_with(".tres"):
+			var resource: Resource = ResourceLoader.load("%s/%s" % [checkpoint_directory, entry])
+			if resource is CheckpointResource:
+				files.append(entry)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return files
+
+func has_campaign_progress() -> bool:
+	return not _campaign_checkpoint_files().empty()
+
+func clear_campaign_progress() -> bool:
+	var dir := Directory.new()
+	var files: Array = _campaign_checkpoint_files()
+	if dir.file_exists(_get_continue_index_path()):
+		files.append("continue.cfg")
+	for entry in files:
+		var err: int = dir.remove("%s/%s" % [checkpoint_directory, entry])
+		if err != OK:
+			push_warning("[PersistenceManager] No se pudo borrar checkpoint (%d)." % err)
+			return false
+	checkpoint_resource = null
+	_continue_requested = false
+	return true
+
 func request_continue() -> bool:
 	_continue_requested = get_continue_scene_path() != ""
 	return _continue_requested

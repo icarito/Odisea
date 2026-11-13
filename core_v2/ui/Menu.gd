@@ -23,6 +23,7 @@ onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
 onready var version_label = get_node_or_null("VersionLabel")
 var _continue_scene_path := ""
+var _new_game_confirm: ConfirmationDialog = null
 # estado -> [estilo dorado, estilo gris] del boton de control remoto
 var _remote_styles: Dictionary = {}
 
@@ -288,7 +289,36 @@ func _on_RemoteControl_pressed():
 		menu.connect("closed", self, "_focus_default_button")
 		menu.open_menu()
 
-func _on_NewGame_pressed():
+func _on_NewGame_pressed() -> void:
+	if _is_starting_game():
+		return
+	var persistence: Node = get_node_or_null("/root/PersistenceManager")
+	if persistence and persistence.has_campaign_progress():
+		if not is_instance_valid(_new_game_confirm):
+			_new_game_confirm = ConfirmationDialog.new()
+			_new_game_confirm.name = "NewGameConfirm"
+			_new_game_confirm.window_title = tr("Nueva partida")
+			_new_game_confirm.dialog_text = tr("Se borrará el progreso de la partida guardada. ¿Empezar de nuevo?")
+			_new_game_confirm.get_ok().text = tr("Nueva partida")
+			_new_game_confirm.get_cancel().text = tr("Cancelar")
+			add_child(_new_game_confirm)
+			VirtualMouse.attach_popup(_new_game_confirm)
+			preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(_new_game_confirm)
+			_new_game_confirm.connect("confirmed", self, "_on_new_game_confirmed")
+			_new_game_confirm.connect("popup_hide", self, "_focus_default_button")
+		_new_game_confirm.popup_centered()
+		# Enter no debe confirmar por accidente una acción destructiva.
+		_new_game_confirm.get_cancel().grab_focus()
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		return
+	_on_new_game_confirmed()
+
+func _on_new_game_confirmed() -> void:
+	var persistence: Node = get_node_or_null("/root/PersistenceManager")
+	if persistence and not persistence.clear_campaign_progress():
+		_check_save_game()
+		return # No iniciar una partida mezclada con checkpoints que no se pudieron borrar.
+	_check_save_game()
 	_start_game(FIRST_GAME_SCENE)
 
 func _on_Continue_pressed():
