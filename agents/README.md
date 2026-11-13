@@ -246,6 +246,22 @@ Modelos inspeccionados (2026-11-13):
 | `anna_ppo_noorbit_lvl2_32k_fps120_v1.zip` | Box(12,) ∈ [-1,1] | Discrete(6) | 12→64→64→6 (tanh) |
 | `anna_candidate.zip` | Box(13,) ∈ [-1,1] | Discrete(8) | 13→128→128→8 (tanh) |
 
+## Gimnasios estilo mapas nuevos (2026-11-13)
+
+- `TestScene_RL_RingHubRing.tscn`: gym con anillo central elevado (ScaffoldHubRing
+  outer 13/inner 6, deck y=4.5) sobre el piso del domo; pools alrededor (r 16..30).
+- `TestScene_RL_MachineBayCorridor.tscn`: corredor 16x100 con bloques-estación
+  alternados; spawn en la entrada, targets a lo largo del corredor.
+- Releases: `agents/release/anna_mapgyms_2026-11-13/` (REPORT.md con la grilla de
+  evaluación; best = `anna_ring_ft_v1_best.zip`, 100% en Ring y Bay a 60 Hz).
+- Herramienta de edición directa de pesos: `agents/edit_ppo_action_bias.py`
+  (sesgo de la action head sin tocar el trunk).
+- **Régimen de física del eval**: correr SIEMPRE a 60 Hz (`ANNA_RL_..._FPS`)
+  o al régimen del entrenamiento; con fps uncapped el mismo modelo da 0% por
+  dinámica por-step distinta.
+- **Binario**: el `godot3-server` de `~/.local/bin` es Godot 3.6.3 stock SIN
+  Box3D; usar el headless del fork (`~/.cache/odisea-godot/v0.5.4/`).
+
 ## Notas
 
 - En modo RL (`ANNA_RL_MODE=1`) el mundo avanza en lock-step (un `STEP` -> un frame físico).

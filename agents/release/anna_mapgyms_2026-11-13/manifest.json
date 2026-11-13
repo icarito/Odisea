@@ -1,0 +1,47 @@
+{
+  "name": "anna_mapgyms_2026-11-13",
+  "date": "2026-11-13",
+  "base_model": "agents/models/anna_candidate.zip (obs13/act8, MLP 128x128 tanh)",
+  "edits": [
+    {
+      "model": "models/anna_candidate_biasfix.zip",
+      "kind": "action_bias_surgery",
+      "delta": {"0": -0.3, "1": 0.8, "2": 0.4, "3": -0.1, "6": -0.6, "7": -0.6}
+    },
+    {
+      "model": "models/anna_bay_ft_v1_best.zip",
+      "kind": "ppo_fine_tune",
+      "scene": "core_v2/tests/TestScene_RL_MachineBayCorridor.tscn",
+      "rounds": 2,
+      "steps_per_round": 20000,
+      "warm_start": "models/anna_candidate_biasfix.zip",
+      "gate_success_rate": 0.8
+    },
+    {
+      "model": "models/anna_ring_ft_v1_best.zip",
+      "kind": "ppo_fine_tune",
+      "scene": "core_v2/tests/TestScene_RL_RingHubRing.tscn",
+      "rounds": 2,
+      "steps_per_round": 20000,
+      "warm_start": "models/anna_bay_ft_v1_best.zip",
+      "gate_success_rate": 1.0
+    }
+  ],
+  "eval_regime": {
+    "physics_fps": 60,
+    "deterministic": true,
+    "note": "uncapped fps regimens give misleading 0% results; always eval at 60 Hz or training fps"
+  },
+  "external_eval_5eps": {
+    "anna_ring_ft_v1_best on TestScene_RL_RingHubRing": {"success_rate": 1.0, "avg_len": 326.6},
+    "anna_ring_ft_v1_best on TestScene_RL_MachineBayCorridor": {"success_rate": 0.8},
+    "anna_bay_ft_v1_best on TestScene_RL_RingHubRing": {"success_rate": 1.0, "avg_len": 341.2},
+    "anna_bay_ft_v1_best on TestScene_RL_MachineBayCorridor": {"success_rate": 1.0, "avg_len": 602.0},
+    "anna_candidate on TestScene_RL_MachineBayCorridor": {"success_rate": 0.8}
+  },
+  "new_gyms": [
+    "core_v2/tests/TestScene_RL_RingHubRing.tscn",
+    "core_v2/tests/TestScene_RL_MachineBayCorridor.tscn"
+  ],
+  "godot_binary_warning": "system godot3-server (~/.local/bin) is STOCK Godot 3.6.3 without Box3D; use fork headless v0.5.4"
+}
