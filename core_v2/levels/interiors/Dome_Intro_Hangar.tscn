@@ -1,0 +1,372 @@
+[gd_scene load_steps=20 format=2]
+
+; Dome_Intro_Hangar.tscn — Blockout del hangar/sotano del domo Intro (FD-289 Sec 7.7, T4).
+;
+; Escena SEPARADA e intercambiable por domo: el template de sistemas (redes + timeline +
+; blast door) vive en el domo; lo que varia por domo es esta escena, apuntada por
+; DomeEnvConfig.hangar_scene y con spawn de llegada DomeEnvConfig.hangar_spawn_id.
+;
+; Blockout: hangar grande y abierto, dos niveles (piso + catwalks), iluminacion de trabajo.
+; Puzzles fisicos con assets existentes: PushableBoxV2 (tapar respiradero, placa de presion,
+; puente) + Conveyor / ConveyorCarrousel (mover cajas, punto de entrega).
+;
+; Entrada: change_scene desde el blast door del domo -> SpawnPointV2 "from_dome_intro_platform"
+; (interior presurizado -> interior presurizado, SIN esclusa en esa frontera).
+; Salida: AirlockChamber al fondo -> ScaffoldOrbit con spawn "from_dome_intro_hangar".
+; Unica frontera presurizada -> vacio.
+;
+; Coordenadas: +Z = BACK, -Z = FORWARD (AGENTS.md Sec 2.1). El jugador entra por el frente
+; (z negativo) y avanza en +Z hacia la esclusa del fondo (z positivo). Determinismo: sin
+; randf/randomize; todo es geometria/CSG + prefabs ya existentes.
+
+[ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/machinery/Conveyor.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/props/machinery/ConveyorCarrousel.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/props/controls/PressurePlate.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiWorkLightTripodV2.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/scaffold/SteelGratePlatform.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldStairs.tscn" type="PackedScene" id=9]
+[ext_resource path="res://core_v2/props/scifi_lights/SciFiPathMarkerV2.tscn" type="PackedScene" id=10]
+[ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=11]
+[ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=12]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=13]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=14]
+[ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=15]
+[ext_resource path="res://materials/diamondPlateAluminum/diamondAluminum.tres" type="Material" id=16]
+[ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=17]
+[ext_resource path="res://core_v2/props/duct/DuctFloorGrate.tres" type="Material" id=18]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=19]
+
+[node name="Dome_Intro_Hangar" type="Spatial" groups=["hangar_interior"]]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 12 )
+
+[node name="Pilot" parent="." instance=ExtResource( 19 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -19 )
+yaw_deg = 180.0
+
+[node name="Spawn_FromDomeIntro" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -19 )
+script = ExtResource( 1 )
+spawn_id = "from_dome_intro_platform"
+
+[node name="Shell" type="Spatial" parent="."]
+
+[node name="FloorFront" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -10 )
+use_collision = true
+width = 32.0
+height = 0.5
+depth = 24.0
+material = ExtResource( 13 )
+
+[node name="FloorBack" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 15 )
+use_collision = true
+width = 32.0
+height = 0.5
+depth = 14.0
+material = ExtResource( 13 )
+
+[node name="FloorWest" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, -0.25, 5 )
+use_collision = true
+width = 10.0
+height = 0.5
+depth = 6.0
+material = ExtResource( 13 )
+
+[node name="FloorEast" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11, -0.25, 5 )
+use_collision = true
+width = 10.0
+height = 0.5
+depth = 6.0
+material = ExtResource( 13 )
+
+[node name="ServiceChannel" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, 5 )
+use_collision = true
+width = 12.0
+height = 0.5
+depth = 6.0
+material = ExtResource( 16 )
+
+[node name="WallWest" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -16.25, 6.5, 0 )
+use_collision = true
+width = 0.5
+height = 13.0
+depth = 44.0
+material = ExtResource( 14 )
+
+[node name="WallEast" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 16.25, 6.5, 0 )
+use_collision = true
+width = 0.5
+height = 13.0
+depth = 44.0
+material = ExtResource( 14 )
+
+[node name="WallFrontLeft" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.25, 6.5, -22.25 )
+use_collision = true
+width = 13.5
+height = 13.0
+depth = 0.5
+material = ExtResource( 14 )
+
+[node name="WallFrontRight" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.25, 6.5, -22.25 )
+use_collision = true
+width = 13.5
+height = 13.0
+depth = 0.5
+material = ExtResource( 14 )
+
+[node name="WallFrontLower" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, -22.25 )
+use_collision = true
+width = 5.0
+height = 2.0
+depth = 0.5
+material = ExtResource( 14 )
+
+[node name="WallFrontLintel" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.5, -22.25 )
+use_collision = true
+width = 5.0
+height = 7.0
+depth = 0.5
+material = ExtResource( 14 )
+
+[node name="WallBackLeft" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.25, 6.5, 22.25 )
+use_collision = true
+width = 13.5
+height = 13.0
+depth = 0.5
+material = ExtResource( 14 )
+
+[node name="WallBackRight" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.25, 6.5, 22.25 )
+use_collision = true
+width = 13.5
+height = 13.0
+depth = 0.5
+material = ExtResource( 14 )
+
+[node name="WallBackLintel" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.0, 22.25 )
+use_collision = true
+width = 5.0
+height = 8.0
+depth = 0.5
+material = ExtResource( 14 )
+
+[node name="Ceiling" type="CSGBox" parent="Shell"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.25, 0 )
+width = 32.0
+height = 0.5
+depth = 44.0
+material = ExtResource( 14 )
+
+[node name="Shelves" type="Spatial" parent="."]
+
+[node name="ShelfRackWest" type="CSGBox" parent="Shelves"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 1.7, -21.4 )
+use_collision = true
+width = 8.0
+height = 3.4
+depth = 1.2
+material = ExtResource( 15 )
+
+[node name="ShelfRackEast" type="CSGBox" parent="Shelves"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, 1.7, -21.4 )
+use_collision = true
+width = 8.0
+height = 3.4
+depth = 1.2
+material = ExtResource( 15 )
+
+[node name="Catwalks" type="Spatial" parent="."]
+
+[node name="LeftCatwalk" parent="Catwalks" instance=ExtResource( 8 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 0, 6 )
+platform_width = 6.0
+platform_depth = 28.0
+platform_height = 5.0
+support_base_local_y = 0.0
+rail_left = false
+rail_right = true
+rail_front = true
+rail_back = true
+
+[node name="RightCatwalk" parent="Catwalks" instance=ExtResource( 8 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 6 )
+platform_width = 6.0
+platform_depth = 28.0
+platform_height = 5.0
+support_base_local_y = 0.0
+rail_left = true
+rail_right = false
+rail_front = true
+rail_back = true
+
+[node name="BackCatwalk" parent="Catwalks" instance=ExtResource( 8 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 14 )
+platform_width = 28.0
+platform_depth = 4.0
+platform_height = 5.0
+support_base_local_y = 0.0
+rail_left = false
+rail_right = false
+rail_front = true
+rail_back = false
+
+[node name="AccessRamp" parent="Catwalks" instance=ExtResource( 9 )]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 11, 0, -14 )
+platform_width = 6.0
+platform_depth = 12.0
+platform_height = 0.2
+front_height_offset = 4.8
+rail_left = true
+rail_right = true
+rail_front = false
+rail_back = false
+
+[node name="Puzzles" type="Spatial" parent="."]
+
+[node name="VentGrate" type="CSGBox" parent="Puzzles"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, -9 )
+width = 2.4
+height = 0.16
+depth = 2.4
+material = ExtResource( 18 )
+
+[node name="VentLight" type="OmniLight" parent="Puzzles"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, -9 )
+light_color = Color( 0.42, 0.72, 1, 1 )
+light_energy = 0.9
+omni_range = 5.0
+
+[node name="PressurePlate_Vent" parent="Puzzles" instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.02, -9 )
+
+[node name="Box_Vent" parent="Puzzles" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2, 1.1, -9 )
+
+[node name="ConveyorMain" parent="Puzzles" instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -4 )
+starts_active = true
+speed_x = 1.2
+
+[node name="Carrousel" parent="Puzzles" instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -3 )
+starts_active = true
+angular_speed = 0.6
+
+[node name="DeliveryPad" type="CSGBox" parent="Puzzles"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0.08, -3 )
+width = 4.0
+height = 0.16
+depth = 4.0
+material = ExtResource( 17 )
+
+[node name="DeliveryLabel" type="Label3D" parent="Puzzles"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 1.6, -3 )
+pixel_size = 0.02
+modulate = Color( 1, 0.72, 0.25, 1 )
+text = "ENTREGA"
+
+[node name="Box_Bridge" parent="Puzzles" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 1.0, 5 )
+
+[node name="Box_Heavy" parent="Puzzles" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 12 )
+
+[node name="WorkLights" type="Spatial" parent="."]
+
+[node name="TripodFront" parent="WorkLights" instance=ExtResource( 6 )]
+transform = Transform( 0, 0, 1, 0, 1, 0, -1, 0, 0, -7, 0, -15 )
+
+[node name="TripodMid" parent="WorkLights" instance=ExtResource( 6 )]
+transform = Transform( 0, 0, -1, 0, 1, 0, 1, 0, 0, 7, 0, -2 )
+
+[node name="TripodBack" parent="WorkLights" instance=ExtResource( 6 )]
+transform = Transform( 0, 0, 1, 0, 1, 0, -1, 0, 0, -7, 0, 9 )
+
+[node name="FillFront" type="OmniLight" parent="WorkLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, -14 )
+light_color = Color( 0.85, 0.92, 1, 1 )
+light_energy = 1.3
+omni_range = 30.0
+
+[node name="FillMid" type="OmniLight" parent="WorkLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0 )
+light_color = Color( 0.85, 0.92, 1, 1 )
+light_energy = 1.0
+omni_range = 30.0
+
+[node name="FillBack" type="OmniLight" parent="WorkLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 15 )
+light_color = Color( 1, 0.86, 0.72, 1 )
+light_energy = 1.3
+omni_range = 30.0
+
+[node name="Exit" type="Spatial" parent="."]
+
+[node name="Airlock_Exit" parent="Exit" instance=ExtResource( 7 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 21.9 )
+
+[node name="AirlockZoneV2" parent="Exit/Airlock_Exit" index="14"]
+target_scene = "res://core_v2/components/ScaffoldOrbit.tscn"
+target_spawn_id = "from_dome_intro_hangar"
+target_airlock_path = NodePath("Airlock_Basement")
+zone_dir = Vector3( 0, 0, 1 )
+
+[node name="ExitBeacon" parent="Exit" instance=ExtResource( 11 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, 1.0, 20.4 )
+sound_enabled = false
+light_activation_distance = 10.0
+
+[node name="ExitLight" type="OmniLight" parent="Exit"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 18.5 )
+light_color = Color( 1, 0.86, 0.7, 1 )
+light_energy = 1.2
+omni_range = 9.0
+
+[node name="ExitLabel" type="Label3D" parent="Exit"]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 3.2, 21.2 )
+pixel_size = 0.02
+modulate = Color( 0.4, 1, 0.6, 1 )
+text = "ESCLUSA / EXTERIOR"
+
+[node name="DomeLabel" type="Label3D" parent="Exit"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.6, -21.8 )
+pixel_size = 0.02
+modulate = Color( 0.62, 0.82, 1, 1 )
+text = "POZO DOMO"
+
+[node name="PathMarkers" type="Spatial" parent="."]
+
+[node name="Marker_00" parent="PathMarkers" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, -13 )
+
+[node name="Marker_01" parent="PathMarkers" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.06, -7 )
+
+[node name="Marker_02" parent="PathMarkers" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.06, -3 )
+
+[node name="Marker_03" parent="PathMarkers" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.06, 1.2 )
+
+[node name="Marker_04" parent="PathMarkers" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.06, 12 )
+
+[node name="Marker_05" parent="PathMarkers" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 18 )
