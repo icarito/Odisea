@@ -456,6 +456,20 @@ Pequeño, sin dependencias. 30-60 min.
 Archivo: `core_v2/systems/dome/DomeSystemDirector.gd` + entry en `project.godot`
 Depende de T1. Implementa la máquina de beats. 1-2 h.
 
+> **Implementado (T2).** Autoload `DomeSystemDirector` (sin `class_name`: el singleton ya
+> expone el global). API para T6/T7: `set_config()`/`env_config`, `register_network_status()`
+> (o `network_status_path`), `notify_event(event)`, `request_first_power_attempt()`,
+> `request_airlock_exit(target)`. Señales: `timeline_event(event, action, beat)`,
+> `blast_door_open()`, `hangar_ready()`, `airlock_exit(target)`. Los nombres de red de
+> `DomeEnvConfig_intro.tres` (criocoolant/energia/plasma/aire) se traducen a los eventos del
+> timeline (coolant_healthy/energy_healthy/plasma_healthy/air_healthy) con
+> `network_event_aliases`, así que `DomeNetworkStatus.mark_healthy()` avanza los beats solo.
+> Desviaciones respecto de este doc: (a) la señal `airlock_exit` carga la escena con
+> `SceneManager.goto_scene()` (el API real de transición; no existe `load_scene`), y se puede
+> desactivar con `auto_load_airlock_scene`; (b) `DomeEnvConfigV2` no se usa como tipo estático
+> (no está en el registro de clases globales de `project.godot`): el config se valida por duck
+> typing. Test focalizado: `core_v2/tests/test_dome_system_director.gd`.
+
 ### T3 — `BlastDoorController` + pozo de descenso (plataforma + rampa)
 Archivos: `core_v2/props/doors/BlastDoorController.gd` + `.tscn`, `HangarPlatform.gd` + `.tscn`
 Base mecánica `FloorHatch.tscn`, modelos nuevos, apertura horizontal. Pozo con plataforma
