@@ -4,6 +4,8 @@
 
 [FD-320 — RingHub + Bahía de máquinas](FD-320_bahia_de_maquinas.md): traversal con cuatro máquinas existentes, reintento/Continue confiables, válvula y regreso sin repetir despertar. Candidata con regresiones focalizadas; faltan recorrido completo con gamepad, continuidad visual y aprobación de capturas. No incluye editor de construcción, domos nuevos ni da por completado FD-289. [Bitácora](../agents/sessions/2026-11-13_slice_convergence.md).
 
+[FD-321 — Cámaras cinemáticas en momentos clave](FD-321_camaras_cinematicas_momentos_clave.md): dos `CameraZone`+`CinematicRig` en la Bahía de Máquinas (llegada a la bahía y puente sobre el fuego) reusando `CinematicManager`. Wiring e integración verdes; capturas de encuadre adjuntas.
+
 La dirección histórica siguiente se conserva como referencia, no como lista de requisitos de esta entrega.
 
 ## Product Direction 2026-05-29
