@@ -21,6 +21,7 @@ signal said(text, duration)
 const MachinePart = preload("res://core_v2/props/machines/MachinePart.gd")
 const MachineHinge = preload("res://core_v2/props/machines/MachineHinge.gd")
 const TriggerScript = preload("res://core_v2/props/machines/MachineTrigger.gd")
+const ProgrammerHoloNPC = preload("res://core_v2/actors/ProgrammerHoloNPC.gd")
 const LedgeV2 = preload("res://core_v2/components/LedgeV2.gd")
 const SignagePanelScene = preload("res://core_v2/props/signage/SignagePanel.tscn")
 const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
@@ -212,6 +213,8 @@ func _make(item: Dictionary) -> Spatial:
 		"scene":
 			# "optional": decoracion cuyo import puede no existir (CI no importa assets nuevos).
 			if bool(item.get("optional", false)) and not ResourceLoader.exists(str(item.get("path", ""))):
+				if str(item.get("name", "")) == "BayShell":
+					return _build_fallback_bay_shell()
 				return null
 			var packed = load(str(item.get("path", "")))
 			if not (packed is PackedScene):
@@ -443,6 +446,8 @@ func _show_subtitle_now(text: String, duration: float) -> void:
 	var subtitles := get_node_or_null("/root/SubtitlesOverlayManager")
 	if subtitles != null and subtitles.has_method("show_subtitle"):
 		subtitles.show_subtitle(tr(text), Color(0.55, 0.95, 1.0), duration)
+	if is_inside_tree():
+		ProgrammerHoloNPC.summon(get_tree(), duration)
 	# Minimo de separacion entre lineas consecutivas en pantalla (3.2 s) para que nunca pasen rapido.
 	_subtitle_hold_ticks = int(round(min(duration * 0.55, 3.4) * Engine.iterations_per_second))
 
@@ -501,11 +506,12 @@ func complete_work_order() -> void:
 				model.add_objective("return_hub", "Fin de la demo: puede retornar al anillo de criogenia", model.OBJ_ACTIVE)
 			if suit_screen.has_method("notify_state_changed"):
 				suit_screen.notify_state_changed()
-	say("ODISEA: Orden de Trabajo 0001 cerrada. Flujo principal restablecido en Bahía 3. Fin de la demo; puede retornar al anillo de criogenia.", 7.5)
-	var line_eval := "ODISEA: Tiempo presupuestado: 240 s. Tiempo real: %d s. Rearmes de estación: %d." % [elapsed_sec, resets]
-	var line_reprimand := "ODISEA: Amonestación 0001 archivada: uso no homologado de contrapesos y corte térmico de retenes."
-	_on_link_fired(self, "say", [line_eval, 8.0], int(round(6.5 * Engine.iterations_per_second)))
-	_on_link_fired(self, "say", [line_reprimand, 8.5], int(round(13.5 * Engine.iterations_per_second)))
+	say("ODISEA: Supresión térmica activada. Caudal restablecido en Bahía 3. Orden de Trabajo 0001 cerrada.", 8.0)
+	var line_ghost := "[INTERFERENCIA — FANTASMA DIGITAL]: ...lo lograste, Elías. Sabía que recordarías cómo... [SEÑAL ESTABILIZADA]"
+	var line_eval := "ODISEA: Corrección de registro. Tiempo presupuestado: 240 s. Tiempo real: %d s. Rearmes: %d. Amonestación 0001 archivada." % [elapsed_sec, resets]
+	_suppress_bay_fire()
+	_on_link_fired(self, "say", [line_ghost, 7.5], int(round(6.5 * Engine.iterations_per_second)))
+	_on_link_fired(self, "say", [line_eval, 8.5], int(round(13.5 * Engine.iterations_per_second)))
 
 
 func is_work_order_completed() -> bool:
@@ -613,7 +619,7 @@ func reset_station(station_id: int = 0) -> void:
 	while i >= 0:
 		var entry: Array = _pending[i]
 		var source: Node = get_item(str(entry[5])) if entry.size() > 5 else null
-		if station_id <= 0 or target_nodes.has(entry[1]) or (entry[1] == self and target_nodes.has(source)):
+		if station_id <= 0 or target_nodes.has(entry[1]) or (((entry[1] is Object and entry[1] == self) or (entry[1] is String and entry[1] == "@odisea")) and target_nodes.has(source)):
 			_pending.remove(i)
 		i -= 1
 	# Soltar cualquier pieza de esta estacion que el jugador tenga agarrada con el Multi-Tool
@@ -671,18 +677,89 @@ func get_elapsed_seconds() -> float:
 	return float(_elapsed_ticks) / float(max(1, Engine.iterations_per_second))
 
 
+func _resolve_odisea_npc() -> Node:
+	if not is_inside_tree():
+		return null
+	var tree := get_tree()
+	for node in tree.get_nodes_in_group("programmer_holo_npc"):
+		if is_instance_valid(node):
+			return node
+	return ProgrammerHoloNPC.summon(tree, 8.0)
+
+
+func _call_odisea(method: String, args: Array) -> void:
+	var npc := _resolve_odisea_npc()
+	if not is_instance_valid(npc):
+		return
+	if npc.has_method(method):
+		var converted := []
+		for a in args:
+			if a is Array and a.size() == 3 and (typeof(a[0]) == TYPE_REAL or typeof(a[0]) == TYPE_INT):
+				converted.append(_vec(a))
+			else:
+				converted.append(a)
+		npc.callv(method, converted)
+
+
+func _suppress_bay_fire() -> void:
+	var systems := []
+	var by_name := get_item("BayFireSystem")
+	if is_instance_valid(by_name):
+		systems.append(by_name)
+	if is_inside_tree():
+		for node in get_tree().get_nodes_in_group("fire_system"):
+			if is_instance_valid(node) and not systems.has(node):
+				systems.append(node)
+	for fs in systems:
+		if fs.has_method("set_active"):
+			fs.call("set_active", false)
+		elif fs.has_method("stop"):
+			fs.call("stop")
+		if "start_height" in fs and "fire_height" in fs:
+			fs.set("fire_height", fs.get("start_height"))
+			if fs.has_signal("fire_height_changed"):
+				fs.emit_signal("fire_height_changed", fs.get("fire_height"))
+		if fs.has_signal("fire_visuals_reset"):
+			fs.emit_signal("fire_visuals_reset")
+
+
+func _ensure_fire_safe_for_respawn(respawn_y: float) -> void:
+	var systems := []
+	var by_name := get_item("BayFireSystem")
+	if is_instance_valid(by_name):
+		systems.append(by_name)
+	if is_inside_tree():
+		for node in get_tree().get_nodes_in_group("fire_system"):
+			if is_instance_valid(node) and not systems.has(node):
+				systems.append(node)
+	for fs in systems:
+		if fs.has_method("ensure_safe_for_respawn"):
+			fs.call("ensure_safe_for_respawn", respawn_y)
+
+
 func _connect_link(link: Dictionary) -> void:
 	var from_name := str(link.get("from", ""))
 	var from := get_item(from_name)
-	var to: Node = self if str(link.get("to", "")) == "@level" else get_item(str(link.get("to", "")))
+	var to_name := str(link.get("to", ""))
 	var sig := str(link.get("signal", "activated"))
 	var method := str(link.get("method", "set_active"))
+	var args: Array = link.get("args", [])
+	var delay_ticks := int(round(float(link.get("delay", 0.0)) * Engine.iterations_per_second))
+	if to_name == "@odisea":
+		if from == null or not from.has_signal(sig):
+			push_error("MachineLevel: link invalido " + str(link))
+			return
+		var okey := from_name + ":" + sig
+		if not _signal_links.has(okey):
+			_signal_links[okey] = []
+			from.connect(sig, self, "_on_signal_emitted", [okey])
+		_signal_links[okey].append(["@odisea", method, args, delay_ticks, from_name])
+		return
+	var to: Node = self if to_name == "@level" else get_item(to_name)
 	if from == null or to == null or not from.has_signal(sig) or not to.has_method(method):
 		push_error("MachineLevel: link invalido " + str(link))
 		return
 	# Las senales de los interactuables no llevan argumentos: se liga el valor aca.
-	var args: Array = link.get("args", [])
-	var delay_ticks := int(round(float(link.get("delay", 0.0)) * Engine.iterations_per_second))
 	var key := from_name + ":" + sig
 	if not _signal_links.has(key):
 		_signal_links[key] = []
@@ -698,9 +775,11 @@ func _on_signal_emitted(key: String) -> void:
 		_on_link_fired(entry[0], entry[1], entry[2], entry[3], str(entry[4]) if entry.size() > 4 else "")
 
 
-func _on_link_fired(to: Node, method: String, args: Array, delay_ticks: int, from_name: String = "") -> void:
+func _on_link_fired(to, method: String, args: Array, delay_ticks: int, from_name: String = "") -> void:
 	if delay_ticks <= 0:
-		if is_instance_valid(to):
+		if to is String and to == "@odisea":
+			_call_odisea(method, args)
+		elif to is Node and is_instance_valid(to):
 			to.callv(method, args)
 			_mark_conduit_fired(to)
 		return
@@ -743,15 +822,18 @@ func _physics_process(_delta: float) -> void:
 	while i >= 0:
 		var entry: Array = _pending[i]
 		entry[0] -= 1
-		if entry[1] != self and entry[0] > 0:
+		var is_narrative: bool = (entry[1] is Object and entry[1] == self) or (entry[1] is String and entry[1] == "@odisea")
+		if not is_narrative and entry[0] > 0:
 			if min_mechanical_ticks < 0 or int(entry[0]) < min_mechanical_ticks:
 				min_mechanical_ticks = int(entry[0])
 		if entry[0] <= 0:
-			var target_node: Node = entry[1]
+			var target = entry[1]
 			_pending.remove(i)
-			if is_instance_valid(target_node):
-				target_node.callv(entry[2], entry[3])
-				_mark_conduit_fired(target_node)
+			if target is String and target == "@odisea":
+				_call_odisea(str(entry[2]), entry[3])
+			elif target is Node and is_instance_valid(target):
+				target.callv(entry[2], entry[3])
+				_mark_conduit_fired(target)
 		i -= 1
 	_update_diegetic_feedback(min_mechanical_ticks)
 
@@ -774,7 +856,7 @@ func _update_diegetic_feedback(min_mechanical_ticks: int) -> void:
 		var to_node: Node = c.get("to", null)
 		var is_counting := false
 		for entry in _pending:
-			if entry[1] == to_node:
+			if entry[1] is Object and entry[1] == to_node:
 				is_counting = true
 				break
 		var active_ticks := int(c.get("active_ticks", 0))
@@ -802,6 +884,15 @@ func _trigger_void_death(player: Node) -> void:
 	var sm = get_node_or_null("/root/SessionManager")
 	if sm != null and bool(sm.get("is_respawning")):
 		return
+	var respawn_y := 0.6
+	if player is Spatial and "initial_transform" in player:
+		respawn_y = float(player.initial_transform.origin.y)
+	var cm = get_node_or_null("/root/CheckpointManager")
+	if cm != null and cm.has_method("get_active_checkpoint_position"):
+		var cp_pos = cm.call("get_active_checkpoint_position")
+		if cp_pos is Vector3:
+			respawn_y = cp_pos.y
+	_ensure_fire_safe_for_respawn(respawn_y)
 	var kill_floor: Node = _items.get("KillFloor", null)
 	var ts = get_node_or_null("/root/SessionManager/TeleportSystem")
 	if ts == null and is_inside_tree():
@@ -825,11 +916,15 @@ func _trigger_void_death(player: Node) -> void:
 func get_snapshot() -> Dictionary:
 	var pending: Array = []
 	for entry in _pending:
-		var target: Node = entry[1]
-		if not is_instance_valid(target):
-			continue
-		var target_name: String = "@level" if target == self else str(target.name)
-		if target != self and get_item(target_name) != target:
+		var target = entry[1]
+		var target_name := ""
+		if target is String and target == "@odisea":
+			target_name = "@odisea"
+		elif target is Node and is_instance_valid(target):
+			target_name = "@level" if target == self else str(target.name)
+			if target != self and get_item(target_name) != target:
+				continue
+		else:
 			continue
 		pending.append([int(entry[0]), target_name, str(entry[2]),
 			(entry[3] as Array).duplicate(true), int(entry[4]), str(entry[5])])
@@ -850,6 +945,10 @@ func restore_snapshot(data: Dictionary) -> void:
 		if not (entry is Array) or entry.size() != 6 or not (entry[3] is Array):
 			continue
 		var target_name: String = str(entry[1])
+		if target_name == "@odisea":
+			_pending.append([int(entry[0]), "@odisea", str(entry[2]),
+				(entry[3] as Array).duplicate(true), int(entry[4]), str(entry[5])])
+			continue
 		var target: Node = self if target_name == "@level" else get_item(target_name)
 		if not is_instance_valid(target) or not target.has_method(str(entry[2])):
 			continue
@@ -868,3 +967,56 @@ func restore_snapshot(data: Dictionary) -> void:
 
 static func _vec(a) -> Vector3:
 	return Vector3(float(a[0]), float(a[1]), float(a[2]))
+
+
+func _build_fallback_bay_shell() -> Spatial:
+	# Cascaron monumental procedural cuando build/machine_bay/bay_shell.glb no existe en disco.
+	var shell := Spatial.new()
+	shell.name = "BayShellFallback"
+	var wall_mat := SpatialMaterial.new()
+	wall_mat.albedo_color = Color("#1d232b")
+	wall_mat.roughness = 0.85
+	wall_mat.metallic = 0.35
+	var rib_mat := SpatialMaterial.new()
+	rib_mat.albedo_color = Color("#2d3642")
+	rib_mat.roughness = 0.72
+	rib_mat.metallic = 0.55
+	var strip_mat := SpatialMaterial.new()
+	strip_mat.albedo_color = Color(0.22, 0.86, 1.0, 1.0)
+	strip_mat.emission_enabled = true
+	strip_mat.emission = Color(0.22, 0.86, 1.0, 1.0)
+	strip_mat.emission_energy = 1.6
+
+	var specs := [
+		["WallLeft", Vector3(-22.4, 8.0, 71.0), Vector3(0.8, 68.0, 168.0), wall_mat],
+		["WallRight", Vector3(22.4, 8.0, 71.0), Vector3(0.8, 68.0, 168.0), wall_mat],
+		["WallEntry", Vector3(0.0, 8.0, -12.4), Vector3(45.6, 68.0, 0.8), wall_mat],
+		["WallBack", Vector3(0.0, 8.0, 154.4), Vector3(45.6, 68.0, 0.8), wall_mat],
+		["Roof", Vector3(0.0, 41.5, 71.0), Vector3(45.6, 1.0, 168.0), wall_mat],
+		["StripLeft", Vector3(-21.8, 37.5, 71.0), Vector3(0.16, 0.28, 162.0), strip_mat],
+		["StripRight", Vector3(21.8, 37.5, 71.0), Vector3(0.16, 0.28, 162.0), strip_mat],
+	]
+	for spec in specs:
+		_add_shell_box(shell, str(spec[0]), spec[1], spec[2], spec[3])
+
+	var z_pos: float = -4.0
+	var idx: int = 0
+	while z_pos <= 148.0:
+		_add_shell_box(shell, "RibL_%d" % idx, Vector3(-21.4, 15.0, z_pos), Vector3(1.2, 54.0, 0.9), rib_mat)
+		_add_shell_box(shell, "RibR_%d" % idx, Vector3(21.4, 15.0, z_pos), Vector3(1.2, 54.0, 0.9), rib_mat)
+		_add_shell_box(shell, "RibTop_%d" % idx, Vector3(0.0, 40.2, z_pos), Vector3(44.0, 1.2, 0.9), rib_mat)
+		z_pos += 14.0
+		idx += 1
+	return shell
+
+
+func _add_shell_box(parent: Spatial, box_name: String, pos: Vector3, size: Vector3, mat: Material) -> void:
+	var mi := MeshInstance.new()
+	mi.name = box_name
+	var cube := CubeMesh.new()
+	cube.size = size
+	mi.mesh = cube
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	mi.transform.origin = pos
+	parent.add_child(mi)

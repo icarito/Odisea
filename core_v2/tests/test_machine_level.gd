@@ -349,3 +349,72 @@ func test_reset_station_cancels_own_level_links_only() -> void:
 	assert_int(level._pending.size()).is_equal(0)
 	root.queue_free()
 	yield(get_tree(), "idle_frame")
+
+
+class StubOdiseaNPC extends Spatial:
+	var calls := []
+
+	func _ready() -> void:
+		add_to_group("programmer_holo_npc")
+
+	func appear_and_speak(duration: float = 8.0, _target_anchor: Spatial = null) -> void:
+		calls.append(["appear_and_speak", duration])
+
+	func custom_cinematic(tag: String) -> void:
+		calls.append(["custom_cinematic", tag])
+
+
+func test_odisea_link_dispatches_and_round_trips_snapshot() -> void:
+	var root := _setup_root()
+	var stub := StubOdiseaNPC.new()
+	root.add_child(stub)
+	var level = _new_level(root, "OdiseaLinkLevel")
+	level.build({"items": [
+		{"type": "scene", "name": "Btn", "path": "res://core_v2/props/controls/PedestalButton.tscn", "props": {"momentary": true}},
+		{"type": "link", "from": "Btn", "signal": "activated", "to": "@odisea", "method": "appear_and_speak", "args": [6.0]},
+		{"type": "link", "from": "Btn", "signal": "activated", "to": "@odisea", "method": "custom_cinematic", "args": ["fire_intro"], "delay": 0.1},
+		{"type": "link", "from": "Btn", "signal": "activated", "to": "@odisea", "method": "nonexistent_future_method", "args": [1]},
+	]})
+	level.set_physics_process(false)
+	level.get_item("Btn").interact()
+	assert_int(stub.calls.size()).is_equal(1)
+	assert_str(str(stub.calls[0][0])).is_equal("appear_and_speak")
+	var snap: Dictionary = level.get_snapshot()
+	assert_int(snap.get("pending", []).size()).is_equal(1)
+	assert_str(str(snap["pending"][0][1])).is_equal("@odisea")
+	var level2 = _new_level(root, "OdiseaLinkRestore")
+	level2.build({"items": []})
+	level2.set_physics_process(false)
+	level2.restore_snapshot(snap)
+	var ticks: int = int(snap["pending"][0][0])
+	for _i in range(ticks):
+		level2._physics_process(1.0 / float(Engine.iterations_per_second))
+	assert_int(stub.calls.size()).is_equal(2)
+	assert_str(str(stub.calls[1][0])).is_equal("custom_cinematic")
+	assert_str(str(stub.calls[1][1])).is_equal("fire_intro")
+	root.queue_free()
+	yield(get_tree(), "idle_frame")
+
+
+func test_complete_work_order_suppresses_fire_and_respawn_clamps_fire() -> void:
+	var root := _setup_root()
+	var level = _new_level(root, "FireSuppressLevel")
+	level.build({"items": [
+		{"type": "scene", "name": "BayFireSystem", "path": "res://core_v2/systems/fire/FireSystem.tscn", "props": {"start_height": -5.0, "base_speed": 1.0, "auto_start": false}},
+		{"type": "scene", "name": "MasterFlowValve", "path": "res://core_v2/props/pipe/PipeValve.tscn", "props": {"starts_active": false}},
+	]})
+	var fs = level.get_item("BayFireSystem")
+	assert_object(fs).is_not_null()
+	fs.start()
+	fs.fire_height = 14.0
+	assert_bool(fs.is_running).is_true()
+	level._ensure_fire_safe_for_respawn(10.0)
+	assert_float(fs.fire_height).is_less_equal(10.0 - fs.respawn_safety_margin - fs.heat_band - fs.fire_contact_margin + 0.001)
+	fs.fire_height = 12.0
+	level.get_item("MasterFlowValve").set_active(true, true)
+	level.complete_work_order()
+	assert_bool(level.is_work_order_completed()).is_true()
+	assert_bool(fs.is_running).is_false()
+	assert_float(fs.fire_height).is_equal_approx(-5.0, 0.01)
+	root.queue_free()
+	yield(get_tree(), "idle_frame")

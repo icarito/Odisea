@@ -1,6 +1,8 @@
 extends Node
 class_name RingHubLightState
 
+const ProgrammerHoloNPC = preload("res://core_v2/actors/ProgrammerHoloNPC.gd")
+
 # O20 — Estados de iluminacion del domo de RingHub.
 #
 # El level tiene DOS estados: DARK (lamparas apagadas, pool de LightPathV2 sin
@@ -246,6 +248,10 @@ func _notify_suit_lights_restored() -> void:
 	model.add_comms("ODISEA", "Iluminación primaria restablecida. Orden 0001 asignada: acceda a Bahía 3.", "odisea")
 	if suit_screen.has_method("notify_state_changed"):
 		suit_screen.notify_state_changed()
+	var bay_btn := get_node_or_null(machine_bay_button_path) as Spatial
+	var npc := ProgrammerHoloNPC.summon(get_tree(), 7.5)
+	if is_instance_valid(npc) and is_instance_valid(bay_btn) and npc.has_method("guide_to"):
+		npc.call("guide_to", bay_btn.global_transform.origin + Vector3(0, 0.3, 0), 3.6)
 
 # --- Flicker determinista ---------------------------------------------------
 

@@ -389,6 +389,148 @@ func test_generator_respects_fixed_variants() -> void:
 	assert_int(cell_2_11.variant.rotation).is_equal(180)
 	assert_float(cell_2_11.base_height).is_equal(4.0)
 
+func test_maze_generation_is_deterministic_with_loops_and_beacons() -> void:
+	var a := DuctMazeStreamerScript.new()
+	a.sectors = 12
+	a.rings = 10
+	a.room_count = 4
+	a.extra_cycles = 2
+	a.loop_shortcut_count = 6
+	a.seed_value = 777
+	add_child(a)
+	a.generate()
+
+	var b := DuctMazeStreamerScript.new()
+	b.sectors = 12
+	b.rings = 10
+	b.room_count = 4
+	b.extra_cycles = 2
+	b.loop_shortcut_count = 6
+	b.seed_value = 777
+	add_child(b)
+	b.generate()
+
+	assert_int(a.get_child_count()).is_equal(b.get_child_count())
+	for i in range(a.get_child_count()):
+		var ca := a.get_child(i)
+		var cb := b.get_child(i)
+		var name_a := String(ca.name).split("@")[0] if "@" in String(ca.name) else String(ca.name)
+		var name_b := String(cb.name).split("@")[0] if "@" in String(cb.name) else String(cb.name)
+		assert_str(name_a).is_equal(name_b)
+		assert_vector3(ca.translation).is_equal_approx(cb.translation, Vector3(0.001, 0.001, 0.001))
+		if ca.has_meta("gx"):
+			assert_int(int(ca.get_meta("gx"))).is_equal(int(cb.get_meta("gx")))
+			assert_int(int(ca.get_meta("gy"))).is_equal(int(cb.get_meta("gy")))
+
+	a.queue_free()
+	b.queue_free()
+
+func test_loop_injection_reduces_dead_ends_and_keeps_single_component() -> void:
+	var spawner := DuctMazeStreamerScript.new()
+	spawner.sectors = 16
+	spawner.rings = 16
+	spawner.room_count = 4
+	spawner.extra_cycles = 2
+	spawner.loop_shortcut_count = 8
+	spawner.seed_value = 42
+
+	var fixed := spawner._get_fixed_border_tiles(0, spawner.rings)
+	var mst_gen := ScaffoldMSTGenerator.new()
+	mst_gen.apply_params({
+		"grid_width": spawner.sectors,
+		"grid_depth": spawner.rings,
+		"mst_max_height_steps": spawner.height_steps,
+		"room_count": spawner.room_count,
+		"extra_cycles": spawner.extra_cycles,
+		"wrap_x": true,
+		"fixed_border_tiles": fixed
+	})
+	var grid := mst_gen.generate_grid_data(spawner._chunk_seed(0))
+	var edges_before := _count_mutual_edges(grid, spawner.sectors, spawner.rings)
+	var dead_before := _count_dead_ends(grid)
+	var pinned_before := {}
+	for key in fixed.keys():
+		var parts: Array = String(key).split(",")
+		var idx := int(parts[1]) * spawner.sectors + int(parts[0])
+		pinned_before[idx] = [String(grid[idx].variant.id), int(grid[idx].variant.rotation)]
+
+	spawner._enhance_maze_loops(grid, 0, spawner.rings, fixed)
+	var edges_after := _count_mutual_edges(grid, spawner.sectors, spawner.rings)
+	var dead_after := _count_dead_ends(grid)
+	var components := _grid_component_sizes(grid, spawner.sectors, spawner.rings)
+
+	assert_int(components.size()).is_equal(1)
+	assert_int(edges_after).is_greater(edges_before)
+	assert_int(dead_after).is_less_equal(dead_before)
+
+	# Pinned border tiles must stay unchanged by loop injection
+	for idx in pinned_before.keys():
+		assert_str(String(grid[idx].variant.id)).is_equal(pinned_before[idx][0])
+		assert_int(int(grid[idx].variant.rotation)).is_equal(pinned_before[idx][1])
+
+	spawner.free()
+
+func test_guide_beacons_and_camera_safe_collision_layers() -> void:
+	var spawner := DuctMazeStreamerScript.new()
+	spawner.sectors = 12
+	spawner.rings = 8
+	spawner.room_count = 4
+	spawner.loop_shortcut_count = 6
+	spawner.guide_beacons_enabled = true
+	spawner.seed_value = 99
+	add_child(spawner)
+	spawner.generate()
+
+	var beacon_count := _count_nodes_named(spawner, "GuideBeacon")
+	var pointer_count := _count_nodes_named(spawner, "ExitPointer")
+	assert_int(beacon_count).is_greater(0)
+	assert_int(pointer_count).is_greater(0)
+
+	# Verify no dynamic OmniLight per tile and all duct colliders are on DUCT_LAYER (not Entorno layer 1)
+	var stats := {"omni": 0, "bad_layer": 0, "total_colliders": 0}
+	_audit_maze_nodes(spawner, spawner.DUCT_LAYER, stats)
+	assert_int(stats.omni).is_equal(0)
+	assert_int(stats.total_colliders).is_greater(0)
+	assert_int(stats.bad_layer).is_equal(0)
+
+	spawner.queue_free()
+
+func _count_mutual_edges(grid: Array, width: int, depth: int) -> int:
+	var edges := 0
+	for i in range(grid.size()):
+		if _grid_cell_is_empty(grid, i):
+			continue
+		var gx := i % width
+		var gy := i / width
+		var conn: Array = grid[i].variant.connections
+		if conn[1]:
+			var nx := int(posmod(gx + 1, width))
+			var ni := gy * width + nx
+			if not _grid_cell_is_empty(grid, ni) and grid[ni].variant.connections[3]:
+				edges += 1
+		if conn[2] and gy + 1 < depth:
+			var si := (gy + 1) * width + gx
+			if not _grid_cell_is_empty(grid, si) and grid[si].variant.connections[0]:
+				edges += 1
+	return edges
+
+func _count_dead_ends(grid: Array) -> int:
+	var count := 0
+	for cell in grid:
+		if cell != null and String(cell.variant.id) == "E":
+			count += 1
+	return count
+
+func _audit_maze_nodes(node: Node, expected_layer: int, stats: Dictionary) -> void:
+	if node is OmniLight:
+		stats.omni += 1
+	if node is CollisionObject:
+		stats.total_colliders += 1
+		if node.collision_layer != expected_layer:
+			stats.bad_layer += 1
+	for child in node.get_children():
+		_audit_maze_nodes(child, expected_layer, stats)
+
 func _count_collision_shapes(node: Node) -> Dictionary:
 	var counts := {}
 	if node is CollisionShape and node.shape != null:

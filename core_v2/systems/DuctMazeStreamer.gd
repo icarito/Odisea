@@ -9,11 +9,14 @@ export var inner_radius := 2.0
 export var ring_step := 4.0      # axial length of each duct segment (NOT radial spacing)
 export var sectors := 12
 export var rings := 3
-export var height_steps := 6
+export var height_steps := 1
 export var wall_radius := 28.0   # duct centreline radius inside the Core shell
 
 export var room_count := 4
 export var extra_cycles := 2
+export var loop_shortcut_count := 6
+export var reduce_dead_ends := true
+export var guide_beacons_enabled := true
 export var seed_value := -1
 export var streaming_enabled := false
 export var stream_chunk_rings := 24
@@ -178,6 +181,8 @@ func _build_chunk_contents(parent: Spatial, chunk_idx: int, chunk_rings: int) ->
 	}
 	mst_gen.apply_params(params)
 	var grid = mst_gen.generate_grid_data(_chunk_seed(chunk_idx))
+	_enhance_maze_loops(grid, chunk_idx, chunk_rings, fixed_tiles)
+	var guidance := _compute_exit_guidance(grid, chunk_rings, fixed_tiles)
 	
 	# Airlocks are no longer dropped loose on the furthest cell. Instead they couple to
 	# ROOMS at the mouth of an interactable (tangential E/W) connection — see
@@ -192,7 +197,7 @@ func _build_chunk_contents(parent: Spatial, chunk_idx: int, chunk_rings: int) ->
 		var gx := i % sectors
 		var gy := i / sectors
 
-		var tile = instantiate_tile(gx, gy, cell, airlock_cells.has(i))
+		var tile = instantiate_tile(gx, gy, cell, airlock_cells.has(i), guidance)
 		if tile:
 			var tile_kind := String(tile.name)
 			parent.add_child(tile)
@@ -257,7 +262,7 @@ func _grid_to_world(gx: int, gy: int, _height: float, piece_name: String = "") -
 func _axis_y(gy: int) -> float:
 	return float(gy) * ring_step
 
-func instantiate_tile(gx: int, gy: int, cell: Dictionary, has_airlock_port: bool = false) -> Spatial:
+func instantiate_tile(gx: int, gy: int, cell: Dictionary, has_airlock_port: bool = false, guidance: Dictionary = {}) -> Spatial:
 	var v = cell.variant
 	var id = v.id
 	var is_room = cell.get("is_room", false)
@@ -283,6 +288,8 @@ func instantiate_tile(gx: int, gy: int, cell: Dictionary, has_airlock_port: bool
 		tile.set_meta("gx", gx)
 		tile.set_meta("gy", gy)
 		_add_content_overlay(tile, gy)
+		if guide_beacons_enabled:
+			_add_guide_elements(tile, gx, gy, cell, has_airlock_port, guidance)
 		_apply_duct_properties(tile)
 		if collapse_enabled:
 			_add_collapse_trigger(tile)
@@ -299,6 +306,8 @@ func _single_connection_dir(connections: Array) -> Vector3:
 func _add_collapse_trigger(tile: Spatial) -> void:
 	var area = Area.new()
 	area.name = "CollapseTrigger"
+	area.collision_layer = 0
+	area.collision_mask = 2 # Player layer only
 	var shape = CollisionShape.new()
 	var sphere = SphereShape.new()
 	sphere.radius = 3.0
@@ -310,6 +319,7 @@ func _add_collapse_trigger(tile: Spatial) -> void:
 func _on_collapse_triggered(body: Node, tile: Spatial) -> void:
 	if body.name.begins_with("Pilot") or body.name.begins_with("Player"):
 		var blocker = make_endcap()
+		_apply_duct_properties(blocker)
 		tile.add_child(blocker)
 		
 		# Place blocker behind the player based on the tile's orientation
@@ -1417,3 +1427,354 @@ func _grado(conn: Array) -> int:
 	for c in conn:
 		if c: count += 1
 	return count
+
+# --- Maze Loop Injection (Deterministic) -----------------------------------
+
+const _MAZE_DIRS := [Vector2(0, -1), Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0)]
+
+func _enhance_maze_loops(grid: Array, chunk_idx: int, chunk_rings: int, fixed_tiles: Dictionary) -> void:
+	if loop_shortcut_count <= 0 and not reduce_dead_ends:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _chunk_seed(chunk_idx) ^ 0x4C4F4F50
+	var target_loops: int = max(loop_shortcut_count, 0)
+	var loops_added := 0
+
+	# Pass 1: Close dead-ends ("E") that touch another populated cell at the same height.
+	var dead_ends := _collect_cells_of_type(grid, ["E"], fixed_tiles)
+	_shuffle_indices(dead_ends, rng)
+	for idx in dead_ends:
+		if loops_added >= target_loops and not reduce_dead_ends:
+			break
+		if _try_connect_cell_to_neighbor(grid, idx, chunk_rings, fixed_tiles, rng):
+			loops_added += 1
+
+	# Pass 2: Bridge 1-empty-cell gaps from remaining dead-ends or corridors to form loops.
+	if loops_added < target_loops:
+		var candidates := _collect_cells_of_type(grid, ["E", "W", "C"], fixed_tiles)
+		_shuffle_indices(candidates, rng)
+		for idx in candidates:
+			if loops_added >= target_loops:
+				break
+			if _try_bridge_one_cell_shortcut(grid, idx, chunk_rings, fixed_tiles, rng):
+				loops_added += 1
+
+	# Pass 3: Connect adjacent degree-2 corridors/corners to create extra loop shortcuts.
+	if loops_added < target_loops:
+		var corridors := _collect_cells_of_type(grid, ["W", "C"], fixed_tiles)
+		_shuffle_indices(corridors, rng)
+		for idx in corridors:
+			if loops_added >= target_loops:
+				break
+			if _try_connect_cell_to_neighbor(grid, idx, chunk_rings, fixed_tiles, rng):
+				loops_added += 1
+
+func _collect_cells_of_type(grid: Array, ids: Array, fixed_tiles: Dictionary) -> Array:
+	var out := []
+	for i in range(grid.size()):
+		var cell = grid[i]
+		if cell == null:
+			continue
+		var gx := i % sectors
+		var gy := i / sectors
+		if not _can_edit_maze_cell(cell, gx, gy, fixed_tiles):
+			continue
+		if String(cell.variant.id) in ids:
+			out.append(i)
+	return out
+
+func _shuffle_indices(arr: Array, rng: RandomNumberGenerator) -> void:
+	for i in range(arr.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp = arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
+
+func _can_edit_maze_cell(cell, gx: int, gy: int, fixed_tiles: Dictionary) -> bool:
+	if cell == null:
+		return false
+	var id := String(cell.variant.id)
+	if id == "EMPTY" or id == "S":
+		return false
+	if fixed_tiles.has("%d,%d" % [gx, gy]):
+		return false
+	return true
+
+func _step_maze_neighbor(gx: int, gy: int, d: int, chunk_rings: int) -> Array:
+	var dv: Vector2 = _MAZE_DIRS[d]
+	var nx := int(posmod(gx + int(dv.x), sectors))
+	var ny := gy + int(dv.y)
+	if ny < 0 or ny >= chunk_rings:
+		return []
+	return [nx, ny]
+
+func _try_connect_cell_to_neighbor(grid: Array, idx: int, chunk_rings: int, fixed_tiles: Dictionary, rng: RandomNumberGenerator) -> bool:
+	var gx := idx % sectors
+	var gy := idx / sectors
+	var cell = grid[idx]
+	if not _can_edit_maze_cell(cell, gx, gy, fixed_tiles):
+		return false
+	var dirs := [0, 1, 2, 3]
+	_shuffle_indices(dirs, rng)
+	for d in dirs:
+		if cell.variant.connections[d]:
+			continue
+		var nb := _step_maze_neighbor(gx, gy, d, chunk_rings)
+		if nb.empty():
+			continue
+		var nx: int = nb[0]
+		var ny: int = nb[1]
+		var ni := ny * sectors + nx
+		var ncell = grid[ni]
+		if not _can_edit_maze_cell(ncell, nx, ny, fixed_tiles):
+			continue
+		if abs(float(cell.base_height) - float(ncell.base_height)) > 0.001:
+			continue
+		_connect_maze_cells(grid, idx, ni, d)
+		return true
+	return false
+
+func _try_bridge_one_cell_shortcut(grid: Array, idx: int, chunk_rings: int, fixed_tiles: Dictionary, rng: RandomNumberGenerator) -> bool:
+	var gx := idx % sectors
+	var gy := idx / sectors
+	var cell = grid[idx]
+	if not _can_edit_maze_cell(cell, gx, gy, fixed_tiles):
+		return false
+	var dirs := [0, 1, 2, 3]
+	_shuffle_indices(dirs, rng)
+	for d in dirs:
+		if cell.variant.connections[d]:
+			continue
+		var mid := _step_maze_neighbor(gx, gy, d, chunk_rings)
+		if mid.empty():
+			continue
+		var mx: int = mid[0]
+		var my: int = mid[1]
+		if my <= 0 or my >= chunk_rings - 1:
+			continue
+		if fixed_tiles.has("%d,%d" % [mx, my]):
+			continue
+		var mi := my * sectors + mx
+		if grid[mi] != null and String(grid[mi].variant.id) != "EMPTY":
+			continue
+		var far := _step_maze_neighbor(mx, my, d, chunk_rings)
+		if far.empty():
+			continue
+		var fx: int = far[0]
+		var fy: int = far[1]
+		var fi := fy * sectors + fx
+		var fcell = grid[fi]
+		if not _can_edit_maze_cell(fcell, fx, fy, fixed_tiles):
+			continue
+		if abs(float(cell.base_height) - float(fcell.base_height)) > 0.001:
+			continue
+		grid[mi] = {
+			"variant": {
+				"id": "E",
+				"rotation": 0,
+				"connections": [false, false, false, false],
+				"port_heights": [0.0, 0.0, 0.0, 0.0],
+				"weight": 1.0
+			},
+			"base_height": float(cell.base_height),
+			"is_room": false
+		}
+		_connect_maze_cells(grid, idx, mi, d)
+		_connect_maze_cells(grid, mi, fi, d)
+		return true
+	return false
+
+func _connect_maze_cells(grid: Array, idx_a: int, idx_b: int, d: int) -> void:
+	var opp := (d + 2) % 4
+	grid[idx_a].variant.connections[d] = true
+	grid[idx_b].variant.connections[opp] = true
+	_update_variant_from_connections(grid[idx_a].variant)
+	_update_variant_from_connections(grid[idx_b].variant)
+
+func _update_variant_from_connections(v: Dictionary) -> void:
+	var conn: Array = v.connections
+	var count := _grado(conn)
+	if count == 0:
+		v.id = "EMPTY"
+		v.rotation = 0
+	elif count == 1:
+		v.id = "E"
+		for d in range(4):
+			if conn[d]:
+				v.rotation = d * 90
+				break
+	elif count == 2:
+		if conn[0] and conn[2]:
+			v.id = "W"; v.rotation = 0
+		elif conn[1] and conn[3]:
+			v.id = "W"; v.rotation = 90
+		elif conn[0] and conn[1]:
+			v.id = "C"; v.rotation = 0
+		elif conn[1] and conn[2]:
+			v.id = "C"; v.rotation = 90
+		elif conn[2] and conn[3]:
+			v.id = "C"; v.rotation = 180
+		else:
+			v.id = "C"; v.rotation = 270
+	elif count == 3:
+		v.id = "T"
+		for d in range(4):
+			if not conn[d]:
+				v.rotation = ((d + 2) % 4) * 90
+				break
+	else:
+		v.id = "X"
+		v.rotation = 0
+
+# --- Exit Guidance & Emissive Beacons ---------------------------------------
+
+func _compute_exit_guidance(grid: Array, chunk_rings: int, fixed_tiles: Dictionary) -> Dictionary:
+	var dist := {}
+	var next_dir := {}
+	var q := []
+	var south_row := chunk_rings - 1
+	for key in fixed_tiles.keys():
+		var parts: Array = String(key).split(",")
+		if parts.size() < 2:
+			continue
+		var gx := int(parts[0])
+		var gy := int(parts[1])
+		if gy == south_row:
+			var idx := gy * sectors + gx
+			if idx >= 0 and idx < grid.size() and grid[idx] != null:
+				dist[idx] = 0
+				next_dir[idx] = 2 # Southward exit
+				q.append(idx)
+	if q.empty():
+		for key in fixed_tiles.keys():
+			var parts: Array = String(key).split(",")
+			if parts.size() < 2:
+				continue
+			var idx := int(parts[1]) * sectors + int(parts[0])
+			if idx >= 0 and idx < grid.size() and grid[idx] != null:
+				dist[idx] = 0
+				next_dir[idx] = 0
+				q.append(idx)
+
+	var max_dist := 0
+	while not q.empty():
+		var curr: int = q.pop_front()
+		var cx := curr % sectors
+		var cy := curr / sectors
+		var cdist: int = dist[curr]
+		var conn: Array = grid[curr].variant.connections
+		for d in range(4):
+			if not conn[d]:
+				continue
+			var nb := _step_maze_neighbor(cx, cy, d, chunk_rings)
+			if nb.empty():
+				continue
+			var ni: int = int(nb[1]) * sectors + int(nb[0])
+			if grid[ni] == null or dist.has(ni):
+				continue
+			var opp := (d + 2) % 4
+			if grid[ni].variant.connections[opp]:
+				dist[ni] = cdist + 1
+				next_dir[ni] = opp
+				if cdist + 1 > max_dist:
+					max_dist = cdist + 1
+				q.append(ni)
+
+	return {"dist": dist, "next_dir": next_dir, "max_dist": max(max_dist, 1)}
+
+func _get_guide_material(tier_key: String, color: Color, energy: float) -> SpatialMaterial:
+	var cache_key := "__guide_mat_" + tier_key
+	if _resource_cache.has(cache_key):
+		return _resource_cache[cache_key]
+	var mat := SpatialMaterial.new()
+	mat.albedo_color = color
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy = energy
+	mat.flags_unshaded = true
+	_resource_cache[cache_key] = mat
+	return mat
+
+func _get_progression_material(idx: int, guidance: Dictionary) -> SpatialMaterial:
+	var dist_map: Dictionary = guidance.get("dist", {})
+	if not dist_map.has(idx):
+		return _get_guide_material("far", Color(0.0, 0.78, 0.95), 0.9)
+	var ratio := 1.0 - clamp(float(dist_map[idx]) / float(max(int(guidance.get("max_dist", 1)), 1)), 0.0, 1.0)
+	if ratio >= 0.8:
+		return _get_guide_material("exit", Color(1.0, 0.75, 0.15), 1.4)
+	if ratio >= 0.5:
+		return _get_guide_material("near", Color(0.25, 1.0, 0.45), 1.2)
+	if ratio >= 0.25:
+		return _get_guide_material("mid", Color(0.1, 0.9, 0.72), 1.0)
+	return _get_guide_material("far", Color(0.0, 0.78, 0.95), 0.9)
+
+func _get_cached_box_mesh(key: String, size: Vector3) -> CubeMesh:
+	if _mesh_cache.has(key):
+		return _mesh_cache[key]
+	var box := CubeMesh.new()
+	box.size = size
+	_mesh_cache[key] = box
+	return box
+
+func _make_guide_mesh(mesh: Mesh, mat: Material, pos: Vector3, rot_y: float = 0.0) -> MeshInstance:
+	var mi := MeshInstance.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.translation = pos
+	mi.rotation.y = rot_y
+	mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	mi.add_to_group("no_occlusion")
+	return mi
+
+func _add_guide_elements(tile: Spatial, gx: int, gy: int, cell: Dictionary, has_airlock_port: bool, guidance: Dictionary) -> void:
+	var idx := gy * sectors + gx
+	var mat := _get_progression_material(idx, guidance)
+	var beacon := Spatial.new()
+	beacon.name = "GuideBeacon"
+	beacon.add_to_group("no_occlusion")
+	tile.add_child(beacon)
+
+	var tname := String(tile.name)
+	if tname == "DuctRadial" or tname == "DuctIncline":
+		var strip_mesh := _get_cached_box_mesh("guide_strip_axial_%f" % ring_step, Vector3(0.09, 0.06, ring_step * 0.72))
+		var offset_x := duct_radius * 0.46
+		var offset_y := duct_radius - 0.24
+		beacon.add_child(_make_guide_mesh(strip_mesh, mat, Vector3(-offset_x, offset_y, 0.0)))
+		beacon.add_child(_make_guide_mesh(strip_mesh, mat, Vector3(offset_x, offset_y, 0.0)))
+	elif tname == "DuctArc":
+		var arc_rad := deg2rad(360.0 / sectors)
+		var seg_len := (wall_radius * arc_rad) / 3.0 * 0.72
+		var strip_mesh := _get_cached_box_mesh("guide_strip_arc_%f" % seg_len, Vector3(0.09, 0.06, seg_len))
+		for s in range(3):
+			var u := (float(s) / 2.0 - 0.5) * (arc_rad * 0.65)
+			var cx := wall_radius * cos(u) - wall_radius
+			var cz := wall_radius * sin(u)
+			beacon.add_child(_make_guide_mesh(strip_mesh, mat, Vector3(cx, duct_radius - 0.24, cz), -u))
+	elif tname == "DuctEndCap":
+		var warn_mat := _get_guide_material("deadend", Color(1.0, 0.3, 0.15), 1.1)
+		var bar_mesh := _get_cached_box_mesh("guide_deadend", Vector3(duct_radius * 0.75, 0.08, 0.08))
+		var fwd := _single_connection_dir(cell.variant.connections)
+		var yaw := atan2(fwd.x, fwd.z)
+		beacon.add_child(_make_guide_mesh(bar_mesh, warn_mat, fwd * (ring_step * 0.15) + Vector3(0.0, duct_radius - 0.28, 0.0), yaw))
+	elif tname.begins_with("Junction") or tname == "CapsuleRoom":
+		var hub_radius := duct_radius * 1.6
+		var crown_mesh := _get_cached_box_mesh("guide_hub_crown", Vector3(0.7, 0.08, 0.7))
+		beacon.add_child(_make_guide_mesh(crown_mesh, mat, Vector3(0.0, hub_radius - 0.28, 0.0)))
+
+		var next_dirs: Dictionary = guidance.get("next_dir", {})
+		if next_dirs.has(idx):
+			var nd: int = int(next_dirs[idx])
+			var dirs := [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
+			var dir_vec: Vector3 = dirs[nd]
+			var ptr_mesh := _get_cached_box_mesh("guide_exit_ptr", Vector3(0.32, 0.08, 0.85))
+			var ptr_pos := dir_vec * (hub_radius * 0.72) + Vector3(0.0, -duct_radius * 0.62, 0.0)
+			var ptr := _make_guide_mesh(ptr_mesh, mat, ptr_pos, atan2(dir_vec.x, dir_vec.z))
+			ptr.name = "ExitPointer"
+			beacon.add_child(ptr)
+
+		if has_airlock_port:
+			var airlock_mat := _get_guide_material("airlock", Color(1.0, 0.75, 0.15), 1.5)
+			var ring_mesh := _get_cached_box_mesh("guide_airlock_marker", Vector3(0.95, 0.1, 0.95))
+			var marker := _make_guide_mesh(ring_mesh, airlock_mat, Vector3(0.0, -hub_radius + 0.32, 0.0))
+			marker.name = "AirlockBeacon"
+			beacon.add_child(marker)

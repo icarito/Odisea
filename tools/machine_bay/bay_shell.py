@@ -27,41 +27,41 @@ from mathutils import Vector
 
 # ---------------------------------------------------------------- parametros
 # Caja jugable existente (metros, Y arriba).
-PLAY_X = (-8.0, 8.0)
-PLAY_Y = (-2.0, 36.0)
-PLAY_Z = (-8.0, 80.0)
+PLAY_X = (-19.5, 19.5)
+PLAY_Y = (-2.0, 38.5)
+PLAY_Z = (-8.0, 150.0)
 CLEARANCE = 1.0            # holgura minima exigida alrededor de la caja
 
-WALL_X = 10.0              # cara interior de las paredes laterales
+WALL_X = 22.0              # cara interior de las paredes laterales
 WALL_T = 0.4               # espesor de paredes/techo/fondo
-Z0 = -10.0                 # cara interior de la pared de entrada
-Z1 = 84.0                  # cara interior de la pared de fondo
+Z0 = -12.0                 # cara interior de la pared de entrada
+Z1 = 154.0                 # cara interior de la pared de fondo
 PIT_Y = -30.0              # boca del pozo (las paredes bajan hasta aca)
 PIT_T = 0.4                # losa de fondo del pozo
-EAVE_Y = 38.0              # alero del techo a dos aguas
-APEX_Y = 40.0              # cumbrera
+EAVE_Y = 41.0              # alero del techo a dos aguas
+APEX_Y = 44.5              # cumbrera
 ROOF_T = 0.30              # espesor de las faldas del techo
 
-RIB_STEP = 8.0             # separacion de porticos a lo largo de Z
+RIB_STEP = 10.0            # separacion de porticos a lo largo de Z
 RIB_W = 0.5                # ancho de costilla (Z)
-RIB_DEPTH = 0.8            # cuanto entra la costilla desde la pared (X)
-RIB_TOP = 37.8             # tope de costillas / viga superior
+RIB_DEPTH = 0.9            # cuanto entra la costilla desde la pared (X)
+RIB_TOP = 40.8             # tope de costillas / viga superior
 
 DOOR_W = 3.0               # vano de puerta (X)
 DOOR_H = 3.0               # vano de puerta (Y), base en y=0
 
-WALKWAY_Y = (6.0, 26.0)    # altura de las dos pasarelas por pared
-WALKWAY_W = 0.8            # ancho de pasarela (pegada a la pared)
+WALKWAY_Y = (8.0, 28.0)    # altura de las dos pasarelas por pared
+WALKWAY_W = 0.9            # ancho de pasarela (pegada a la pared)
 WALKWAY_T = 0.08
 RAIL_H = 1.0
 
-PANEL_ROWS = ((10.0, 14.0), (18.0, 22.0))  # (y0, y1) de paneles hundidos
-PANEL_W = 6.0              # ancho de panel en Z
+PANEL_ROWS = ((10.0, 15.0), (20.0, 26.0))  # (y0, y1) de paneles hundidos
+PANEL_W = 7.5              # ancho de panel en Z
 
-PIPE_Y = (16.0, 31.0)      # alturas de tuberias horizontales
-PIPE_R = 0.24
-PIPE_X = 9.72              # centro de tuberia respecto de la pared
-STRIP_Y = 35.0             # altura de la tira emisiva lateral
+PIPE_Y = (17.0, 34.0)      # alturas de tuberias horizontales
+PIPE_R = 0.28
+PIPE_X = 21.70             # centro de tuberia respecto de la pared
+STRIP_Y = 39.0             # altura de la tira emisiva lateral
 STRIP_SEG = 12             # segmentos de tuberias
 
 MAT_DARK = "BayMetalDark"
