@@ -226,7 +226,7 @@ Para usarlos en el juego sin meter torch/onnxruntime en el export de Godot:
 
 ```bash
 python agents/export_ppo_mlp.py \
-  --model agents/models/anna_ppo_noorbit_lvl2_32k_fps120_v1.zip \
+  --model agents/models/anna_ppo_noorbit_v2_137640.zip \
   --name anna_ppo_noorbit_v1
 ```
 
@@ -241,10 +241,67 @@ Test de verificación: `core_v2/tests/test_anna_mlp_inference.gd`.
 
 Modelos inspeccionados (2026-11-13):
 
-| Modelo | Obs | Acción | Arquitectura política |
-|---|---|---|---|
-| `anna_ppo_noorbit_lvl2_32k_fps120_v1.zip` | Box(12,) ∈ [-1,1] | Discrete(6) | 12→64→64→6 (tanh) |
-| `anna_candidate.zip` | Box(13,) ∈ [-1,1] | Discrete(8) | 13→128→128→8 (tanh) |
+| Modelo | Obs | Acción | Arquitectura política | Estado |
+|---|---|---|---|---|
+| `anna_ppo_noorbit_lvl2_32k_fps120_v1.zip` | Box(12,) ∈ [-1,1] | Discrete(6) | 12→64→64→6 (tanh) | **obsoleto** (32k smoke, dims viejas) |
+| `anna_candidate.zip` | Box(13,) ∈ [-1,1] | Discrete(8) | 13→128→128→8 (tanh) | warm-start (112.640 steps) |
+| `anna_ppo_noorbit_v2_137640.zip` | Box(13,) ∈ [-1,1] | Discrete(8) | 13→128→128→8 (tanh) | **exportado actualmente** |
+
+## Rebuild del modelo ANNA (2026-11-13)
+
+El modelo de inferencia exportado (`core_v2/agents/anna_ppo_noorbit_v1_weights.json`) estaba
+desactualizado: venía de un smoke de 32k steps con dims viejas (obs 12 / act 6) que **no coinciden**
+con el bridge RL actual (`AnnaInterface.get_rl_observation` → `Box(13,)`, `apply_rl_action` →
+`Discrete(8)`), y la escena original `TestScene_RL_2.tscn` fue eliminada (commit `6d44b6c3`).
+
+Pipeline actual (dev tooling: torch + SB3 en un venv aparte; nada de esto entra al export de Godot):
+
+```bash
+# 1) Evaluar el baseline aleatorio y el checkpoint de partida (40 episodios c/u)
+python agents/eval_anna.py --model random --episodes 40
+python agents/eval_anna.py --model agents/models/anna_candidate.zip --episodes 40
+
+# 2) Fine-tune (warm-start) sobre TestScene_RL.tscn, 13 obs / 8 acciones
+python agents/train_anna.py \
+  --scene core_v2/tests/TestScene_RL.tscn \
+  --init-from agents/models/anna_candidate.zip \
+  --timesteps 150000 --num-envs 2 --seed 42 \
+  --vec-env subproc --start-method fork \
+  --net-arch 128 --n-steps 1024 --batch-size 256 --n-epochs 5 \
+  --learning-rate 1e-4 --ent-coef 0.01 --checkpoint-freq 25000 \
+  --model-out agents/models/anna_ppo_noorbit_v2_finetune.zip
+
+# 3) Elegir el mejor checkpoint y exportar a GDScript
+python agents/export_ppo_mlp.py \
+  --model agents/models/anna_ppo_noorbit_v2_137640.zip --name anna_ppo_noorbit_v1
+```
+
+Métrica antes/después (recompensa media, eval determinista, mismo bridge; la varianza por episodio
+es alta — usar ≥40 episodios para comparar):
+
+| Política | Steps | Reward medio (40 eps) |
+|---|---|---|
+| aleatoria | — | −231.7 (15 eps) |
+| `anna_candidate.zip` | 112.640 | +236.9 |
+| `anna_ppo_noorbit_v2_137640.zip` | 137.640 (112.640 + 25k fine-tune) | **+587.5** |
+
+Ninguna política llega al objetivo (`success = 0/40`): el objetivo de `TestScene_RL.tscn` queda a
+>2 m y los episodios terminan por `timeout` (700 steps). La recompensa mide progreso/acercamiento,
+que sí mejora de forma clara.
+
+Notas de reproducibilidad:
+
+- La escena randomiza spawn/objetivo por episodio; la eval es determinista en la **acción**
+  (`predict(..., deterministic=True)`), no en la secuencia de episodios.
+- El fine-tune arranca de `anna_candidate.zip` porque PPO desde cero no converge en este entorno
+  con presupuesto acotado (probado a 131k steps: reward plano ≈ −302). El modelo original era un
+  stage de curriculum (`noorbit_lvl2`); la escena `lvl2` ya no existe.
+
+Pendiente:
+
+- Mapeo `Discrete(8)` → `InputDataV2` / `PlayerControllerV2` en gameplay (hoy `apply_rl_action` vive
+  en `AnnaInterface`; falta el puente de inferencia en partida real).
+- Reentrenar/curriculum en una escena con objetivo alcanzable para obtener `success > 0`.
 
 ## Notas
 
