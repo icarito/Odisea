@@ -164,6 +164,34 @@ func test_long_context_sits_above_subtitles_and_clears_bottom_corners() -> void:
 		SuitOS.clear_slot(i)
 
 
+# El borde inferior del contexto (safe.end.y - 24) caia dentro de la banda inferior donde viven
+# el indicador de modo del multi-tool (MODE: LASER) y el debug: quedaba pisado a la misma altura.
+# Ahora descansa por ENCIMA de esa banda (CONTEXT_BOTTOM_BAND), sin achicar la tipografia.
+func test_context_rests_above_the_bottom_corner_band() -> void:
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+	_widget_host.show_context({
+		"title": "Embrague del Rotor — Estación 4",
+		"description": "Corta la traba en 3.5 s; arranca en 5 s (1.5 s con láser). Aborda el brazo.",
+		"action": "Arrancar rotor (5 s)",
+	})
+	yield(await_idle_frame(), "completed")
+	yield(await_idle_frame(), "completed")
+	var context: Control = _widget_host.get_widget_root().get_node_or_null("SuitOS_Context")
+	assert_object(context).is_not_null()
+	var safe: Rect2 = _widget_host._safe_rect()
+	var k: float = UIScaleCompensatorScript.scale_for(_widget_host)
+	var bounds := Rect2(context.rect_position, context.rect_size * context.rect_scale)
+	# Deja libre la fila de esquinas inferiores (indicador de modo/debug).
+	assert_float(bounds.end.y).is_less_equal(safe.end.y - _widget_host.CONTEXT_BOTTOM_BAND * k + 0.5)
+	# Sigue centrado y anclado al pie (por debajo del centro de la pantalla).
+	assert_float(bounds.get_center().x).is_equal_approx(safe.get_center().x, 1.0)
+	assert_float(bounds.position.y).is_greater(safe.size.y * 0.4)
+	_widget_host.clear_context()
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+
+
 func test_context_widget_can_be_pinned_to_a_slot_and_actuated() -> void:
 	for i in range(HudSlots.COUNT):
 		SuitOS.clear_slot(i)

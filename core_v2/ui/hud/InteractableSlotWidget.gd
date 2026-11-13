@@ -74,14 +74,14 @@ func configure_context(content_width: float) -> void:
 	for label in [_title, _status, _description, _action]:
 		if is_instance_valid(label):
 			label.autowrap = true
-	# Una descripcion enorme no debe encoger la tipografia hasta ser ilegible: se
-	# recorta a unas pocas lineas y el texto conserva su tamano.
+	# Una descripcion larga no debe encoger la tipografia hasta ser ilegible: se
+	# recorta a dos lineas (una frase corta) y el texto conserva su tamano.
 	if is_instance_valid(_title):
 		_title.max_lines_visible = 2
 	if is_instance_valid(_status):
 		_status.max_lines_visible = 1
 	if is_instance_valid(_description):
-		_description.max_lines_visible = 3
+		_description.max_lines_visible = 2
 	if is_instance_valid(_action):
 		_action.max_lines_visible = 1
 
