@@ -309,6 +309,11 @@ func _make_sign(item: Dictionary) -> Spatial:
 		return null
 	sign_node.set("text", str(item.get("text", "ESTACIÓN")))
 	sign_node.set("color_preset", str(item.get("preset", "warning")))
+	if item.has("color"):
+		# Un cartel puede declarar "color" para sobrescribir el preset (p. ej. un
+		# color custom de contraste). Se respeta el resto de campos del layout.
+		sign_node.set("custom_color", Color(str(item["color"])))
+		sign_node.set("color_preset", "custom")
 	sign_node.set("double_sided", bool(item.get("double_sided", true)))
 	sign_node.set("border_enabled", bool(item.get("border", true)))
 	sign_node.set("panel_alpha", float(item.get("panel_alpha", 0.92)))
