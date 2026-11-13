@@ -54,6 +54,10 @@ export(int, 2, 16) var grid_depth := 8
 export(float, 2.0, 8.0) var cell_size := 3.0
 export(Vector2) var entry_cell := Vector2(0, 2)
 export(float) var entry_height := 0.0
+# Salida opcional hacia el laberinto streamed (FD-320+): fija una celda
+# "W" plana en el borde este para conectarse con el puente de entrada.
+export(bool) var exit_use := false
+export(Vector2) var exit_cell := Vector2(-1, -1)
 export(bool) var enable_fire_hazard := true
 export(bool) var enable_gas_hazard := true
 export(bool) var enable_fire_visual := true
@@ -100,6 +104,12 @@ func _generate_grid_data() -> Array:
 			"height": entry_height
 		}
 	}
+	if exit_use and exit_cell.x >= 0.0 and exit_cell.y >= 0.0:
+		seam["%d,%d" % [int(exit_cell.x), int(exit_cell.y)]] = {
+			"id": "W",
+			"rotation": 0,
+			"height": entry_height
+		}
 	gen.apply_params({
 		"grid_width": grid_width,
 		"grid_depth": grid_depth,
@@ -424,3 +434,6 @@ func get_generation_grid() -> Array:
 
 func get_entry_world_position() -> Vector3:
 	return global_transform.xform(Vector3(entry_cell.x * cell_size, entry_height, entry_cell.y * cell_size))
+
+func get_exit_world_position() -> Vector3:
+	return global_transform.xform(Vector3(exit_cell.x * cell_size, entry_height, exit_cell.y * cell_size))
