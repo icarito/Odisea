@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=2 format=2]
+
+; Domo de introducción: 4 redes, timeline de 5 beats, hangar propio (FD-289 §7.2, T1).
+; Copiar este archivo y cambiar dome_id + hangar_scene/spawn para el siguiente domo.
+
+[ext_resource path="res://core_v2/systems/dome/DomeEnvConfig.gd" type="Script" id=1]
+
+[resource]
+script = ExtResource( 1 )
+dome_id = "intro"
+networks = PoolStringArray( "criocoolant", "plasma", "aire", "energia" )
+timeline = [ {
+"action": "spawn_coolant_leak",
+"beat": 1,
+"event": "on_first_power_attempt"
+}, {
+"action": "enable_auxpower_lever",
+"beat": 2,
+"event": "coolant_healthy"
+}, {
+"action": "enable_plasma_route",
+"beat": 3,
+"event": "energy_healthy"
+}, {
+"action": "enable_air_system",
+"beat": 4,
+"event": "plasma_healthy"
+}, {
+"action": "open_blast_door",
+"beat": 5,
+"event": "air_healthy"
+} ]
+hangar_scene = "res://core_v2/levels/interiors/Dome_Intro_Hangar.tscn"
+hangar_spawn_id = "from_dome_intro_platform"
+exterior_airlock_scene = "res://core_v2/components/ScaffoldOrbit.tscn"
+blast_door_path = NodePath("../Doors/BlastDoor")
