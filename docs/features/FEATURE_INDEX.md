@@ -4,7 +4,9 @@
 
 [FD-320 — RingHub + Bahía de máquinas](FD-320_bahia_de_maquinas.md): traversal con cuatro máquinas existentes, reintento/Continue confiables, válvula y regreso sin repetir despertar. Candidata con regresiones focalizadas; faltan recorrido completo con gamepad, continuidad visual y aprobación de capturas. No incluye editor de construcción, domos nuevos ni da por completado FD-289. [Bitácora](../agents/sessions/2026-11-13_slice_convergence.md).
 
-[FD-321 — Cámaras cinemáticas en momentos clave](FD-321_camaras_cinematicas_momentos_clave.md): dos `CameraZone`+`CinematicRig` en la Bahía de Máquinas (llegada a la bahía y puente sobre el fuego) reusando `CinematicManager`. Wiring e integración verdes; capturas de encuadre adjuntas.
+[FD-321 — Cámaras cinemáticas de transición](FD-321_camaras_cinematicas_momentos_clave.md): alcance corregido — las cinemáticas son **solo de transiciones**, no de áreas de nivel. Se retiraron de `MachineBay.tscn` las `CameraZone`+`CinematicRig` por área; las implementa el sistema de transiciones. Guardia en `test_machine_bay_no_area_cinematics.gd`.
+
+Ruteo no lineal del laberinto de la Bahía (sin FD propio): compuertas de servicio dirigidas por el estado de las máquinas que conectan el laberinto procedural con las estaciones → más de un camino y orden de exploración no obvio. Diseño en [`core_v2/levels/machines/MACHINE_BAY_ROUTING.md`](../../core_v2/levels/machines/MACHINE_BAY_ROUTING.md); implementación `MachineBayMazeRouting.gd` + `MazeRoutingGate.tscn`; tests en `test_machine_bay_maze_routing.gd`.
 
 La dirección histórica siguiente se conserva como referencia, no como lista de requisitos de esta entrega.
 
