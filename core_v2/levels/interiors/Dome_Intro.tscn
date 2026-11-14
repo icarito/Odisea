@@ -1,4 +1,4 @@
-[gd_scene load_steps=117 format=2]
+[gd_scene load_steps=118 format=2]
 
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=1]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=7]
@@ -98,6 +98,7 @@
 [ext_resource path="res://core_v2/things/SystemStatusScreen.gd" type="Script" id=6011]
 [ext_resource path="res://core_v2/things/CryoPodsHUDable.gd" type="Script" id=6012]
 [ext_resource path="res://core_v2/systems/dome/DomeMachineLevel.tscn" type="PackedScene" id=6013]
+[ext_resource path="res://core_v2/props/hangar/HangarDescent.tscn" type="PackedScene" id=6014]
 
 [sub_resource type="BoxShape" id=539]
 extents = Vector3( 8, 5, 4 )
@@ -2352,3 +2353,10 @@ bus_path = NodePath("../ShipSystemBus")
 ; DomeMachineLevel (core_v2/systems/dome/), cableadas a DomeNetworkStatus/DomeSystemDirector.
 ; Se instancia sin transform: las posiciones del sub-árbol son coordenadas de mundo del domo.
 [node name="DomeMachineLevel" parent="." instance=ExtResource( 6013 )]
+
+; FD-289 §7.5/§7.9 — cierre de la cadena: descenso fisico domo -> hangar. La plataforma
+; movil de carga, el trigger de transicion (change_scene a Dome_Intro_Hangar con spawn
+; from_dome_intro_platform) y la camara cinematica DE TRANSICION viven en el prefab
+; core_v2/props/hangar/HangarDescent.tscn; se instancian aca, en el pozo de la compuerta
+; (DomeMachineLevel/Doors/BlastDoor, world ~0,0,0), sin transform.
+[node name="HangarDescent" parent="." instance=ExtResource( 6014 )]

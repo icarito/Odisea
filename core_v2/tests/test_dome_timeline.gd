@@ -22,9 +22,10 @@ extends GdUnitTestSuite
 #      la posición exacta.
 #   6. Beats 7/8: el hangar declarado por la config existe y `airlock_exit` apunta al exterior.
 #
-# QUÉ NO CUBRE (a propósito, ver reporte): la transición de escena real del descenso al hangar
-# (HangarTransition/HangarPlatform no están instanciadas en Dome_Intro todavía) — se verifica el
-# contrato de señales/config, no un cambio de escena en vivo.
+# QUÉ NO CUBRE (a propósito): este test corre sobre un host con DomeMachineLevel suelto, no
+# sobre Dome_Intro completo, así que no ve el HangarDescent instanciado en la escena del domo.
+# El descenso real (plataforma + trigger + cámara de transición en el pozo, y el wiring de
+# Dome_Intro) lo cubre `test_hangar_descent.gd` + `test_hangar_transition.gd`.
 #
 # No corre la suite completa (AGENTS.md §6.1).
 
