@@ -1,0 +1,284 @@
+[gd_scene load_steps=25 format=2]
+
+; DomeMachineLevel.tscn — nivel de máquinas del domo: las 4 redes (criocoolant, plasma,
+; energía, aire) autoradas en un solo sub-árbol, cableadas a DomeNetworkStatus/DomeSystemDirector
+; (FD-289 §7.8, T6/T7). Se instancia dentro de Dome_Intro.tscn; las posiciones son coordenadas
+; de mundo del domo (DomeMachineLevel se instancia sin transform).
+;
+; Redes:
+;   Criocoolant -> CoolantTank + CoolantFlowAdapter (rama "machine_level") + 2 fugas + 3 parches
+;                  + 1 válvula aguas arriba.
+;   Plasma      -> PlasmaConduit (fisura) + 3 válvulas de redirección + PlasmaRoute.
+;   Energía     -> AuxPowerBus + interruptor principal + interruptor del bus + fusible.
+;   Aire        -> PressureSection + PressurePump + PurgeDial + PurgeTuner.
+;
+; El cableado red->HEALTHY vive en DomeNetworkWiring.gd: acá sólo se declaran las conexiones.
+
+[ext_resource path="res://core_v2/systems/dome/DomeNetworkStatus.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/dome/DomeNetworkWiring.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/props/pipe/CoolantTank.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/systems/cryo/CoolantLeak.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/systems/cryo/LeakPatchPoint.gd" type="Script" id=5]
+[ext_resource path="res://core_v2/systems/cryo/LeakFissureVisual.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/systems/cryo/CoolantFlowAdapter.gd" type="Script" id=7]
+[ext_resource path="res://core_v2/systems/pipe/PipeNetworkResource.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/systems/plasma/PlasmaConduit.gd" type="Script" id=9]
+[ext_resource path="res://core_v2/systems/plasma/PlasmaRoute.gd" type="Script" id=10]
+[ext_resource path="res://core_v2/systems/auxpower/AuxPowerBus.gd" type="Script" id=11]
+[ext_resource path="res://core_v2/systems/atmosphere/PressureSection.gd" type="Script" id=12]
+[ext_resource path="res://core_v2/props/controls/PressurePump.tscn" type="PackedScene" id=13]
+[ext_resource path="res://core_v2/systems/atmosphere/PurgeDial.gd" type="Script" id=14]
+[ext_resource path="res://core_v2/props/controls/PurgeTuner.gd" type="Script" id=15]
+[ext_resource path="res://core_v2/props/pipe/kit/PipeValveKit.tscn" type="PackedScene" id=16]
+[ext_resource path="res://core_v2/props/pipe/PipeManometer.tscn" type="PackedScene" id=17]
+[ext_resource path="res://core_v2/props/controls/LeverV2.tscn" type="PackedScene" id=18]
+[ext_resource path="res://core_v2/props/controls/FusibleV2.tscn" type="PackedScene" id=19]
+[ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=21]
+[ext_resource path="res://core_v2/props/doors/BlastDoorController.tscn" type="PackedScene" id=22]
+
+[sub_resource type="SphereShape" id=1]
+radius = 0.35
+
+[sub_resource type="SpatialMaterial" id=3]
+emission_enabled = true
+emission = Color( 1, 0.45, 0.1, 1 )
+emission_energy = 4.0
+albedo_color = Color( 1, 0.5, 0.15, 1 )
+
+[sub_resource type="Resource" id=2]
+script = ExtResource( 8 )
+branches = {
+"machine_level": {
+"segments": [ {
+"flow_dir": Vector3( 0, 1, 0 ),
+"leak": NodePath(""),
+"pipe_run": NodePath(""),
+"valve": NodePath("CoolantValve")
+}, {
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("LeakA"),
+"pipe_run": NodePath(""),
+"spur": true,
+"valve": NodePath("")
+}, {
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("LeakB"),
+"pipe_run": NodePath(""),
+"spur": true,
+"valve": NodePath("")
+} ],
+"tank": NodePath("CoolantTank")
+}
+}
+
+[node name="DomeMachineLevel" type="Spatial"]
+
+[node name="DomeNetworkStatus" type="Node" parent="."]
+script = ExtResource( 1 )
+total_networks = 4
+
+[node name="DomeNetworkWiring" type="Node" parent="."]
+script = ExtResource( 2 )
+network_status_path = NodePath("../DomeNetworkStatus")
+director_path = NodePath("/root/DomeSystemDirector")
+coolant_leak_paths = [ NodePath("../Coolant/LeakA"), NodePath("../Coolant/LeakB") ]
+plasma_route_path = NodePath("../Plasma/PlasmaRoute")
+aux_power_bus_path = NodePath("../Energy/AuxPowerBus")
+pressure_section_path = NodePath("../Air/AirPressureSection")
+master_switch_path = NodePath("../Energy/MasterSwitch")
+power_switch_path = NodePath("../Energy/BusSwitch")
+air_pump_path = NodePath("../Air/AirPump")
+blast_door_path = NodePath("../Doors/BlastDoor")
+
+; ---------------------------------------------------------------------------
+; CRIOCOOLANT — tanque + rama de máquinas + 2 fugas, 1 válvula aguas arriba, 3 parches.
+; ---------------------------------------------------------------------------
+[node name="Coolant" type="Spatial" parent="."]
+
+[node name="CoolantTank" parent="Coolant" instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 10.9, 4.5 )
+drain_rate = 0.00833333
+
+[node name="CoolantRiserPipe" type="CSGCylinder" parent="Coolant"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 11.7, 2 )
+radius = 0.16
+height = 5.0
+sides = 12
+material = ExtResource( 21 )
+
+[node name="CoolantValve" parent="Coolant" groups=["coolant_valve"] instance=ExtResource( 16 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.5, 9.3, 0.5 )
+
+[node name="CoolantManometer" parent="Coolant" instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.5, 10.4, 2.5 )
+flow_adapter_path = NodePath("../CoolantFlowAdapter")
+tank_path = NodePath("../CoolantTank")
+segment_index = 1
+
+[node name="CoolantFlowAdapter" type="Node" parent="Coolant"]
+script = ExtResource( 7 )
+network = SubResource( 2 )
+branch_id = "machine_level"
+
+[node name="LeakA" type="Spatial" parent="Coolant"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 9.3, 5.5 )
+script = ExtResource( 4 )
+valve_path = NodePath("../CoolantValve")
+flow_adapter_path = NodePath("../CoolantFlowAdapter")
+
+[node name="LeakA_Patch" type="Spatial" parent="Coolant"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 9.3, 5.5 )
+script = ExtResource( 5 )
+leak_path = NodePath("../LeakA")
+flow_adapter_path = NodePath("../CoolantFlowAdapter")
+
+[node name="StaticBody" type="StaticBody" parent="Coolant/LeakA_Patch"]
+collision_layer = 64
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Coolant/LeakA_Patch/StaticBody"]
+shape = SubResource( 1 )
+
+[node name="FissureVisual" parent="Coolant/LeakA_Patch" instance=ExtResource( 6 )]
+leak_path = NodePath("../../LeakA")
+patch_point_path = NodePath("..")
+
+[node name="LeakB" type="Spatial" parent="Coolant"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 9.3, 7.5 )
+script = ExtResource( 4 )
+valve_path = NodePath("../CoolantValve")
+flow_adapter_path = NodePath("../CoolantFlowAdapter")
+
+[node name="LeakB_Patch" type="Spatial" parent="Coolant"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 9.3, 7.5 )
+script = ExtResource( 5 )
+leak_path = NodePath("../LeakB")
+flow_adapter_path = NodePath("../CoolantFlowAdapter")
+
+[node name="StaticBody" type="StaticBody" parent="Coolant/LeakB_Patch"]
+collision_layer = 64
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Coolant/LeakB_Patch/StaticBody"]
+shape = SubResource( 1 )
+
+[node name="FissureVisual" parent="Coolant/LeakB_Patch" instance=ExtResource( 6 )]
+leak_path = NodePath("../../LeakB")
+patch_point_path = NodePath("..")
+
+[node name="LeakB_Patch2" type="Spatial" parent="Coolant"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 9.3, 8.5 )
+script = ExtResource( 5 )
+leak_path = NodePath("../LeakB")
+flow_adapter_path = NodePath("../CoolantFlowAdapter")
+
+[node name="StaticBody" type="StaticBody" parent="Coolant/LeakB_Patch2"]
+collision_layer = 64
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="Coolant/LeakB_Patch2/StaticBody"]
+shape = SubResource( 1 )
+
+[node name="FissureVisual" parent="Coolant/LeakB_Patch2" instance=ExtResource( 6 )]
+leak_path = NodePath("../../LeakB")
+patch_point_path = NodePath("..")
+
+; ---------------------------------------------------------------------------
+; PLASMA — fisura del reactor + 3 válvulas de redirección (PlasmaRoute).
+; ---------------------------------------------------------------------------
+[node name="Plasma" type="Spatial" parent="."]
+
+[node name="PlasmaConduit" type="Spatial" parent="Plasma" groups=["plasma_conduit"]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 10.5, 0.5 )
+script = ExtResource( 9 )
+
+[node name="PlasmaPipe" type="CSGCylinder" parent="Plasma"]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 10.5, 10.5, 3.0 )
+radius = 0.18
+height = 6.0
+sides = 12
+material = ExtResource( 21 )
+
+[node name="PlasmaFissureGlow" type="CSGSphere" parent="Plasma"]
+transform = Transform( 0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 10.5, 9.7, 2.5 )
+radius = 0.35
+radial_segments = 12
+rings = 8
+material = SubResource( 3 )
+
+[node name="PlasmaValveA" parent="Plasma" instance=ExtResource( 16 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 9.3, 5 )
+
+[node name="PlasmaValveB" parent="Plasma" instance=ExtResource( 16 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 9.3, 6.5 )
+
+[node name="PlasmaValveC" parent="Plasma" instance=ExtResource( 16 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 9.3, 4 )
+
+[node name="PlasmaManometer" parent="Plasma" instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, 10.4, 2 )
+
+[node name="PlasmaRoute" type="Spatial" parent="Plasma"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 9.3, 8 )
+script = ExtResource( 10 )
+valve_paths = [ NodePath("../PlasmaValveA"), NodePath("../PlasmaValveB"), NodePath("../PlasmaValveC") ]
+required_pattern = PoolIntArray( 1, 0, 1 )
+conduit_path = NodePath("../PlasmaConduit")
+
+; ---------------------------------------------------------------------------
+; ENERGÍA — bus + interruptor principal (beat 1) + interruptor del bus + fusible.
+; ---------------------------------------------------------------------------
+[node name="Energy" type="Spatial" parent="."]
+
+[node name="AuxPowerBus" type="Spatial" parent="Energy" groups=["aux_power"]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.6, 10.5 )
+script = ExtResource( 11 )
+
+[node name="MasterSwitch" parent="Energy" instance=ExtResource( 18 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 9.3, 11 )
+
+[node name="BusSwitch" parent="Energy" instance=ExtResource( 18 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 9.3, 11 )
+
+[node name="Fusible" parent="Energy" instance=ExtResource( 19 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.3, 12.5 )
+
+[node name="EnergyManometer" parent="Energy" instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.4, 9 )
+
+; ---------------------------------------------------------------------------
+; AIRE — PressureSection + bomba (sostener) + purga (dial + tuner).
+; ---------------------------------------------------------------------------
+[node name="Air" type="Spatial" parent="."]
+
+[node name="AirPressureSection" type="Spatial" parent="Air" groups=["pressure_section"]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 13.8, 4.5 )
+script = ExtResource( 12 )
+starts_rising = true
+rise_needs_input = true
+warning_duration = 8.0
+
+[node name="AirPump" parent="Air" instance=ExtResource( 13 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 13.8, 3.5 )
+
+[node name="AirPurgeDial" type="Spatial" parent="Air"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 13.8, 3.5 )
+script = ExtResource( 14 )
+section_path = NodePath("../AirPressureSection")
+
+[node name="AirPurgeTuner" type="Spatial" parent="Air"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 13.8, 5.5 )
+script = ExtResource( 15 )
+dial_path = NodePath("../AirPurgeDial")
+
+[node name="AirManometer" parent="Air" instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 14.9, 6 )
+
+; ---------------------------------------------------------------------------
+; COMPUERTA DE PISO (T3) — el bus la alcanza vía el semáforo de red del cableado y la
+; apertura vía DomeSystemDirector.blast_door_open (autoconnect del propio controlador).
+; ---------------------------------------------------------------------------
+[node name="Doors" type="Spatial" parent="."]
+
+[node name="BlastDoor" parent="Doors" instance=ExtResource( 22 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
