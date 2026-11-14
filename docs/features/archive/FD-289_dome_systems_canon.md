@@ -40,8 +40,8 @@ intercambiable por domo.
 | Puzzle físico | `PushableBoxV2` (RigidBody determinista), `Conveyor` + `ConveyorCarrousel` (Area con `speed_x`) | Listos; se incorporan al hangar del sótano |
 | Puertas/compuertas | `FloorHatch.tscn` (trampilla de piso con `HatchDoor` KinematicBody) | Base mecánica del blast door nuevo |
 | Layout físico | `Dome_Base.tscn` (torre central, escaleras, spokes), `Dome_Intro.tscn` (criopods, pipes, señalización), `Dome_Prologue.tscn` (variante sin criopods) | Geometría horneada lista |
-| Hangar / Sótano | Escena separada por domo (p. ej. `Dome_Intro_Hangar.tscn`), blockout de hangar de mantenimiento | A construir; reutiliza `PushableBoxV2` + `Conveyor` |
-| Descenso | Plataforma móvil de carga + rampa de servicio en el pozo del blast door | A construir (`HangarPlatform` nuevo) |
+| Hangar / Sótano | Escena separada por domo (`Dome_Intro_Hangar.tscn`), blockout de hangar de mantenimiento | Blockout listo (T4); reutiliza `PushableBoxV2` + `Conveyor` |
+| Descenso | Plataforma móvil de carga (`HangarPlatform`) + rampa de servicio en el pozo del blast door | Instanciado en `Dome_Intro` (`HangarDescent.tscn`, #319) + trigger de transición |
 | Cámara/VFX | `CinematicManager.trigger_camera_shake`, `TremorZoneV2` (FD-288, delegado), `WindTunnelV2` (empuje direccional), `SceneLighting` (flicker global) | Listo o en progreso |
 
 ## 3. Reglas de arquitectura (canonizadas de FD-283)
@@ -381,6 +381,16 @@ en el pozo del blast door.
 - **Componentes nuevos del descenso** (ver §7.9): `HangarPlatform` (plataforma móvil
   determinista, snapshot-able) y una rampa de servicio estática en el pozo.
 
+> **Implementado (cierre de cadena domo→hangar, tracker #319).** El descenso se instancia en
+> `core_v2/levels/interiors/Dome_Intro.tscn` como el prefab `core_v2/props/hangar/HangarDescent.tscn`
+> (plataforma + trigger + cámara de transición), en el pozo de la compuerta
+> (`DomeMachineLevel/Doors/BlastDoor`, world ~0,0,0). El trigger (`HangarTransition.gd`) reutiliza
+> el **mismo patrón ligero que RingHub↔bahía** (`BayAirlockTrigger`: un `Area` que resuelve
+> escena+spawn y llama `SceneManager.goto_scene`); deliberadamente **no** usa `AirlockZoneV2`
+> porque esa exige un `AirlockControllerV2` vivo y acá no hay airlock. Destino resuelto por
+> export o por `DomeSystemDirector.get_hangar_scene()`/`get_hangar_spawn_id()`. La cinemática vive
+> **sólo en el punto de transición** (el descenso), no en áreas del nivel.
+
 > **Regla de reutilización (razón del change_scene):** la nave tendrá múltiples domos
 > con sótanos variados. El template de sistemas (anillo + máquinas + reactor + blast
 > door) es compartido; lo que varía por domo es el hangar. Separarlos en escenas hace
@@ -431,6 +441,12 @@ a los nodos del domo real.
 - Ambas vías desembocan en el trigger que dispara `change_scene` al hangar
   (`DomeEnvConfig.hangar_scene`), spawn `from_dome_intro_platform`.
 
+> **Implementado (#319).** `HangarPlatform` se instancia en el pozo vía `HangarDescent.tscn`
+> (arriba, §7.5), con `travel_distance` 11 m (top ~y=-0.45 bajo la compuerta, fondo ~y=-11.5).
+> `HangarTransition` es un volumen al pie del pozo que cubre ambas vías. Verificado con capturas
+> 960x540 (plataforma descendiendo + hangar) y los tests `test_hangar_descent.gd` /
+> `test_hangar_transition.gd`.
+
 ## 8. Lo que NO está en este FD (backlog explícito)
 
 - Simulación física de redes entrelazadas (presión compartida, temperatura, causalidad
@@ -475,10 +491,19 @@ Archivos: `core_v2/props/doors/BlastDoorController.gd` + `.tscn`, `HangarPlatfor
 Base mecánica `FloorHatch.tscn`, modelos nuevos, apertura horizontal. Pozo con plataforma
 móvil de carga + rampa de servicio. 3 h.
 
+> **Implementado (#391/#319).** `BlastDoorController.tscn` trae el pozo (`WellLining`), la rampa
+> de servicio (`Flight1`/`Landing`/`Flight2`) y las compuertas; vive en `DomeMachineLevel` (T6/T7).
+> La `HangarPlatform` ya está instanciada en el pozo del `Dome_Intro` (vía `HangarDescent.tscn`,
+> §7.5/§7.9), cerrando el descenso real.
+
 ### T4 — Blockout del hangar como escena separada
 Archivo: `core_v2/levels/interiors/Dome_Intro_Hangar.tscn`
 Hangar + rampa de descenso + trigger de spawn + colocación de `PushableBoxV2` y `Conveyor`
 + esclusa de salida. 2-3 h.
+
+> **Implementado (#387).** Escena separada con dos niveles (piso + catwalks), puzzles físicos,
+> spawn `from_dome_intro_platform` y esclusa a `ScaffoldOrbit` (spawn `from_dome_intro_hangar`).
+> Test: `test_dome_intro_hangar.gd`.
 
 ### T5 — `FusibleV2`
 Archivos: `core_v2/props/controls/FusibleV2.gd` + `.tscn`

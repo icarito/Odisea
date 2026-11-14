@@ -1,0 +1,58 @@
+[gd_scene load_steps=5 format=2]
+
+; HangarDescent.tscn - Descenso fisico domo -> hangar (FD-289 Sec 7.9, tracker #319).
+;
+; Prefab autocontenido que vive en el POZO del blast door del domo: la plataforma movil de
+; carga, el trigger de transicion al hangar y la camara cinematica DE TRANSICION (solo se
+; activa cuando el jugador baja al pozo a descender, no es una cinematica de area).
+;
+; Se instancia en `Dome_Intro.tscn` bajo la compuerta `DomeMachineLevel/Doors/BlastDoor`
+; (world ~0,0,0). Las dos vias de descenso ya existen en `BlastDoorController.tscn`
+; (pozo + rampa de servicio): aca solo se agrega la plataforma y el trigger que cierra la
+; cadena con la escena del hangar.
+;
+; Deliberadamente NO toca `DomeMachineLevel.tscn`: el nivel de maquinas lo cablea otro paquete.
+
+[ext_resource path="res://core_v2/props/hangar/HangarPlatform.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/props/hangar/HangarTransition.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/components/CameraZone.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/visual/CinematicRig.tscn" type="PackedScene" id=4]
+
+[node name="HangarDescent" type="Spatial"]
+
+; Plataforma movil de carga en el pozo. Top en y=-0.45 (justo bajo la compuerta cerrada);
+; el PassengerArea autoarranca el descenso cuando el jugador se sube (FD-289 Sec 7.9).
+[node name="HangarPlatform" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.7, 0 )
+travel_distance = 11.0
+
+; Trigger de transicion al hangar: cubre el fondo del pozo (y -9.4..-12.6), donde terminan
+; tanto la plataforma como la rampa de servicio. change_scene puro (sin airlock).
+[node name="HangarTransition" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -11.0, 0 )
+
+; Camara cinematica de TRANSICION (no de area): al bajar el jugador al pozo, el
+; CinematicManager toma el rig (CameraZone -> CinematicRig) y encuadra el descenso; al
+; cruzar el trigger se libera antes del swap (HangarTransition._release_transition_camera).
+[node name="Cinematic" type="Spatial" parent="."]
+
+[node name="DescentGate" type="Area" parent="Cinematic"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -6.0, 0 )
+collision_layer = 1
+collision_mask = 2
+script = ExtResource( 3 )
+debug_render = false
+zone_extents = Vector3( 5.3, 4.5, 5.3 )
+cinematic_rig_path = NodePath("../DescentRig")
+control_mode = 0
+
+[node name="DescentRig" parent="Cinematic" instance=ExtResource( 4 )]
+transform = Transform( 0.707107, -0.479402, 0.519782, 0, 0.735083, 0.677977, -0.707107, -0.479402, 0.519782, 4.6, -1.0, 4.6 )
+
+; Luz de pozo para que el descenso se lea en el estado oscuro/bajo del domo.
+[node name="DescentLight" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.0, 0 )
+shadow_enabled = false
+light_color = Color( 0.85, 0.9, 1, 1 )
+light_energy = 1.4
+omni_range = 18.0
