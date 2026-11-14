@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=2]
+[gd_scene load_steps=31 format=2]
 
 ; DomeMachineLevel.tscn — nivel de máquinas del domo: las 4 redes (criocoolant, plasma,
 ; energía, aire) autoradas en un solo sub-árbol, cableadas a DomeNetworkStatus/DomeSystemDirector
@@ -35,6 +35,12 @@
 [ext_resource path="res://core_v2/props/controls/FusibleV2.tscn" type="PackedScene" id=19]
 [ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=21]
 [ext_resource path="res://core_v2/props/doors/BlastDoorController.tscn" type="PackedScene" id=22]
+; Vestido de los nodos de lógica (FD-289 §3.2/§3.4): cada red recibe geometría/props con su
+; color canónico y una lámpara de estado (DomeNetworkIndicator). No toca la lógica del cableado.
+[ext_resource path="res://core_v2/systems/dome/dressing/CoolantSkid.tscn" type="PackedScene" id=23]
+[ext_resource path="res://core_v2/systems/dome/dressing/PlasmaJunction.tscn" type="PackedScene" id=24]
+[ext_resource path="res://core_v2/systems/dome/dressing/PowerCabinet.tscn" type="PackedScene" id=25]
+[ext_resource path="res://core_v2/systems/dome/dressing/AirDuctUnit.tscn" type="PackedScene" id=26]
 
 [sub_resource type="SphereShape" id=1]
 radius = 0.35
@@ -44,6 +50,16 @@ emission_enabled = true
 emission = Color( 1, 0.45, 0.1, 1 )
 emission_energy = 4.0
 albedo_color = Color( 1, 0.5, 0.15, 1 )
+
+; Marca de zona del dial de purga (no es color de red: es una graduación de instrumento).
+[sub_resource type="SpatialMaterial" id=4]
+albedo_color = Color( 0.92, 0.95, 0.92, 1 )
+emission_enabled = true
+emission = Color( 0.85, 0.95, 0.85, 1 )
+emission_energy = 0.6
+
+[sub_resource type="SphereShape" id=5]
+radius = 0.32
 
 [sub_resource type="Resource" id=2]
 script = ExtResource( 8 )
@@ -119,6 +135,10 @@ segment_index = 1
 script = ExtResource( 7 )
 network = SubResource( 2 )
 branch_id = "machine_level"
+
+; Vestido cian (#00E5FF): skid de bombeo con tanque/colector + corrida de coolant y lámpara.
+[node name="CoolantSkid" parent="Coolant" instance=ExtResource( 23 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 9, 3.6 )
 
 [node name="LeakA" type="Spatial" parent="Coolant"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 9.3, 5.5 )
@@ -225,6 +245,10 @@ valve_paths = [ NodePath("../PlasmaValveA"), NodePath("../PlasmaValveB"), NodePa
 required_pattern = PoolIntArray( 1, 0, 1 )
 conduit_path = NodePath("../PlasmaConduit")
 
+; Vestido ámbar (#FF8F00): junta de plasma con bocas radiales + lámpara.
+[node name="PlasmaJunction" parent="Plasma" instance=ExtResource( 24 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 9, 5.2 )
+
 ; ---------------------------------------------------------------------------
 ; ENERGÍA — bus + interruptor principal (beat 1) + interruptor del bus + fusible.
 ; ---------------------------------------------------------------------------
@@ -246,6 +270,11 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.3, 12.5 )
 [node name="EnergyManometer" parent="Energy" instance=ExtResource( 17 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.4, 9 )
 
+; Vestido verde (#00FF88): gabinete eléctrico con barra de bus y bajantes + lámpara.
+; Rotado 180° (yaw) para que la barra de bus y los breakers miren hacia el centro del domo.
+[node name="PowerCabinet" parent="Energy" instance=ExtResource( 25 )]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 9, 11.2 )
+
 ; ---------------------------------------------------------------------------
 ; AIRE — PressureSection + bomba (sostener) + purga (dial + tuner).
 ; ---------------------------------------------------------------------------
@@ -266,13 +295,72 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 13.8, 3.5 )
 script = ExtResource( 14 )
 section_path = NodePath("../AirPressureSection")
 
+; Vestido del dial de purga: cara de instrumento + marca de zona. La cara mira hacia +X
+; (el jugador llega desde el centro del domo). No hay aguja animada: PurgeDial no expone una.
+[node name="DialFace" type="CSGCylinder" parent="Air/AirPurgeDial"]
+transform = Transform( 0, 0, -1, 1, 0, 0, 0, -1, 0, 0.05, 0, 0 )
+radius = 0.2
+height = 0.08
+sides = 20
+material = ExtResource( 21 )
+
+[node name="SafeZone" type="CSGBox" parent="Air/AirPurgeDial"]
+transform = Transform( 0, 0, -1, 1, 0, 0, 0, -1, 0, 0.11, 0.06, 0 )
+width = 0.04
+height = 0.06
+depth = 0.02
+material = SubResource( 4 )
+
+[node name="Pointer" type="CSGBox" parent="Air/AirPurgeDial"]
+transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 0.12, -0.02, 0 )
+width = 0.16
+height = 0.02
+depth = 0.02
+material = ExtResource( 21 )
+
 [node name="AirPurgeTuner" type="Spatial" parent="Air"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 13.8, 5.5 )
 script = ExtResource( 15 )
 dial_path = NodePath("../AirPurgeDial")
 
+; Vestido del mando de purga: poste + volante "Knob" (PurgeTuner lo gira con el valor).
+[node name="Post" type="CSGCylinder" parent="Air/AirPurgeTuner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.24, 0 )
+radius = 0.05
+height = 0.5
+sides = 10
+material = ExtResource( 21 )
+
+[node name="Knob" type="Spatial" parent="Air/AirPurgeTuner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+
+[node name="Wheel" type="CSGCylinder" parent="Air/AirPurgeTuner/Knob"]
+radius = 0.15
+height = 0.07
+sides = 16
+material = ExtResource( 21 )
+
+[node name="Spoke" type="CSGBox" parent="Air/AirPurgeTuner/Knob"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.09, 0.05, 0 )
+width = 0.22
+height = 0.02
+depth = 0.03
+material = SubResource( 4 )
+
+[node name="StaticBody" type="StaticBody" parent="Air/AirPurgeTuner"]
+collision_layer = 64
+
+[node name="CollisionShape" type="CollisionShape" parent="Air/AirPurgeTuner/StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.34, 0 )
+shape = SubResource( 5 )
+
 [node name="AirManometer" parent="Air" instance=ExtResource( 17 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 14.9, 6 )
+
+; Vestido rojo (#FF5252): unidad de ducto de mayor diámetro + lámpara. Desplazada en X para
+; no quedar oculta tras el tanque de criocoolant (que es vertical y está debajo).
+[node name="AirDuctUnit" parent="Air" instance=ExtResource( 26 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.4, 13.35, 4.5 )
 
 ; ---------------------------------------------------------------------------
 ; COMPUERTA DE PISO (T3) — el bus la alcanza vía el semáforo de red del cableado y la

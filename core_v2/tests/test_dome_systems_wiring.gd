@@ -21,6 +21,7 @@ const PurgeDialScript = preload("res://core_v2/systems/atmosphere/PurgeDial.gd")
 const PurgeTunerScript = preload("res://core_v2/props/controls/PurgeTuner.gd")
 const BlastDoorScript = preload("res://core_v2/props/doors/BlastDoorController.gd")
 const NetworkStatusScript = preload("res://core_v2/systems/dome/DomeNetworkStatus.gd")
+const NetworkIndicatorScript = preload("res://core_v2/systems/dome/DomeNetworkIndicator.gd")
 
 const CONFIG_PATH := "res://core_v2/systems/dome/DomeEnvConfig_intro.tres"
 
@@ -83,6 +84,57 @@ func test_machine_level_declares_every_network() -> void:
 	assert_str(String(wiring.blast_door_path)).is_equal("../Doors/BlastDoor")
 
 	level.free()
+
+
+# --- Vestido visual de las redes (FD-289 §3.2/§3.4): prop + lámpara por red ---
+
+func test_machine_level_has_one_indicator_per_network() -> void:
+	var level: Node = MachineLevelScene.instance()
+	assert_int(_count_script(level, NetworkIndicatorScript)).is_equal(4)
+
+	# El vestido monta un prop por red, en el nodo lógico correspondiente.
+	assert_object(level.get_node_or_null("Coolant/CoolantSkid")).is_not_null()
+	assert_object(level.get_node_or_null("Plasma/PlasmaJunction")).is_not_null()
+	assert_object(level.get_node_or_null("Energy/PowerCabinet")).is_not_null()
+	assert_object(level.get_node_or_null("Air/AirDuctUnit")).is_not_null()
+
+	# El dial y el mando de purga ahora tienen malla visible (PurgeTuner gira "Knob").
+	assert_object(level.get_node_or_null("Air/AirPurgeDial/DialFace")).is_not_null()
+	assert_object(level.get_node_or_null("Air/AirPurgeTuner/Knob")).is_not_null()
+
+	# Una lámpara por red con la paleta canónica de FD-289 §3.2 y sin carteles.
+	var expected := {
+		"criocoolant": Color(0.0, 0.898, 1.0, 1.0),
+		"plasma": Color(1.0, 0.561, 0.0, 1.0),
+		"energia": Color(0.0, 1.0, 0.533, 1.0),
+		"aire": Color(1.0, 0.322, 0.322, 1.0),
+	}
+	for node in _flatten(level, []):
+		if node.get_script() != NetworkIndicatorScript:
+			continue
+		var net: String = node.network_id
+		assert_bool(expected.has(net)).is_true()
+		assert_bool(node.healthy_color.is_equal_approx(expected[net])).is_true()
+		assert_bool(node.emissive_paths.size() > 0).is_true()
+	level.free()
+
+
+func test_dressing_indicator_lights_up_with_network_health() -> void:
+	var rig := _make_rig()
+	var status = rig["status"]
+	var level: Node = rig["level"]
+	yield(get_tree(), "idle_frame") # el _ready del indicador construye su material
+
+	var indicator = level.get_node("Plasma/PlasmaJunction/Indicator")
+	assert_object(indicator._material).is_not_null()
+	assert_bool(indicator.is_healthy()).is_false()
+	assert_float(indicator._material.emission_energy).is_equal(0.0)
+
+	status.mark_healthy("plasma")
+	assert_bool(indicator.is_healthy()).is_true()
+	assert_float(indicator._material.emission_energy).is_greater(0.0)
+	# La emisión es el color de la red, no un color de estado inventado.
+	assert_bool(indicator._material.emission.is_equal_approx(indicator.healthy_color)).is_true()
 
 
 # --- Cableado (rig con director local; no usa el autoload) ---
