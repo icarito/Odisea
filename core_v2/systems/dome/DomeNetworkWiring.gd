@@ -41,6 +41,14 @@ export(NodePath) var power_switch_path := NodePath()
 # Bomba de aire: sostener inyecta presión en la PressureSection (beat 4).
 export(NodePath) var air_pump_path := NodePath()
 
+# Gating fino del bus (FD-289 §5 beat 3, "acoplado al coolant"): con esto en true, el
+# interruptor del bus sólo restaura la red de energía después de que el timeline habilitó la
+# palanca con la acción `enable_auxpower_lever` (beat 2, al repararse el coolant). Sin el gate
+# el bus era restaurable antes de coolant y la red de energía podía sanar fuera de orden, que
+# es justo lo que el diseño evita. Ponerlo en false reproduce el comportamiento previo (el
+# interruptor restaura siempre). Documentado en el Inspector.
+export(bool) var require_coolant_for_bus: bool = true
+
 # Compuerta de piso (BlastDoorController, T3). El director ya la abre con blast_door_open vía
 # el autoconnect del propio controlador; acá sólo se le relaya el semáforo de borde (§6.2)
 # con la cantidad de redes HEALTHY. Vacío = la escena todavía no instancia la compuerta.
@@ -61,6 +69,9 @@ var _blast_door: Node = null
 var _coolant_armed := false
 var _plasma_armed := false
 var _air_armed := false
+# El timeline habilitó la palanca del bus (`enable_auxpower_lever`, beat 2). Ver
+# require_coolant_for_bus.
+var _auxpower_enabled := false
 
 
 func _ready() -> void:
@@ -172,6 +183,9 @@ func _on_timeline_event(_event: String, action: String, _beat: int) -> void:
 	match action:
 		"spawn_coolant_leak":
 			_arm_coolant()
+		"enable_auxpower_lever":
+			# Beat 2: reparado el coolant, el diseño habilita la palanca del bus (§5 beat 3).
+			_auxpower_enabled = true
 		"enable_plasma_route":
 			_arm_plasma()
 		"enable_air_system":
@@ -206,8 +220,17 @@ func _on_master_switch(_is_on = null) -> void:
 
 
 func _on_power_switch(_is_on = null) -> void:
+	# Gating §5 beat 3: la palanca del bus no restaura energía hasta que coolant esté sano.
+	if require_coolant_for_bus and not _auxpower_enabled:
+		return
 	if _bus != null and _bus.has_method("request_restore"):
 		_bus.call("request_restore")
+
+
+# El bus quedó habilitado por el timeline (o el gate está desactivado). Lo consulta el test del
+# ciclo completo; también sirve para UI/feedback del interruptor.
+func is_auxpower_enabled() -> bool:
+	return _auxpower_enabled or not require_coolant_for_bus
 
 
 func _on_pump_hold_changed(_arg = null) -> void:
@@ -298,6 +321,7 @@ func get_snapshot() -> Dictionary:
 		"coolant_armed": _coolant_armed,
 		"plasma_armed": _plasma_armed,
 		"air_armed": _air_armed,
+		"auxpower_enabled": _auxpower_enabled,
 	}
 
 
@@ -307,3 +331,4 @@ func restore_snapshot(data: Dictionary) -> void:
 	_coolant_armed = bool(data.get("coolant_armed", _coolant_armed))
 	_plasma_armed = bool(data.get("plasma_armed", _plasma_armed))
 	_air_armed = bool(data.get("air_armed", _air_armed))
+	_auxpower_enabled = bool(data.get("auxpower_enabled", _auxpower_enabled))
