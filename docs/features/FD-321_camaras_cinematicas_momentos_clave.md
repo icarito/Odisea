@@ -1,74 +1,74 @@
-# FD-321: Cámaras cinemáticas en momentos clave (Bahía de Máquinas)
+# FD-321: Cámaras cinemáticas — transiciones, no áreas de nivel
 
-**Status:** In Progress
+**Status:** Reconciled (corrección de alcance 2026-11-14)
 **Priority:** Medium
 **Effort:** Small
 **Created:** 2026-11-13
-**Completed:** -
+**Revised:** 2026-11-14
 
-## Problem
+## Corrección de alcance (2026-11-14)
 
-El Vertical Slice no tiene cámaras cinemáticas en sus momentos clave. La
-infraestructura ya existe (`CinematicManager` autoload, `CinematicRigV2`,
-`CinematicPathRig`, `CameraZone`), pero no está enganchada a ningún beat
-jugable: el jugador nunca ve un encuadre compuesto/sin control directo.
+El pedido de diseño corrigió el alcance original: **las cámaras cinemáticas eran
+para las transiciones nomás, no para áreas del nivel.** El planteamiento inicial de
+dos "momentos clave" como `CameraZone` dentro de `MachineBay.tscn` (llegada a la
+bahía y puente sobre el fuego) quedó **fuera de alcance**: disparar cinemáticas al
+caminar por el nivel rompe la regla de inmersión (el jugador pierde control sin
+cambiar de zona) y duplica responsabilidad que pertenece al sistema de
+transiciones.
 
-## Solution
+En consecuencia, se eliminaron de `MachineBay.tscn` los nodos por área:
 
-Reusar la infraestructura de cinemáticas existente (no crear un segundo
-sistema de cámara) para dos momentos clave de la **Bahía de Máquinas**
-(`MachineBay.tscn`), cada uno como una `CameraZone` (Area, grupo
-`CameraZoneV2`) con un `CinematicRigV2` hijo. El `PlayerControllerV2` ya
-detecta la zona (polling determinista) y pide el modo al `CinematicManager`,
-que activa el rig con blend de entrada/salida.
+- `Cinematics/ArrivalGate` (Area + `CameraZone.gd`, `cinematic_rig_path=../ArrivalRevealRig`)
+- `Cinematics/ArrivalRevealRig` (instancia de `CinematicRig`)
+- `Cinematics/BridgeFireGate` (Area + `CameraZone.gd`)
+- `Cinematics/BridgeFireRevealRig` (instancia de `CinematicRig`)
 
-1. **Llegada / descenso a la bahía** — `Cinematics/ArrivalGate` +
-   `ArrivalRevealRig`. Al bajar por la rampa de entrada la cámara se eleva
-   detrás y muestra el pozo monumental de la bahía hacia +Z.
-2. **Puente sobre el fuego (Estación 5)** — `Cinematics/BridgeFireGate` +
-   `BridgeFireRevealRig`. Al llegar al deck de la Estación 5 la cámara
-   encuadra el puente basculante ardiendo y los quemadores laterales.
+y los `ext_resource` de `CameraZone.gd` y `CinematicRig.tscn`, que quedaron sin uso
+en el nivel.
 
-Contrato de inmersión respetado: la cámara nunca salta (blend con
-`transition_time` del rig, latch de input en entrada/salida) y al salir de la
-zona el control vuelve al jugador sin cambiar su pose ni la relación
-cámara-personaje (modo de movimiento `FREE`, cámara-relative).
+## Solution (vigente)
 
-### Momentos evaluados y descartados
+Las cinemáticas de transición las implementa el **sistema de transiciones**
+(componente aparte), reusando `CinematicManager`/`CinematicRig`. La Bahía de Máquinas
+es un nivel **sin** cinemáticas por área: se recorre con control continuo y la cámara
+nunca salta al entrar o salir de zonas del nivel. Cualquier encuadre compuesto de un
+beat jugable se resuelve por transición, no por trigger de área.
 
-- **Despertar / apertura de criopods (RingHub)**: el anillo arranca sin luz
-  (`RingHubLightState.start_lit = false`); un encuadre ahí renderiza negro y
-  necesitaría trabajo de iluminación fuera de alcance. Descartado por ahora.
-- **Primer contacto con Odisea / Programmer**: ya tiene cámara de foco
-  (`ProgrammerHoloNPC.focus_camera` en `VoiceEntry` y en la válvula maestra).
-  No se duplica.
-- **Cierre por válvula (Estación 5 / Terminal de Flujo)**: ya tiene
-  `focus_camera` de Odisea al completar la orden. No se duplica.
+### Contrato de inmersión
 
-### Considered Options
+- La cámara no cambia al caminar por el nivel (sin `CameraZone` de área).
+- El sistema de transiciones es el único dueño de los encuadres cinemáticos.
+- El nivel no expone grupos `CameraZoneV2` ni instancias de `CinematicRig`.
 
-- **Option A (selected)**: `CameraZone` + `CinematicRig` instanciados en la
-  escena del nivel. Cero código nuevo; usa el polling determinista del
-  `PlayerControllerV2` y el FSM del `CinematicManager`.
-- **Option B**: extender OYS (`CINEMATIC_CAMERA`) para mover la cámara. Requiere
-  tocar `OYS_Interpreter` (fuera del alcance permitido) y sería un segundo
-  camino de cámara.
-- **Option C**: `activate_vcamera`/`blend_to_vcamera` por script. Necesita un
-  trigger propio y duplica el manejo de blend que ya hace el FSM de requests.
-- **Selected**: A — mínima superficie, reusa el contrato de requests/blend.
+## Files
 
-## Files to Modify
-
-- `core_v2/levels/machines/MachineBay.tscn` (modify — instancia las 2 zonas + rigs)
-- `core_v2/tests/test_cinematic_moments.gd` (new — wiring + integración)
-- `docs/features/FD-321_camaras_cinematicas_momentos_clave.md` (new — este doc)
+- `core_v2/levels/machines/MachineBay.tscn` (modified — se quitaron los 4 nodos de
+  área y 2 `ext_resource`; se preservan `LabyrinthSection` y
+  `MachineBayLabyrinthStreamer`).
+- `core_v2/tests/test_machine_bay_no_area_cinematics.gd` (new — guardia de fuente e
+  instancia: el nivel no puede reintroducir cinemáticas por área). Reemplaza a
+  `core_v2/tests/test_cinematic_moments.gd`, eliminado.
+- `docs/features/FD-321_camaras_cinematicas_momentos_clave.md` (este doc).
+- `docs/features/FEATURE_INDEX.md` (actualizado).
 
 ## Verification
 
-1. Wiring + encuadre (mira hacia la acción) y activación/retorno de control:
-   `./runtest.sh -a ./core_v2/tests/test_cinematic_moments.gd` (3/3 verdes).
-2. Sin regresión de recorrido ni de estaciones:
-   `./runtest.sh -a ./core_v2/tests/test_machine_bay_route.gd`,
-   `./runtest.sh -a ./core_v2/tests/test_machine_bay.gd`.
-3. Capturas 960x540 del encuadre de cada shot (artefactos):
-   `cine_machinebay_arrival_960x540.png`, `cine_machinebay_bridge_fire_960x540.png`.
+1. Guardia de área:
+   `./.venv/bin/pytest tests/test_odisea_runner.py -k test_machine_bay_no_area_cinematics`
+2. La ruta crítica de FD-320 no cambia:
+   `./.venv/bin/pytest tests/test_odisea_runner.py -k 'machine_bay or labyrinth'`
+
+## Notas históricas (descartado)
+
+El diseño previo describía dos `CameraZone`+`CinematicRig` instanciados en la
+escena del nivel (Option A). Se conserva aquí solo como registro: esa aproximación
+fue reemplazada por la implementación en el sistema de transiciones.
+
+### Momentos evaluados y descartados (siguen vigentes como criterio)
+
+- **Despertar / apertura de criopods (RingHub)**: el anillo arranca sin luz; se
+  resolvería por transición, no por área.
+- **Primer contacto con Odisea / Programmer**: ya tiene cámara de foco
+  (`ProgrammerHoloNPC.focus_camera`). No se duplica.
+- **Cierre por válvula (Estación 5)**: ya tiene `focus_camera` de Odisea al completar
+  la orden. No se duplica.

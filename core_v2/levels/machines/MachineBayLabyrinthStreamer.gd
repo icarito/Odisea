@@ -84,6 +84,25 @@ var _failed_retries: Dictionary = {}
 var _last_player_key: Vector2 = Vector2(INF, INF)
 var _activated := false
 
+# ── Celdas de enlace (routing) ───────────────────────────────────────────────
+# Filas forzadas en el borde OESTE (lado bahía) de celdas de chunk concretas, a
+# altura 0 (nivel de la cubierta del corredor). El director de ruteo
+# (`MachineBayMazeRouting`) las configura para garantizar que cada compuerta
+# siempre abra sobre una celda transitable del campo, sin depender del hash de
+# costura. Es opt-in: vacío por defecto → generación idéntica a antes.
+var _junction_rows: Dictionary = {}  # "chunk_x,chunk_y" -> fila (int) en el borde oeste
+
+func set_junction_cells(cells: Dictionary) -> void:
+	_junction_rows = cells.duplicate()
+
+func _junction_row(cx: int, cy: int) -> int:
+	return int(_junction_rows.get("%d,%d" % [cx, cy], -1))
+
+# Posición de mundo del centro de una celda de enlace (borde oeste de un chunk).
+func get_junction_world_position(chunk_key: Vector2, row: int) -> Vector3:
+	var corner: Vector3 = region_origin + _key_to_local_origin(chunk_key)
+	return corner + Vector3(cell_size * 0.5, 0.0, float(row) * cell_size + cell_size * 0.5)
+
 # ── Helpers de coordenadas ───────────────────────────────────────────────────
 
 func _chunk_world_step() -> float:
@@ -127,6 +146,14 @@ func _fixed_border_tiles(key: Vector2) -> Dictionary:
 	# EAST (x=last) del chunk key == WEST del chunk (x+1, y)
 	var east_z: int = _stable_hash(int(key.x) + 1, int(key.y), 202) % chunk_cells
 	fixed["%d,%d" % [last, east_z]] = {"id": "W", "rotation": SEAM_ROT_0, "height": SEAM_HEIGHT}
+	# Enlaces de ruteo: fuerzan el borde oeste de este chunk y, espejado, el borde
+	# este del chunk vecino, así ambas caras de la costura coinciden (misma celda).
+	var own_row: int = _junction_row(int(key.x), int(key.y))
+	if own_row >= 0:
+		fixed["0,%d" % own_row] = {"id": "W", "rotation": SEAM_ROT_0, "height": SEAM_HEIGHT}
+	var mirror_row: int = _junction_row(int(key.x) + 1, int(key.y))
+	if mirror_row >= 0:
+		fixed["%d,%d" % [last, mirror_row]] = {"id": "W", "rotation": SEAM_ROT_0, "height": SEAM_HEIGHT}
 	return fixed
 
 # ── Ciclo de vida ────────────────────────────────────────────────────────────
