@@ -1,0 +1,99 @@
+[gd_scene load_steps=7 format=2]
+
+; CoolantSkid.tscn — vestido del nodo lógico de criocoolant (FD-289 §3.2/§3.4).
+; FORMA: skid de bombeo con tanque y colector -> identifica la acción de la red de fluido.
+; COLOR: cian #00E5FF en la corrida de caudal y en la lámpara de estado.
+; Reusa el kit de tubería (PipeMetal + PipeCoolant del PipeRoute kit). Sin assets nuevos.
+
+[ext_resource path="res://core_v2/systems/dome/DomeNetworkIndicator.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=2]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolant.tres" type="Material" id=3]
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0, 0.16, 0.18, 1 )
+emission_enabled = true
+emission = Color( 0, 0.898, 1, 1 )
+emission_energy = 0.35
+
+[sub_resource type="CubeMesh" id=2]
+size = Vector3( 0.56, 0.075, 0.055 )
+
+; Banda de red: collar emisivo cian que hace legible la red desde cualquier ángulo (no es cartel).
+[sub_resource type="SpatialMaterial" id=3]
+albedo_color = Color( 0, 0.16, 0.18, 1 )
+metallic = 0.4
+roughness = 0.4
+emission_enabled = true
+emission = Color( 0, 0.898, 1, 1 )
+emission_energy = 1.7
+
+[node name="CoolantSkid" type="Spatial"]
+
+[node name="Skid" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0 )
+width = 1.1
+height = 0.12
+depth = 0.9
+material = ExtResource( 2 )
+
+[node name="Housing" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.44, 0 )
+width = 0.86
+height = 0.6
+depth = 0.6
+material = ExtResource( 2 )
+
+[node name="Tank" type="CSGCylinder" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52, 0 )
+radius = 0.24
+height = 0.9
+sides = 16
+material = ExtResource( 2 )
+
+[node name="ColorBand" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.44, 0 )
+width = 0.9
+height = 0.08
+depth = 0.64
+material = SubResource( 3 )
+
+[node name="CoolantRun" type="CSGCylinder" parent="."]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.58, 0.62 )
+radius = 0.085
+height = 1.35
+sides = 12
+material = ExtResource( 3 )
+
+[node name="SpurA" type="CSGCylinder" parent="."]
+transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 0.42, 0.42, 1.15 )
+radius = 0.07
+height = 0.7
+sides = 10
+material = ExtResource( 3 )
+
+[node name="SpurB" type="CSGCylinder" parent="."]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -0.42, 0.42, 1.15 )
+radius = 0.07
+height = 0.7
+sides = 10
+material = ExtResource( 3 )
+
+[node name="ValveStub" type="CSGCylinder" parent="."]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.9, 0 )
+radius = 0.05
+height = 0.5
+sides = 8
+material = ExtResource( 2 )
+
+[node name="Indicator" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.99, 0.32 )
+script = ExtResource( 1 )
+network_id = "criocoolant"
+healthy_color = Color( 0, 0.898, 1, 1 )
+healthy_energy = 2.6
+emissive_paths = [ NodePath("../ColorBand"), NodePath("Lamp") ]
+
+[node name="Lamp" type="MeshInstance" parent="Indicator"]
+transform = Transform( 0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 0, 0 )
+mesh = SubResource( 2 )
+material/0 = SubResource( 1 )
