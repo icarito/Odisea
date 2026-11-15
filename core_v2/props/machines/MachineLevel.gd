@@ -25,6 +25,7 @@ const ProgrammerHoloNPC = preload("res://core_v2/actors/ProgrammerHoloNPC.gd")
 const LedgeV2 = preload("res://core_v2/components/LedgeV2.gd")
 const SignagePanelScene = preload("res://core_v2/props/signage/SignagePanel.tscn")
 const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
+const ProximityNodeActivator = preload("res://core_v2/levels/chunks/ProximityNodeActivatorV2.gd")
 const DiamondPlateTex = preload("res://materials/diamondplate.png")
 const DiamondPlateSpec = preload("res://materials/diamondplate_spec.png")
 const IndFloorTex = preload("res://textures/kenney_prototype_textures/dark/texture_08.png")
@@ -32,6 +33,12 @@ const HazardMat = preload("res://materials/diamondPlateAluminum/seam_hazard_stri
 
 export(String, FILE, "*.json") var layout_path := ""
 export(bool) var enable_player_multi_tool := true
+# Streaming por estación: deja construidas todas las estaciones pero solo activa
+# (visible/proceso/colisión) las que están dentro de su radio de cercanía. Opt-in:
+# apagado por defecto, así los tests y el layout lineal no cambian de comportamiento.
+export(bool) var enable_station_streaming := false
+# Margen de liberación/reactivación por estación (m). Cubre la estación vecina.
+export(float) var station_stream_margin := 14.0
 
 var _items := {} # name -> Node
 var _pending := [] # links con retardo: [ticks_restantes, destino, metodo, args, total_ticks, from_name]
@@ -45,6 +52,7 @@ var _elapsed_ticks := 0
 var _order_completed := false
 var _void_kill_cooldown_ticks := 0
 var _ringhub_return_state: Dictionary = {}
+var _station_streamer = null
 
 
 func _ready() -> void:
@@ -139,10 +147,91 @@ func build(layout: Dictionary) -> void:
 		_items[node.name] = node
 	for link in links:
 		_connect_link(link)
+	if enable_station_streaming:
+		_setup_station_streaming()
 
 
 func get_item(item_name: String) -> Node:
 	return _items.get(item_name)
+
+
+# Estaciones presentes en el layout (clave genérica "station"/área).
+func get_station_ids() -> Array:
+	var ids := {}
+	for node in _items.values():
+		if is_instance_valid(node) and node.has_meta("layout_item"):
+			ids[int((node.get_meta("layout_item") as Dictionary).get("station", 0))] = true
+	var out := []
+	for id in ids.keys():
+		out.append(id)
+	out.sort()
+	return out
+
+
+func _nodes_by_station() -> Dictionary:
+	var groups := {}
+	for node in _items.values():
+		if not is_instance_valid(node) or not node.has_meta("layout_item"):
+			continue
+		var sid := int((node.get_meta("layout_item") as Dictionary).get("station", 0))
+		if not groups.has(sid):
+			groups[sid] = []
+		groups[sid].append(node)
+	return groups
+
+
+# Arma un chunk de proximidad por estación (>0). El shell/ambiente (station 0) queda
+# siempre activo. La clave de agrupación es "station", no las 4 máquinas actuales:
+# cualquier área nueva que declare su "station" entra sin tocar esto.
+func _setup_station_streaming() -> void:
+	if _station_streamer != null:
+		return
+	_station_streamer = ProximityNodeActivator.new()
+	_station_streamer.name = "StationStreamer"
+	_station_streamer.default_release_margin = station_stream_margin
+	add_child(_station_streamer)
+	var groups := _nodes_by_station()
+	var station_ids := []
+	for station_id in groups.keys():
+		if int(station_id) > 0:
+			station_ids.append(int(station_id))
+	station_ids.sort()
+	for station_id in station_ids:
+		if int(station_id) <= 0:
+			continue
+		var nodes: Array = groups[station_id]
+		var center := Vector3.ZERO
+		var min_v := Vector3(INF, INF, INF)
+		var max_v := Vector3(-INF, -INF, -INF)
+		var count := 0
+		for node in nodes:
+			if not (node is Spatial):
+				continue
+			# El activador compara contra la posición GLOBAL del jugador.
+			var origin: Vector3 = (node as Spatial).global_transform.origin if node.is_inside_tree() else (node as Spatial).transform.origin
+			center += origin
+			min_v = Vector3(min(min_v.x, origin.x), min(min_v.y, origin.y), min(min_v.z, origin.z))
+			max_v = Vector3(max(max_v.x, origin.x), max(max_v.y, origin.y), max(max_v.z, origin.z))
+			count += 1
+		if count == 0:
+			continue
+		center /= float(count)
+		var radius: float = (max_v - min_v).length() * 0.5 + station_stream_margin
+		_station_streamer.register_nodes(nodes, center, radius, station_stream_margin)
+
+
+func set_station_streaming_enabled(value: bool) -> void:
+	enable_station_streaming = value
+	if value:
+		_setup_station_streaming()
+		if _station_streamer != null:
+			_station_streamer.set_enabled(true)
+	elif _station_streamer != null:
+		_station_streamer.set_enabled(false)
+
+
+func get_station_streamer():
+	return _station_streamer
 
 
 # Estado actual de las piezas moviles como layout, para guardar lo que armo el jugador.
@@ -524,6 +613,11 @@ func return_to_ring_hub() -> void:
 	var target_scene := "res://core_v2/levels/RingHub_Level.tscn"
 	var scene_mgr = get_node_or_null("/root/SceneManager")
 	if scene_mgr != null and scene_mgr.has_method("goto_scene"):
+		# El retorno se dispara desde un pedestal abierto al final de la bahia y hub
+		# restaura la pose guardada del jugador: no hay recorrido fisico que empalme
+		# el salto. Hasta que exista ese buffer de llegada se conserva el fade, que
+		# oculta el reemplazo bahia->hub y la reubicacion de la camara. Pasarlo a
+		# seamless (FD-297) mostraria el corte de golpe.
 		scene_mgr.goto_scene(target_scene, {
 			"preserve_player_state": false,
 			"wait_for_fade_out": true,

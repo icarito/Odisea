@@ -17,6 +17,27 @@ cabecera de `core_v2/props/machines/MachineLevel.gd`; acá va lo que hay que res
 - **Los retardos de `link` se cuentan en ticks de física**, no con `Timer`: es lo que
   mantiene el nivel determinista bajo replay.
 
+## Streaming por estación (área)
+
+Cada item puede declarar `"station": <int>`. Es la **clave de área** con la que
+`MachineLevel` agrupa los ítems para el streaming por cercanía
+(`ProximityNodeActivatorV2`): se deja todo construido, pero solo queda activo
+(visible/colisión/proceso) el grupo cuya estación está dentro de su radio de
+alcance; el resto queda dormido. `station 0` (o ausente) es el **shell/ambiente
+siempre activo** (cáscara, catwalks, pipes, fuego) y no se apaga nunca.
+
+- El radio/centro de cada estación sale del AABB de sus ítems; el margen de
+  liberación es `station_stream_margin` de `MachineLevel` (default 14 m, cubre la
+  estación vecina). No hay campo nuevo por item.
+- Las estaciones se activan con `MachineLevel.enable_station_streaming = true`
+  (opt-in; apagado reproduce el comportamiento previo).
+- Un item con `station` debe poder convivir con sus referencias (`hinge.a`/`b`,
+  `link.from`/`to`) dentro de la misma estación: apagar un chunk no debe dejar una
+  bisagra sin su cuerpo.
+- Los ítems de una estación se reactivan en su estado actual, no en el original:
+  una pieza cortada sigue cortada. El rearme (`reset_station`) se hace con la
+  estación activa (el jugador está cerca para interactuar).
+
 ## Recetas que costaron encontrar
 
 - **Retener una pieza suelta:** `"held": true` (queda en `MODE_STATIC`) y un link a `release`.
