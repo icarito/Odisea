@@ -51,35 +51,42 @@ func _set_lever(item_name: String, active: bool) -> void:
 		item.set("is_active", active)
 
 func _reset_levers() -> void:
+	var routing = _routing()
+	if is_instance_valid(routing):
+		routing.gate_on_machine_progress = false
 	_set_lever("SeesawLever", false)
 	_set_lever("PendulumLever", false)
 	yield(_advance(2), "completed")
 
-# ── 1. Topología y estado inicial determinista ───────────────────────────────
+# ── 1. Topología y estado inicial abierto (Transit-Run: sin bloqueo obligatorio) ─
 
 func test_junctions_present_with_expected_initial_state() -> void:
 	yield(_reset_levers(), "completed")
 	var routing = _routing()
 	assert_object(routing).is_not_null()
 	assert_int(routing.get_junction_ids().size()).is_equal(3)
-	# La boca del laberinto siempre está abierta; el resto son beats de máquina.
+	# Transit-Run: por defecto todas las compuertas están abiertas sin puzles previos.
 	assert_bool(routing.is_junction_open("maze_entry")).is_true()
-	assert_bool(routing.is_junction_open("maze_exit")).is_false()
-	assert_bool(routing.is_junction_open("field_link")).is_false()
+	assert_bool(routing.is_junction_open("maze_exit")).is_true()
+	assert_bool(routing.is_junction_open("field_link")).is_true()
 
-func test_initial_state_is_corridor_only() -> void:
+func test_initial_state_opens_all_routes_without_mandatory_puzzles() -> void:
 	yield(_reset_levers(), "completed")
 	var routing = _routing()
 	assert_bool(routing.is_route_open("corridor")).is_true()
-	assert_bool(routing.is_route_open("maze")).is_false()
-	assert_bool(routing.is_route_open("service_field")).is_false()
-	assert_bool(routing.has_multiple_open_routes()).is_false()
+	assert_bool(routing.is_route_open("maze")).is_true()
+	assert_bool(routing.is_route_open("service_field")).is_true()
+	assert_bool(routing.has_multiple_open_routes()).is_true()
 
-# ── 2. El progreso de las máquinas abre las compuertas ───────────────────────
+# ── 2. El progreso de las máquinas abre las compuertas (modo flag legacy) ─────
 
 func test_station_progress_opens_gated_junctions() -> void:
 	yield(_reset_levers(), "completed")
 	var routing = _routing()
+	routing.gate_on_machine_progress = true
+	yield(_advance(), "completed")
+	assert_bool(routing.is_junction_open("maze_exit")).is_false()
+	assert_bool(routing.is_junction_open("field_link")).is_false()
 	# Estación 1 (balancín) resuelta → se abre el paso a Estación 2.
 	_set_lever("SeesawLever", true)
 	yield(_advance(), "completed")
@@ -95,6 +102,8 @@ func test_station_progress_opens_gated_junctions() -> void:
 func test_multiple_routes_open_after_progress() -> void:
 	yield(_reset_levers(), "completed")
 	var routing = _routing()
+	routing.gate_on_machine_progress = true
+	yield(_advance(), "completed")
 	_set_lever("SeesawLever", true)
 	yield(_advance(), "completed")
 	assert_bool(routing.is_route_open("maze")).is_true()
@@ -109,6 +118,8 @@ func test_multiple_routes_open_after_progress() -> void:
 func test_gate_state_is_a_pure_function_of_machine_state() -> void:
 	yield(_reset_levers(), "completed")
 	var routing = _routing()
+	routing.gate_on_machine_progress = true
+	yield(_advance(), "completed")
 	_set_lever("SeesawLever", true)
 	yield(_advance(), "completed")
 	assert_bool(routing.is_junction_open("maze_exit")).is_true()
@@ -150,6 +161,8 @@ func test_gates_clear_of_station1_approach() -> void:
 func test_closed_gate_blocks_and_open_gate_frees_collision() -> void:
 	yield(_reset_levers(), "completed")
 	var routing = _routing()
+	routing.gate_on_machine_progress = true
+	yield(_advance(120), "completed")
 	var gate = routing.get_node_or_null("Gate_maze_exit")
 	assert_object(gate).is_not_null()
 	var barrier = gate.get_node_or_null("Barrier")

@@ -53,6 +53,7 @@ export(float) var guide_resume_distance := 5.5
 export(float) var walk_speed_threshold := 0.25
 export(float) var jog_speed_threshold := 2.8
 export(float) var sprint_speed_threshold := 5.5
+export(bool) var latch_input_on_focus := false
 
 # --- Política RL (opcional, reversible) ---
 # Con use_rl_policy = true, FOLLOW / MOVE_TO / ORBIT_GUIDE delegan su locomoción a
@@ -351,8 +352,8 @@ func focus_camera(duration: float = 3.0, offset: Vector3 = Vector3(0.0, 1.35, 2.
 					"rig": _cam_rig,
 					"transition_time": 0.6,
 					"restore_view_on_exit": true,
-					"latch_on_enter": true,
-					"latch_on_exit": true
+					"latch_on_enter": latch_input_on_focus,
+					"latch_on_exit": latch_input_on_focus
 				},
 				CAMERA_REQUEST_SOURCE,
 				CAMERA_REQUEST_PRIORITY

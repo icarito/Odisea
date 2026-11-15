@@ -25,6 +25,9 @@ const GateScene := preload("res://core_v2/levels/machines/MazeRoutingGate.tscn")
 
 export(NodePath) var machine_level_path: NodePath = NodePath("../Level")
 export(NodePath) var streamer_path: NodePath = NodePath("../MachineBayLabyrinthStreamer")
+# Transit-Run: las compuertas dejan de bloquear la ruta con puzles obligatorios por
+# defecto. Activar este flag restaura la apertura progresiva ligada a las palancas.
+export(bool) var gate_on_machine_progress := false
 
 # Tabla determinista de enlaces. `requirement`:
 #   always               → siempre abierta (boca del laberinto)
@@ -124,6 +127,8 @@ func _evaluate(immediate: bool) -> void:
 			gate.set_active(want, immediate)
 
 func _requirement_met(req: String) -> bool:
+	if not gate_on_machine_progress:
+		return true
 	if req == "always":
 		return true
 	if _machine_level == null:

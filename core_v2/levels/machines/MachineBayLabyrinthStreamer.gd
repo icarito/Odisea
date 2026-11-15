@@ -103,6 +103,45 @@ func get_junction_world_position(chunk_key: Vector2, row: int) -> Vector3:
 	var corner: Vector3 = region_origin + _key_to_local_origin(chunk_key)
 	return corner + Vector3(cell_size * 0.5, 0.0, float(row) * cell_size + cell_size * 0.5)
 
+
+# Valida la conectividad de la ruta por semilla usando FlowRouteValidator.gd (pista C).
+# Si FlowRouteValidator no estuviera disponible, degrada de forma segura.
+func validate_seed_with_flow_validator(seed_val: int = -1) -> Dictionary:
+	var effective_seed: int = seed_base if seed_val < 0 else seed_val
+	var validator_path := "res://core_v2/systems/flow/FlowRouteValidator.gd"
+	if not ResourceLoader.exists(validator_path):
+		return {"available": false, "seed": effective_seed, "valid": true}
+	var validator_script = load(validator_path)
+	if validator_script == null:
+		return {"available": false, "seed": effective_seed, "valid": true}
+	# Construye grafo mínimo de costura oeste->este para el chunk (0, 0) de la semilla.
+	var prev_seed: int = seed_base
+	seed_base = effective_seed
+	var fixed: Dictionary = _fixed_border_tiles(Vector2(0, 0))
+	seed_base = prev_seed
+	var entry_pos: Vector3 = get_junction_world_position(Vector2(0, 0), _junction_row(0, 0) if _junction_row(0, 0) >= 0 else 1)
+	var exit_pos: Vector3 = region_origin + Vector3(float(chunk_cells - 1) * cell_size + cell_size * 0.5, 0.0, cell_size * 1.5)
+	var graph := {
+		"entry": "west_seam",
+		"exit": "east_seam",
+		"nodes": [
+			{"id": "west_seam", "pos": entry_pos, "size": Vector3(cell_size, 0.2, cell_size)},
+			{"id": "chunk_hub", "pos": _key_to_world_center(Vector2(0, 0)), "size": Vector3(cell_size * 2.0, 0.2, cell_size * 2.0)},
+			{"id": "east_seam", "pos": exit_pos, "size": Vector3(cell_size, 0.2, cell_size)},
+		],
+		"edges": [
+			{"from": "west_seam", "to": "chunk_hub", "gap_h": 2.0, "delta_h": 0.0},
+			{"from": "chunk_hub", "to": "east_seam", "gap_h": 2.0, "delta_h": 0.0},
+		],
+	}
+	var report: Dictionary = validator_script.validate(graph, validator_script.default_metrics())
+	return {
+		"available": true,
+		"seed": effective_seed,
+		"valid": bool(report.get("valid_main_route", false)) and not fixed.empty(),
+		"report": report,
+	}
+
 # ── Helpers de coordenadas ───────────────────────────────────────────────────
 
 func _chunk_world_step() -> float:

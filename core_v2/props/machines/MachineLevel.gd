@@ -20,6 +20,7 @@ signal said(text, duration)
 
 const MachinePart = preload("res://core_v2/props/machines/MachinePart.gd")
 const MachineHinge = preload("res://core_v2/props/machines/MachineHinge.gd")
+const KineticBoostPad = preload("res://core_v2/props/machines/KineticBoostPad.gd")
 const TriggerScript = preload("res://core_v2/props/machines/MachineTrigger.gd")
 const ProgrammerHoloNPC = preload("res://core_v2/actors/ProgrammerHoloNPC.gd")
 const LedgeV2 = preload("res://core_v2/components/LedgeV2.gd")
@@ -299,6 +300,12 @@ func _make(item: Dictionary) -> Spatial:
 			return _make_ledge(item)
 		"sign":
 			return _make_sign(item)
+		"boost_pad":
+			var pad = KineticBoostPad.new()
+			pad.size = _vec(item.get("size", [2.4, 1.2, 2.4]))
+			pad.impulse_velocity = _vec(item.get("impulse", [0.0, 8.5, 11.0]))
+			pad.starts_active = bool(item.get("starts_active", false))
+			return pad
 		"scene":
 			# "optional": decoracion cuyo import puede no existir (CI no importa assets nuevos).
 			if bool(item.get("optional", false)) and not ResourceLoader.exists(str(item.get("path", ""))):
