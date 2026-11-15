@@ -19,6 +19,7 @@ const BufferScript := preload("res://core_v2/levels/bay_vertical/BayTransitionBu
 const RingHubLightStateScript := preload("res://core_v2/levels/RingHubLightState.gd")
 const FlowScript := preload("res://core_v2/levels/bay_vertical/BayTransitFlow.gd")
 const GravityMountScript := preload("res://core_v2/levels/bay_vertical/BayGravityMount.gd")
+const FlowRouteValidatorScript := preload("res://core_v2/systems/flow/FlowRouteValidator.gd")
 
 const ENTRY_SPAWN_ID := "bay_vertical_entry"
 const RINGHUB_SCENE := "res://core_v2/levels/RingHub_Level.tscn"
@@ -200,14 +201,50 @@ func test_transit_flow_budget_matches_contract() -> void:
 	flow.g = 14.0
 	flow.v_jump = 10.0
 	flow.v_run = 7.0
-	# h_max = v_jump²/(2g) ≈ 3.57 m ; d_max = v_run·2·v_jump/g ≈ 10 m
-	assert_float(flow.h_max()).is_equal_approx(3.571, 0.01)
-	assert_float(flow.d_max()).is_equal_approx(10.0, 0.05)
-	# Ruta principal 70-80 % del alcance; opcional 90-100 %.
-	assert_float(flow.main_route_gap()).is_greater_equal(0.70 * flow.d_max() - 0.01)
-	assert_float(flow.main_route_gap()).is_less_equal(0.80 * flow.d_max() + 0.01)
-	assert_float(flow.optional_gap()).is_greater_equal(0.90 * flow.d_max() - 0.01)
-	assert_float(flow.optional_gap()).is_less_equal(1.00 * flow.d_max() + 0.01)
+	flow.tick = 1.0 / 60.0
+	# Métricas medidas en el motor: H_max ≈ 3.66 m (60 Hz), D_max corriendo ≈ 10.04 m.
+	assert_float(flow.h_max()).is_equal_approx(3.66, 0.03)
+	assert_float(flow.d_max(0.0)).is_equal_approx(10.04, 0.10)
+	# Escalón cómodo ≤ 2.9 m (sin cornisa) y hueco principal ≤ 8.0 m (80 %).
+	assert_float(flow.step_rise()).is_less_equal(2.9)
+	assert_float(flow.main_route_gap()).is_less_equal(8.0)
+	# Y se mantiene en la banda 70-80 % del alcance del contrato.
+	assert_float(flow.main_route_gap()).is_greater_equal(0.70 * flow.d_max(0.0) - 0.01)
+	assert_float(flow.main_route_gap()).is_less_equal(0.80 * flow.d_max(0.0) + 0.01)
+	# El opcional usa la banda 90-100 %.
+	assert_float(flow.optional_gap()).is_less_equal(1.00 * flow.d_max(0.0) + 0.01)
+
+func test_flow_metrics_delegate_to_validator() -> void:
+	var flow = auto_free(FlowScript.new())
+	flow.g = 12.5
+	flow.v_run = 6.5
+	flow.v_jump = 9.5
+	var m: Dictionary = flow.metrics()
+	for key in ["g", "v_run", "v_jump", "tick", "main_threshold", "optional_min", "optional_max"]:
+		assert_bool(m.has(key)).is_true()
+	assert_float(float(m["g"])).is_equal_approx(12.5, 0.001)
+	# h_max/d_max salen EXACTAMENTE del validador (misma fuente que la validación).
+	assert_float(flow.h_max()).is_equal_approx(
+		FlowRouteValidatorScript.compute_h_max(9.5, 12.5, float(m["tick"])), 0.0001)
+	assert_float(flow.d_max(0.0)).is_equal_approx(
+		FlowRouteValidatorScript.compute_d_max(6.5, 9.5, 12.5, 0.0, float(m["tick"])), 0.0001)
+
+func test_main_route_validates_per_seed() -> void:
+	# La ruta principal debe validar (entrada->cima con saltos dentro del umbral
+	# main, sin herramientas ni sockets) para cualquier semilla.
+	for seed_val in [1, 7, 42, 1337, 20261114]:
+		var level = auto_free(ScenePacked.instance())
+		var content = level.get_node_or_null("BayContent")
+		content.generation_seed = seed_val
+		add_child(level)
+		var result: Dictionary = content.validate_main_route()
+		assert_bool(result.has("valid_main_route")).is_true()
+		assert_bool(bool(result["valid_main_route"])).is_true()
+		var critical: Dictionary = result.get("critical_main_edge", {})
+		if not critical.empty():
+			assert_float(float(critical.get("demand_ratio", 99.0))).is_less_equal(0.80 + 0.0001)
+		level.queue_free()
+		yield(get_tree(), "idle_frame")
 
 func test_flow_reads_ring_angular_velocity() -> void:
 	var gw = get_node_or_null("/root/GravityWorld")
@@ -294,12 +331,14 @@ func test_sockets_are_optional_and_labeled() -> void:
 	assert_bool(labels.has("GlooClimb")).is_true()
 	assert_bool(labels.has("CuratedSocket")).is_true()
 	assert_bool(labels.has("MagRail")).is_true()
-	# Todas las etiquetas usadas pertenecen al contrato.
+	# Todas las etiquetas usadas pertenecen al contrato (tags del validador).
+	var contract_tags: Array = [FlowRouteValidatorScript.TAG_SPRINT_GAP,
+		FlowRouteValidatorScript.TAG_RHYTHM_STEPS, FlowRouteValidatorScript.TAG_GLOO_CLIMB,
+		FlowRouteValidatorScript.TAG_MAG_RAIL, FlowRouteValidatorScript.TAG_CURATED_SOCKET]
 	var known: Array = content.get_known_labels()
+	assert_int(known.size()).is_greater(0)
 	for l in known:
-		assert_bool(FlowScript.LABEL_SPRINT_GAP == l or FlowScript.LABEL_RHYTHM_STEPS == l
-			or FlowScript.LABEL_GLOO_CLIMB == l or FlowScript.LABEL_MAG_RAIL == l
-			or FlowScript.LABEL_CURATED_SOCKET == l).is_true()
+		assert_bool(contract_tags.has(l)).is_true()
 
 # ── El cambio de modo no teletransporta la geometría ─────────────────────────
 

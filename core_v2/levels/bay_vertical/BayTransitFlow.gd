@@ -3,55 +3,57 @@ extends Reference
 # Presupuesto de FLOW del Transit-Run aplicado al anillo radial (FD-322).
 #
 # El juego pasó a parkour cinético ("Transit-Run") y la bahía radial es su banco
-# de pruebas. El contrato de métricas vive en `docs/canon/WFC_FLOW_METRICS.md`
-# (src-59): alcances y umbrales MEDIDOS en el motor, en función de `g`, que en
-# este anillo es CENTRÍFUGA e igual a `g(r) = ω² · r` (ω = giro del anillo,
-# `GravityWorld.ship_angular_velocity_rad_s`).
+# de pruebas. Las MÉTRICAS no se duplican acá: se delegan al validador puro y
+# determinista `core_v2/systems/flow/FlowRouteValidator.gd` (#422), que modela
+# `h_max` y `d_max` con corrección por tick y los umbrales main/opcional.
 #
-# Este nodo NO hardcodea el nivel: expone el presupuesto (h_max, d_max, huecos de
-# ruta principal vs. opcionales, escalón cómodo) y lo LEE del contrato cuando el
-# doc aterriza. Sin doc, usa los fallbacks documentados abajo, que son los mismos
-# números de referencia (g=14, v_jump=10, v_run=7 → h_max≈3.57 m, d_max≈10 m).
+# Este nodo aporta lo que el validador no sabe: el `g` del anillo, que es
+# CENTRÍFUGO e igual a `g(r) = ω² · r` (ω = `GravityWorld.ship_angular_velocity_rad_s`),
+# y el parser del contrato `docs/canon/WFC_FLOW_METRICS.md` (src-59) cuando el
+# doc aterrice. Sin doc usa los fallbacks documentados, que son los valores
+# medidos en el motor (H_max ≈ 3.66 m a 60 Hz, D_max corriendo ≈ 10.0 m,
+# escalón ≤ 2.9 m sin cornisa, umbral main ≤ 80 %).
 #
-# Reglas del contrato que el nivel debe respetar:
+# Reglas del contrato que el nivel respeta:
 #   - la ruta PRINCIPAL se calibra a `v_run` y nunca se bloquea con un puzle;
-#   - los huecos principales quedan al 70-80 % del alcance (siempre saltables);
+#   - huecos principales al 70-80 % del alcance (siempre saltables al mismo nivel);
 #   - los atajos curados son Side Sockets OPCIONALES (90-100 % del alcance);
 #   - el roll-jump es técnica de habilidad, no requisito.
 
+const ValidatorScript := preload("res://core_v2/systems/flow/FlowRouteValidator.gd")
+
 const CANON_PATH := "res://docs/canon/WFC_FLOW_METRICS.md"
 
-# Fallbacks: valores de referencia del contrato hasta que el doc esté en el repo.
+# Fallbacks: valores medidos en el motor (docs/canon/WFC_FLOW_METRICS.md, src-59).
 const FALLBACK_G := 14.0
 const FALLBACK_V_JUMP := 10.0
 const FALLBACK_V_RUN := 7.0
-const FALLBACK_MAIN_FRACTION := 0.75
-const FALLBACK_OPTIONAL_FRACTION := 0.95
-# Fracción de h_max usada como escalón cómodo de una "RhythmSteps".
+const FALLBACK_TICK := 1.0 / 60.0
+const FALLBACK_MAIN_THRESHOLD := 0.80
+const FALLBACK_OPTIONAL_MIN := 0.90
+const FALLBACK_OPTIONAL_MAX := 1.00
+# Fracción usada para DIMENSIONAR (dentro de la banda 70-80 % del contrato), con
+# margen respecto del umbral de 80 % que evalúa el validador.
+const FALLBACK_MAIN_SIZING := 0.75
+# Escalón cómodo al correr: min(0.5·h_max, step_limit) y el límite medido.
+const FALLBACK_STEP_LIMIT := 2.9
 const STEP_FRACTION := 0.5
-# Cada cuántos tramos aparece un SprintGap en la ruta principal (ritmo).
-const SPRINT_GAP_EVERY := 5
-
-# Etiquetas de chunk del contrato.
-const LABEL_SPRINT_GAP := "SprintGap"
-const LABEL_RHYTHM_STEPS := "RhythmSteps"
-const LABEL_GLOO_CLIMB := "GlooClimb"
-const LABEL_MAG_RAIL := "MagRail"
-const LABEL_CURATED_SOCKET := "CuratedSocket"
 
 var g := FALLBACK_G
 var v_jump := FALLBACK_V_JUMP
 var v_run := FALLBACK_V_RUN
-var main_fraction := FALLBACK_MAIN_FRACTION
-var optional_fraction := FALLBACK_OPTIONAL_FRACTION
+var tick := FALLBACK_TICK
+var main_threshold := FALLBACK_MAIN_THRESHOLD
+var optional_min := FALLBACK_OPTIONAL_MIN
+var optional_max := FALLBACK_OPTIONAL_MAX
+var main_sizing := FALLBACK_MAIN_SIZING
+var step_limit := FALLBACK_STEP_LIMIT
 # "fallback" | "canon" | "gravity_world"
 var source := "fallback"
 
 func _init() -> void:
 	load_contract()
 
-# Carga el contrato si está en el repo. Devuelve true si encontró el archivo y
-# pudo leer al menos un valor.
 func load_contract(path: String = CANON_PATH) -> bool:
 	var f := File.new()
 	if not f.file_exists(path):
@@ -67,8 +69,7 @@ func load_contract(path: String = CANON_PATH) -> bool:
 		source = "canon"
 	return ok
 
-# Parser tolerante: acepta `clave: valor`, `clave = valor` y filas de tabla
-# `| clave | valor |`. Ignora el resto (prosa, encabezados, bloques de código).
+# Parser tolerante: acepta `clave: valor`, `clave = valor` y filas de tabla.
 func parse_contract(text: String) -> bool:
 	var found := 0
 	for raw_line in text.split("\n"):
@@ -104,16 +105,27 @@ func parse_contract(text: String) -> bool:
 			"v_run", "v run", "v_correr", "run_speed", "velocidad de carrera":
 				v_run = v
 				found += 1
-			"main_fraction", "main fraction", "ruta_principal", "main_route_fraction":
-				main_fraction = v
+			"tick", "dt":
+				tick = v
 				found += 1
-			"optional_fraction", "optional fraction", "opcional", "optional_route_fraction":
-				optional_fraction = v
+			"main_threshold", "main threshold", "umbral_principal":
+				main_threshold = v
+				found += 1
+			"main_sizing", "main fraction", "main_fraction", "ruta_principal":
+				main_sizing = v
+				found += 1
+			"optional_min", "optional min":
+				optional_min = v
+				found += 1
+			"optional_max", "optional max", "opcional":
+				optional_max = v
+				found += 1
+			"step_limit", "escalon", "escalón", "step":
+				step_limit = v
 				found += 1
 	return found > 0
 
-# g del anillo en `radius`: g(r) = ω² r con el giro real de GravityWorld. Si el
-# anillo no declara giro (>0), se conserva el g del contrato.
+# g del anillo en `radius`: g(r) = ω² r con el giro real del barco.
 func configure_gravity_from_world(world: Node, radius: float) -> bool:
 	if world == null or not ("ship_angular_velocity_rad_s" in world):
 		return false
@@ -125,35 +137,42 @@ func configure_gravity_from_world(world: Node, radius: float) -> bool:
 		source = "gravity_world"
 	return true
 
-# ── Alcances derivados de g ──────────────────────────────────────────────────
+# ── Métricas (delegadas al validador puro) ───────────────────────────────────
 
-# Altura máxima de salto: v_jump² / (2g).
+# Diccionario de métricas del contrato, para `FlowRouteValidator.validate()`.
+func metrics() -> Dictionary:
+	var m := ValidatorScript.default_metrics()
+	m["g"] = g
+	m["v_jump"] = v_jump
+	m["v_run"] = v_run
+	m["tick"] = tick
+	m["main_threshold"] = main_threshold
+	m["optional_min"] = optional_min
+	m["optional_max"] = optional_max
+	return m
+
 func h_max() -> float:
-	return (v_jump * v_jump) / (2.0 * max(g, 0.001))
+	return ValidatorScript.compute_h_max(v_jump, g, tick)
 
-# Alcance horizontal máximo a v_run en un salto (vuelo 2·v_jump/g).
-func d_max() -> float:
-	return v_run * (2.0 * v_jump / max(g, 0.001))
+func d_max(delta_h: float = 0.0) -> float:
+	return ValidatorScript.compute_d_max(v_run, v_jump, g, delta_h, tick)
 
-# Hueco de la RUTA PRINCIPAL (70-80 % del alcance): siempre saltable corriendo.
+# Hueco de la RUTA PRINCIPAL al mismo nivel (delta_h = 0): siempre saltable.
 func main_route_gap() -> float:
-	return main_fraction * d_max()
+	return main_sizing * d_max(0.0)
 
-# Hueco de un Side Socket OPCIONAL (90-100 % del alcance).
+# Hueco de un Side Socket OPCIONAL (banda 90-100 %).
 func optional_gap() -> float:
-	return optional_fraction * d_max()
+	return optional_max * d_max(0.0)
 
-# Caída que la ruta principal puede exigir sin matar (70-80 % de h_max).
-func main_route_drop() -> float:
-	return main_fraction * h_max()
-
-# Escalón cómodo al correr (RhythmSteps).
+# Escalón cómodo al correr.
 func step_rise() -> float:
-	return STEP_FRACTION * h_max()
+	return min(STEP_FRACTION * h_max(), step_limit)
 
-# Etiquetas del contrato.
 func labels() -> Array:
-	return [LABEL_SPRINT_GAP, LABEL_RHYTHM_STEPS, LABEL_GLOO_CLIMB, LABEL_MAG_RAIL, LABEL_CURATED_SOCKET]
+	return [ValidatorScript.TAG_SPRINT_GAP, ValidatorScript.TAG_RHYTHM_STEPS,
+		ValidatorScript.TAG_GLOO_CLIMB, ValidatorScript.TAG_MAG_RAIL,
+		ValidatorScript.TAG_CURATED_SOCKET]
 
 func describe() -> Dictionary:
 	return {
@@ -161,22 +180,22 @@ func describe() -> Dictionary:
 		"g": g,
 		"v_jump": v_jump,
 		"v_run": v_run,
+		"tick": tick,
 		"h_max": h_max(),
-		"d_max": d_max(),
+		"d_max": d_max(0.0),
 		"main_route_gap": main_route_gap(),
 		"optional_gap": optional_gap(),
 		"step_rise": step_rise(),
+		"main_threshold": main_threshold,
 	}
 
 func _normalize_key(key: String) -> String:
 	var k := key.strip_edges()
-	# Quita marcadores de lista/negrita/backticks y numeración.
 	for ch in ["-", "*", "•", "`", "#"]:
 		while k.begins_with(ch):
 			k = k.substr(1).strip_edges()
 	k = k.replace("`", "").replace("**", "").strip_edges()
-	k = k.to_lower()
-	return k
+	return k.to_lower()
 
 func _to_float(text: String) -> float:
 	var cleaned := text

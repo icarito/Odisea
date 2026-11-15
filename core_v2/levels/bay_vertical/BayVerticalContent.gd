@@ -27,6 +27,7 @@ extends Spatial
 const LaserGateScript := preload("res://core_v2/levels/bay_vertical/LaserGate.gd")
 const GlooSpanScript := preload("res://core_v2/levels/bay_vertical/GlooSpan.gd")
 const FlowScript := preload("res://core_v2/levels/bay_vertical/BayTransitFlow.gd")
+const ValidatorScript := preload("res://core_v2/systems/flow/FlowRouteValidator.gd")
 
 const COLLISION_LAYER_ENV := 1
 
@@ -147,9 +148,10 @@ func _base_radius() -> float:
 		return float(_rotator.base_radius)
 	return 48.0
 
-# Ruta principal derivada del presupuesto: un tramo por `step_rise()` de subida y
-# de largo `main_route_gap()` (así un SprintGap = saltar un tramo es el 70-80 %
-# del alcance, siempre saltable corriendo).
+# Ruta principal derivada del presupuesto: un tramo por `main_route_gap()` de
+# arco. En cada SprintGap el arco avanza pero la altura NO sube, así el hueco
+# queda AL MISMO NIVEL (delta_h = 0) y el salto entra en el umbral main, tal como
+# mide el contrato (hueco al mismo nivel ≤ 80 % del alcance).
 func _compute_spine_flat() -> void:
 	_spine_flat.clear()
 	_main_gaps.clear()
@@ -157,14 +159,19 @@ func _compute_spine_flat() -> void:
 	var total_rise: float = max(4.0, base_radius - summit_clearance)
 	var step: float = max(0.5, _flow.step_rise())
 	var seg_arc: float = max(2.0, _flow.main_route_gap())
-	var n: int = spine_segments
-	if n <= 0:
-		n = int(ceil(total_rise / step))
-	n = int(clamp(float(n), 8.0, 96.0))
-	var total_arc: float = float(n) * seg_arc
-	for i in range(n + 1):
-		var t: float = float(i) / float(n)
-		_spine_flat.append(Vector3(t * total_arc, t * total_rise, 0.0))
+	var max_steps: int = spine_segments if spine_segments > 0 else 256
+	var pts: Array = [Vector3.ZERO]
+	var x := 0.0
+	var y := 0.0
+	var k := 0
+	while y < total_rise - 0.001 and k < max_steps:
+		var gap: bool = _is_sprint_gap(k)
+		x += seg_arc
+		if not gap:
+			y += step
+		pts.append(Vector3(x, min(y, total_rise), 0.0))
+		k += 1
+	_spine_flat = pts
 
 func _seg_index_of(node: Spatial) -> Dictionary:
 	for e in _segment_bodies:
@@ -190,7 +197,8 @@ func _build_spine() -> void:
 	var seg_len: float = _segment_len()
 	for i in range(n):
 		if _is_sprint_gap(i):
-			gap += seg_len
+			# Distancia real del tramo omitido (el hueco queda al mismo nivel).
+			gap += _spine_flat[i + 1].distance_to(_spine_flat[i])
 			continue
 		if gap > 0.0:
 			_main_gaps.append(gap)
@@ -223,9 +231,10 @@ func _build_spine() -> void:
 		_segment_bodies.append({"node": body, "ia": i, "ib": i + 1, "label": String(body.get_meta("flow_label"))})
 
 func _build_summit() -> void:
-	var base_radius: float = _base_radius()
 	var top: int = _spine_flat.size() - 1
-	_summit_flat = Vector3(_spine_flat[top].x, max(1.0, base_radius - summit_clearance * 0.4), 0.0)
+	# La cima se ancla al ÚLTIMO punto de la espiral (mismo nivel y arco) para que
+	# el tramo final sea alcanzable y la cima quede junto al eje.
+	_summit_flat = Vector3(_spine_flat[top].x, _spine_flat[top].y, 0.0)
 	var anchor := _add_anchor("Summit", _summit_flat)
 	anchor.set_meta("flow_label", "CuratedSocket")
 	var platform := StaticBody.new()
@@ -272,21 +281,24 @@ func _build_summit() -> void:
 
 # ── Side Sockets (atajos OPCIONALES) ─────────────────────────────────────────
 
+# Índice de la espiral para un socket, desplazado por semilla (variación por
+# partida sin tocar la ruta principal).
+func _socket_index(fraction: float) -> int:
+	var n: int = _spine_flat.size() - 1
+	var base := int(round(fraction * float(n)))
+	var jitter: int = (generation_seed / 7) % 3
+	return int(clamp(float(base + jitter), 1.0, float(max(1, n - 1))))
+
 # Tres sockets curados con su técnica y etiqueta. Todos son OPCIONALES: la ruta
 # principal sigue siendo transitable por sí sola.
 func _build_sockets() -> void:
 	var n: int = _spine_flat.size() - 1
 	if n < 12:
 		return
-	# GlooClimb: puente de gloo que cruza un SprintGap de la ruta principal (se
-	# camina en vez de saltar). Etiqueta GlooClimb.
 	_build_gloo_climb()
-	# CuratedSocket: puerta de láser en un raíl paralelo elevado (se corta).
-	_build_laser_socket(int(n * 0.30), int(n * 0.30) + 3)
-	# MagRail: raíl paralelo que sólo es sólido en propulsión (blend 0).
-	_build_mag_rail_socket(int(n * 0.62), int(n * 0.62) + 4)
-	# CuratedSocket: caja de apoyo opcional junto a un tramo.
-	_build_crate_socket(int(n * 0.16))
+	_build_laser_socket(_socket_index(0.30), _socket_index(0.30) + 3)
+	_build_mag_rail_socket(_socket_index(0.62), _socket_index(0.62) + 4)
+	_build_crate_socket(_socket_index(0.16))
 
 func _add_socket(name: String, label: String, nodes: Array) -> void:
 	_sockets.append({"name": name, "label": label, "nodes": nodes})
@@ -605,6 +617,71 @@ func get_socket_labels() -> Array:
 	for s in _sockets:
 		out.append(String(s["label"]))
 	return out
+
+# ── Validación de flow (delegada a FlowRouteValidator) ───────────────────────
+
+func _segment_flat_center(i: int) -> Vector3:
+	if i + 1 < _spine_flat.size():
+		return (_spine_flat[i] + _spine_flat[i + 1]) * 0.5
+	return _spine_flat[i]
+
+func _main_plate_entries() -> Array:
+	var out: Array = []
+	for entry in _segment_bodies:
+		if entry.has("ia"):
+			out.append(entry)
+	return out
+
+# Grafo de la ruta principal en el MARCO DEL CILINDRO (flat): ahí el "horizontal"
+# es el arco y el "up" es el radial, que es como camina el jugador en el anillo.
+func build_route_graph() -> Dictionary:
+	var entries := _main_plate_entries()
+	var nodes: Array = []
+	var edges: Array = []
+	var seg_len: float = _segment_len()
+	for entry in entries:
+		var ia: int = entry["ia"]
+		nodes.append({
+			"id": "s%d" % ia,
+			"position": _segment_flat_center(ia),
+			"size": Vector3(seg_len, 0.0, walkway_width),
+			"g": _flow.g if _flow != null else 14.0,
+		})
+	nodes.append({"id": "summit", "position": _summit_flat, "size": 5.5,
+		"g": _flow.g if _flow != null else 14.0})
+	# Aristas = salto FÍSICO de una placa a la siguiente. Contiguas se tocan
+	# (hueco 0); con un SprintGap en el medio, el hueco es el tramo omitido, que
+	# por construcción está al mismo nivel (delta_h = 0).
+	for k in range(entries.size() - 1):
+		var ia: int = entries[k]["ia"]
+		var ib: int = entries[k + 1]["ia"]
+		var gap_h := 0.0
+		var dh := 0.0
+		if ib > ia + 1:
+			for j in range(ia + 1, ib):
+				var a: Vector3 = _spine_flat[j]
+				var b: Vector3 = _spine_flat[j + 1]
+				gap_h += abs(b.x - a.x)
+				dh += b.y - a.y
+		edges.append({"from": "s%d" % ia, "to": "s%d" % ib,
+			"gap_horizontal": gap_h, "delta_h": dh})
+	if not entries.empty():
+		# La cima se ancla al último punto de la espiral: el tramo final se toca.
+		edges.append({"from": "s%d" % entries[-1]["ia"], "to": "summit",
+			"gap_horizontal": 0.0, "delta_h": 0.0})
+	return {
+		"nodes": nodes,
+		"edges": edges,
+		"entry": "s%d" % entries[0]["ia"] if not entries.empty() else "",
+		"exit": "summit",
+	}
+
+# Valida que exista una ruta principal entrada->cima SOLO con saltos dentro del
+# umbral main (sin herramientas ni sockets), con las métricas del contrato.
+func validate_main_route() -> Dictionary:
+	if _flow == null:
+		return {}
+	return ValidatorScript.validate(build_route_graph(), _flow.metrics())
 
 # ¿Algún bloqueo con puzle (gloo/láser) está en la ruta principal? La ruta
 # principal no debe tener ninguno: todos los gates viven en sockets.
