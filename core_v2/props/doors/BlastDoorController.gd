@@ -42,10 +42,20 @@ export(float) var emission_pulse := 2.4
 export(float) var pulse_speed := 4.0
 # Si existe /root/DomeSystemDirector con la senal blast_door_open, se conecta solo.
 export(bool) var autoconnect_director := true
+# Transit-Run: si existe /root/DomeSystemDirector con la senal maintenance_open, se conecta
+# solo a open_maintenance() ademas de blast_door_open. Documentado en el Inspector.
+export(bool) var autoconnect_maintenance := true
+# Transit-Run: la apertura por MANTENIMIENTO (forzada por el jugador) retrae SOLO el panel B
+# (+X), dejando un paso lateral franco al pozo/rampa de servicio = ruta principal lenta. El
+# blast door por 4/4 (on_blast_door_open) sigue siendo el atajo rapido (ambos paneles +
+# plataforma). En false, mantenimiento abre ambos paneles. Documentado en el Inspector.
+export(bool) var maintenance_opens_panel_b_only := true
 
 # --- STATE (snapshot) ---
 var _healthy_count := 0
 var _pulse_phase := 0.0
+# Transit-Run: true cuando el descenso se abrio por la ruta de mantenimiento (sin redes).
+var _maintenance_open := false
 
 # --- NODE REFS (resueltas en _ready) ---
 var _panel_a = null
@@ -123,6 +133,20 @@ func close(immediate: bool = false) -> void:
 func on_blast_door_open() -> void:
 	open(false)
 
+# Transit-Run: apertura forzada por el jugador (ruta principal de mantenimiento). NO exige
+# redes HEALTHY. Por defecto retrae solo el panel B (paso lateral al pozo/rampa = descenso
+# lento); el blast door por 4/4 sigue siendo el atajo rapido. Determinista: solo fija un flag
+# y dispara la animacion por anim_progress (sin randf ni tiempo de pared).
+func open_maintenance() -> void:
+	_maintenance_open = true
+	if is_active:
+		_update_visuals()
+		return
+	open(false)
+
+func is_maintenance_open() -> bool:
+	return _maintenance_open
+
 func is_open() -> bool:
 	return is_active
 
@@ -143,14 +167,19 @@ func _maybe_connect_director() -> void:
 		return
 	if director.has_signal("blast_door_open") and not director.is_connected("blast_door_open", self, "on_blast_door_open"):
 		director.connect("blast_door_open", self, "on_blast_door_open")
+	if autoconnect_maintenance and director.has_signal("maintenance_open") and not director.is_connected("maintenance_open", self, "open_maintenance"):
+		director.connect("maintenance_open", self, "open_maintenance")
 
 # --- ANIMACION DETERMINISTA ---
 
 func _update_visuals() -> void:
 	var eased: float = _ease_in_out(anim_progress)
 	var offset: float = eased * panel_slide
+	# Transit-Run: la ruta de mantenimiento retrae solo el panel B; el panel A queda como sello
+	# superior. El atajo por 4/4 (o el flag en false) retrae ambos paneles como antes.
+	var panel_a_offset: float = 0.0 if (_maintenance_open and maintenance_opens_panel_b_only) else offset
 	if _panel_a:
-		_panel_a.translation = _panel_a_start - Vector3(offset, 0.0, 0.0)
+		_panel_a.translation = _panel_a_start - Vector3(panel_a_offset, 0.0, 0.0)
 		_panel_a.force_update_transform()
 	if _panel_b:
 		_panel_b.translation = _panel_b_start + Vector3(offset, 0.0, 0.0)
@@ -205,6 +234,7 @@ func get_snapshot() -> Dictionary:
 	snap["healthy_count"] = _healthy_count
 	snap["pulse_phase"] = _pulse_phase
 	snap["panel_slide"] = panel_slide
+	snap["maintenance_open"] = _maintenance_open
 	return snap
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -213,6 +243,7 @@ func restore_snapshot(data: Dictionary) -> void:
 		return
 	_healthy_count = int(data.get("healthy_count", _healthy_count))
 	_pulse_phase = float(data.get("pulse_phase", 0.0))
+	_maintenance_open = bool(data.get("maintenance_open", _maintenance_open))
 	if data.has("panel_slide"):
 		panel_slide = float(data["panel_slide"])
 	.restore_snapshot(data)

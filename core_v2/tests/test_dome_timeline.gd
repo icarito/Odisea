@@ -21,6 +21,9 @@ extends GdUnitTestSuite
 #   5. Beat 6 descenso: la plataforma baja de forma determinista y el snapshot a mitad preserva
 #      la posición exacta.
 #   6. Beats 7/8: el hangar declarado por la config existe y `airlock_exit` apunta al exterior.
+#   7. RUTA PRINCIPAL DE MANTENIMIENTO (Transit-Run): el sello DomeMaintenanceSeal abre el
+#      descenso SIN redes HEALTHY ni bus (la ruta principal nunca queda bloqueada por los
+#      puzles); el blast door por 4/4 sigue siendo el atajo rápido.
 #
 # QUÉ NO CUBRE (a propósito): este test corre sobre un host con DomeMachineLevel suelto, no
 # sobre Dome_Intro completo, así que no ve el HangarDescent instanciado en la escena del domo.
@@ -191,6 +194,79 @@ func test_bus_switch_is_gated_until_coolant_healthy() -> void:
 	assert_int(bus.get_state()).is_equal(bus.State.POWERED)
 	assert_bool(status.is_healthy("energia")).is_true()
 	assert_bool(director.is_beat_fired(3)).is_true()
+
+
+# --- 7. RUTA PRINCIPAL DE MANTENIMIENTO (Transit-Run) ---
+#
+# Contrato: el descenso al hangar es la ruta PRINCIPAL y nunca se bloquea por las redes ni por
+# el gating del bus. El sello DomeMaintenanceSeal (Doors/MaintenanceSeal) la fuerza; el blast
+# door por 4/4 queda como atajo rápido (recompensa cinética).
+
+func test_maintenance_seal_exists_and_is_interactable() -> void:
+	var rig := _make_rig()
+	var level: Node = rig["level"]
+	yield(get_tree(), "idle_frame")
+	var seal = level.get_node_or_null("Doors/MaintenanceSeal")
+	assert_object(seal).is_not_null()
+	assert_bool(seal.is_in_group("interactable")).is_true()
+	assert_str(String(seal.interaction_title)).contains("mantenimiento")
+
+
+func test_forced_maintenance_seal_opens_descent_without_networks() -> void:
+	var rig := _make_rig()
+	var director = rig["director"]
+	var status = rig["status"]
+	var level: Node = rig["level"]
+	yield(get_tree(), "idle_frame")
+
+	var door = level.get_node("Doors/BlastDoor")
+	director.connect("maintenance_open", door, "open_maintenance")
+
+	# Sin redes: el blast door NO se abre por sí solo (el atajo requiere 4/4).
+	assert_int(status.healthy_count()).is_equal(0)
+	assert_bool(director.is_blast_door_open()).is_false()
+	assert_bool(door.is_open()).is_false()
+
+	# El jugador fuerza el sello -> la ruta principal queda disponible.
+	assert_bool(director.request_maintenance_override()).is_true()
+	assert_bool(door.is_open()).is_true()
+	assert_bool(door.is_maintenance_open()).is_true()
+
+
+func test_maintenance_route_is_independent_of_bus_coolant_gating() -> void:
+	var rig := _make_rig()
+	var director = rig["director"]
+	var level: Node = rig["level"]
+	var wiring = rig["wiring"]
+	yield(get_tree(), "idle_frame")
+
+	var door = level.get_node("Doors/BlastDoor")
+	director.connect("maintenance_open", door, "open_maintenance")
+
+	# El bus sigue gateado por coolant sin reparar: la red de energía no restaura.
+	assert_bool(wiring.is_auxpower_enabled()).is_false()
+	var bus = level.get_node("Energy/AuxPowerBus")
+	level.get_node("Energy/BusSwitch").set_active(true, true)
+	assert_int(bus.get_state()).is_equal(bus.State.OFFLINE)
+
+	# Aun así la ruta principal de mantenimiento está disponible.
+	assert_bool(director.request_maintenance_override()).is_true()
+	assert_bool(door.is_open()).is_true()
+
+
+func test_maintenance_override_respects_flag() -> void:
+	var rig := _make_rig()
+	var director = rig["director"]
+	var level: Node = rig["level"]
+	yield(get_tree(), "idle_frame")
+
+	var door = level.get_node("Doors/BlastDoor")
+	director.connect("maintenance_open", door, "open_maintenance")
+
+	# Rollback: con el flag apagado, no hay override y el descenso vuelve a depender de 4/4.
+	director.maintenance_override_enabled = false
+	assert_bool(director.request_maintenance_override()).is_false()
+	assert_bool(door.is_open()).is_false()
 
 
 # --- 3. BUFFER OUT-OF-ORDER ---
