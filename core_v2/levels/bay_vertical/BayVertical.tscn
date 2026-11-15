@@ -1,0 +1,175 @@
+[gd_scene load_steps=17 format=2]
+
+[ext_resource path="res://core_v2/levels/bay_vertical/BayCylinderRotator.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/ScaffoldStreamController.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://scenes/common/space_environment/StarfieldEnvironment.tscn" type="PackedScene" id=4]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=5]
+[ext_resource path="res://core_v2/levels/bay_vertical/BayProtocolCycle.gd" type="Script" id=6]
+[ext_resource path="res://core_v2/levels/bay_vertical/BayModeConsole.gd" type="Script" id=7]
+[ext_resource path="res://core_v2/levels/bay_vertical/BayTransitionBuffer.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/levels/bay_vertical/BayGravityMount.gd" type="Script" id=9]
+[ext_resource path="res://core_v2/levels/bay_vertical/BayVerticalContent.gd" type="Script" id=10]
+[ext_resource path="res://core_v2/levels/bay_vertical/BayVerticalLevel.gd" type="Script" id=11]
+[ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=12]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 500, 0.5, 500 )
+
+[sub_resource type="CubeMesh" id=2]
+size = Vector3( 400, 0.2, 400 )
+
+[sub_resource type="SpatialMaterial" id=3]
+albedo_color = Color( 0.08, 0.1, 0.12, 1 )
+metallic = 0.4
+roughness = 0.8
+
+[node name="BayVertical" type="Spatial"]
+
+[node name="BayVerticalLevel" type="Spatial" parent="."]
+script = ExtResource( 11 )
+ringhub_scene_path = "res://core_v2/levels/RingHub_Level.tscn"
+content_path = NodePath("../BayContent")
+entry_buffer_path = NodePath("../EntryBuffer")
+exit_buffer_path = NodePath("../ExitBuffer")
+mode_console_path = NodePath("../ModeConsole")
+
+[node name="CylinderRotator" type="Spatial" parent="."]
+script = ExtResource( 1 )
+base_radius = 48.0
+stream_path = NodePath("ScaffoldStreamController")
+physical_terrace_path = NodePath("../PhysicalTerrace")
+player_path = NodePath("../Pilot")
+spiral_blend = 1.0
+
+[node name="ScaffoldStreamController" type="Spatial" parent="CylinderRotator"]
+script = ExtResource( 2 )
+load_radius = 30.0
+unload_radius = 44.0
+collision_radius = 18.0
+full_detail_radius = 10.0
+lod1_radius = 30.0
+full_detail_prefetch_radius = 0.0
+lod_deck_thickness = 0.02
+lod_full_detail_ramps = false
+lod_rail_thickness = 0.02
+lod_tube_segments = 3
+chunk_height = 6
+chunk_length = 8
+cell_size = 4.0
+instances_per_frame = 6
+max_chunk_requests_per_frame = 2
+max_pending_generation_jobs = 2
+prewarm_chunk_radius = 1
+player_path = NodePath("../../Pilot")
+min_stairs_per_chunk = 1
+min_elevated_cells = 4
+min_empty_cells = 2
+min_height_span = 2.0
+cylinder_mode = true
+cylinder_radius = 48.0
+cylinder_physical_terrace_path = NodePath("../../PhysicalTerrace")
+weight_W = 4.0
+weight_R = 3.0
+weight_C = 4.5
+weight_G = 0.7
+weight_X = 2.0
+weight_T = 3.5
+weight_E = 2.0
+weight_empty = 0.22
+
+[node name="StarfieldEnvironment" parent="CylinderRotator" instance=ExtResource( 4 )]
+environment = ExtResource( 5 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 12, 0 )
+light_color = Color( 0.95, 0.97, 1, 1 )
+light_energy = 1.8
+shadow_enabled = true
+
+[node name="BayLights" type="Spatial" parent="."]
+
+[node name="Light0" type="OmniLight" parent="BayLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
+light_color = Color( 1, 0.82, 0.5, 1 )
+light_energy = 3.0
+omni_range = 26.0
+
+[node name="Light1" type="OmniLight" parent="BayLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 5, 6 )
+light_color = Color( 0.6, 0.8, 1, 1 )
+light_energy = 2.4
+omni_range = 24.0
+
+[node name="Light2" type="OmniLight" parent="BayLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 5, 6 )
+light_color = Color( 0.6, 0.8, 1, 1 )
+light_energy = 2.4
+omni_range = 24.0
+
+[node name="Light3" type="OmniLight" parent="BayLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, -16 )
+light_color = Color( 1, 0.75, 0.4, 1 )
+light_energy = 2.6
+omni_range = 26.0
+
+[node name="PhysicalTerrace" type="StaticBody" parent="."]
+
+[node name="CollisionShape" type="CollisionShape" parent="PhysicalTerrace"]
+shape = SubResource( 1 )
+
+[node name="FloorVisual" type="MeshInstance" parent="PhysicalTerrace"]
+mesh = SubResource( 2 )
+material_override = SubResource( 3 )
+
+[node name="Pilot" parent="." groups=[
+"player",
+] instance=ExtResource( 3 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+
+[node name="SpawnPointV2" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0 )
+script = ExtResource( 12 )
+spawn_id = "bay_vertical_entry"
+
+[node name="BayGravityMount" type="Node" parent="."]
+script = ExtResource( 9 )
+gravity_world_path = NodePath("/root/GravityWorld")
+initial_mode = 1
+
+[node name="BayProtocolCycle" type="Node" parent="."]
+script = ExtResource( 6 )
+safe_duration = 6.0
+warning_duration = 2.5
+danger_duration = 5.0
+
+[node name="BayContent" type="Spatial" parent="."]
+script = ExtResource( 10 )
+generation_seed = 20261114
+rotator_path = NodePath("../CylinderRotator")
+cycle_path = NodePath("../BayProtocolCycle")
+stream_path = NodePath("../CylinderRotator/ScaffoldStreamController")
+lights_path = NodePath("../BayLights")
+flow_contract_path = ""
+spine_segments = 0
+sprint_gap_every = 5
+
+[node name="EntryBuffer" type="Spatial" parent="."]
+script = ExtResource( 8 )
+kind = 0
+target_scene = "res://core_v2/levels/RingHub_Level.tscn"
+buffer_id = "bay_vertical_entry"
+level_path = NodePath("../BayVerticalLevel")
+chamber_size = Vector3( 3, 3, 3 )
+
+[node name="ExitBuffer" type="Spatial" parent="."]
+script = ExtResource( 8 )
+kind = 1
+target_scene = "res://core_v2/levels/RingHub_Level.tscn"
+buffer_id = "bay_vertical_summit"
+level_path = NodePath("../BayVerticalLevel")
+chamber_size = Vector3( 3, 3, 3 )
+
+[node name="ModeConsole" type="Area" parent="."]
+script = ExtResource( 7 )
+well_path = NodePath("../BayGravityMount")

@@ -1,0 +1,10 @@
+# Preview del cilindro rotante de la bahía (FD-322).
+FOV 90
+WAIT 8.0
+SCREENSHOT "0_anillo"
+LOOK pitch -28 duration 0.6
+WAIT 1.5
+SCREENSHOT "1_curvatura"
+WAIT 4.0
+SCREENSHOT "2_anillo_estable"
+QUIT
