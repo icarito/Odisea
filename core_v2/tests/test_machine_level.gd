@@ -182,7 +182,7 @@ func test_reset_station_restores_cut_and_moved_parts() -> void:
 	yield(get_tree(), "idle_frame")
 
 
-func test_multitool_grab_moves_rigid_part() -> void:
+func test_multitool_grab_api_is_removed() -> void:
 	var root := _setup_root()
 	var level = _new_level(root, "GrabLevel")
 	level.build({"items": [
@@ -194,20 +194,12 @@ func test_multitool_grab_moves_rigid_part() -> void:
 	root.add_child(mt)
 	mt.translation = Vector3(0, 1.2, 0)
 	yield(_settle(5), "completed")
-	var cargo: RigidBody = level.get_item("Cargo")
-	mt.current_mode = mt.Mode.GRAB
-	assert_bool(mt.grab_body(cargo, 2.5)).is_true()
-	# Girar la herramienta hacia +X (mirando hacia +X => basis.z apunta a -X)
-	mt.transform = Transform(Basis(Vector3.UP, -PI * 0.5), Vector3(0, 1.5, 0))
-	var InputDataV2 = load("res://core_v2/input/InputDataV2.gd")
-	var input = InputDataV2.new()
-	input.tool_fire_primary = true
-	for _i in range(40):
-		mt.step(1.0 / 60.0, input)
-		yield(get_tree(), "physics_frame")
-	assert_float(cargo.translation.x).is_greater(1.5)
-	mt.release_grab()
+	# GRAB eliminado (decision 2): los stubs de compatibilidad quedan inactivos.
 	assert_object(mt.get_grabbed_body()).is_null()
+	mt.release_grab() # no debe crashear
+	assert_object(mt.get_grabbed_body()).is_null()
+	var cargo: RigidBody = level.get_item("Cargo")
+	assert_bool(cargo.mode == RigidBody.MODE_RIGID).is_true()
 	root.queue_free()
 	yield(get_tree(), "idle_frame")
 

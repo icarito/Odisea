@@ -10,24 +10,24 @@ func default_title() -> String:
 	return tr("Multi-tool")
 
 func _render(snapshot: Dictionary) -> void:
-	var mode: String = String(snapshot.get("mode", "LASER"))
+	var tool: String = String(snapshot.get("mode", "NONE"))
 	var charge: Dictionary = snapshot.get("charge", {})
 
-	_set_dot(OdiseaOSTheme.STATE_ACTIVE if mode == "GLOO" else OdiseaOSTheme.STATE_NOMINAL)
+	_set_dot(OdiseaOSTheme.STATE_ACTIVE if tool in ["LASER", "GLOO"] else OdiseaOSTheme.STATE_NOMINAL)
 
 	if _mode_label != null:
-		_mode_label.text = tr("MODO: %s") % mode
+		_mode_label.text = tr("TOOL: %s") % tool
 
 	if _charge_label != null:
 		var active_gloo: int = int(charge.get("active", 0))
 		var max_gloo: int = int(charge.get("max", 18))
-		if mode == "GLOO":
-			_charge_label.text = tr("GLOO ACTIVO: %d / %d") % [active_gloo, max_gloo]
-		elif mode == "GRAB":
-			var grabbing: bool = bool(charge.get("grabbing", false))
-			_charge_label.text = tr("TRACTOR: SOSTENIENDO") if grabbing else tr("TRACTOR: LISTO")
-		else:
-			_charge_label.text = tr("LASER: LISTO")
+		match tool:
+			"GLOO":
+				_charge_label.text = tr("GLOO ACTIVO: %d / %d") % [active_gloo, max_gloo]
+			"LASER":
+				_charge_label.text = tr("LASER: LISTO")
+			_:
+				_charge_label.text = tr("SIN TOOL EQUIPADO")
 
 func _render_offline() -> void:
 	if _mode_label != null:

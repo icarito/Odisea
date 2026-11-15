@@ -80,6 +80,10 @@ func _screen(slot: int):
 func _run_primary(slot: int) -> void:
 	var screen = _screen(slot)
 	if screen == null or not screen.has_method("hud_gamepad_actions"):
+		# Slot vacio: abrir el radial fijado a ese slot para elegir que fijar.
+		# Es la misma ruta que el hold del hombro; con un tap se llega en dos pasos
+		# (elegir tool -> equiparlo). Igual en touch (botones de slot).
+		_open_radial(slot)
 		return
 	var id: String = String(backend.slot_screen_id(slot))
 	for action in screen.hud_gamepad_actions():

@@ -18,8 +18,6 @@ var roll_left := false
 var roll_right := false
 var tool_fire_primary := false
 var tool_fire_secondary := false
-var tool_next_mode := false
-var tool_prev_mode := false
 var cargol_ability := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
@@ -67,8 +65,6 @@ func to_dict() -> Dictionary:
 		"roll_right": roll_right,
 		"tool_fire_primary": tool_fire_primary,
 		"tool_fire_secondary": tool_fire_secondary,
-		"tool_next_mode": tool_next_mode,
-		"tool_prev_mode": tool_prev_mode,
 		"cargol_ability": cargol_ability,
 		"hardware_mouse_active": hardware_mouse_active,
 		"analog_move_active": analog_move_active,
@@ -110,10 +106,6 @@ func is_equal_to(other) -> bool:
 	if tool_fire_primary != other.tool_fire_primary:
 		return false
 	if tool_fire_secondary != other.tool_fire_secondary:
-		return false
-	if tool_next_mode != other.tool_next_mode:
-		return false
-	if tool_prev_mode != other.tool_prev_mode:
 		return false
 	if cargol_ability != other.cargol_ability:
 		return false
@@ -165,10 +157,8 @@ func from_dict(d: Dictionary) -> void:
 		tool_fire_primary = d["tool_fire_primary"]
 	if d.has("tool_fire_secondary"):
 		tool_fire_secondary = d["tool_fire_secondary"]
-	if d.has("tool_next_mode"):
-		tool_next_mode = d["tool_next_mode"]
-	if d.has("tool_prev_mode"):
-		tool_prev_mode = d["tool_prev_mode"]
+	# Tolerancia a replays viejos: tool_next_mode/tool_prev_mode ya no existen como campos;
+	# se ignoran en silencio (from_dict solo lee claves conocidas).
 	if d.has("cargol_ability"):
 		cargol_ability = d["cargol_ability"]
 	if d.has("hardware_mouse_active"):
