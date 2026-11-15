@@ -35,6 +35,9 @@ export(int) var generation_seed := 20261114
 export(NodePath) var rotator_path := NodePath("")
 export(NodePath) var cycle_path := NodePath("")
 export(NodePath) var stream_path := NodePath("")
+# Luces de sala que el ciclo pinta por fase (SAFE/WARNING/DANGER). Si el path
+# queda vacío se busca un hermano llamado "BayLights".
+export(NodePath) var lights_path := NodePath("")
 export(float, 1.0, 3.0) var turns := 1.25
 export(int, 8, 96) var spine_segments := 56
 export(float) var walkway_width := 4.2
@@ -59,6 +62,7 @@ var _rotor: Spatial = null
 var _shortcuts: Array = []
 var _glooSpan: Node = null
 var _laserGate: Node = null
+var _lights: Array = []
 var _summit_flat := Vector3.ZERO
 var _last_player_local_x := NAN
 var _last_blend := -1.0
@@ -94,6 +98,22 @@ func _resolve_refs() -> void:
 				break
 			p = p.get_parent()
 	_cycle = get_node_or_null(cycle_path)
+	_resolve_lights()
+
+func _resolve_lights() -> void:
+	_lights.clear()
+	var root = get_node_or_null(lights_path) if not lights_path.is_empty() else null
+	if root == null:
+		root = get_parent().get_node_or_null("BayLights") if get_parent() != null else null
+	if root == null:
+		return
+	var stack: Array = [root]
+	while not stack.empty():
+		var n = stack.pop_back()
+		if n is Light:
+			_lights.append(n)
+		for c in n.get_children():
+			stack.push_back(c)
 
 # ── Construcción ─────────────────────────────────────────────────────────────
 
@@ -108,6 +128,8 @@ func _build() -> void:
 	_build_rotor()
 	if _cycle != null and _cycle.has_signal("phase_changed"):
 		_cycle.connect("phase_changed", self, "_on_phase_changed")
+		if _cycle.has_method("get_phase"):
+			_apply_phase_lights(int(_cycle.get_phase()))
 	emit_signal("content_ready")
 
 func _base_radius() -> float:
@@ -332,13 +354,16 @@ func _add_anchor(node_name: String, flat: Vector3) -> Spatial:
 
 # ── Proyección / modo ────────────────────────────────────────────────────────
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not _built:
 		return
 	if _rotator == null or not is_instance_valid(_rotator):
 		_resolve_refs()
 		if _rotator == null:
 			return
+	# El rotor gira de forma determinista a partir del reloj del ciclo (no un
+	# timer propio): mismo estado -> misma pose.
+	_animate_hazards()
 	var player_local_x: float = _player_local_x()
 	var blend: float = float(_rotator.get_spiral_blend()) if _rotator.has_method("get_spiral_blend") else 1.0
 	if not is_nan(_last_player_local_x) and abs(player_local_x - _last_player_local_x) < 0.05 and abs(blend - _last_blend) < 0.001:
@@ -425,8 +450,40 @@ func _apply_mode_to_content() -> void:
 		_mode_bridge.collision_layer = COLLISION_LAYER_ENV if thrust else 0
 		_mode_bridge.visible = thrust
 
-func _on_phase_changed(_phase: int) -> void:
-	pass
+func _on_phase_changed(phase: int) -> void:
+	_apply_phase_lights(phase)
+
+# El ciclo pinta la sala (SAFE/WARNING/DANGER) y habilita el rotor: es su
+# consumidor real, no solo una conexión.
+func _apply_phase_lights(phase: int) -> void:
+	var color: Color = Color(0.55, 0.8, 1.0)
+	var energy := 1.7
+	if phase == 1:  # WARNING
+		color = Color(1.0, 0.72, 0.25)
+		energy = 2.6
+	elif phase == 2:  # DANGER
+		color = Color(1.0, 0.22, 0.14)
+		energy = 3.4
+	for light in _lights:
+		if not is_instance_valid(light):
+			continue
+		light.light_color = color
+		light.light_energy = energy
+
+func _animate_hazards() -> void:
+	if _rotor == null or not is_instance_valid(_rotor):
+		return
+	if _cycle == null or not _cycle.has_method("get_elapsed"):
+		return
+	_rotor.rotation.z = float(_cycle.get_elapsed()) * 2.2
+
+func get_light_count() -> int:
+	return _lights.size()
+
+func get_active_phase() -> int:
+	if _cycle != null and _cycle.has_method("get_phase"):
+		return int(_cycle.get_phase())
+	return -1
 
 # ── Acceso para tests / depuración ───────────────────────────────────────────
 

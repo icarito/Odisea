@@ -157,3 +157,33 @@ func test_content_cycle_has_consumers() -> void:
 	assert_object(cycle).is_not_null()
 	# El ciclo tiene un consumidor conectado (la capa de contenido).
 	assert_bool(cycle.is_connected("phase_changed", content, "_on_phase_changed")).is_true()
+	# Y el consumidor actúa: pinta las luces de sala por fase.
+	assert_int(content.get_light_count()).is_greater(0)
+	var lights_root = level.get_node_or_null("BayLights")
+	var first_light = null
+	for c in lights_root.get_children():
+		if c is Light:
+			first_light = c
+			break
+	assert_object(first_light).is_not_null()
+	content._apply_phase_lights(0)
+	var safe_color: Color = first_light.light_color
+	content._apply_phase_lights(2)
+	var danger_color: Color = first_light.light_color
+	assert_bool(safe_color != danger_color).is_true()
+
+func test_content_rotor_follows_cycle_clock() -> void:
+	var level = auto_free(ScenePacked.instance())
+	add_child(level)
+	var content = level.get_node_or_null("BayContent")
+	var rotor = content.get_rotor()
+	assert_object(rotor).is_not_null()
+	var cycle = level.get_node_or_null("BayProtocolCycle")
+	cycle._elapsed = 0.0
+	content._animate_hazards()
+	var a := float(rotor.rotation.z)
+	cycle._elapsed = 1.0
+	content._animate_hazards()
+	var b := float(rotor.rotation.z)
+	# Giro determinista derivado del reloj del ciclo (sin timer propio).
+	assert_float(b).is_not_equal(a)
