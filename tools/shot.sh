@@ -20,9 +20,11 @@
 # user://); otherwise it reuses the running one. Every peer call carries player_id, and
 # the peer refuses to guess when several games are connected (no silent cross-capture).
 #
-# Headless: with --headless the game runs `--no-window` and ANNAV2 captures through a child
-# Viewport (the root viewport reads black without a window), so no window opens on :0.
-# With a windowed game the normal root-viewport capture is used; the game itself decides.
+# Headless: with --headless the game runs `--no-window` so no window opens on :0. The
+# capture reads the ROOT viewport, which still renders off-screen and includes the full
+# frame: 3D plus the 2D layers (HUD, menus). ANNAV2 only falls back to a child Viewport
+# when a game was started with ODISEA_SHOT_VIEWPORT=child (3D only, no 2D layers) — rarely
+# needed. The log line reports which viewport was used.
 #
 # Default output: the session artifacts dir ($HOME/.ao/data/artifacts/$AO_SESSION_ID) when
 # it exists, otherwise /tmp. Downscaled to at most --width px (default 800, max 2000); an
@@ -151,24 +153,45 @@ else
   [ -n "$SCENE" ] && launch_args+=(--scene "$SCENE")
   [ -n "$POS" ] && launch_args+=(--pos "$POS")
   [ -n "$YAW" ] && launch_args+=(--yaw "$YAW")
-  bash tools/launch_game.sh "${launch_args[@]}"
+  # Propagate the chosen id to the launcher: with an explicit --player-id the game must
+  # come up as that id, not as the instance-derived one, or the capture below cannot reach it.
+  ODISEA_PLAYER_ID="$PLAYER_ID" bash tools/launch_game.sh "${launch_args[@]}"
 fi
 
-# Warn (don't silently capture black) if the running game predates the windowless capture
-# path: old ANNAV2 returns no "viewport" field and would hand back a black root frame.
-VIEWPORT_MODE="auto"
-RESP="$(curl -s --max-time 40 -XPOST "${PEER_URL}/command" -H "Content-Type: application/json" \
-  -d "{\"action\":\"screenshot\",\"player_id\":\"${PLAYER_ID}\",\"args\":{\"viewport\":\"${VIEWPORT_MODE}\"}}")"
-
-read -r SHOT_PATH RESP_VIEWPORT RESP_OK < <(printf '%s' "$RESP" | python3 -c '
+# Capture through the peer, always naming our player_id. "auto" lets the game pick the
+# viewport: the root one by default (full frame incl. 2D HUD/menus); a child Viewport only
+# if the game was started with ODISEA_SHOT_VIEWPORT=child. max_width downscales in-game,
+# which is both what we want (<=800 px) and keeps the WebSocket frame small.
+#
+# Retry transient failures: a ~600 KB screenshot frame occasionally trips a Godot WS /
+# aiohttp framing drop ("non-zero reserved bits"), which surfaces as one command timeout
+# before the game reconnects. A retry a second later succeeds; permanent errors (missing
+# player, bad request) are not retried.
+capture_once() {
+  RESP="$(curl -s --max-time 40 -XPOST "${PEER_URL}/command" -H "Content-Type: application/json" \
+    -d "{\"action\":\"screenshot\",\"player_id\":\"${PLAYER_ID}\",\"args\":{\"viewport\":\"auto\",\"max_width\":${WIDTH}}}")"
+  read -r SHOT_PATH RESP_VIEWPORT RESP_OK RESP_ERR < <(printf '%s' "$RESP" | python3 -c '
 import sys, json
 try: d = json.load(sys.stdin)
 except Exception: d = {}
 if not isinstance(d, dict): d = {}
-print(d.get("screenshot_path", ""), d.get("viewport", ""), "1" if d.get("ok") else "0")' 2>/dev/null || true)
+print(d.get("screenshot_path", ""), d.get("viewport", ""),
+      "1" if d.get("ok") else "0", d.get("error", ""))' 2>/dev/null || true)
+}
+
+SHOT_PATH=""; RESP_VIEWPORT=""; RESP_OK=""; RESP_ERR=""
+for attempt in 1 2 3; do
+  capture_once
+  [ -n "$SHOT_PATH" ] && [ -f "$SHOT_PATH" ] && break
+  case "$RESP_ERR" in
+    timeout|command_failed|no_game_connected)
+      [ "$attempt" -lt 3 ] && { log "capture attempt ${attempt} failed (${RESP_ERR}); retrying"; sleep 1.5; continue; } ;;
+  esac
+  break
+done
 
 if [ "$RESP_OK" != "1" ] || [ -z "$SHOT_PATH" ] || [ ! -f "$SHOT_PATH" ]; then
-  echo "shot.sh: capture failed for player_id=${PLAYER_ID}." >&2
+  echo "shot.sh: capture failed for player_id=${PLAYER_ID} after retries." >&2
   echo "shot.sh: peer response: ${RESP}" >&2
   exit 4
 fi

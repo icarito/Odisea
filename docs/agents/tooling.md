@@ -219,11 +219,13 @@ tools/shot.sh --no-launch                       # falla si no hay juego, no arra
   existe, lo reutiliza. Todas las llamadas al peer llevan `player_id`, y el peer no elige
   por su cuenta cuando hay varios juegos: devuelve `ambiguous_player`. Si el `player_id`
   no está conectado, falla con `player_not_found` en vez de capturar otra instancia.
-- **Headless (sin ventana).** Con `--headless` el juego corre `--no-window` y `ANNAV2`
-  captura a través de un `Viewport` hijo: el viewport raíz sale negro sin ventana, pero el
-  hijo (mismo World, cámara copiada) sí renderiza. `launch_game.sh --headless` exporta
-  `ODISEA_SHOT_VIEWPORT=child` para que el juego elija ese camino solo. Si el juego ya
-  estaba corriendo, `shot.sh` no abre otra ventana.
+- **Headless (sin ventana).** Con `--headless` el juego corre `--no-window`, así que no
+  abre ninguna ventana en el `:0` del usuario. La captura lee el viewport **raíz**, que
+  igual renderiza off-screen e incluye el frame completo: 3D **más** las capas 2D (HUD,
+  menús). `ANNAV2` solo usa un `Viewport` hijo —que comparte el World pero **no ve** las
+  `CanvasLayer` del raíz, así que rinde 3D sin HUD— cuando el juego arrancó con
+  `ODISEA_SHOT_VIEWPORT=child`; es un escape raro. La línea de log dice qué viewport se usó
+  (`root`/`child`). Si el juego ya estaba corriendo, `shot.sh` no abre otra ventana.
 - **Tamaño.** Ancho máximo por defecto 800 px, tope duro 2000 (`--width`); nunca agranda.
 - **Destino.** `--out` manda; si no, `$HOME/.ao/data/artifacts/$AO_SESSION_ID/` cuando
   existe, si no `/tmp`. Imprime la ruta final y el viewport usado (`root`/`child`).

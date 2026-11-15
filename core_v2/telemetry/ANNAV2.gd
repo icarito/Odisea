@@ -834,23 +834,40 @@ func _cmd_screenshot(id, args):
 			pause_layer.visible = false
 			should_restore_pause = true
 
-	# Windowless games (--no-window) have a live GL driver but the root viewport never
-	# presents, so its texture reads black. Capturing through a child Viewport with its
-	# own camera reproduces the same frame off-screen without opening a window on the
-	# human's display. tools/shot.sh exports ODISEA_SHOT_VIEWPORT=child for those runs;
-	# the peer can also request it explicitly with args.viewport="child".
+	# Capture the ROOT viewport by default. In a running game it renders under --no-window
+	# (the GL driver still draws off-screen) AND includes the 2D layers — HUD, menus and
+	# other CanvasLayers — which a child Viewport cannot see. A child Viewport is available
+	# as an explicit opt-in (args.viewport="child" or ODISEA_SHOT_VIEWPORT=child) for cases
+	# where the root frame is unusable; it shares the World but renders 3D only.
 	var root_vp := get_viewport()
+	var mode := _screenshot_viewport_mode(args)
 	var capture_vp: Viewport = null
-	if _want_child_viewport_capture(args):
+	if mode == "child":
 		capture_vp = _make_child_capture_viewport(root_vp)
 
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
-	yield(VisualServer, "frame_post_draw")
+	# Do NOT wait on VisualServer.frame_post_draw alone: it stops firing reliably on a
+	# windowless/unfocused game (the framebuffer-less server build never emits it), so the
+	# capture would stall until the peer's command timeout. A short bounded timer gives the
+	# renderer real frames while guaranteeing the wait ends. create_timer processes even
+	# when the tree is paused, so a paused game still captures.
+	yield(get_tree().create_timer(0.15), "timeout")
 
 	var source_vp: Viewport = capture_vp if capture_vp != null else root_vp
 	var img = source_vp.get_texture().get_data()
 	img.flip_y()
+
+	# Optional in-game downscale. A full-window PNG is ~600 KB; base64 + JSON pushes each
+	# WebSocket frame near the size where Godot's WS client fragments large frames and some
+	# peers drop the connection (aiohttp: "Received frame with non-zero reserved bits"),
+	# which surfaces as an occasional command timeout. Sending a small frame keeps the
+	# capture reliable and matches what callers want anyway (tools/shot.sh: <=800 px wide).
+	var max_width := 0
+	if typeof(args) == TYPE_DICTIONARY:
+		max_width = int(args.get("max_width", 0))
+	if max_width > 0 and img.get_width() > max_width:
+		img.resize(max_width, max(1, int(round(img.get_height() * float(max_width) / float(img.get_width())))), Image.INTERPOLATE_LANCZOS)
 
 	if capture_vp != null:
 		capture_vp.get_parent().remove_child(capture_vp)
@@ -864,14 +881,17 @@ func _cmd_screenshot(id, args):
 
 	_send_response(id, true, {"result": b64, "viewport": "child" if capture_vp != null else "root"})
 
-func _want_child_viewport_capture(args) -> bool:
+# "child" only when requested explicitly; default "root" (see _cmd_screenshot).
+func _screenshot_viewport_mode(args) -> String:
 	if typeof(args) == TYPE_DICTIONARY:
-		var mode = args.get("viewport")
-		if mode == "child":
-			return true
-		if mode == "root":
-			return false
-	return OS.get_environment("ODISEA_SHOT_VIEWPORT") == "child"
+		var requested = args.get("viewport")
+		if requested == "child":
+			return "child"
+		if requested == "root":
+			return "root"
+	if OS.get_environment("ODISEA_SHOT_VIEWPORT") == "child":
+		return "child"
+	return "root"
 
 # Off-screen twin of the live viewport: shares the running World (own_world=false, so no
 # second simulation), copies the active camera so it frames exactly what the player sees,
@@ -889,6 +909,9 @@ func _make_child_capture_viewport(parent_vp: Viewport) -> Viewport:
 	parent_vp.add_child(vp)
 
 	var cam := Camera.new()
+	# global_transform only resolves once the camera is inside the tree (a Spatial outside
+	# the tree errors and keeps its default transform), so attach it first, then copy.
+	vp.add_child(cam)
 	cam.current = true
 	var active = parent_vp.get_camera()
 	if active != null and is_instance_valid(active):
@@ -899,7 +922,6 @@ func _make_child_capture_viewport(parent_vp: Viewport) -> Viewport:
 		cam.projection = active.projection
 		cam.cull_mask = active.cull_mask
 		cam.environment = active.environment
-	vp.add_child(cam)
 	return vp
 
 

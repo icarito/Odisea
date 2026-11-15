@@ -134,24 +134,12 @@ trap cleanup_override EXIT
 
 players_now() { curl -s --max-time 3 "${PEER_URL}/status" 2>/dev/null; }
 
-# 2. Launch the game detached. Debug build (no --release/--export) keeps commands enabled.
-WINDOW_FLAGS=""
-if [ "$HEADLESS" = "1" ]; then
-  WINDOW_FLAGS="--no-window"
-  # The root viewport reads black with --no-window, so ANNAV2 captures through a child
-  # Viewport instead. tools/shot.sh relies on this for windowless screenshots.
-  export ODISEA_SHOT_VIEWPORT=child
-fi
-echo "[launch_game] launching ${GODOT_BIN} ${WINDOW_FLAGS} (log: ${GAME_LOG})"
-# shellcheck disable=SC2086
-nohup "$GODOT_BIN" --path "$REPO_ROOT" $WINDOW_FLAGS >>"$GAME_LOG" 2>&1 &
-GAME_PID=$!
-echo "[launch_game] game pid ${GAME_PID}"
-
-# 3. Wait for the peer to receive OUR heartbeat (this worktree's game booted). Matching by
-# player_id is what keeps two agents' launches from cross-wiring: we must never adopt the
-# first game that happens to be on the peer. A stale heartbeat from a previous run within
-# the peer's TTL is skipped by requiring a new session_id.
+# 2. Resolve identity and read the PRE-LAUNCH session BEFORE starting the game. Reading it
+# after the launch is a race: a fast first heartbeat would make PRE_SESSION the new session
+# and the wait loop below would then wait for a session that never arrives (false timeout).
+# Matching by player_id is what keeps two agents' launches from cross-wiring: we must never
+# adopt the first game that happens to be on the peer. Requiring a session different from
+# the pre-launch one skips a stale heartbeat from a previous run within the peer's TTL.
 WANT_PID="$ODISEA_PLAYER_ID"
 heartbeat_field() {  # $1 = json field of our player's heartbeat
   curl -s --max-time 3 "${PEER_URL}/status?player_id=${WANT_PID}" 2>/dev/null | python3 -c '
@@ -161,6 +149,22 @@ except Exception: d = {}
 print(d.get(sys.argv[1], "") if isinstance(d, dict) else "")' "$1" 2>/dev/null || true
 }
 PRE_SESSION="$(heartbeat_field session_id)"
+
+# 3. Launch the game detached. Debug build (no --release/--export) keeps commands enabled.
+WINDOW_FLAGS=""
+if [ "$HEADLESS" = "1" ]; then
+  # --no-window keeps the window off the user's :0. The capture still reads the ROOT
+  # viewport (it renders off-screen and includes the 2D HUD/menus); ANNAV2 only uses a
+  # child Viewport when explicitly asked.
+  WINDOW_FLAGS="--no-window"
+fi
+echo "[launch_game] launching ${GODOT_BIN} ${WINDOW_FLAGS} (log: ${GAME_LOG})"
+# shellcheck disable=SC2086
+nohup "$GODOT_BIN" --path "$REPO_ROOT" $WINDOW_FLAGS >>"$GAME_LOG" 2>&1 &
+GAME_PID=$!
+echo "[launch_game] game pid ${GAME_PID}"
+
+# 4. Wait for the peer to receive OUR heartbeat (this worktree's game booted).
 PLAYER_ID=""
 for _ in $(seq 1 "$((READY_WAIT_SECS * 2))"); do
   if ! kill -0 "$GAME_PID" 2>/dev/null; then
@@ -181,7 +185,7 @@ if [ -z "$PLAYER_ID" ]; then
 fi
 echo "[launch_game] connected: player_id=${PLAYER_ID}"
 
-# 4. Optionally drive to a scene, then position the player. Every peer call carries
+# 5. Optionally drive to a scene, then position the player. Every peer call carries
 # player_id so commands can never land on another worktree's game.
 if [ -n "$SCENE" ]; then
   echo "[launch_game] goto_scene ${SCENE}"
