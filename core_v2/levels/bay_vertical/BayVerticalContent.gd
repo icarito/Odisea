@@ -162,6 +162,14 @@ func _build() -> void:
 # Ruta parkour en el plano del stream (flat: x = arco, y = radial hacia el eje).
 # Cada salto se dimensiona con el `g_eff` del radio local; el hueco horizontal se
 # recorta además contra el límite de la superficie, así cerca del eje no crece.
+# Ritmo de la ruta por semilla: cuántos RhythmSteps hay entre dos SprintGap.
+# Así el patrón del parkour varía por partida (y la validación por semilla es
+# significativa) sin salirse nunca del presupuesto de flow.
+func _rhythm_run_length() -> int:
+	var span: int = int(max(2.0, float(sprint_every - 1)))
+	var seed_i: int = int(abs(float(generation_seed)))
+	return 2 + (seed_i % span)
+
 func _compute_route() -> void:
 	_route.clear()
 	_hops.clear()
@@ -169,13 +177,15 @@ func _compute_route() -> void:
 	var base_radius: float = _base_radius()
 	var total_rise: float = max(4.0, base_radius - summit_clearance)
 	var surface_gap_limit: float = _flow.main_gap(base_radius, 0.0)
+	var rhythm_run: int = _rhythm_run_length()
+	var cycle_len: int = rhythm_run + 1
 	var x := 0.0
 	var y := 0.0
 	_route.append({"flat": Vector3(0.0, 0.0, 0.0), "kind": "RhythmSteps"})
 	var step := 0
 	while y < total_rise - 0.01 and _route.size() < 400:
 		var r: float = _flow.radius_at(y)
-		var is_sprint: bool = sprint_every > 1 and (step % sprint_every) == (sprint_every - 1)
+		var is_sprint: bool = (step % cycle_len) == (cycle_len - 1)
 		var gap: float
 		var dh: float
 		var kind: String
@@ -761,6 +771,38 @@ func validate_main_route() -> Dictionary:
 	var graph := build_route_graph()
 	# El validador evalúa cada arista con el g del nodo destino (su `g_eff` local).
 	return ValidatorScript.validate(graph, _flow.metrics_for_g(_flow.g_eff(_base_radius())))
+
+# Peor exigencia de la ruta principal (fracción del alcance). ≤ 0.80 = válida.
+func worst_main_demand_ratio() -> float:
+	var result: Dictionary = validate_main_route()
+	if result.empty():
+		return 1.0
+	var critical: Dictionary = result.get("critical_main_edge", {})
+	if critical.empty():
+		critical = result.get("most_demanding_edge", {})
+	if critical.empty():
+		return 0.0
+	return float(critical.get("demand_ratio", 1.0))
+
+# Reporte de calibración: para cada semilla, si la ruta principal valida y su
+# peor exigencia. Lo usa el test de N semillas.
+func calibration_report(seeds: Array) -> Array:
+	var out: Array = []
+	var saved: int = generation_seed
+	for s in seeds:
+		generation_seed = int(s)
+		_compute_route()
+		var result: Dictionary = validate_main_route()
+		out.append({
+			"seed": int(s),
+			"valid": bool(result.get("valid_main_route", false)),
+			"worst_demand": worst_main_demand_ratio(),
+			"hops": _hops.size(),
+			"cycle": _rhythm_run_length() + 1,
+		})
+	generation_seed = saved
+	_compute_route()
+	return out
 
 # ── Estado serializable (replay + save) ──────────────────────────────────────
 

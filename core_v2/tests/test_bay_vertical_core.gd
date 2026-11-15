@@ -142,6 +142,32 @@ func test_main_route_validates_per_seed() -> void:
 		level.queue_free()
 		yield(get_tree(), "idle_frame")
 
+func test_ring_calibration_over_many_seeds() -> void:
+	# Calibración del anillo: 64 semillas, el ritmo del parkour varía por partida
+	# y en TODAS la ruta principal valida sin pasar el techo del contrato (80 %).
+	var level = auto_free(ScenePacked.instance())
+	add_child(level)
+	var content = level.get_node_or_null("BayContent")
+	var seeds: Array = []
+	for i in range(64):
+		seeds.append(1 + i * 7919)
+	var report: Array = content.calibration_report(seeds)
+	assert_int(report.size()).is_equal(64)
+	var worst := 0.0
+	var invalid := 0
+	var cycles := {}
+	for entry in report:
+		if not bool(entry["valid"]):
+			invalid += 1
+		worst = max(worst, float(entry["worst_demand"]))
+		cycles[int(entry["cycle"])] = true
+	assert_int(invalid).is_equal(0)
+	assert_float(worst).is_less_equal(0.80 + 0.001)
+	# El patrón NO está fijo: hay más de un ciclo de ritmo entre semillas.
+	assert_int(cycles.keys().size()).is_greater(1)
+	# Y la ruta vuelve a la semilla original tras calibrar.
+	assert_int(content.get_platform_count()).is_greater(8)
+
 # ── Desvíos curados opcionales con recompensa cinética ──────────────────────
 
 func test_shortcuts_are_optional_and_labeled() -> void:
