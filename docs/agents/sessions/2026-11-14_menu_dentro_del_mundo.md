@@ -33,6 +33,11 @@ Cambios aditivos y off por defecto (riesgo de regresión ~nulo):
 - Spec: el fade Dome→Hangar quedó anotado como DEUDA (falta buffer de llegada equivalente + cámara continua).
 - Este doc de sesión.
 
+## DEUDA explícita (validación con entorno gráfico)
+
+- Mediciones de arranque antes/después (desktop y web/Thorium con ventana) y memoria en tier LOW/Anbernic.
+- Capturas visuales del overlay sobre el mundo. Para capturas usar `tools/shot.sh` cuando lo publique src-56, o un Viewport hijo headless; nunca el screenshot del peer. No encender `startup_world_scene_path` por defecto: Sebastián decide cuándo.
+
 ## Mediciones de arranque (estado)
 
 El pipeline existe: `StartupTrace` escribe `user://startup_trace.json` (auto-finalize ~30 s o al abrirse el startup gate). Intento headless en este entorno (binario editor + --headless) no completó el arranque (solo eventos de conexión; finalize por timeout) — no es representativo. Falta medición real: desktop (ventana) antes/después y web con Thorium con ventana; y memoria en tier LOW/Anbernic. Metodología propuesta: correr el juego con `startup_world_scene_path` seteado, leer `startup_trace.json` (hitos boot_loader_scene_request → scene_ready → startup_gate) y comparar contra el boot classic.
