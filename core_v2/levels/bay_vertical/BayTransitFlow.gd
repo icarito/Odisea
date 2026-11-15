@@ -93,6 +93,12 @@ func parse_contract(text: String) -> bool:
 			value = String(parts2[1]).strip_edges()
 		if key.empty():
 			continue
+		# Sólo se asigna con un valor NUMÉRICO. La tabla del contrato pone el
+		# SÍMBOLO en la columna de valor (`| Gravedad | `g` | 14.0 m/s² |`), y sin
+		# este guard el parser pisaba `g` con 0.0, dejando `d_max = -1` y el
+		# límite de ruta principal en negativo.
+		if not _is_numeric(value):
+			continue
 		var k := _normalize_key(key)
 		var v := _to_float(value)
 		match k:
@@ -197,10 +203,18 @@ func _normalize_key(key: String) -> String:
 	k = k.replace("`", "").replace("**", "").strip_edges()
 	return k.to_lower()
 
-func _to_float(text: String) -> float:
+func _strip_units(text: String) -> String:
 	var cleaned := text
-	for ch in ["m/s²", "m/s", "m", "%", "*", " ", "\t"]:
+	for ch in ["m/s²", "m/s", "m", "%", "*", " ", "\t", ","]:
 		cleaned = cleaned.replace(ch, "")
-	if cleaned.ends_with(","):
-		cleaned = cleaned.substr(0, cleaned.length() - 1)
-	return float(cleaned)
+	return cleaned.strip_edges()
+
+# ¿El valor de la celda es un número (con unidades opcionales)?
+func _is_numeric(text: String) -> bool:
+	var cleaned := _strip_units(text)
+	if cleaned == "":
+		return false
+	return cleaned.is_valid_float() or cleaned.is_valid_integer()
+
+func _to_float(text: String) -> float:
+	return float(_strip_units(text))

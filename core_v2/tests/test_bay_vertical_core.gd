@@ -267,6 +267,24 @@ func test_flow_parses_contract_text() -> void:
 	assert_float(flow.v_jump).is_equal_approx(9.0, 0.001)
 	assert_float(flow.v_run).is_equal_approx(8.0, 0.001)
 
+func test_flow_parser_ignores_non_numeric_cells() -> void:
+	# Regresión: la tabla del contrato pone el SÍMBOLO en la columna de valor
+	# (`| Gravedad | `g` | 14.0 m/s² |`). Sin guard numérico el parser pisaba `g`
+	# con 0.0 al aterrizar el doc, dejando d_max = -1 y el límite principal en
+	# negativo (main falló tras la ola #423+#424+#415).
+	var flow = auto_free(FlowScript.new())
+	var parsed: bool = flow.parse_contract(
+		"| Gravedad | `g` | 14.0 m/s² | `Jump.gravity` |\n"
+		+ "| Velocidad de carrera | `v_run` | 7.0 m/s | `Movement` |\n"
+		+ "| Impulso de salto | `v0` | 10.0 m/s | `Jump` |\n")
+	assert_bool(parsed).is_false()
+	assert_float(flow.g).is_equal_approx(14.0, 0.001)
+	assert_float(flow.v_run).is_equal_approx(7.0, 0.001)
+	assert_float(flow.v_jump).is_equal_approx(10.0, 0.001)
+	# Con las constantes intactas el alcance y el límite siguen siendo positivos.
+	assert_float(flow.d_max(0.0)).is_greater(0.0)
+	assert_float(flow.main_route_gap()).is_greater(0.0)
+
 func test_main_route_gaps_are_jumpable() -> void:
 	var level = auto_free(ScenePacked.instance())
 	add_child(level)
