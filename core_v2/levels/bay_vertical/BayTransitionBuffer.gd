@@ -1,0 +1,101 @@
+extends Spatial
+class_name BayTransitionBuffer
+
+# Buffer de transición FÍSICO de la bahía vertical (FD-322).
+#
+# Requisito de Sebastián (2026-11-14): las transiciones deben ser completamente
+# seamless, sin fade a negro; la referencia es el airlock. La entrada (planta) y la
+# salida (sala de control, cima) de la bahía vertical son un ESPACIO BUFFER FÍSICO
+# (airlock / ascensor) compatible con la API que src-54 está generalizando en
+# SceneManager, NO un `goto_scene` con fade.
+#
+# Mientras esa API no aterrice (contrato en
+# `.operator-shared/specs/seamless-transitions.md`), este nodo construye el espacio
+# físico y deja el punto de enganche explícito: `request_seamless_transition()` es un
+# no-op con TODO(src-54). NO llamar a goto_scene desde acá.
+
+enum Kind { ENTRY = 0, EXIT = 1, ELEVATOR = 2 }
+
+export(Kind) var kind := Kind.ENTRY
+export(String) var target_scene := ""
+export(String) var buffer_id := ""
+export(bool) var exchange_zone := true
+export(Vector3) var chamber_size := Vector3(3.0, 3.0, 3.0)
+
+var _zone: Area = null
+
+func _ready() -> void:
+	_build_chamber()
+	if exchange_zone:
+		_build_exchange_zone()
+
+func _build_chamber() -> void:
+	# Carcasa física: piso, paredes y techo con un vano. Es el "espacio buffer" real
+	# por el que entra y sale el jugador, no un fade.
+	var shell := StaticBody.new()
+	shell.name = "Chamber"
+	shell.collision_layer = 1
+	shell.collision_mask = 255
+	add_child(shell)
+
+	var half := chamber_size * 0.5
+	var wall_mat := SpatialMaterial.new()
+	wall_mat.albedo_color = Color(0.16, 0.19, 0.23, 1.0)
+	wall_mat.metallic = 0.4
+	wall_mat.roughness = 0.6
+
+	_add_wall(shell, wall_mat, Vector3(half.x, half.y, 0.0), Vector3(0.15, half.y, half.z))
+	_add_wall(shell, wall_mat, Vector3(-half.x, half.y, 0.0), Vector3(0.15, half.y, half.z))
+	_add_wall(shell, wall_mat, Vector3(0.0, half.y, half.z), Vector3(half.x, half.y, 0.15))
+	_add_wall(shell, wall_mat, Vector3(0.0, 0.0, -half.z), Vector3(half.x, 0.15, 0.15))
+	_add_wall(shell, wall_mat, Vector3(0.0, chamber_size.y, 0.0), Vector3(half.x, 0.15, half.z))
+	# Piso (el jugador ya llega por el scaffold, pero el buffer tiene piso propio).
+	_add_wall(shell, wall_mat, Vector3(0.0, 0.0, 0.0), Vector3(half.x, 0.1, half.z))
+
+func _add_wall(parent: Node, mat: SpatialMaterial, pos: Vector3, extents: Vector3) -> void:
+	var mi := MeshInstance.new()
+	var cube := CubeMesh.new()
+	cube.size = extents * 2.0
+	mi.mesh = cube
+	mi.translation = pos
+	mi.material_override = mat
+	parent.add_child(mi)
+	var col := CollisionShape.new()
+	var box := BoxShape.new()
+	box.extents = extents
+	col.shape = box
+	col.translation = pos
+	parent.add_child(col)
+
+func _build_exchange_zone() -> void:
+	_zone = Area.new()
+	_zone.name = "ExchangeZone"
+	_zone.collision_layer = 0
+	_zone.collision_mask = 2  # jugador
+	_zone.monitoring = true
+	var col := CollisionShape.new()
+	var box := BoxShape.new()
+	box.extents = Vector3(chamber_size.x * 0.45, chamber_size.y * 0.45, chamber_size.z * 0.45)
+	col.shape = box
+	_zone.add_child(col)
+	add_child(_zone)
+	_zone.connect("body_entered", self, "_on_body_entered")
+
+func _on_body_entered(body: Node) -> void:
+	if not body.is_in_group("player"):
+		return
+	request_seamless_transition(body)
+
+# Punto de enganche SEAMLESS (sin fade). La transición física se resuelve con el
+# mecanismo de airlock que src-54 generaliza en SceneManager.
+# TODO(src-54): reemplazar por la llamada real a la API seamless (ver
+# `.operator-shared/specs/seamless-transitions.md`). No usar goto_scene con fade.
+func request_seamless_transition(_player: Node) -> void:
+	if OS.is_debug_build():
+		print("[BayTransitionBuffer:%s] seamless transition requested -> %s (TODO src-54)" % [buffer_id, target_scene])
+
+func is_buffer() -> bool:
+	return true
+
+func get_kind() -> int:
+	return kind

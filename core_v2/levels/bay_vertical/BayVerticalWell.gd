@@ -21,6 +21,13 @@ class_name BayVerticalWell
 
 const MSTGeneratorScript := preload("res://core_v2/systems/ScaffoldMSTGenerator.gd")
 const CycleScript := preload("res://core_v2/levels/bay_vertical/BayProtocolCycle.gd")
+const TransitionBufferScript := preload("res://core_v2/levels/bay_vertical/BayTransitionBuffer.gd")
+const ModeConsoleScript := preload("res://core_v2/levels/bay_vertical/BayModeConsole.gd")
+# Modos de gravedad (GravityModes.Mode): 0 STANDARD_1G (propulsión), 1 SPIN_WALKABLE
+# (centrífugo), 2 ZERO_G. No importamos el script para no acoplar; se leen/escriben
+# por GravityWorld y por int.
+const GRAVITY_MODE_THRUST := 0
+const GRAVITY_MODE_SPIN := 1
 const ConveyorScene := preload("res://core_v2/props/machinery/Conveyor.tscn")
 const LaserGateScript := preload("res://core_v2/levels/bay_vertical/LaserGate.gd")
 const GlooSpanScript := preload("res://core_v2/levels/bay_vertical/GlooSpan.gd")
@@ -81,6 +88,8 @@ export(bool) var enable_conveyor_shortcut := true
 export(bool) var enable_laser_gate := true
 export(bool) var enable_gloo_span := true
 export(bool) var enable_hazard_rotor := true
+export(bool) var enable_mode_console := true
+export(int) var initial_gravity_mode := GRAVITY_MODE_SPIN
 
 export(float) var conveyor_speed := 4.0
 export(float) var laser_gate_cut_time := 2.5
@@ -107,6 +116,11 @@ var _summit_cell_idx := -1
 var _summit_world := Vector3.ZERO
 var _entry_world := Vector3.ZERO
 var _host_world := {}                 # "ca", "cb0", "cb1", "cg0", "cg1" -> Vector3
+var _gravity_mode := GRAVITY_MODE_SPIN
+var _gravity_blend := 1.0
+var _mode_consoles: Array = []
+var _mode_bridge: StaticBody = null
+var _gravity_world: Node = null
 
 func _init() -> void:
 	add_to_group("replay_sync")
@@ -152,6 +166,8 @@ func _regen() -> void:
 	_host_world = _layout.get("host_world", {})
 	_build_fall_floor()
 	_build_summit_beacon()
+	_build_control_room()
+	_build_transition_buffers()
 	_reposition_spawn_point()
 	if enable_streaming:
 		# Los chunks entran por cercanía (ver _physics_process).
@@ -159,7 +175,10 @@ func _regen() -> void:
 	else:
 		_instance_all_chunks()
 	_spawn_shortcuts()
+	_spawn_mode_gate()
+	_spawn_mode_consoles()
 	_spawn_hazard()
+	_apply_gravity_mode(false)
 	_generated = true
 
 func _clear_instances() -> void:
@@ -178,6 +197,17 @@ func _clear_instances() -> void:
 	if is_instance_valid(_rotor):
 		_rotor.queue_free()
 	_rotor = null
+	# Anclas dependientes de la semilla (entrada/cima) se reconstruyen.
+	for n in ["SummitBeacon", "ControlRoom", "EntryBuffer", "ExitBuffer", "ModeBridge"]:
+		var node = get_node_or_null(n)
+		if node and is_instance_valid(node):
+			remove_child(node)
+			node.queue_free()
+	_mode_bridge = null
+	for console in _mode_consoles:
+		if is_instance_valid(console):
+			console.queue_free()
+	_mode_consoles.clear()
 
 # ── Generación de layout (pura, sin nodos) ───────────────────────────────────
 
@@ -719,6 +749,186 @@ func _build_summit_beacon() -> void:
 	beacon.add_child(light)
 	add_child(beacon)
 
+# ── Entrada / salida como BUFFER FÍSICO (seamless, sin fade) ──────────────────
+# Requisito de Sebastián: la entrada (planta) y la salida (cima) son un espacio
+# buffer físico compatible con la API que src-54 generaliza en SceneManager. Acá
+# solo se construye el espacio y se deja el gancho; NO se usa goto_scene con fade.
+
+func _build_transition_buffers() -> void:
+	if has_node("EntryBuffer"):
+		return
+	var entry := TransitionBufferScript.new()
+	entry.name = "EntryBuffer"
+	entry.kind = TransitionBufferScript.Kind.ENTRY
+	entry.buffer_id = "bay_vertical_entry"
+	entry.target_scene = "res://core_v2/levels/RingHub_Level.tscn"
+	entry.translation = _entry_world + Vector3(0.0, 1.2, 0.0)
+	add_child(entry)
+
+	var exit_buf = TransitionBufferScript.new()
+	exit_buf.name = "ExitBuffer"
+	exit_buf.kind = TransitionBufferScript.Kind.EXIT
+	exit_buf.buffer_id = "bay_vertical_control_room"
+	exit_buf.translation = _summit_world + Vector3(0.0, 1.4, 0.0)
+	add_child(exit_buf)
+
+func _build_control_room() -> void:
+	# Sala de control mínima sobre la cima: piso propio + consola, para que la
+	# llegada se lea como destino (y no solo una plataforma más) sin texto.
+	if has_node("ControlRoom"):
+		return
+	var room := Spatial.new()
+	room.name = "ControlRoom"
+	room.translation = _summit_world
+	var floor_body := StaticBody.new()
+	floor_body.collision_layer = 1
+	floor_body.collision_mask = 255
+	var floor_mesh := MeshInstance.new()
+	var cube := CubeMesh.new()
+	cube.size = Vector3(5.0, 0.3, 5.0)
+	floor_mesh.mesh = cube
+	var mat := SpatialMaterial.new()
+	mat.albedo_color = Color(0.2, 0.23, 0.28, 1.0)
+	mat.metallic = 0.4
+	mat.roughness = 0.6
+	floor_mesh.material_override = mat
+	floor_body.add_child(floor_mesh)
+	var col := CollisionShape.new()
+	var box := BoxShape.new()
+	box.extents = Vector3(2.5, 0.15, 2.5)
+	col.shape = box
+	floor_body.add_child(col)
+	room.add_child(floor_body)
+	# Consola frente a la salida.
+	var console := MeshInstance.new()
+	var cbox := CubeMesh.new()
+	cbox.size = Vector3(1.8, 0.9, 0.6)
+	console.mesh = cbox
+	var cmat := SpatialMaterial.new()
+	cmat.albedo_color = Color(0.22, 0.26, 0.32, 1.0)
+	cmat.emission_enabled = true
+	cmat.emission = Color(0.3, 0.7, 0.95, 1.0)
+	cmat.emission_energy = 0.5
+	console.material_override = cmat
+	console.translation = Vector3(0.0, 0.5, -1.6)
+	room.add_child(console)
+	add_child(room)
+
+# ── Cambio de modo de gravedad (puzle activado por el jugador) ────────────────
+# Sebastián: centrífugo <-> propulsión lo activa el jugador desde consolas. Es un
+# puzle que reconfigura rutas, no un reloj. El modo y el blend son estado
+# serializable (save + replay). La dirección de gravedad SIEMPRE se lee de
+# GravityWorld, nunca se hardcodea.
+
+func _get_gravity_world() -> Node:
+	if _gravity_world and is_instance_valid(_gravity_world):
+		return _gravity_world
+	var tree = get_tree()
+	if tree == null:
+		return null
+	_gravity_world = tree.get_root().get_node_or_null("GravityWorld")
+	return _gravity_world
+
+func get_gravity_mode() -> int:
+	return _gravity_mode
+
+func get_gravity_blend() -> float:
+	return _gravity_blend
+
+# Vector de gravedad FÍSICO en un punto del mundo, agnóstico al modo: sale de
+# GravityWorld. Fallback (sin GravityWorld) = radial hacia afuera para SPIN.
+func get_gravity_vector_at(world_pos: Vector3) -> Vector3:
+	var gw := _get_gravity_world()
+	if gw and gw.has_method("get_physical_gravity"):
+		return gw.get_physical_gravity(world_pos)
+	if _gravity_mode == 1:
+		var radial := Vector3(world_pos.x, 0.0, world_pos.z)
+		if radial.length_squared() > 0.001:
+			return radial.normalized() * 9.81
+	return Vector3.DOWN * 9.81
+
+# Alterna el modo. Devuelve true si cambió. Determinista (lo dispara la consola).
+func toggle_gravity_mode() -> bool:
+	var next := GRAVITY_MODE_SPIN if _gravity_mode == GRAVITY_MODE_THRUST else GRAVITY_MODE_THRUST
+	return set_gravity_mode_mode(next)
+
+func set_gravity_mode_mode(mode: int) -> bool:
+	if mode == _gravity_mode:
+		return false
+	_gravity_mode = mode
+	_apply_gravity_mode(true)
+	return true
+
+func _apply_gravity_mode(notify: bool) -> void:
+	# En propulsión "abajo" = a lo largo del eje (modo STANDARD_1G); en centrífugo
+	# "abajo" = hacia el anillo (SPIN). El blend visual reencuadra los chunks igual
+	# que TerraceSpiral/Platforms (manual_blend axial<->centrífugo).
+	_gravity_blend = 1.0 if _gravity_mode == GRAVITY_MODE_SPIN else 0.0
+	var gw := _get_gravity_world()
+	if gw:
+		if gw.has_method("set_gravity_mode"):
+			gw.set_gravity_mode(_gravity_mode)
+		if gw.has_method("set_gravity_blend"):
+			gw.set_gravity_blend(_gravity_blend)
+		if gw.has_method("set_spiral_blend"):
+			gw.set_spiral_blend(_gravity_blend)
+	# La puerta/bridge mode-gated: sólida solo en propulsión.
+	if is_instance_valid(_mode_bridge):
+		var thrust: bool = _gravity_mode == GRAVITY_MODE_THRUST
+		_mode_bridge.collision_layer = 1 if thrust else 0
+		_mode_bridge.visible = thrust
+	for console in _mode_consoles:
+		if is_instance_valid(console) and console.has_method("set_mode"):
+			console.set_mode(_gravity_mode)
+	if notify:
+		emit_signal("gravity_mode_changed", _gravity_mode)
+
+signal gravity_mode_changed(mode)
+
+func _spawn_mode_consoles() -> void:
+	if not enable_mode_console:
+		return
+	# Una consola en la entrada (anillo exterior) y otra en la sala de control (cima).
+	_add_mode_console(_entry_world + Vector3(1.6, 0.0, 0.0))
+	_add_mode_console(_summit_world + Vector3(1.6, 0.0, 0.0))
+
+func _add_mode_console(pos: Vector3) -> void:
+	var console = ModeConsoleScript.new()
+	console.name = "ModeConsole%d" % _mode_consoles.size()
+	console.translation = pos
+	console.set("well_path", NodePath(""))
+	add_child(console)
+	# El console cuelga del pozo: resuelve el pozo por get_parent() en _ready.
+	_mode_consoles.append(console)
+
+func _spawn_mode_gate() -> void:
+	# Atajo que SÓLO existe en propulsión: un puente axial (a lo largo del eje) que
+	# conecta dos costuras de la cima. En centrífugo se desolidifica (no hay ruta).
+	if has_node("ModeBridge"):
+		return
+	var bridge := StaticBody.new()
+	bridge.name = "ModeBridge"
+	bridge.translation = (_entry_world + _summit_world) * 0.5
+	var mesh := MeshInstance.new()
+	var cube := CubeMesh.new()
+	cube.size = Vector3(1.6, 0.2, 8.0)
+	mesh.mesh = cube
+	var mat := SpatialMaterial.new()
+	mat.albedo_color = Color(0.55, 0.5, 0.2, 1.0)
+	mat.emission_enabled = true
+	mat.emission = Color(0.9, 0.75, 0.3, 1.0)
+	mat.emission_energy = 0.6
+	mesh.material_override = mat
+	bridge.add_child(mesh)
+	var col := CollisionShape.new()
+	var box := BoxShape.new()
+	box.extents = Vector3(0.8, 0.1, 4.0)
+	col.shape = box
+	bridge.add_child(col)
+	bridge.collision_mask = 255
+	add_child(bridge)
+	_mode_bridge = bridge
+
 func _reposition_spawn_point() -> void:
 	var spawn = get_node_or_null("../SpawnPointV2")
 	if spawn is Spatial:
@@ -853,6 +1063,8 @@ func get_state() -> Dictionary:
 	return {
 		"seed": generation_seed,
 		"rotor_angle": _rotor_angle,
+		"gravity_mode": _gravity_mode,
+		"gravity_blend": _gravity_blend,
 		"shortcuts": states,
 	}
 
@@ -865,6 +1077,10 @@ func restore_snapshot(data: Dictionary) -> void:
 	_rotor_angle = float(data.get("rotor_angle", 0.0))
 	if is_instance_valid(_rotor):
 		_rotor.rotation_degrees.y = rad2deg(_rotor_angle)
+	if data.has("gravity_mode"):
+		_gravity_mode = int(data["gravity_mode"])
+		_gravity_blend = float(data.get("gravity_blend", _gravity_blend))
+		_apply_gravity_mode(false)
 	var states: Array = data.get("shortcuts", [])
 	for entry in states:
 		var n: String = entry.get("name", "")

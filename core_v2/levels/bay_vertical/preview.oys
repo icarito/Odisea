@@ -1,0 +1,23 @@
+# Preview del greybox de la bahía radial (FD-322).
+# Captura con el build editor (--no-window) como test_ui.sh. Recorre los 3 anillos
+# con TELEPORT para validar visualmente la estructura, el streaming por cercanía y
+# la consola de cambio de modo.
+FOV 80
+WAIT 1.0
+TELEPORT (-4.2, 1.4, -4.2)
+LOOK pitch -32 duration 0.4
+WAIT 1.6
+SCREENSHOT "0_anillo_exterior"
+TELEPORT (8.4, 5.4, 8.4)
+LOOK pitch -22 duration 0.3
+WAIT 1.6
+SCREENSHOT "1_anillo_medio"
+TELEPORT (0.0, 9.6, -12.0)
+LOOK pitch -6 duration 0.3
+WAIT 1.6
+SCREENSHOT "2_cima"
+TELEPORT (-4.2, 1.2, -4.2)
+LOOK pitch 8 duration 0.3
+WAIT 1.2
+SCREENSHOT "3_consola_modo"
+QUIT

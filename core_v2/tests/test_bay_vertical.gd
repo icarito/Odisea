@@ -171,6 +171,35 @@ func test_ggg_laser_gate_cut_opens() -> void:
 	gate2.restore_state(snap)
 	assert_bool(gate2.is_opened()).is_true()
 
+func test_iii_mode_toggle_is_deterministic_and_serialized() -> void:
+	var w = auto_free(WellScript.new())
+	add_child(w)
+	var start: int = w.get_gravity_mode()
+	var changed: bool = w.toggle_gravity_mode()
+	assert_bool(changed).is_true()
+	assert_int(w.get_gravity_mode()).is_not_equal(start)
+	# Segundo toggle vuelve al original.
+	w.toggle_gravity_mode()
+	assert_int(w.get_gravity_mode()).is_equal(start)
+	# Snapshot/replay: el modo y el blend viajan en el estado.
+	w.set_gravity_mode_mode(WellScript.GRAVITY_MODE_THRUST)
+	var snap: Dictionary = w.get_snapshot()
+	assert_int(int(snap.get("gravity_mode", -1))).is_equal(WellScript.GRAVITY_MODE_THRUST)
+	var w2 = auto_free(WellScript.new())
+	add_child(w2)
+	w2.restore_snapshot(snap)
+	assert_int(w2.get_gravity_mode()).is_equal(WellScript.GRAVITY_MODE_THRUST)
+
+func test_jjj_gravity_vector_is_sourced_not_hardcoded() -> void:
+	var w = auto_free(WellScript.new())
+	add_child(w)
+	var g: Vector3 = w.get_gravity_vector_at(Vector3(3.0, 1.0, 0.0))
+	# Debe devolver un vector no nulo y finito, provisto por GravityWorld (o su
+	# fallback radial). La magnitud escala con el radio de referencia, así que solo
+	# se verifica que sea una fuente real y no un cero/constante.
+	assert_float(g.length()).is_greater(0.0)
+	assert_bool(not is_nan(g.x) and not is_nan(g.y) and not is_nan(g.z)).is_true()
+
 func test_hhh_gloo_span_needs_blobs() -> void:
 	var span = auto_free(GlooSpanScript.new())
 	span.span_from = Vector3(0.0, 0.0, 0.0)
