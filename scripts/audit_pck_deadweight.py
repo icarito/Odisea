@@ -78,6 +78,38 @@ BIN_REF = re.compile(rb"res://[ -~]+")
 DIR_PREFIX = re.compile(r'["\'](res://[^"\']*/)["\']\s*\+')
 
 
+def _zstd(blob, tope):
+    try:
+        from compression import zstd  # Python >= 3.14
+        return zstd.decompress(blob)
+    except ImportError:
+        import ctypes
+        lib = ctypes.CDLL("libzstd.so.1")
+        lib.ZSTD_decompress.restype = ctypes.c_size_t
+        buf = ctypes.create_string_buffer(tope)
+        n = lib.ZSTD_decompress(buf, ctypes.c_size_t(tope), blob, ctypes.c_size_t(len(blob)))
+        if n > tope:  # los codigos de error de zstd son size_t enormes
+            raise SystemExit("zstd no pudo descomprimir un bloque RSCC")
+        return buf.raw[:n]
+
+
+def _descomprimir_rscc(raw):
+    """Un recurso guardado con compresion (magic RSCC, FileAccessCompressed) esconde
+    sus rutas res:// al regex de bytes. Asi se escapo rusty_metal_grid_disp_1k.png:
+    DomeShell_baked.mesh es RSCC, el auditor no le vio dependencias y el exclude la
+    corto del build. Si no se puede descomprimir se falla fuerte: saltearlo en
+    silencio es exactamente ese bug."""
+    modo, bloque, total = struct.unpack_from("<3I", raw, 4)
+    if modo != 2:
+        raise SystemExit("RSCC con compresion %d no soportada (solo zstd)" % modo)
+    n = (total + bloque - 1) // bloque
+    off, out = 16 + 4 * n, []
+    for size in struct.unpack_from("<%dI" % n, raw, 16):
+        out.append(_zstd(raw[off:off + size], bloque))
+        off += size
+    return b"".join(out)
+
+
 def _refs(res_path):
     if res_path in IGNORAR_REFS:
         return []
@@ -85,6 +117,8 @@ def _refs(res_path):
     if not os.path.isfile(f):
         return []
     raw = open(f, "rb").read()
+    if raw[:4] == b"RSCC":
+        raw = _descomprimir_rscc(raw)
     # La extension no alcanza para decidir texto vs binario: hay .material y .tres
     # guardados en formato binario de Godot (magic RSRC). Si se leen como texto, el
     # regex de rutas sueltas se traga el blob entero y pierde las rutas embebidas.
