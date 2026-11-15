@@ -120,8 +120,10 @@ diseño → NO forzar, reportar.
 | Tanda | Contenido | PR | Estado |
 |---|---|---|---|
 | 1 | FDs vivos restaurados + agents-movement-model (anna_mapgyms) | #408 | Mergeado a main. CI verde. |
-| 2 | #337 deploy backup retention + #298 storyboard + FD-300 doc | #409 | En CI (pendiente merge). |
-| 3 | #362 Discord (FD-315) | — | Merge local listo (rama `ao/integraci-n-previa/tanda3-discord`, test pasa); a la espera de pushear y CI. |
+| 2 | #337 deploy backup retention + #298 storyboard + FD-300 doc | #409 | Mergeado a main (c48b46d0). CI verde. |
+| 3 | #362 Discord (FD-315) + doc de sesión | #410 | Mergeado a main (8c8bb819). CI verde (core + determinismo + import-smoke + validate-imports). |
+
+**Pendiente:** ninguno de integración. PRs superados cerrados: #359, #358, #347, #273, #272. #377 queda sin tocar por restricción (release/TestFlight).
 
 **Pendiente:** cerrar PRs superados (#359, #358, #347, #273, #272) con comentario
 explicativo; decidir #362.
