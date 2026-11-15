@@ -6,8 +6,9 @@ extends GdUnitTestSuite
 # recompensa cinética determinista.
 
 const BayScene = preload("res://core_v2/levels/machines/MachineBay.tscn")
+const FlowMetricsScript = preload("res://core_v2/systems/flow/FlowMetrics.gd")
 const FlowRouteValidatorScript = preload("res://core_v2/systems/flow/FlowRouteValidator.gd")
-const MOVE_ACTIONS := ["move_forward", "move_backward", "move_left", "move_right", "jump"]
+const MOVE_ACTIONS := ["move_forward", "move_backward", "move_left", "move_right", "jump", "run"]
 
 var _bay: Node = null
 
@@ -141,9 +142,19 @@ func test_main_route_passes_flow_route_validator_within_80_percent_threshold() -
 			edges.append({"from": "TowerRamp", "to": "ExitPad", "gap_h": 0.0, "delta_h": 0.0})
 		else:
 			edges.append({"from": node_names[i], "to": node_names[i + 1]})
+	var fm = FlowMetricsScript.from_scene()
+	assert_object(fm).is_not_null()
+	var raw: Dictionary = fm.metrics()
+	var metrics := {
+		"g": float(raw["gravity"]),
+		"v_run": float(raw["run_speed"]),
+		"v_jump": float(raw["jump_force"]),
+		"tick": 1.0 / float(raw["tick_hz"]),
+		"main_threshold": float(raw["thr_main_max_ratio"]),
+	}
 	var report: Dictionary = FlowRouteValidatorScript.validate(
 		{"entry": "EntryFloor", "exit": "ExitPad", "nodes": nodes, "edges": edges},
-		FlowRouteValidatorScript.default_metrics()
+		metrics
 	)
 	assert_bool(bool(report.get("valid_main_route", false))).is_true()
 
@@ -191,30 +202,31 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 	pilot.input_provider.hardware_input_enabled = true
 	var cinematic: Node = get_node_or_null("/root/CinematicManager")
 
-	# Waypoints [pos_destino, saltar_al_acercarse, radio_llegada]
+	# Waypoints [pos_destino, saltar_al_acercarse, radio_llegada, (opcional) jump_dist]
 	var waypoints := [
 		[Vector3(-4.2, 0.0, 6.8), false, 1.0],
-		[Vector3(-4.2, 1.25, 9.2), true, 1.1],
-		[Vector3(-4.2, 2.5, 13.0), true, 1.2],
+		[Vector3(-4.2, 1.25, 9.2), true, 1.1, 2.0],
+		[Vector3(-4.2, 2.5, 13.0), true, 1.2, 2.5],
 		[Vector3(-1.5, 2.5, 15.2), false, 1.0],
-		[Vector3(-1.5, 3.7, 17.0), true, 1.0],
-		[Vector3(-1.5, 4.9, 19.0), true, 1.0],
-		[Vector3(-2.2, 6.0, 21.5), true, 1.0],
-		[Vector3(-4.5, 6.0, 26.5), true, 1.4],
-		[Vector3(-4.5, 5.9, 32.2), true, 1.4],
-		[Vector3(-2.5, 5.6, 37.7), true, 1.3],
+		[Vector3(-1.5, 3.7, 17.0), true, 1.0, 1.8],
+		[Vector3(-1.5, 4.9, 19.0), true, 1.0, 1.8],
+		[Vector3(-1.2, 6.0, 20.8), true, 1.0, 1.8],
+		[Vector3(-2.7, 6.0, 21.6), false, 0.9],
+		[Vector3(-4.5, 6.0, 26.5), true, 1.4, 5.5],
+		[Vector3(-4.5, 5.9, 32.2), true, 1.4, 4.5],
+		[Vector3(-2.5, 5.6, 37.7), true, 1.3, 4.5],
 		[Vector3(-5.5, 3.5, 41.5), false, 1.2],
-		[Vector3(-7.5, 5.65, 43.0), true, 1.3],
-		[Vector3(-7.5, 7.85, 48.2), true, 1.3],
-		[Vector3(-7.5, 10.05, 53.4), true, 1.3],
-		[Vector3(-6.5, 12.25, 58.0), true, 1.3],
-		[Vector3(-4.8, 13.0, 62.5), true, 1.3],
-		[Vector3(-7.2, 11.65, 71.0), true, 1.4],
-		[Vector3(-4.5, 10.0, 79.5), true, 1.4],
+		[Vector3(-7.5, 5.65, 43.0), true, 1.3, 2.5],
+		[Vector3(-7.5, 7.85, 48.2), true, 1.3, 4.5],
+		[Vector3(-7.5, 10.05, 53.4), true, 1.3, 4.5],
+		[Vector3(-6.5, 12.25, 58.0), true, 1.3, 4.5],
+		[Vector3(-4.8, 13.0, 62.5), true, 1.3, 4.0],
+		[Vector3(-7.2, 11.65, 71.0), true, 1.4, 7.8],
+		[Vector3(-4.5, 10.0, 78.2), true, 1.4, 6.0],
 		[Vector3(4.8, 10.0, 89.0), false, 1.1],
-		[Vector3(4.8, 10.9, 92.4), true, 1.3],
-		[Vector3(4.8, 10.9, 98.0), true, 1.3],
-		[Vector3(2.2, 10.0, 103.0), true, 1.4],
+		[Vector3(4.8, 10.9, 92.4), true, 1.3, 3.0],
+		[Vector3(4.8, 10.9, 98.0), true, 1.3, 4.5],
+		[Vector3(2.2, 10.0, 103.0), true, 1.4, 4.5],
 		[Vector3(2.2, 10.4, 111.5), false, 1.3],
 		[Vector3(2.2, 22.0, 129.0), false, 1.8],
 	]
@@ -224,6 +236,7 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 		var target: Vector3 = wp[0]
 		var should_jump: bool = bool(wp[1])
 		var radius: float = float(wp[2])
+		var jump_dist: float = float(wp[3]) if wp.size() > 3 else 3.0
 		var jump_cooldown := 0
 		var reached := false
 		for _tick in range(360):
@@ -232,8 +245,18 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 			if cinematic != null:
 				assert_int(cinematic.get_control_mode()).is_equal(cinematic.ControlMode.FREE)
 				assert_bool(cinematic.is_input_latched()).is_false()
-			_drive_toward(pilot, target)
-			if should_jump and pilot.is_on_floor() and jump_cooldown == 0:
+			var cur_pos: Vector3 = pilot.global_transform.origin
+			var dist_xz := Vector2(cur_pos.x - target.x, cur_pos.z - target.z).length()
+			if not pilot.is_on_floor() and dist_xz <= 0.7:
+				for action in ["move_forward", "move_backward", "move_left", "move_right", "run"]:
+					Input.action_release(action)
+			else:
+				_drive_toward(pilot, target)
+				if not should_jump or jump_dist > 3.0 or dist_xz > jump_dist + 0.5:
+					Input.action_press("run")
+				else:
+					Input.action_release("run")
+			if should_jump and pilot.is_on_floor() and jump_cooldown == 0 and dist_xz <= jump_dist:
 				Input.action_press("jump")
 				jump_cooldown = 18
 			else:
@@ -245,12 +268,14 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 				break
 			var pos: Vector3 = pilot.global_transform.origin
 			var horiz := Vector2(pos.x - target.x, pos.z - target.z).length()
-			if horiz <= radius and pos.y >= target.y - 0.6:
+			if horiz <= radius and pos.y >= target.y - 0.6 and pilot.is_on_floor():
 				reached = true
 				break
 		_release_actions()
 		if not reached:
 			prints("[parkour_traversal] FAILED at wp", i, target, "pilot_valid=", is_instance_valid(pilot), "pos=", pilot.global_transform.origin if is_instance_valid(pilot) else Vector3.ZERO)
+			assert_bool(reached).is_true()
+			break
 		assert_bool(reached).is_true()
 
 	assert_float(pilot.global_transform.origin.z).is_greater_equal(127.0)

@@ -134,7 +134,22 @@ func validate_seed_with_flow_validator(seed_val: int = -1) -> Dictionary:
 			{"from": "chunk_hub", "to": "east_seam", "gap_h": 2.0, "delta_h": 0.0},
 		],
 	}
-	var report: Dictionary = validator_script.validate(graph, validator_script.default_metrics())
+	var metrics: Dictionary = validator_script.default_metrics()
+	var fm_path := "res://core_v2/systems/flow/FlowMetrics.gd"
+	if ResourceLoader.exists(fm_path):
+		var fm_script = load(fm_path)
+		if fm_script != null:
+			var fm = fm_script.from_scene()
+			if fm != null:
+				var raw: Dictionary = fm.metrics()
+				metrics = {
+					"g": float(raw["gravity"]),
+					"v_run": float(raw["run_speed"]),
+					"v_jump": float(raw["jump_force"]),
+					"tick": 1.0 / float(raw["tick_hz"]),
+					"main_threshold": float(raw["thr_main_max_ratio"]),
+				}
+	var report: Dictionary = validator_script.validate(graph, metrics)
 	return {
 		"available": true,
 		"seed": effective_seed,
