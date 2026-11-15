@@ -38,8 +38,13 @@ const PULSE_DECAY := 3.5
 const HEAT_UP := 1.4
 const HEAT_DOWN := 0.9
 const HEAT_MAX := 1.0
-const GLOO_SIM_DT := 0.04
-const GLOO_SIM_STEPS := 90
+const GLOO_SIM_HORIZON_SEC := 6.0
+const GLOO_SIM_MAX_STEPS := 1500
+const GLOO_SIM_BUDGET := 40
+const GLOO_SIM_BUDGET_LOW := 20
+# Reutiliza la MISMA integracion balistica del proyectil real para no duplicar (ni divergir
+# de) la fisica del gloo.
+const GlooProjectileScript = preload("res://core_v2/player/MultiToolGlooProjectile.gd")
 
 var _root: Control
 var _reticle: Control
@@ -50,6 +55,18 @@ var _center_dot: ColorRect
 var _obstruction_ring: Polygon2D
 var _interact_tag: Control
 var _ring_phase := 0.0
+# Simulacion amortizada del arco del gloo (presupuesto por frame; se reinicia solo si el
+# estado de disparo cambio lo suficiente). Evita 100+ consultas de fisica por frame.
+var _gloo_sim_valid := false
+var _gloo_sim_origin := Vector3.ZERO
+var _gloo_sim_dir := Vector3.ZERO
+var _gloo_sim_p := Vector3.ZERO
+var _gloo_sim_vel := Vector3.ZERO
+var _gloo_sim_step := 0
+var _gloo_sim_total := 0
+var _gloo_sim_dt := 0.0
+var _gloo_sim_done := false
+var _gloo_sim_hit: Dictionary = {}
 var _shape: int = ReticleShape.NONE
 var _state: int = State.IDLE
 var _pulse := 0.0
@@ -230,12 +247,12 @@ func _space_state():
 		return _tool.get_world().direct_space_state
 	return null
 
+# Solo CollisionObjects: el tool es un Spatial sin cuerpo, y un elemento invalido en el
+# `exclude` de intersect_ray hace que la consulta falle.
 func _exclude() -> Array:
 	var arr := []
-	if is_instance_valid(_player):
+	if is_instance_valid(_player) and _player is CollisionObject:
 		arr.append(_player)
-	if is_instance_valid(_tool):
-		arr.append(_tool)
 	return arr
 
 func _refresh_target() -> void:
@@ -287,23 +304,82 @@ func _refresh_gloo_target(space, cam) -> void:
 	var speed: float = float(_tool.gloo_projectile_speed)
 	var gravity: float = float(_tool.gloo_projectile_gravity)
 	var mask: int = int(_tool.gloo_collision_mask)
-	var vel := dir * speed
-	var p := from
-	var hit: Dictionary = {}
-	for i in range(GLOO_SIM_STEPS):
-		var nxt := p + vel * GLOO_SIM_DT
-		hit = space.intersect_ray(p, nxt, _exclude(), mask)
-		if not hit.empty():
+	# Como el proyectil real: el RAYO se extiende por max(radio, collision_radius), pero el
+	# CUERPO que barre move_and_collide usa el radio de vuelo (launch_radius).
+	var ray_radius: float = max(float(_tool.gloo_launch_radius), float(_tool.gloo_collision_radius))
+	var body_radius: float = max(0.01, float(_tool.gloo_launch_radius))
+	# Se reinicia solo si el disparo cambio lo suficiente (la mano oscila unos mm por frame:
+	# resetear siempre desperdiciaria la amortizacion).
+	var changed: bool = not _gloo_sim_valid \
+		or from.distance_to(_gloo_sim_origin) > 0.05 \
+		or dir.dot(_gloo_sim_dir) < 0.999
+	if changed:
+		var fps: float = float(Engine.iterations_per_second)
+		if fps <= 0.0:
+			fps = 60.0
+		var dt: float = 1.0 / fps
+		var total: int = int(ceil(GLOO_SIM_HORIZON_SEC / dt))
+		if total > GLOO_SIM_MAX_STEPS:
+			# Se recorta el horizonte, NUNCA el dt: el paso debe seguir siendo el de la
+			# fisica para no divergir de la trayectoria real del proyectil.
+			total = GLOO_SIM_MAX_STEPS
+		_gloo_sim_valid = true
+		_gloo_sim_origin = from
+		_gloo_sim_dir = dir
+		_gloo_sim_p = from
+		_gloo_sim_vel = dir * speed
+		_gloo_sim_step = 0
+		_gloo_sim_total = total
+		_gloo_sim_dt = dt
+		_gloo_sim_done = false
+		_gloo_sim_hit = {}
+
+	# Presupuesto por frame: se avanza un tramo por frame y se reutiliza el resultado si el
+	# disparo no cambio (mitad en tier LOW).
+	var budget: int = GLOO_SIM_BUDGET_LOW if _low_tier else GLOO_SIM_BUDGET
+	var budget_end: int = min(_gloo_sim_step + budget, _gloo_sim_total)
+	var exclude_rids := _exclude_rids()
+	while not _gloo_sim_done and _gloo_sim_step < budget_end:
+		var ball: Dictionary = GlooProjectileScript.step_ballistic(
+			_gloo_sim_p, _gloo_sim_vel, gravity, _gloo_sim_dt, ray_radius)
+		_gloo_sim_vel = ball["velocity"]
+		var motion: Vector3 = ball["motion"]
+		var ray_end: Vector3 = ball["ray_end"]
+		# 1) Mismo rayo extendido que el proyectil evalua primero.
+		var ray_hit = space.intersect_ray(_gloo_sim_p, ray_end, _exclude(), mask)
+		if not ray_hit.empty():
+			_gloo_sim_hit = {"collider": ray_hit.get("collider", null),
+				"position": ray_hit["position"], "normal": ray_hit.get("normal", Vector3.UP)}
+			_gloo_sim_done = true
 			break
-		p = nxt
-		vel.y -= gravity * GLOO_SIM_DT
-	if hit.empty():
-		_last_world = p
-		_set_state(State.OUT_OF_RANGE)
+		# 2) Mismo barrido de esfera que move_and_collide (cast_motion + punto de contacto).
+		var sweep: Dictionary = GlooProjectileScript.sweep_sphere(
+			space, _gloo_sim_p, motion, body_radius, mask, exclude_rids)
+		if not sweep.empty():
+			_gloo_sim_hit = {"collider": sweep.get("collider", null),
+				"position": sweep.get("point", _gloo_sim_p + motion),
+				"normal": sweep.get("normal", Vector3.UP)}
+			_gloo_sim_done = true
+			break
+		_gloo_sim_p = _gloo_sim_p + motion
+		_gloo_sim_step += 1
+	if _gloo_sim_step >= _gloo_sim_total:
+		_gloo_sim_done = true
+
+	if _gloo_sim_done and not _gloo_sim_hit.empty():
+		_last_world = _gloo_sim_hit["position"]
+		_eval_hit_state(_gloo_sim_hit, from, _gloo_sim_hit["position"], space, cam)
 	else:
-		_last_world = hit["position"]
-		_eval_hit_state(hit, from, hit["position"], space, cam)
+		_last_world = _gloo_sim_p
+		_set_state(State.OUT_OF_RANGE)
 	_project_point(_last_world, cam)
+
+
+func _exclude_rids() -> Array:
+	var arr: Array = []
+	if is_instance_valid(_player) and _player is CollisionObject:
+		arr.append((_player as CollisionObject).get_rid())
+	return arr
 
 # Un hit del rayo/arco del muzzle es "obstruido" si algo está muy cerca del arma, o si el
 # punto de impacto se aleja de la línea del rayo de cámara (el centro de pantalla ve otra

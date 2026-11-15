@@ -108,6 +108,27 @@ Capturas finales (`~/.ao/data/artifacts/src-50/`): `crosshair_laser_valid.png`,
 `crosshair_laser_izquierda.png`, `crosshair_laser_derecha.png`, `crosshair_laser_obstruido.png`,
 `crosshair_gloo_lado.png` (800x450, jugador en cuadro para ver la mano).
 
+## Seguimiento 2 — PR apilado (mano en la palma + paridad del gloo + hitbox táctil)
+Tras mergear #411 (65d848e8), se abre un PR de seguimiento directo a main:
+1. **Tool en la palma**: el modelo del multi-tool trae su geometría desplazada (Model en
+   `(0.2,-0.2,-0.3)`, Laser/GlooSpawnPoint en `(0.2,-0.2,-0.5)`), por lo que flotaba al costado. En
+   `_apply_multi_tool_hand_transform` se cancela ese offset: `origin = (-0.2, 0.2, 0.3)` (Model en
+   el origen del grip; muzzle 0.2 m al frente) y solo un roll leve. Verificado: el Model queda a
+   ~6 cm del hueso `DEF-handR`.
+2. **Paridad del arco del gloo (review P2 de #411)**: se factorizó el paso balístico del
+   proyectil en `MultiToolGlooProjectile.step_ballistic` (gravedad ANTES de avanzar + radio de
+   colisión); `step()` y `MultiToolCrosshair._refresh_gloo_target` lo reutilizan. El retículo ahora
+   consulta una **esfera** (`intersect_shape`) en el extremo de cada paso, igual que el
+   `move_and_collide` del proyectil, para no errar obstáculos de borde. Test de paridad
+   `test_multitool_gloo_parity.gd` (obstáculo de borde; distancia medida ~0.07 m).
+3. **Hitbox táctil a escala (mismo fix de #414)**: `PlayerControllerV2._is_over_touch_control` y
+   `ElevatorFloorSelector._is_over_touch_control` usan `UIScaleCompensator.point_in_control` en vez
+   de `get_global_rect().has_point()` (que no escala el tamaño). Caso nuevo en
+   `test_touch_hitbox_scale.gd`.
+
+Capturas (Viewport hijo in-process, 800x450, cámara cerca de la mano):
+`~/.ao/data/artifacts/src-50/hand_laser.png`, `hand_gloo.png`.
+
 ## Pasos
 1. project.godot [input]: quitar tool_next_mode/tool_prev_mode; agregar botón 7 a
    tool_fire_primary; quitar botón 7 de slot_4.

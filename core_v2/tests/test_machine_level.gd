@@ -358,6 +358,13 @@ class StubOdiseaNPC extends Spatial:
 
 func test_odisea_link_dispatches_and_round_trips_snapshot() -> void:
 	var root := _setup_root()
+	# El dispatcher @odisea apunta al PRIMER nodo del grupo "programmer_holo_npc": si otra
+	# suite del mismo shard dejó un ProgrammerHoloNPC vivo (summon), la llamada iría a ese
+	# nodo y este stub quedaría en silencio. Se limpia el grupo antes de crear el stub.
+	for leftover in get_tree().get_nodes_in_group("programmer_holo_npc"):
+		if is_instance_valid(leftover) and leftover != null:
+			leftover.queue_free()
+	yield(get_tree(), "idle_frame")
 	var stub := StubOdiseaNPC.new()
 	root.add_child(stub)
 	var level = _new_level(root, "OdiseaLinkLevel")

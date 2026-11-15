@@ -24,7 +24,15 @@ func before_test():
 	assert_int(_multi_tool.equipped_tool).is_equal(2)
 
 func after_test():
+	# Los proyectiles se agregan a get_tree().root (no al player): sin esta limpieza se
+	# acumulan entre suites del mismo shard y agotan/estresan el espacio de fisica.
+	if _multi_tool != null and is_instance_valid(_multi_tool):
+		for p in _multi_tool._active_gloo_projectiles:
+			if is_instance_valid(p):
+				p.queue_free()
+		_multi_tool._active_gloo_projectiles.clear()
 	_player.queue_free()
+	yield(get_tree(), "idle_frame")
 
 func test_gloo_firing():
 	var initial_projectiles = _multi_tool._active_gloo_projectiles.size()

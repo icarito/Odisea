@@ -1,5 +1,7 @@
 tool
 extends InteractableBaseV2
+
+const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
 class_name ElevatorFloorSelector
 
 # ElevatorFloorSelector.gd
@@ -552,7 +554,9 @@ func _touch_in_viewport(screen_position: Vector2) -> Vector2:
 func _is_over_touch_control(screen_position: Vector2) -> bool:
 	for node in get_tree().get_nodes_in_group("touch_control"):
 		if node is Control and node.visible and node.is_inside_tree():
-			if node.get_global_rect().has_point(screen_position):
+			# Helper comun: get_global_rect() no escala el TAMANO por el rect_scale de
+			# UIScaleCompensator (a escala chica el toque se cuela al selector).
+			if UIScaleCompensatorScript.point_in_control(node, screen_position):
 				return true
 	return false
 

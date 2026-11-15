@@ -18,6 +18,9 @@ extends GdUnitTestSuite
 # a escala efectiva <= 0.5 el toque lo roba un vecino y el assert falla.
 
 const MobileUIManagerScript = preload("res://core_v2/autoloads/MobileUIManager.gd")
+const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
+const TouchActionButtonScript = preload("res://core_v2/ui/TouchActionButton.gd")
+const ElevatorFloorSelectorScript = preload("res://core_v2/props/elevator/ElevatorFloorSelector.gd")
 
 const TOUCH_INDEX := 11
 
@@ -147,6 +150,41 @@ func test_el_cleanup_restaura_la_configuracion_de_settings() -> void:
 	assert_bool(settings._render_resolution_user_set).is_equal(before_res_user)
 	assert_bool(settings._render_scale_user_set).is_equal(before_scale_user)
 	assert_dict(settings._full_resolution_holders).is_equal(before_holders)
+
+# Las rutas de gameplay que preguntan "¿el toque cae sobre un boton tactil?"
+# (PlayerControllerV2._is_over_touch_control y ElevatorFloorSelector._is_over_touch_control)
+# deben usar el hit-test ESCALADO: con get_global_rect().has_point() el TAMANO no se escala y a
+# escala chica el rect de toque invade vecinos. Aca se comprueba que un punto dentro del rect
+# sin escalar pero fuera del escalado NO cuenta como toque.
+func test_hitbox_escalado_no_invade_fuera_del_boton() -> void:
+	var holder := Control.new()
+	holder.name = "ScaledHolder"
+	add_child(holder)
+	holder.rect_position = Vector2(4000, 4000) # lejos de los botones del MobileUI
+	holder.rect_scale = Vector2(0.5, 0.5)
+	var btn := TouchActionButtonScript.new()
+	btn.action_name = "interact"
+	holder.add_child(btn)
+	btn.rect_size = Vector2(64, 64)
+	yield(get_tree(), "idle_frame")
+	btn.force_update_transform()
+	var xf: Transform2D = btn.get_global_transform_with_canvas()
+	# Fuera del rect ESCALADO (64*0.5=32 de ancho) pero dentro del rect SIN escalar de
+	# get_global_rect() (64): el bug lo contaba como toque.
+	var outside_scaled: Vector2 = xf.origin + Vector2(btn.rect_size.x - 1.0, btn.rect_size.y * 0.25)
+	assert_bool(btn.get_global_rect().has_point(outside_scaled)).override_failure_message(
+		"El punto de prueba deberia caer dentro de get_global_rect() (sin escalar).").is_true()
+	assert_bool(UIScaleCompensatorScript.point_in_control(btn, outside_scaled)).override_failure_message(
+		"El helper escalado no debe contar el punto fuera del boton dibujado.").is_false()
+
+	var selector = ElevatorFloorSelectorScript.new()
+	add_child(selector)
+	yield(get_tree(), "idle_frame")
+	assert_bool(selector._is_over_touch_control(outside_scaled)).override_failure_message(
+		"El selector no debe tragarse un toque fuera del boton escalado.").is_false()
+	selector.queue_free()
+	holder.queue_free()
+	yield(get_tree(), "idle_frame")
 
 func _touch_holder(target) -> String:
 	for path in BUTTONS:
