@@ -152,7 +152,6 @@ func test_machine_bay_return() -> void:
 
 	var manager_saved := _snapshot_scene_manager()
 	var gate_saved := _snapshot_gate()
-	var airlock_saved := _snapshot_airlock()
 
 	var return_payload := _return_payload()
 
@@ -181,10 +180,11 @@ func test_machine_bay_return() -> void:
 	var params: Dictionary = manager._pending_transition_params
 	assert_int(params.size()).is_equal(4)
 	assert_dict(params).contains_keys(
-		["preserve_player_state", "ringhub_return_state", "state_data", "transition"])
+		["preserve_player_state", "wait_for_fade_out", "ringhub_return_state", "state_data"])
 	assert_bool(bool(params.get("preserve_player_state", true))).is_false()
-	# El retorno viaja por el camino seamless del airlock (misma marca que hub->bahia).
-	assert_str(params.get("transition", "")).is_equal("seamless")
+	# Sin buffer de llegada fisico, el salto bahia->hub se tapa con fade (no seamless).
+	assert_bool(bool(params.get("wait_for_fade_out", false))).is_true()
+	assert_bool(params.has("transition")).is_false()
 
 	# Payload anidado exacto.
 	assert_dict(params.get("ringhub_return_state", {})).is_equal(return_payload)
@@ -206,7 +206,6 @@ func test_machine_bay_return() -> void:
 
 	_restore_scene_manager(manager_saved)
 	_restore_gate(gate_saved)
-	_restore_airlock(airlock_saved)
 	assert_str(manager._pending_scene_path).is_equal(saved_pending_path)
 	level.free()
 

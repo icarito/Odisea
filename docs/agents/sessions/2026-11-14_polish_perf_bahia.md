@@ -96,12 +96,15 @@ Interpretación:
 - [x] Tests puntuales verdes: `pytest tests/test_odisea_runner.py -q -k
   'test_machine_level or test_machine_bay or test_machine_launch or test_machine_sign_scale'`
   → **11 passed** (incluye `test_machine_station_streaming` y `test_machine_bay_perf`).
-- [x] **Cambio seamless en `return_to_ring_hub`** (spec de src-54
-  `.operator-shared/specs/seamless-transitions.md` §7), aplicado tras el merge de #412
-  (`8a790d1d`): `airlock_manager.notify_transition(target_scene)` + `params["transition"]
-  = "seamless"`, conservando `ringhub_return_state` y `state_data.player_snapshot`.
-  `test_machine_bay_return.gd` actualizado al nuevo contrato (sin `wait_for_fade_out`) y
-  con snapshot/restore del estado de `AirlockManager` para no filtrar entre tests.
+- [x] **Cambio seamless en `return_to_ring_hub` — REVERTIDO por review [P1].** Se aplicó
+  §7 (notify_transition + `transition:"seamless"`) tras #412, pero el revisor marcó que
+  el método se dispara desde `ReturnHubButton`, un pedestal abierto al final de la bahía
+  (z=133), y el hub **restaura la pose guardada** del jugador: no hay recorrido físico que
+  empalme el salto, así que quitar el fade muestra de golpe el reemplazo bahía→hub y la
+  reubicación de la cámara. La prueba de params no cubre esa discontinuidad. Queda el
+  `wait_for_fade_out` (sin `transition`), con `test_machine_bay_return.gd` de vuelta al
+  contrato con fade. Para pasar a seamless hace falta un **buffer de llegada físico**
+  equivalente (recorrido/puente), no solo mantener vivo el rig. Follow-up de diseño.
 - [ ] Siguiente palanca de perf (fuera de este scope): **shell/`station 0`**. La sombra
   direccional duplica draw calls; los 4553 del spawn no se explican por las máquinas.
   Medir apagar sombras / batch del shell antes de tocar más streaming.
@@ -115,5 +118,6 @@ Interpretación:
 2. Tests de streaming: `./runtest.sh -a ./core_v2/tests/test_machine_station_streaming.gd`.
 3. Medición: los dos comandos `STREAMING=0/1 ./runtest.sh --show -a
    ./core_v2/tests/test_machine_bay_perf.gd` (requiere display; no corre en headless CI).
-4. Transición seamless bahía→hub: ya aplicada (§7). Test: `./runtest.sh -a
-   ./core_v2/tests/test_machine_bay_return.gd`.
+4. Retorno bahía→hub: mantiene el **fade** (`wait_for_fade_out`), no seamless. Test:
+   `./runtest.sh -a ./core_v2/tests/test_machine_bay_return.gd`. El seamless queda como
+   follow-up condicionado a un buffer de llegada físico.

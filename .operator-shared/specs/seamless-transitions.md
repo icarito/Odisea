@@ -99,3 +99,13 @@ scene_mgr.goto_scene(target_scene, params)
 ```
 
 Nota: `RingHubLightState.enter_machine_bay` (hub→bahía) ya arma `notify_transition` y declara `"transition": "seamless"` en el payload.
+
+**Deuda conocida (estado actual, 2026-11-14):** `MachineLevel.return_to_ring_hub`
+(bahía→hub) NO usa seamless: conserva `wait_for_fade_out`, porque se dispara desde
+`ReturnHubButton`, un pedestal abierto al final de la bahía (z=133) sin airlock físico
+ni buffer de llegada; `AirlockManager` restaura la pose guardada del jugador en
+RingHub, así que sin fade se vería de golpe el reemplazo bahía→hub y la
+reubicación de la cámara. Para cerrar la deuda hace falta un **buffer de llegada
+físico** (recorrido/puente entre la plataforma del pedestal y el spawn del hub, o un
+airlock que recorra el pasaje real) antes de pasar este punto a seamless. La entrada
+hub→bahía (`BayAirlockTrigger`) sí es seamless.

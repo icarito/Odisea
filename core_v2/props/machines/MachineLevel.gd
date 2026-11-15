@@ -613,19 +613,17 @@ func return_to_ring_hub() -> void:
 	var target_scene := "res://core_v2/levels/RingHub_Level.tscn"
 	var scene_mgr = get_node_or_null("/root/SceneManager")
 	if scene_mgr != null and scene_mgr.has_method("goto_scene"):
-		# Mismo camino seamless que un airlock (FD-297): el jugador sobrevive al
-		# swap con la camara continua. La marca estable del par hub<->bahia es el
-		# payload de retorno; AirlockManager arma el lift al recibir notify_transition.
-		var airlock_manager = get_node_or_null("/root/AirlockManager")
-		var params := {
+		# El retorno se dispara desde un pedestal abierto al final de la bahia y hub
+		# restaura la pose guardada del jugador: no hay recorrido fisico que empalme
+		# el salto. Hasta que exista ese buffer de llegada se conserva el fade, que
+		# oculta el reemplazo bahia->hub y la reubicacion de la camara. Pasarlo a
+		# seamless (FD-297) mostraria el corte de golpe.
+		scene_mgr.goto_scene(target_scene, {
 			"preserve_player_state": false,
+			"wait_for_fade_out": true,
 			"ringhub_return_state": _ringhub_return_state.duplicate(true),
 			"state_data": {"player_snapshot": _ringhub_return_state.get("player_snapshot", {})}
-		}
-		if airlock_manager != null and airlock_manager.has_method("notify_transition"):
-			airlock_manager.notify_transition(target_scene)
-			params["transition"] = "seamless"
-		scene_mgr.goto_scene(target_scene, params)
+		})
 	else:
 		get_tree().change_scene(target_scene)
 
