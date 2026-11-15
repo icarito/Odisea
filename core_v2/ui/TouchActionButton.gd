@@ -1,6 +1,8 @@
 extends Button
 class_name TouchActionButton
 
+const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
+
 export(String) var action_name := ""
 # Si es true, el boton arranca "gris" (modulate atenuado) y solo se enciende
 # mientras el jugador tiene un interactuable en rango (PlayerControllerV2
@@ -84,9 +86,8 @@ func _input(event: InputEvent) -> void:
 		return
 	
 	if event is InputEventScreenTouch:
-		var rect = get_global_rect()
 		if event.pressed:
-			if rect.has_point(event.position) and _touch_index == -1:
+			if UIScaleCompensator.point_in_control(self, event.position) and _touch_index == -1:
 				_touch_index = event.index
 				_press_position = event.position
 				drag_vector = Vector2.ZERO
@@ -102,8 +103,7 @@ func _input(event: InputEvent) -> void:
 			if drag_to_aim:
 				drag_vector = event.position - _press_position
 				return
-			var rect = get_global_rect()
-			if not rect.has_point(event.position):
+			if not UIScaleCompensator.point_in_control(self, event.position):
 				_release()
 				_touch_index = -1
 

@@ -1,6 +1,8 @@
 extends Control
 class_name TouchButton
 
+const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
+
 export(String) var action_name := ""
 export var is_toggle := false
 
@@ -19,8 +21,7 @@ func _input(event: InputEvent) -> void:
 	
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			var rect = get_global_rect()
-			if rect.has_point(event.position) and _touch_index == -1:
+			if UIScaleCompensator.point_in_control(self, event.position) and _touch_index == -1:
 				_touch_index = event.index
 				_press()
 				get_tree().set_input_as_handled()

@@ -82,3 +82,16 @@ static func scale_for(node: Node) -> float:
 	if settings.has_method("effective_render_scale"):
 		return float(settings.effective_render_scale())
 	return clamp(float(settings.render_scale), 0.5, 1.0)
+
+# Hit-test de un Control en el espacio de los InputEvent de pantalla (viewport/canvas).
+# get_global_rect() devuelve el origen escalado por el rect_scale que aplica este compensador
+# (y cualquier ancestro) pero el TAMAÑO sin escalar: a render_scale < 1 el rect de toque queda
+# mas grande que el control dibujado y su invasión tapa el centro de un vecino que se procesa
+# antes en el grupo _input (se lo come con set_input_as_handled). Aca el tamaño tambien se
+# escala, con el mismo calculo que usan el joystick virtual y TouchCameraControls.
+static func point_in_control(control: Control, point: Vector2) -> bool:
+	if control == null or not control.is_inside_tree():
+		return false
+	var xf: Transform2D = control.get_global_transform_with_canvas()
+	var size: Vector2 = control.rect_size * xf.get_scale()
+	return Rect2(xf.origin, size).abs().has_point(point)
