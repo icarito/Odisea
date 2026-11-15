@@ -269,6 +269,68 @@ func test_maintenance_override_respects_flag() -> void:
 	assert_bool(door.is_open()).is_false()
 
 
+# --- 7b. COMPOSICIÓN DE LAS DOS APERTURAS (mantenimiento + 4/4) ---
+
+func _settle_door(door) -> void:
+	var guard := 0
+	while guard < 400 and (abs(door.anim_progress - door.target_progress) > 0.001 or abs(door._panel_a_progress - door._panel_a_target) > 0.001):
+		door.step(0.1)
+		guard += 1
+
+
+# Desplazamiento del panel respecto de su reposo: PanelA retrae hacia -X, PanelB hacia +X.
+func _panel_offset(door, node_name: String) -> float:
+	var node = door.get_node(node_name)
+	var start: Vector3 = door._panel_a_start if node_name == "PanelA" else door._panel_b_start
+	return node.translation.x - start.x
+
+
+# Orden A: mantenimiento (panel B) y LUEGO 4/4 -> promociona a apertura completa (ambos paneles).
+func test_maintenance_then_full_open_promotes_panel_a() -> void:
+	var rig := _make_rig()
+	var director = rig["director"]
+	var level: Node = rig["level"]
+	yield(get_tree(), "idle_frame")
+	var door = level.get_node("Doors/BlastDoor")
+	var slide: float = door.panel_slide
+	director.connect("maintenance_open", door, "open_maintenance")
+
+	director.request_maintenance_override()
+	_settle_door(door)
+	# Mantenimiento: solo el panel B afuera; el panel A sigue sellando.
+	assert_bool(door.is_open()).is_true()
+	assert_float(_panel_offset(door, "PanelA")).is_equal_approx(0.0, 0.05)
+	assert_float(_panel_offset(door, "PanelB")).is_equal_approx(slide, 0.05)
+
+	# Llegan las 4 redes: el blast door PROMUEVE a apertura completa (el panel A se suma).
+	door.on_blast_door_open()
+	_settle_door(door)
+	assert_float(_panel_offset(door, "PanelA")).is_equal_approx(-slide, 0.05)
+	assert_float(_panel_offset(door, "PanelB")).is_equal_approx(slide, 0.05)
+
+
+# Orden B: 4/4 (ambos paneles) y LUEGO mantenimiento -> NO degrada: el panel A queda afuera.
+func test_full_open_then_maintenance_keeps_panel_a_open() -> void:
+	var rig := _make_rig()
+	var director = rig["director"]
+	var level: Node = rig["level"]
+	yield(get_tree(), "idle_frame")
+	var door = level.get_node("Doors/BlastDoor")
+	var slide: float = door.panel_slide
+	director.connect("maintenance_open", door, "open_maintenance")
+
+	door.on_blast_door_open()
+	_settle_door(door)
+	assert_float(_panel_offset(door, "PanelA")).is_equal_approx(-slide, 0.05)
+	assert_float(_panel_offset(door, "PanelB")).is_equal_approx(slide, 0.05)
+
+	# El jugador fuerza el sello DESPUES de 4/4: no debe cerrar el panel A.
+	director.request_maintenance_override()
+	_settle_door(door)
+	assert_float(_panel_offset(door, "PanelA")).is_equal_approx(-slide, 0.05)
+	assert_float(_panel_offset(door, "PanelB")).is_equal_approx(slide, 0.05)
+
+
 # --- 3. BUFFER OUT-OF-ORDER ---
 
 func test_out_of_order_networks_are_buffered_into_canonical_order() -> void:
