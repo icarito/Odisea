@@ -38,8 +38,30 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
   de 12 m. Está marcado `requires_tool`, pero un roll-jump perfecto lo alcanza.
 - `diorama_counterweight_crane` tenía solo salida `S`; se le agregó la pasarela `A`.
 
+## Pipeline de arte
+
+`tools/scaffold_chunks/build.sh` regenera todo: registro → `chunks.json` → Blender
+(`scene_chunks.py`, skill `docs/skills/blender-bpy.md`) → GLB → `tools/bake_scaffold_chunks.gd`
+→ `core_v2/props/scaffold/chunks/<id>.mesh` + `<id>.tscn`.
+
+- Blender solo viste; las medidas las lee del JSON del registro. La **colisión** y los
+  **sockets** de la escena los escribe el baker desde el registro, nunca desde la malla.
+- Los GLB viven en `tools/scaffold_chunks/glb/` con `.gdignore` y se leen en runtime con
+  `PackedSceneGLTF`: no hay artefactos `.import` ni GLB en el pck.
+- Objetos de Blender con prefijo `Dyn_` van a `<id>_dyn.mesh` (nodo `Dyn`): son el lugar de
+  los props dinámicos (mamparo cortable, cable, carro) y no se sueldan a la malla estática.
+- `materials/M_*.tres` se crean solo si faltan: se afinan a mano y el rehorneado no los pisa.
+- Cada escena: `Mesh`, `Dyn` (si hay), `Collision/Col_<nodo>`, `Blocker_<id>/Col`,
+  `Socket_In_A`, `Socket_Out_<tipo>` y metadata `sockets`.
+- Una rampa se declara con `rise` en el nodo y **se entra por su pie** (`ramp_foot`): de
+  costado es una pared.
+- Cambiar una medida = editar el registro y correr `build.sh`. `test_scaffold_chunk_scenes`
+  falla si una escena quedó desfasada.
+
 ## Pendiente
 
-- Escenas `.tscn` de los 10 chunks (Godot 3: `CollisionShape` + `Position3D` para sockets).
+- Los `Dyn_*` y los `Blocker_*` cortables son malla y caja estáticas: falta cablearlos a los
+  props reales (`LaserGate`, `GlooSpan`, cuerda, carro).
 - Proyección al cilindro de `ScaffoldOrbit` y uso de `bank_deg`.
-- Consumidor en runtime (streaming) y ruta para `AutopilotInputV2`.
+- Consumidor en runtime (streaming de un tramo por semilla dentro de un nivel).
+- Revisión visual del arte en el juego (hoy solo hay vistas previas de Blender).

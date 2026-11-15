@@ -21,6 +21,8 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `runtest.sh`, `test_prop.sh`, `test_ui.sh` — Runners de tests, props y UI
 - `docs/` — Documentación; `docs/features/` Feature Docs, `docs/agents/` mapa de agentes, `docs/engineering/` contratos
 - `tools/`, `scripts/` — Utilidades de build, bake y CI
+- `tools/scaffold_chunks/`, `tools/bake_scaffold_chunks.gd` — Pipeline registro → Blender → GLB → escenas de chunks de andamio
+- `docs/skills/blender-bpy.md` — Skill de modelado headless con Blender (runner `render.py`, paleta `odisea_lib.py`)
 - `dashboard/` — Dashboard web (Vite PWA)
 - `assets/`, `textures/`, `models/`, `materials/`, `shaders/` — Arte; no listar archivos
 - `addons/`, `.import/`, `build/` — Dependencias y artefactos; no listar archivos
@@ -30,6 +32,7 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `player/` — Controladores del jugador, multi-tool, zero-G
 - `components/` — Bases de interactuables, zonas, plataformas, `PushableBoxV2`
 - `props/` — Props interactivos y decorativos
+- `props/scaffold/chunks/` — Chunks de andamio Transit-Run horneados (`.mesh` + `.tscn`); producto de `tools/scaffold_chunks/build.sh`, no editar a mano
 - `props/machines/` — Kit de máquinas (FD-320): `MachinePart`, `MachineHinge`, `MachineTrigger` y `MachineLevel` (niveles por layout JSON)
 - `levels/machines/` — Bahía de máquinas: `MachineBay.tscn` + `machine_bay.json`
 - `levels/` — Escenas de nivel; `levels/interiors/` domos y fuentes de bake

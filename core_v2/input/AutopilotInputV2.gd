@@ -18,11 +18,13 @@ const HUMAN_DEADZONE := 0.1
 const STEP_HEIGHT := 0.4          # igual a PlayerControllerV2.step_height: debajo de esto se camina
 const EDGE_PROBE_AHEAD := 0.7
 const EDGE_PROBE_DROP := 2.0      # sin suelo a esta profundidad => hueco => saltar
-const AIR_BRAKE_RADIUS := 0.7
 const ARRIVE_HEIGHT_TOL := 0.6
 const REACH_MARGIN := 0.9
 const STUCK_TICKS := 20
 const PLATFORM_INSET := 0.8
+const SHORT_PLATFORM := 4.0       # por debajo de este largo hay que frenar en el aire
+const FULL_JUMP_RISE := 0.5
+const FULL_JUMP_DIST := 4.0
 
 var enabled := false
 var idle_seconds := 0.5
@@ -36,6 +38,7 @@ var _idle_ticks := 0
 var _active := false
 var _jump_held := false
 var _stuck_ticks := 0
+var _full_jump := true
 
 
 func setup(body: KinematicBody) -> void:
@@ -93,7 +96,7 @@ func apply(d: InputDataV2) -> void:
 	var dist: float = to_target.length()
 	var dy: float = target.y - pos.y
 
-	if on_floor and dist <= arrive_radius and abs(dy) <= ARRIVE_HEIGHT_TOL:
+	if on_floor and dist <= _arrive_dist(_waypoints[_index]) and abs(dy) <= ARRIVE_HEIGHT_TOL:
 		_index += 1
 		_stuck_ticks = 0
 		if is_finished():
@@ -105,25 +108,42 @@ func apply(d: InputDataV2) -> void:
 		dy = target.y - pos.y
 
 	var dir: Vector3 = to_target.normalized() if dist > 0.01 else Vector3.ZERO
-	# En el aire, ya encima del destino: soltar para no pasarse (el control en aire frena solo).
-	if on_floor or dist > AIR_BRAKE_RADIUS:
+	var vel: Vector3 = body.get("velocity")
+	var h_vel := Vector3(vel.x, 0.0, vel.z)
+	var h_speed: float = h_vel.length()
+	# En el aire hacia una plataforma corta: frenar activamente a la distancia de frenado del
+	# control en aire, para caer sobre el punto de mira y no pasarse de largo.
+	var a_air: float = _fm.acceleration * _fm.air_control_multiplier
+	if not on_floor and _is_short(_waypoints[_index]) and h_speed > 0.5 \
+			and dist <= h_speed * h_speed / (2.0 * a_air) + 0.15:
+		d.move_vec = _to_move_vec(body, -h_vel.normalized())
+	else:
 		d.move_vec = _to_move_vec(body, dir)
 		d.sprint = true
 
-	var vel: Vector3 = body.get("velocity")
-	var h_speed: float = Vector2(vel.x, vel.z).length()
 	if on_floor:
 		_jump_held = false
+		_full_jump = dy > FULL_JUMP_RISE or dist > FULL_JUMP_DIST
 		_stuck_ticks = _stuck_ticks + 1 if h_speed < 0.5 else 0
 		var reach: float = max(h_speed, _fm.walk_speed()) * _fm.t_air(-1.0, dy) * REACH_MARGIN
 		var climb: bool = dy > STEP_HEIGHT and dist <= reach
 		if climb or _stuck_ticks > STUCK_TICKS or _gap_ahead(body, pos, dir):
 			_jump_held = true
 			_stuck_ticks = 0
-	elif vel.y <= 0.0:
+	elif vel.y <= 0.0 or not _full_jump:
 		_jump_held = false
-	# Sostenido mientras sube: salto completo (v0), que es el que asume t_air().
+	# Salto completo (sostenido mientras sube) solo si hace falta; si no, un toque.
 	d.jump = _jump_held
+
+
+# Con size se exige estar bien adentro de la plataforma (no en el borde); sin size, el radio.
+func _arrive_dist(wp: Dictionary) -> float:
+	return 0.35 if wp.has("size") and not wp.has("rise") else arrive_radius
+
+
+func _is_short(wp: Dictionary) -> bool:
+	return wp.has("size") and min(wp["size"].x, wp["size"].z) < SHORT_PLATFORM and not wp.has("rise") \
+		and wp["size"].z < SHORT_PLATFORM
 
 
 # ponytail: asume plataformas alineadas a los ejes (size = AABB). En el cilindro de
@@ -134,6 +154,9 @@ func _aim(wp: Dictionary, pos: Vector3) -> Vector3:
 	if not wp.has("size"):
 		return c
 	var s: Vector3 = wp["size"]
+	if wp.has("rise"):
+		# Rampa (sube `rise` hacia +Z): se apunta a su extremo alto, no al punto mas cercano.
+		return Vector3(c.x, c.y + float(wp["rise"]) * 0.5, c.z + s.z * 0.5 - PLATFORM_INSET)
 	var hx: float = max(s.x * 0.5 - PLATFORM_INSET, 0.0)
 	var hz: float = max(s.z * 0.5 - PLATFORM_INSET, 0.0)
 	return Vector3(clamp(pos.x, c.x - hx, c.x + hx), c.y, clamp(pos.z, c.z - hz, c.z + hz))

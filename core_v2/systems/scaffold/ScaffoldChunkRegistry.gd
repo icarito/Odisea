@@ -64,18 +64,21 @@ static func _edge(from: String, to: String, gap: float, dh: float = 0.0, extra: 
 	return e
 
 
-# Grafo local de un chunk: {nodes, edges, in, out, dy, bank_deg, side_outs}.
+# Grafo local de un chunk: {nodes, edges, in, out, dy, bank_deg, side_outs, out_socket, blockers}.
+# blockers: cajas que cierran un atajo de herramienta (pared de gloo, mamparo cortable).
 static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 	var l := CHUNK_LENGTH
 	var d: float = d_max(m)
-	var c := {"id": id, "nodes": [], "edges": [], "in": "a", "out": "a", "dy": 0.0, "bank_deg": 0.0, "side_outs": {}}
-	var side := WALKWAY_WIDTH + 0.5
+	var c := {"id": id, "nodes": [], "edges": [], "in": "a", "out": "a", "dy": 0.0, "bank_deg": 0.0, "side_outs": {},
+		"out_socket": "A", "blockers": []}
+	var side := WALKWAY_WIDTH  # pasarela auxiliar pegada a la principal
 	match id:
 		"scaffold_sprint_chute":
 			c["nodes"] = [_deck("a", 0.0, l)]
 		"scaffold_curved_bank":
 			c["nodes"] = [_deck("a", 0.0, l)]
 			c["bank_deg"] = 15.0
+			c["out_socket"] = "A_Curved_15"
 		"scaffold_triple_cadence":
 			var pad := 1.5
 			var gap: float = min(RHYTHM_GAP_RATIO * d, (l - 4.0 * pad) / 3.0)
@@ -95,26 +98,36 @@ static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 		"scaffold_gloo_rise":
 			# Pared > H_max: a pie solo por la rampa perimetral; con gloo, directo.
 			var rise: float = TOOL_RATIO * h_max(m)
-			c["nodes"] = [_deck("a", 0.0, l - LANDING), _deck("ramp", 1.0, l - LANDING, rise * 0.5, side),
-				_deck("b", l - LANDING, l, rise)]
-			c["edges"] = [_edge("a", "ramp", 0.0), _edge("ramp", "b", 0.0),
+			var wall_z: float = l - LANDING
+			var ramp: Dictionary = _deck("ramp", 1.0, 8.0, rise * 0.5, side)
+			ramp["rise"] = rise  # inclinada: sube `rise` de z0 a z1 (position.y es el punto medio)
+			# ramp_foot: se entra a la rampa por su pie, no de costado (de costado es una pared).
+			c["nodes"] = [_deck("a", 0.0, wall_z), _deck("ramp_foot", 0.0, 1.0, 0.0, side), ramp,
+				_deck("ramp_top", 8.0, l, rise, side), _deck("b", wall_z, l, rise)]
+			c["edges"] = [_edge("a", "ramp_foot", 0.0), _edge("ramp_foot", "ramp", 0.0),
+				_edge("ramp", "ramp_top", 0.0), _edge("ramp_top", "b", 0.0),
 				_edge("a", "b", 0.0, rise, {"tags": ["GlooClimb"]})]
+			c["blockers"] = [{"id": "gloo_wall", "position": Vector3(0.0, rise * 0.5, wall_z + 0.15),
+				"size": Vector3(WALKWAY_WIDTH, rise, 0.3), "cuttable": false}]
 			c["out"] = "b"
 			c["dy"] = rise
+			c["out_socket"] = "A_High"
 		"scaffold_catenary_span":
 			c["nodes"] = [_deck("a", 0.0, 1.0), _deck("s1", 1.5, 5.0, 0.0, side),
 				_deck("s2", 7.0, 10.5, 0.0, side), _deck("b", l - 1.0, l)]
-			c["edges"] = [_edge("a", "s1", 0.5), _edge("s1", "s2", 2.0), _edge("s2", "b", 0.5),
+			c["edges"] = [_edge("a", "s1", 0.0), _edge("s1", "s2", 2.0), _edge("s2", "b", 0.0),
 				_edge("a", "b", l - 2.0, 0.0, {"requires_tool": true, "tags": ["Catenary"]})]
 			c["out"] = "b"
 		"scaffold_laser_choke":
-			c["nodes"] = [_deck("a", 0.0, 5.0), _deck("s", 3.0, 9.0, 0.0, side), _deck("b", 7.0, l)]
-			c["edges"] = [_edge("a", "s", 0.5), _edge("s", "b", 0.5),
-				_edge("a", "b", 2.0, 0.0, {"requires_tool": true, "tags": ["LaserCut"]})]
+			c["nodes"] = [_deck("a", 0.0, 6.0), _deck("s", 3.0, 9.0, 0.0, side), _deck("b", 6.0, l)]
+			c["edges"] = [_edge("a", "s", 0.0), _edge("s", "b", 0.0),
+				_edge("a", "b", 0.0, 0.0, {"requires_tool": true, "tags": ["LaserCut"]})]
+			c["blockers"] = [{"id": "bulkhead", "position": Vector3(0.0, 1.2, 6.0),
+				"size": Vector3(WALKWAY_WIDTH, 2.4, 0.3), "cuttable": true}]
 			c["out"] = "b"
 		"diorama_mag_cart":
 			c["nodes"] = [_deck("a", 0.0, l), _deck("rail", l - 1.0, l, 0.0, -side)]
-			c["edges"] = [_edge("a", "rail", 0.5, 0.0, {"tags": ["MagRail"]})]
+			c["edges"] = [_edge("a", "rail", 0.0, 0.0, {"tags": ["MagRail"]})]
 			c["side_outs"] = {"R": "rail"}
 		"diorama_counterweight_crane", "scaffold_splitter_hub":
 			var sx: float = side + SOCKET_REACH_RATIO * d

@@ -1,0 +1,36 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/props/scaffold/chunks/scaffold_curved_bank.mesh" type="ArrayMesh" id=1]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 1.25, 0.15, 6 )
+
+[node name="scaffold_curved_bank" type="Spatial"]
+__meta__ = {
+"chunk_id": "scaffold_curved_bank",
+"sockets": {
+"In_A": {
+"position": Vector3( 0, 0, 0 ),
+"type": "A"
+},
+"Out_A_Curved_15": {
+"bank_deg": 15.0,
+"position": Vector3( 0, 0, 12 ),
+"type": "A_Curved_15"
+}
+}
+}
+
+[node name="Mesh" type="MeshInstance" parent="."]
+mesh = ExtResource( 1 )
+
+[node name="Collision" type="StaticBody" parent="."]
+
+[node name="Col_a" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 6 )
+shape = SubResource( 1 )
+
+[node name="Socket_In_A" type="Position3D" parent="."]
+
+[node name="Socket_Out_A_Curved_15" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12 )
