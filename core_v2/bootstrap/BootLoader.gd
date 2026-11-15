@@ -1,6 +1,11 @@
 extends Node
 
 export(String, FILE, "*.tscn,*.scn") var startup_scene_path := "res://scenes/Menu.tscn"
+# Menú dentro del mundo (2.º PR): si se setea, el boot arranca directo a esta escena de
+# mundo (fade desde negro, permitido) y el menú se instancia como overlay encima, sin
+# cambio de escena. Vacío = comportamiento legacy (boot → Menu.tscn como escena).
+export(String, FILE, "*.tscn,*.scn") var startup_world_scene_path := ""
+var _boot_target_path := ""
 export(String) var loading_message := "ODiSEA"
 export(String) var version_label := ""
 export(bool) var show_progress := true
@@ -141,11 +146,13 @@ func _start_boot_transition() -> void:
 		wait_frames -= 1
 		yield(get_tree(), "idle_frame")
 		scene_manager = get_node_or_null("/root/SceneManager")
-	_mark_trace("boot_loader_scene_request", {"path": startup_scene_path})
+	var world_mode := startup_world_scene_path.strip_edges() != ""
+	_boot_target_path = startup_world_scene_path if world_mode else startup_scene_path
+	_mark_trace("boot_loader_scene_request", {"path": _boot_target_path})
 	if scene_manager and scene_manager.has_method("goto_scene"):
 		if not scene_manager.is_connected("transition_failed", self, "_on_transition_failed"):
 			scene_manager.connect("transition_failed", self, "_on_transition_failed")
-		var state = scene_manager.goto_scene(startup_scene_path, {
+		var state = scene_manager.goto_scene(_boot_target_path, {
 			"transition": "loading",
 			"show_loading": true,
 			"show_progress": show_progress,
@@ -155,18 +162,22 @@ func _start_boot_transition() -> void:
 			"fade_in": 0.0,
 			"audio_fade_out": 0.0,
 			"audio_fade_in": 0.0,
-			"preserve_player_state": false
+			"preserve_player_state": false,
+			# La instalación del overlay la hace SceneManager (autoload persistente) al
+			# terminar el swap: BootLoader vive en la escena Boot que se libera durante el
+			# swap, así que un call_deferred posterior no tendría receptor válido.
+			"attach_world_menu": world_mode
 		})
 		if state is GDScriptFunctionState:
 			yield(state, "completed")
 		_notify_player_released()
 		return
 
-	_mark_trace("boot_loader_scene_request_fallback", {"path": startup_scene_path})
+	_mark_trace("boot_loader_scene_request_fallback", {"path": _boot_target_path})
 	_start_direct_scene_fallback("scene_manager_missing")
 
 func _on_transition_failed(path: String, reason: String) -> void:
-	if String(path) != startup_scene_path:
+	if String(path) != _boot_target_path:
 		return
 	if _fallback_started:
 		return
