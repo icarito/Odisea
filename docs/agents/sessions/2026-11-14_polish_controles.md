@@ -68,6 +68,24 @@ viejos con tool_next/prev_mode).
 Prohibido: core_v2/props/machines/*, core_v2/levels/machines/* (otro worker). No revertir cambios
 ajenos. Commits locales sí. Push/PR al final (autorización de src-49).
 
+## Rehacer del crosshair (feedback de Sebastián sobre 2e9ada1c)
+- El retículo fijo en el centro no servía por paralaje OTS: el tool dispara desde la mano.
+- Nuevo `core_v2/ui/hud/MultiToolCrosshair.gd` (fuera de PlayerControllerV2):
+  - Láser: retículo proyectado con `camera.unproject_position` sobre el MISMO rayo del
+    disparo (muzzle del MultiToolLaser, `-basis.z`, `laser_max_range`,
+    `laser_collision_mask`).
+  - Gloo: predice el arco balístico (`gloo_projectile_speed`, `gloo_projectile_gravity`,
+    igual que MultiToolGlooProjectile) y marca el punto de aterrizaje.
+  - Estados sin texto: forma = tipo de tool (láser: cruz; gloo: rombo + núcleo),
+    color = válido/fuera de rango/obstruido/interactuable apuntado (gana el clic, C2),
+    pulso al disparar, brillo con el calor del láser, núcleo = cooldown del gloo.
+  - Suavizado exponencial de posición; tier LOW recalcula a mitad de frecuencia.
+- PlayerControllerV2 solo instancia el nodo (el resto vive en el script nuevo).
+- Validación: capturas centro/izquierda/derecha/cercano (<2000 px) en
+  `~/.ao/data/artifacts/src-50/crosshair_*2.png`; test `test_multitool_crosshair.gd`
+  verifica que el punto proyectado coincide con el impacto real del rayo (caso central y
+  lateral).
+
 ## Pasos
 1. project.godot [input]: quitar tool_next_mode/tool_prev_mode; agregar botón 7 a
    tool_fire_primary; quitar botón 7 de slot_4.

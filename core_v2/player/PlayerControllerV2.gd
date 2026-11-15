@@ -271,9 +271,9 @@ var _tool_secondary_was_pressed := false
 var _multi_tool_mount: Spatial = null
 var _multi_tool_skeleton: Skeleton = null
 var _multi_tool_hand_bone_idx := -1
-# Crosshair minimalista del multi-tool (decision 3): visible solo cuando hay un tool
-# equipado (laser o gloo). Vive en un CanvasLayer propio, sin texto.
-var _crosshair_layer: CanvasLayer = null
+# Retículo del multi-tool (decision 3 + feedback de Sebastián): nodo propio
+# (MultiToolCrosshair.gd) que proyecta el impacto real del rayo. Solo se instancia aca.
+var _crosshair_ui: Node = null
 # PERF: el Pivot visual es estatico; resolverlo una vez evita un get_node_or_null() por
 # tick en _get_multi_tool_forward() (lo usa el aim del multi-tool).
 var _multi_tool_visual_pivot: Spatial = null
@@ -1932,50 +1932,17 @@ func _setup_multi_tool():
 		else:
 			add_child(multi_tool)
 
-# --- Crosshair del multi-tool ---
+# Retículo del multi-tool: nodo propio (MultiToolCrosshair.gd) que lee el estado del
+# multitool y proyecta el impacto real del rayo; no vive en este controlador.
 func _setup_crosshair():
-	if _crosshair_layer != null:
+	if _crosshair_ui != null and is_instance_valid(_crosshair_ui):
 		return
-	_crosshair_layer = CanvasLayer.new()
-	_crosshair_layer.name = "MultiToolCrosshair"
-	add_child(_crosshair_layer)
-	var root := Control.new()
-	root.name = "Crosshair"
-	root.set_anchors_and_margins_preset(Control.PRESET_CENTER)
-	root.rect_size = Vector2(24.0, 24.0)
-	_crosshair_layer.add_child(root)
-	var col := Color(0.92, 0.94, 0.97, 0.85)
-	var thick := 1.6
-	var arm := 9.0
-	var c := 12.0
-	root.add_child(_make_crosshair_piece(col, Vector2(c - thick * 0.5, c - arm - 4.0), Vector2(thick, arm)))
-	root.add_child(_make_crosshair_piece(col, Vector2(c - thick * 0.5, c + 4.0), Vector2(thick, arm)))
-	root.add_child(_make_crosshair_piece(col, Vector2(c - arm - 4.0, c - thick * 0.5), Vector2(arm, thick)))
-	root.add_child(_make_crosshair_piece(col, Vector2(c + 4.0, c - thick * 0.5), Vector2(arm, thick)))
-	_crosshair_layer.visible = false
-
-func _make_crosshair_piece(col: Color, pos: Vector2, size: Vector2) -> ColorRect:
-	var r := ColorRect.new()
-	r.color = col
-	r.rect_position = pos
-	r.rect_size = size
-	return r
-
-func _crosshair_should_show() -> bool:
-	if not is_instance_valid(multi_tool) or not multi_tool.has_method("get_equipped_name"):
-		return false
-	var tool_name := String(multi_tool.get_equipped_name())
-	return tool_name == "LASER" or tool_name == "GLOO"
-
-func _update_crosshair_visibility():
-	if _crosshair_layer == null:
+	var script = load("res://core_v2/ui/hud/MultiToolCrosshair.gd")
+	if script == null:
 		return
-	var show := _crosshair_should_show()
-	if show:
-		var suit = get_node_or_null("/root/SuitOS")
-		if suit != null and suit.has_method("is_hud_mode_active") and suit.is_hud_mode_active():
-			show = false
-	_crosshair_layer.visible = show
+	_crosshair_ui = script.new()
+	_crosshair_ui.name = "MultiToolCrosshair"
+	add_child(_crosshair_ui)
 
 
 func _get_multi_tool_mount() -> Spatial:
@@ -3773,7 +3740,6 @@ func _low_scan_stride() -> int:
 	return 1
 
 func _paso_fisica(_delta):
-	_update_crosshair_visibility()
 	_tick_arrival_cam_trace()
 	if _exit_log_frames > 0:
 		_exit_log_frames -= 1
