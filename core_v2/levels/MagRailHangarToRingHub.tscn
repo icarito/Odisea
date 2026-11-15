@@ -1,0 +1,87 @@
+[gd_scene load_steps=11 format=2]
+
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/props/magrail/MagRail.gd" type="Script" id=4]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=5]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=6]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=7]
+
+[sub_resource type="AnimationNodeStateMachinePlayback" id=1]
+
+[sub_resource type="Curve3D" id=2]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 4, 0, 0.5, 5, -0.5, 0, -4, 0.5, 0, 4, 1.0, 0.5, 16, 0.5, 0, -4, -0.5, 0, 4, -1.0, 0.5, 26, 0, 0, -4, 0, 0, 0, 0, 0.5, 36 ),
+"tilts": PoolRealArray( 0, 0, 0, 0 )
+}
+
+[node name="MagRailHangarToRingHub" type="Spatial"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 7 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 0, 12, 18 )
+light_energy = 0.85
+shadow_enabled = true
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 2 )
+
+[node name="AnimationTree" parent="Pilot/Visual/Pivot" index="2"]
+parameters/playback = SubResource( 1 )
+
+[node name="Spawn_FromHangar" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 1.5 )
+script = ExtResource( 3 )
+spawn_id = "from_hangar"
+
+[node name="Airlock_FromHangar" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0 )
+
+[node name="AirlockZoneV2" parent="Airlock_FromHangar" index="14"]
+monitoring = false
+monitorable = false
+
+[node name="Platform_Entry" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 4 )
+use_collision = true
+width = 6.0
+height = 0.4
+depth = 10.0
+material = ExtResource( 5 )
+
+[node name="Catwalk_Backup" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 22 )
+use_collision = true
+width = 3.6
+height = 0.3
+depth = 30.0
+material = ExtResource( 6 )
+
+[node name="Platform_Exit" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 40 )
+use_collision = true
+width = 6.0
+height = 0.4
+depth = 10.0
+material = ExtResource( 5 )
+
+[node name="MagRail_CentrifugalArm" type="Path" parent="."]
+curve = SubResource( 2 )
+script = ExtResource( 4 )
+
+[node name="Airlock_ToRingHub" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 42 )
+
+[node name="AirlockZoneV2" parent="Airlock_ToRingHub" index="14"]
+target_scene = "res://core_v2/levels/RingHub_Level.tscn"
+target_spawn_id = "from_dome_intro_hangar"
+target_airlock_path = NodePath("Hub/Airlock_FromHangar")
+zone_dir = Vector3( 0, 0, 1 )
+
+[editable path="Pilot"]
+[editable path="Pilot/Visual/Pivot/Skeleton"]
+[editable path="Airlock_FromHangar"]
+[editable path="Airlock_ToRingHub"]
