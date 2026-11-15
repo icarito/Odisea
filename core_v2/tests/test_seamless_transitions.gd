@@ -12,6 +12,31 @@ extends GdUnitTestSuite
 const TransitionPortalScript = preload("res://core_v2/components/TransitionPortal.gd")
 const TubeAirlockScript = preload("res://core_v2/props/tube/TubeAirlock.gd")
 
+class FakeDoor:
+	extends Spatial
+	var is_active := false
+	var target_progress := 0.0
+	var anim_progress := 0.0
+
+	func set_active(value: bool, immediate: bool = false) -> void:
+		is_active = value
+		target_progress = 1.0 if value else 0.0
+		# Simula la animación de cierre: al pedir cerrar, el progreso arranca abierto y
+		# baja de a poco (el test lo anima con step()).
+		anim_progress = 1.0 if (not immediate and not value) else target_progress
+
+class FakeTubeSceneManager:
+	extends Node
+	var calls := []
+	func goto_scene(path, params := {}):
+		calls.append({"path": path, "params": params.duplicate(true)})
+		return true
+
+class FakePlayable:
+	extends KinematicBody
+	func _init() -> void:
+		add_to_group("player")
+
 # --- SceneManager: modo seamless ---
 
 func test_scene_manager_seamless_mode_disables_fade_and_loading() -> void:
@@ -142,3 +167,71 @@ func test_tube_airlock_builds_seamless_params() -> void:
 	assert_float(params["fade_out"]).is_equal(0.0)
 	assert_float(params["fade_in"]).is_equal(0.0)
 	assert_bool(params["wait_for_fade_out"]).is_false()
+
+func test_tube_airlock_waits_for_door_seal_before_swap() -> void:
+	var tube = auto_free(TubeAirlockScript.new())
+	add_child(tube)
+	tube.target_dome = "res://core_v2/tests/test_tube_airlock.tscn"
+	tube.target_spawn = "end"
+	var door := FakeDoor.new()
+	door.name = "IrisDoorV2"
+	tube.add_child(door)
+	var sm = auto_free(FakeTubeSceneManager.new())
+	add_child(sm)
+	tube.scene_manager_override = sm
+
+	var player = auto_free(FakePlayable.new())
+	add_child(player)
+	var player_body: KinematicBody = player
+	tube._on_body_entered(player_body)
+	assert_bool(tube._awaiting_seal).is_true()
+
+	# Antes del sello: no hay swap.
+	tube._physics_process(1.0 / 60.0)
+	tube._physics_process(1.0 / 60.0)
+	assert_int(sm.calls.size()).is_equal(0)
+	assert_bool(door.anim_progress > 0.001).is_true()
+
+	# Animar el cierre hasta sellar la puerta; el swap debe dispararse recién ahí.
+	var guard := 0
+	while door.anim_progress > 0.001 and guard < 60:
+		door.anim_progress = max(0.0, door.anim_progress - 0.1)
+		tube._physics_process(1.0 / 60.0)
+		guard += 1
+	assert_int(sm.calls.size()).is_equal(1)
+	assert_str(sm.calls[0]["params"]["transition"]).is_equal("seamless")
+
+func test_tube_airlock_without_door_does_not_block() -> void:
+	var tube = auto_free(TubeAirlockScript.new())
+	add_child(tube)
+	tube.target_dome = "res://core_v2/tests/test_tube_airlock.tscn"
+	tube.target_spawn = "end"
+	var sm = auto_free(FakeTubeSceneManager.new())
+	add_child(sm)
+	tube.scene_manager_override = sm
+
+	var player = auto_free(FakePlayable.new())
+	add_child(player)
+	var player_body: KinematicBody = player
+	tube._on_body_entered(player_body)
+	tube._physics_process(1.0 / 60.0)
+	assert_int(sm.calls.size()).is_equal(1)
+
+func test_tube_airlock_retries_after_failed_transition() -> void:
+	var tube = auto_free(TubeAirlockScript.new())
+	add_child(tube)
+	tube.target_dome = "res://core_v2/tests/test_tube_airlock.tscn"
+	var door := FakeDoor.new()
+	door.name = "IrisDoorV2"
+	tube.add_child(door)
+
+	tube._has_triggered = true
+	tube._awaiting_seal = true
+	tube.monitoring = false
+	door.is_active = false
+
+	tube._on_transition_failed(tube.target_dome, "timeout")
+	assert_bool(tube._has_triggered).is_false()
+	assert_bool(tube._awaiting_seal).is_false()
+	assert_bool(tube.monitoring).is_true()
+	assert_bool(door.is_active).is_true()

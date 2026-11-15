@@ -50,6 +50,22 @@ func _make_transition(manager = null) -> Area:
 	add_child(t)
 	return t
 
+# HangarTransition arma el lift del AirlockManager real (notify_transition) antes del swap
+# seamless; ese estado de autoload sobrevive al test y contamina suites siguientes del mismo
+# proceso (mismo patrón que el warning de test_dome_crio_airlock_transition.gd).
+func _snapshot_airlock_manager() -> Dictionary:
+	var am := get_node_or_null("/root/AirlockManager")
+	if am == null:
+		return {}
+	return {"node": am, "pending": am._pending_transition, "seamless": am._seamless_swap}
+
+func _restore_airlock_manager(saved: Dictionary) -> void:
+	if saved.empty():
+		return
+	var am = saved["node"]
+	am._pending_transition = saved["pending"]
+	am._seamless_swap = saved["seamless"]
+
 
 func _capture_request(target_scene, target_spawn, sink: Array) -> void:
 	sink.append({"scene": target_scene, "spawn": target_spawn})
@@ -111,6 +127,7 @@ func test_player_entry_triggers_once_and_calls_goto_scene() -> void:
 	var player = auto_free(FakePlayer.new())
 	add_child(player)
 
+	var am_saved := _snapshot_airlock_manager()
 	t._on_body_entered(player)
 
 	assert_bool(t.is_triggered()).is_true()
@@ -119,10 +136,12 @@ func test_player_entry_triggers_once_and_calls_goto_scene() -> void:
 	assert_str(sm.calls[0]["path"]).is_equal(HANGAR_SCENE)
 	assert_str(sm.calls[0]["params"]["target_spawn_id"]).is_equal(HANGAR_SPAWN)
 	assert_bool(sm.calls[0]["params"]["preserve_player_state"]).is_false()
+	assert_str(sm.calls[0]["params"].get("transition", "")).is_equal("seamless")
 
 	# Segundo cuerpo (o el mismo otra vez): no re-dispara.
 	t._on_body_entered(player)
 	assert_int(sm.calls.size()).is_equal(1)
+	_restore_airlock_manager(am_saved)
 
 
 func test_non_player_body_is_ignored() -> void:
@@ -153,6 +172,7 @@ func test_post_transition_grace_frames_block_immediate_retrigger() -> void:
 	# Recien cargada ESTA escena: el jugador aparece dentro del volumen de destino y no debe
 	# rebotar a una transicion de vuelta.
 	t._scene_ready_frame = Engine.get_physics_frames()
+	var am_saved := _snapshot_airlock_manager()
 	t._on_body_entered(player)
 	assert_bool(t.is_triggered()).is_false()
 	assert_array(sm.calls).is_empty()
@@ -162,3 +182,4 @@ func test_post_transition_grace_frames_block_immediate_retrigger() -> void:
 	t._on_body_entered(player)
 	assert_bool(t.is_triggered()).is_true()
 	assert_int(sm.calls.size()).is_equal(1)
+	_restore_airlock_manager(am_saved)

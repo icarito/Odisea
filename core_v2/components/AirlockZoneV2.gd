@@ -377,7 +377,9 @@ func _trigger_transition(player: Node) -> bool:
 		"spawn_id": resolved_target_spawn_id,
 		"target_spawn_id": resolved_target_spawn_id,
 		"dome_id": active_dome_id,
-		"transition": "none" if use_airlock_manager else "fade",
+		# Con AirlockManager, la transición es seamless: sin fade, sin cartel y sin cortar
+		# la BGM (el modo "seamless" refresca la zona de destino con 0s al llegar).
+		"transition": "seamless" if use_airlock_manager else "fade",
 		"transition_style": "airlock",
 		"preserve_player_state": true,
 		"fade_out": 0.0 if use_airlock_manager else DEFAULT_FADE_OUT_S,

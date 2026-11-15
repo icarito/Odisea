@@ -1074,6 +1074,13 @@ func _finalize_failed_transition(reason: String) -> void:
 	_reset_runtime_state()
 
 func _reset_runtime_state() -> void:
+	# Si la transición terminó (bien o mal) sin llegar al swap, el AirlockManager puede
+	# haber quedado con el lift armado (_pending_transition/_seamless_swap). Limpiarlo acá
+	# tapa todos los caminos (éxito, fallo y watchdog) y evita que una transición ajena
+	# siguiente se interprete como seamless.
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	if is_instance_valid(airlock_manager) and airlock_manager.has_method("cancel_pending_transition"):
+		airlock_manager.cancel_pending_transition()
 	_lock()
 	_loader = null
 	_loaded_scene = null

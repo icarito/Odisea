@@ -21,6 +21,8 @@ func _ready() -> void:
 	var sm = get_node_or_null("/root/SceneManager")
 	if sm != null and sm.has_signal("scene_ready") and not sm.is_connected("scene_ready", self, "_on_scene_ready"):
 		sm.connect("scene_ready", self, "_on_scene_ready")
+	if sm != null and sm.has_signal("transition_failed") and not sm.is_connected("transition_failed", self, "_on_transition_failed"):
+		sm.connect("transition_failed", self, "_on_transition_failed")
 
 func _on_scene_ready(_path, scene_root, _params) -> void:
 	if is_instance_valid(scene_root) and (scene_root == get_tree().current_scene or _is_ancestor(scene_root)):
@@ -45,6 +47,12 @@ func _on_body_entered(body: Node) -> void:
 	# monitoring no se puede tocar en caliente dentro de un callback de body_entered.
 	set_deferred("monitoring", false)
 	_enter_machine_bay()
+
+func _on_transition_failed(path: String, _reason: String) -> void:
+	if String(path).strip_edges() != "res://core_v2/levels/machines/MachineBay.tscn":
+		return
+	_has_triggered = false
+	monitoring = true
 
 func _enter_machine_bay() -> void:
 	var level: Node = get_tree().current_scene

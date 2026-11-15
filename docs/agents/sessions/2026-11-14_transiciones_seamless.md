@@ -24,9 +24,9 @@ El airlock del laberinto de ductos con `standalone_cycle=true` es el prototipo d
 |---|---|---|---|---|
 | 1 | Boot → Menu | `BootLoader.gd` | loading + fade 0 (boot) | **No seamless (reportado)** — sin mundo previo |
 | 2 | Menu → RingHub/Dome_Intro (Nueva partida/Continuar) | `Menu.gd` | fade del menú (0.85s) + loading | **No seamless (reportado)** — frontera UI→mundo |
-| 3 | RingHub ↔ MachineBay | `RingHubLightState` / `MachineLevel.gd:526` | fade (default) + lift automático del par | **Seamless por auto-upgrade**; MachineLevel debe declarar `transition:"seamless"` (cambio reportado a src-51) |
-| 4 | Dome_Crio ↔ OdiseaExterior | `AirlockZoneV2` | seamless (reference) pero con fade-out de BGM | **Seamless completo** (mode `"seamless"` + sin corte de audio) |
-| 5 | Dome → Hangar (#407) | `HangarTransition.gd` | fade + spawn | **Pendiente** — productor fuera de alcance (se reporta API) |
+| 3 | RingHub ↔ MachineBay | `RingHubLightState` / `MachineLevel.gd:526` | fade (default) + lift automático del par | **Seamless**: RingHubLightState declara `transition:"seamless"` explícito; MachineLevel debe hacer lo mismo (cambio reportado a src-51). Auto-upgrade como red de seguridad |
+| 4 | Dome_Crio ↔ OdiseaExterior | `AirlockZoneV2` | seamless (reference) pero con fade-out de BGM | **Seamless completo** (migrada a `transition:"seamless"`: sin fade ni corte de BGM) |
+| 5 | Dome → Hangar (#407) | `HangarTransition.gd` | fade + spawn | **Seamless (migrada)**: pozo como buffer, precarga al arrancar el descenso (`descend_started`), swap con AirlockManager |
 | 6 | Tubos peatonales | `TubeAirlock.gd` | fade 0.5 | **Seamless (migrado)** |
 | 7 | Airlock de la bahía (fallback) | `BayAirlockTrigger.gd` | fade | **Seamless (migrado fallback)**; primario va por RingHubLightState |
 | 8 | Portales genéricos (estilo airlock) | `TransitionPortal.gd` | ciclo airlock + fade | **Seamless (migrado)** cuando AirlockManager presente |

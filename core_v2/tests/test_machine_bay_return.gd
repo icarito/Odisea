@@ -218,9 +218,9 @@ func test_machine_bay_return_ringhub_light_state_producer() -> void:
 	var params: Dictionary = manager._pending_transition_params
 	assert_int(params.size()).is_equal(3)
 	assert_dict(params).contains_keys(
-		["preserve_player_state", "wait_for_fade_out", "ringhub_return_state"])
+		["preserve_player_state", "transition", "ringhub_return_state"])
 	assert_bool(bool(params.get("preserve_player_state", true))).is_false()
-	assert_bool(bool(params.get("wait_for_fade_out", false))).is_true()
+	assert_str(params.get("transition", "")).is_equal("seamless")
 
 	var payload: Dictionary = params.get("ringhub_return_state", {})
 	assert_dict(payload).is_equal({

@@ -47,9 +47,9 @@ Los productores **instantáneos** (p.ej. `TubeAirlock`) pueden disparar apenas e
 |---|---|---|---|
 | Boot → Menu | BootLoader | — | **No seamless (reportado):** no hay espacio previo que bufferear; es el arranque. Queda loading screen + fade 0. |
 | Menu → RingHub / Dome_Intro (Nueva partida / Continuar) | Menu.gd | — | **No seamless (reportado):** frontera UI→mundo, sin espacio físico previo. Queda fade del menú + loading. |
-| RingHub ↔ MachineBay | RingHubLightState / MachineLevel:526 | umbral | Seamless por auto-upgrade (el par arma el lift solo). MachineLevel debe declarar `transition:"seamless"` explícito (cambio reportado a src-51). |
-| Dome_Crio ↔ OdiseaExterior | AirlockZoneV2 | airlock | Seamless (referencia). Ahora también sin corte de BGM si usa `transition:"seamless"`. |
-| Dome → Hangar (#407) | HangarTransition | pozo/descenso | **Pendiente:** usa fade; el productor no está en el alcance de esta sesión (se reporta API). |
+| RingHub ↔ MachineBay | RingHubLightState / MachineLevel:526 | umbral | Seamless: RingHubLightState ya declara `transition:"seamless"` explícito; MachineLevel debe hacer lo mismo (cambio reportado a src-51). El auto-upgrade los cubre igual mientras el AirlockManager esté armado. |
+| Dome_Crio ↔ OdiseaExterior | AirlockZoneV2 | airlock | Seamless (referencia, migrada a `transition:"seamless"`): sin fade ni corte de BGM. |
+| Dome → Hangar (#407) | HangarTransition | pozo/descenso | Seamless (migrada): pozo como buffer, precarga al arrancar el descenso (`descend_started` de la plataforma), swap con AirlockManager. |
 | Tubos peatonales | TubeAirlock | tubo + IrisDoor | Seamless (migrado). |
 | Airlock de la bahía (fallback) | BayAirlockTrigger | — | Seamless (migrado fallback; el camino primario va por RingHubLightState). |
 | Portales genéricos (estilo airlock) | TransitionPortal | airlock | Seamless (migrado) cuando AirlockManager está presente; fade como fallback. |
@@ -98,4 +98,4 @@ if airlock_manager != null and airlock_manager.has_method("notify_transition"):
 scene_mgr.goto_scene(target_scene, params)
 ```
 
-Nota: con el auto-upgrade actual el par ya queda seamless sin tocar nada; el cambio explícito lo hace independiente de esa heurística. `RingHubLightState.enter_machine_bay` (hub→bahía) ya arma `notify_transition`; bastaría agregar `"transition": "seamless"` al payload para explicitarlo.
+Nota: `RingHubLightState.enter_machine_bay` (hub→bahía) ya arma `notify_transition` y declara `"transition": "seamless"` en el payload.
