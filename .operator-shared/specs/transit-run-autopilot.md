@@ -31,10 +31,16 @@ Contrato del relevo humano ↔ máquina. Métricas y umbrales de la ruta: `docs/
 - El conductor es heurístico (apuntar al waypoint, saltar ante hueco o desnivel dentro del
   alcance de `FlowMetrics`). La política PPO de ANNA (`MLPPolicyInference`, obs 13) no está
   conectada: no percibe huecos y tiene sesgo a `SprintForward`.
-- Con `size`, apunta al punto más cercano de la plataforma, exige estar bien adentro para dar
-  el waypoint por alcanzado y frena en el aire si la plataforma es corta. Con `rise` (rampa)
-  apunta a su extremo alto. Recorre un tramo generado de chunks horneados
-  (`test_scaffold_chunk_run.gd`), pero sin gracia: se detiene en cada plataforma corta.
+- Con `size`, apunta al punto más cercano de la plataforma y exige estar bien adentro para dar
+  el waypoint por alcanzado. Con `rise` (rampa) apunta a su extremo alto.
+- **Carril primero:** si la plataforma destino empieza más adelante y la actual llega hasta
+  ahí, avanza recto y recién entonces cruza de costado. Cortar en diagonal atraviesa lo que
+  haya entre ambas (un mamparo, el canto de una rampa).
+- **Cadencia:** de plataforma corta a plataforma corta fija en el suelo la velocidad de
+  despegue para que un toque de salto (o el salto completo si el toque no alcanza) caiga
+  sobre el punto de mira, y la conserva en el aire. El frenado en el aire queda como red.
+- Verificado con el piloto real sobre tramos generados de 12 chunks horneados
+  (`test_scaffold_chunk_run.gd`; `SCAFFOLD_RUN_SEED=<n>` prueba otra semilla).
 - `size` de un waypoint se interpreta como AABB alineada a los ejes; sobre el cilindro de
   `ScaffoldOrbit` los chunks giran en Z y hay que pasar puntos ya resueltos.
 - No gira la cámara: el personaje puede correr de lado respecto a la vista.

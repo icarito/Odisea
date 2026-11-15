@@ -13,7 +13,7 @@ extents = Vector3( 1.25, 0.15, 3 )
 extents = Vector3( 1.25, 0.15, 3 )
 
 [sub_resource type="BoxShape" id=4]
-extents = Vector3( 1.25, 1.2, 0.15 )
+extents = Vector3( 1.25, 2.19286, 0.15 )
 
 [node name="scaffold_laser_choke" type="Spatial"]
 __meta__ = {
@@ -54,7 +54,7 @@ shape = SubResource( 3 )
 [node name="Blocker_bulkhead" type="StaticBody" parent="."]
 
 [node name="Col" type="CollisionShape" parent="Blocker_bulkhead"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 6 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.19286, 6 )
 shape = SubResource( 4 )
 
 [node name="Socket_In_A" type="Position3D" parent="."]

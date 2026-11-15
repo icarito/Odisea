@@ -25,6 +25,7 @@ const PLATFORM_INSET := 0.8
 const SHORT_PLATFORM := 4.0       # por debajo de este largo hay que frenar en el aire
 const FULL_JUMP_RISE := 0.5
 const FULL_JUMP_DIST := 4.0
+const MIN_PACE := 0.3             # fraccion minima de v_run al regular la cadencia
 
 var enabled := false
 var idle_seconds := 0.5
@@ -39,6 +40,7 @@ var _active := false
 var _jump_held := false
 var _stuck_ticks := 0
 var _full_jump := true
+var _air_pace := 1.0
 
 
 func setup(body: KinematicBody) -> void:
@@ -107,6 +109,12 @@ func apply(d: InputDataV2) -> void:
 		dist = to_target.length()
 		dy = target.y - pos.y
 
+	var lane: Vector3 = _lane_first(pos)
+	if lane != Vector3.INF:
+		target = lane
+		to_target = Vector3(target.x - pos.x, 0.0, target.z - pos.z)
+		dist = to_target.length()
+		dy = 0.0
 	var dir: Vector3 = to_target.normalized() if dist > 0.01 else Vector3.ZERO
 	var vel: Vector3 = body.get("velocity")
 	var h_vel := Vector3(vel.x, 0.0, vel.z)
@@ -118,12 +126,27 @@ func apply(d: InputDataV2) -> void:
 			and dist <= h_speed * h_speed / (2.0 * a_air) + 0.15:
 		d.move_vec = _to_move_vec(body, -h_vel.normalized())
 	else:
-		d.move_vec = _to_move_vec(body, dir)
+		# Hacia una plataforma corta se regula la velocidad para que UN toque de salto caiga
+		# sobre el punto de mira: cadencia continua en vez de correr a fondo y frenar en seco.
+		# Solo de plataforma corta a plataforma corta (ahi hay salto seguro); el ritmo se fija
+		# en el suelo y se conserva en el aire: recalcularlo en vuelo lo iria frenando.
+		var pace: float = _air_pace
+		if on_floor:
+			pace = 1.0
+			if lane == Vector3.INF and _index > 0 and _is_short(_waypoints[_index]) \
+					and _is_short(_waypoints[_index - 1]):
+				var air: float = _tap_air_time(dy) if _tap_reaches(dist, dy) else _fm.t_air(-1.0, dy)
+				pace = clamp(dist / max(air, 0.1) / _fm.run_speed(), MIN_PACE, 1.0)
+			_air_pace = pace
+		d.move_vec = _to_move_vec(body, dir) * pace
 		d.sprint = true
 
 	if on_floor:
 		_jump_held = false
-		_full_jump = dy > FULL_JUMP_RISE or dist > FULL_JUMP_DIST
+		if _is_short(_waypoints[_index]):
+			_full_jump = not _tap_reaches(dist, dy)
+		else:
+			_full_jump = dy > FULL_JUMP_RISE or dist > FULL_JUMP_DIST
 		_stuck_ticks = _stuck_ticks + 1 if h_speed < 0.5 else 0
 		var reach: float = max(h_speed, _fm.walk_speed()) * _fm.t_air(-1.0, dy) * REACH_MARGIN
 		var climb: bool = dy > STEP_HEIGHT and dist <= reach
@@ -134,6 +157,38 @@ func apply(d: InputDataV2) -> void:
 		_jump_held = false
 	# Salto completo (sostenido mientras sube) solo si hace falta; si no, un toque.
 	d.jump = _jump_held
+
+
+# Tiempo en el aire de un toque de salto (corte a v_cut tras MIN_JUMP_TIME) que cae `dy` arriba.
+func _tap_air_time(dy: float) -> float:
+	var g: float = _fm.gravity
+	var v_cut: float = _fm.jump_force * _fm.min_jump_intensity
+	return _fm.min_jump_time + v_cut / g + sqrt(max(2.0 * (_fm.h_tap() - dy), 0.0) / g)
+
+
+# Un toque alcanza si no hay que subir y la velocidad que exige queda holgada bajo v_run.
+func _tap_reaches(dist: float, dy: float) -> bool:
+	return dy <= FULL_JUMP_RISE and dist / max(_tap_air_time(dy), 0.1) <= 0.9 * _fm.run_speed()
+
+
+# Carril primero: si la plataforma destino empieza mas adelante y la actual llega hasta ahi,
+# se avanza recto por la actual y recien entonces se cruza de costado. Cortar en diagonal
+# atraviesa lo que haya entre ambas (un mamparo, el canto de una rampa).
+# ponytail: asume avance hacia +Z en el marco del registro, igual que _aim.
+func _lane_first(pos: Vector3) -> Vector3:
+	if _index == 0:
+		return Vector3.INF
+	var wp: Dictionary = _waypoints[_index]
+	var prev: Dictionary = _waypoints[_index - 1]
+	if not wp.has("size") or not prev.has("size") or wp.has("rise") or prev.has("rise"):
+		return Vector3.INF
+	if abs(wp["position"].x - prev["position"].x) < 0.1:
+		return Vector3.INF
+	var z_in: float = wp["position"].z - max(wp["size"].z * 0.5 - PLATFORM_INSET, 0.0)
+	var prev_end: float = prev["position"].z + prev["size"].z * 0.5
+	if pos.z < z_in - 0.05 and prev_end >= z_in + 0.2:
+		return Vector3(pos.x, pos.y, z_in + 0.2)
+	return Vector3.INF
 
 
 # Con size se exige estar bien adentro de la plataforma (no en el borde); sin size, el radio.

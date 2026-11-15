@@ -26,6 +26,9 @@ func after_test() -> void:
 
 
 func _find_seed(m: Dictionary, count: int) -> int:
+	# SCAFFOLD_RUN_SEED=<n> fuerza una semilla (exploracion manual de otras rutas).
+	if OS.get_environment("SCAFFOLD_RUN_SEED") != "":
+		return int(OS.get_environment("SCAFFOLD_RUN_SEED"))
 	# Primera semilla cuyo tramo ejercita hueco, cadencia, rampa y desvios.
 	for s in range(1000, 1400):
 		var ids: Array = Registry.sequence(s, count)

@@ -122,8 +122,10 @@ static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 			c["nodes"] = [_deck("a", 0.0, 6.0), _deck("s", 3.0, 9.0, 0.0, side), _deck("b", 6.0, l)]
 			c["edges"] = [_edge("a", "s", 0.0), _edge("s", "b", 0.0),
 				_edge("a", "b", 0.0, 0.0, {"requires_tool": true, "tags": ["LaserCut"]})]
-			c["blockers"] = [{"id": "bulkhead", "position": Vector3(0.0, 1.2, 6.0),
-				"size": Vector3(WALKWAY_WIDTH, 2.4, 0.3), "cuttable": true}]
+			# Mas alto que el salto: si se puede saltar por encima, el laser no hace falta.
+			var bulk_h: float = TOOL_RATIO * h_max(m)
+			c["blockers"] = [{"id": "bulkhead", "position": Vector3(0.0, bulk_h * 0.5, 6.0),
+				"size": Vector3(WALKWAY_WIDTH, bulk_h, 0.3), "cuttable": true}]
 			c["out"] = "b"
 		"diorama_mag_cart":
 			c["nodes"] = [_deck("a", 0.0, l), _deck("rail", l - 1.0, l, 0.0, -side)]

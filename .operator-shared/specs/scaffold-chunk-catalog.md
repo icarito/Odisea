@@ -25,6 +25,8 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
   a 60 Hz y a 30 Hz.
 - Los sockets laterales `S` (estación) y `R` (riel) nunca están en la ruta principal.
 - Un diorama siempre lleva pasarela peatonal `A → A` de paso.
+- Un atajo de herramienta es **físicamente imposible a pie**: toda caja que lo cierra
+  (`blockers`) mide `1.20·H_max` de alto. Un mamparo que se puede saltar no exige láser.
 - Misma semilla ⇒ mismo grafo y mismos waypoints. El generador usa un LCG propio.
 - El primer y el último chunk de un tramo son `scaffold_sprint_chute`.
 
