@@ -219,9 +219,26 @@ Measure (Anbernic): `tools/anbernic_probe.sh <etiqueta> [segundos] [shots]` — 
 One full frame can lie (a single completed frame then failure) — coverage must be judged
 on the series.
 
+## Capturar el juego corriendo (receta única)
+
+Para "mostrame cómo se ve el juego ahora" usar `tools/shot.sh` (ver
+`docs/agents/tooling.md`, sección "Capturas: una sola receta"). Reutiliza el juego de
+este worktree o lo arranca, captura apuntando a su propio `player_id` (aislado por
+instancia), reduce a ≤800 px y guarda en `--out` o en el directorio de artifacts de la
+sesión:
+
+```bash
+tools/shot.sh
+tools/shot.sh --scene res://core_v2/levels/RingHub_Level.tscn --pos "0,2,0"
+tools/shot.sh --headless        # sin ventana en el :0 del usuario
+```
+
+No escribir harnesses `tools/*shot*.gd` nuevos ni abrir ventanas sueltas. `capture_vision`
+(MCP/ANNA V1) queda como legado; la captura canónica es `tools/shot.sh`.
+
 ## Comunicar resultados visuales
 
-- Después de `capture_vision {"include_base64": true}` → mostrar la imagen inline en el chat inmediatamente.
+- Después de `tools/shot.sh` (o `capture_vision {"include_base64": true}` legado) → mostrar la imagen inline en el chat inmediatamente.
 - Después de `test_prop.sh` o `test_ui.sh` → leer el PNG con el Read tool y mostrarlo inline. VS Code renderiza PNGs.
 - **No uses la screenshot para deducir posiciones/propiedades** — para eso está `inspect_node`.
 - Cuando corresponda, reportar ambos: "Elías está en (x, y, z) [de inspect_node] y así se ve la escena: [img]"
