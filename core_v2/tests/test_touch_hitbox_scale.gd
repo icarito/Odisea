@@ -51,6 +51,11 @@ var _saved_is_mobile := false
 var _saved_is_touch_active := false
 var _saved_touch_seen := false
 var _saved_is_zero_g := false
+var _saved_render_resolution := Vector2(800, 600)
+var _saved_render_scale := 1.0
+var _saved_render_resolution_user_set := false
+var _saved_render_scale_user_set := false
+var _saved_full_resolution_holders := {}
 
 func before_test() -> void:
 	_reset_inputs()
@@ -60,6 +65,15 @@ func before_test() -> void:
 	_saved_is_touch_active = _mgr._is_touch_active
 	_saved_touch_seen = _mgr._touch_seen
 	_saved_is_zero_g = _mgr._is_zero_g
+	# SettingsManager es un autoload compartido entre suites: guardar TODO lo que toca el test
+	# (valores, flags y holders) para devolverlo exactamente igual al terminar.
+	var settings = get_node_or_null("/root/SettingsManager")
+	if settings != null:
+		_saved_render_resolution = settings.render_resolution
+		_saved_render_scale = settings.render_scale
+		_saved_render_resolution_user_set = settings._render_resolution_user_set
+		_saved_render_scale_user_set = settings._render_scale_user_set
+		_saved_full_resolution_holders = settings._full_resolution_holders.duplicate()
 	_mgr._is_mobile = true
 	_mgr._is_touch_active = true
 	_mgr._touch_seen = true
@@ -114,6 +128,26 @@ func test_un_toque_en_el_centro_activa_el_boton_en_cada_escala() -> void:
 					% [btn.name, str(center), str(resolution), scale,
 						_effective_scale(), holder]).is_equal(TOUCH_INDEX)
 
+# El cleanup no debe dejar SettingsManager cambiado para las suites que corren despues en el mismo
+# proceso (el autoload es compartido): valores, flags y holders vuelven tal cual estaban.
+func test_el_cleanup_restaura_la_configuracion_de_settings() -> void:
+	var settings = get_node_or_null("/root/SettingsManager")
+	assert_object(settings).is_not_null()
+	var before_resolution: Vector2 = settings.render_resolution
+	var before_scale: float = settings.render_scale
+	var before_res_user: bool = settings._render_resolution_user_set
+	var before_scale_user: bool = settings._render_scale_user_set
+	var before_holders: Dictionary = settings._full_resolution_holders.duplicate()
+
+	_apply_display(Vector2(640, 480), 0.6)
+	_restore_display()
+
+	assert_vector2(settings.render_resolution).is_equal(before_resolution)
+	assert_float(settings.render_scale).is_equal_approx(before_scale, 0.0001)
+	assert_bool(settings._render_resolution_user_set).is_equal(before_res_user)
+	assert_bool(settings._render_scale_user_set).is_equal(before_scale_user)
+	assert_dict(settings._full_resolution_holders).is_equal(before_holders)
+
 func _touch_holder(target) -> String:
 	for path in BUTTONS:
 		var other = _mobile_ui.get_node(path)
@@ -167,9 +201,11 @@ func _restore_display() -> void:
 	var settings = get_node_or_null("/root/SettingsManager")
 	if settings == null:
 		return
-	settings._render_resolution_user_set = false
-	settings._render_scale_user_set = false
-	settings._full_resolution_holders.clear()
+	settings.render_resolution = _saved_render_resolution
+	settings.render_scale = _saved_render_scale
+	settings._render_resolution_user_set = _saved_render_resolution_user_set
+	settings._render_scale_user_set = _saved_render_scale_user_set
+	settings._full_resolution_holders = _saved_full_resolution_holders
 	settings.apply_render_resolution()
 
 func _effective_scale() -> float:
