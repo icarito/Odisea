@@ -23,6 +23,8 @@ const H_NOM_RATIO := 0.75        # desnivel de la linea principal
 const TOOL_RATIO := 1.20         # por encima: imposible a pie
 const RHYTHM_GAP_RATIO := 0.55   # WFC_FLOW_METRICS §5 RhythmSteps
 const SOCKET_REACH_RATIO := 0.95 # WFC_FLOW_METRICS §5 CuratedSocket (0.90-1.00)
+# Grados de peralte por segmento igual a lo largo del chunk (borde +X arriba).
+const BANK_PROFILE_DEG := [5.0, 10.0, 15.0, 15.0, 10.0, 5.0]
 const LANDING := 2.5             # tramo minimo de carrera antes/despues de un hueco
 
 # [id, familia]. El peso de la familia se reparte entre sus miembros.
@@ -76,9 +78,13 @@ static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 		"scaffold_sprint_chute":
 			c["nodes"] = [_deck("a", 0.0, l)]
 		"scaffold_curved_bank":
-			c["nodes"] = [_deck("a", 0.0, l)]
+			# Peralte SOLO VISUAL para la ruta: la pasarela se inclina de verdad (malla y
+			# colision) alrededor de su linea central, pero entra y sale plana, asi que el
+			# grafo, los waypoints y el socket de salida son los de un tramo recto.
+			var banked: Dictionary = _deck("a", 0.0, l)
+			banked["roll_profile"] = BANK_PROFILE_DEG
+			c["nodes"] = [banked]
 			c["bank_deg"] = 15.0
-			c["out_socket"] = "A_Curved_15"
 		"scaffold_triple_cadence":
 			var pad := 1.5
 			var gap: float = min(RHYTHM_GAP_RATIO * d, (l - 4.0 * pad) / 3.0)
@@ -169,7 +175,6 @@ static func sequence(seed_val: int, count: int) -> Array:
 static func generate(seed_val: int, count: int, m: Dictionary) -> Dictionary:
 	var graph := {"entry": "", "exit": "", "nodes": [], "edges": [], "placements": []}
 	var base := Vector3.ZERO
-	var bank := 0.0
 	var prev_out := ""
 	var ids: Array = sequence(seed_val, count)
 	for i in range(ids.size()):
@@ -191,8 +196,7 @@ static func generate(seed_val: int, count: int, m: Dictionary) -> Dictionary:
 		else:
 			graph["edges"].append(_edge(prev_out, in_id, 0.0))
 		prev_out = prefix + str(c["out"])
-		graph["placements"].append({"index": i, "id": ids[i], "origin": base, "bank_deg": bank, "side_outs": c["side_outs"]})
+		graph["placements"].append({"index": i, "id": ids[i], "origin": base, "bank_deg": c["bank_deg"], "side_outs": c["side_outs"]})
 		base += Vector3(0.0, float(c["dy"]), CHUNK_LENGTH)
-		bank += float(c["bank_deg"])
 	graph["exit"] = prev_out
 	return graph

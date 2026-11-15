@@ -29,6 +29,20 @@ func test_every_chunk_scene_matches_the_registry() -> void:
 
 		# Superficie caminable: la tapa de cada caja es la del nodo del registro.
 		for n in chunk["nodes"]:
+			# Pasarela peraltada: un segmento por entrada del perfil, todos con la linea
+			# central a la altura del nodo (el peralte gira sobre ella, no la mueve).
+			var profile: Array = n.get("roll_profile", [])
+			if not profile.empty():
+				for i in range(profile.size()):
+					var seg: CollisionShape = scene.get_node_or_null("Collision/Col_%s_%d" % [n["id"], i])
+					assert_object(seg).override_failure_message("%s: falta Col_%s_%d" % [id, n["id"], i]).is_not_null()
+					if seg == null:
+						continue
+					var seg_top: Vector3 = seg.transform.origin + seg.transform.basis.y * (seg.shape as BoxShape).extents.y
+					assert_float(abs(seg_top.y - n["position"].y)).is_less(TOL)
+					assert_float(abs(seg_top.x - n["position"].x)).is_less(TOL)
+					assert_float(abs(rad2deg(seg.transform.basis.get_euler().z) - float(profile[i]))).is_less(0.1)
+				continue
 			var col: CollisionShape = scene.get_node_or_null("Collision/Col_" + str(n["id"]))
 			assert_object(col).override_failure_message("%s: falta Col_%s" % [id, n["id"]]).is_not_null()
 			if col == null:

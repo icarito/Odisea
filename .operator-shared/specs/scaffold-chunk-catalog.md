@@ -12,6 +12,11 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 - **Es una cadena 1D, no una rejilla WFC.** Todo chunk entra por socket `A` y su salida
   principal casa con el `A` del siguiente arrastrando un desplazamiento (`dy`, `bank_deg`).
   `A_High` y `A_Curved_15` no son tipos que exijan pareja: son ese desplazamiento.
+  El peralte de `scaffold_curved_bank` es **solo visual para la ruta** (decisión del
+  2026-11-15): la pasarela se inclina de verdad —malla y colisión— alrededor de su línea
+  central con el perfil `roll_profile` (5-10-15-15-10-5°), pero entra y sale plana, así que
+  el grafo, los waypoints y el socket de salida (`A`) son los de un tramo recto. No hay giro
+  de rumbo ni ruta helicoidal.
   `WFCSolverCore` (rejilla 2D de losetas) sigue siendo el generador de `MachineBay` y de
   `ScaffoldStreamController`; no se reemplaza.
 - **Los tamaños se derivan de las métricas** con las funciones de `FlowRouteValidator`, no
@@ -70,8 +75,6 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 
 - Los `Dyn_*` y los `Blocker_*` cortables son malla y caja estáticas: falta cablearlos a los
   props reales (`LaserGate`, `GlooSpan`, cuerda, carro).
-- `bank_deg` (`scaffold_curved_bank`) se registra en el placement pero nada lo usa: falta
-  decidir si es un giro de rumbo (ruta helicoidal) o un peralte visual.
 - Consumidor en runtime (streaming de un tramo por semilla dentro de un nivel).
 
 ## Proyección orbital

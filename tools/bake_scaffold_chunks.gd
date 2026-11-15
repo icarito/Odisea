@@ -87,7 +87,16 @@ func _bake(id: String, chunk: Dictionary) -> bool:
 	body.name = "Collision"
 	_adopt(root, body)
 	for n in chunk["nodes"]:
-		_add_box(root, body, "Col_" + str(n["id"]), n["position"], n["size"], float(n.get("rise", 0.0)), true)
+		var profile: Array = n.get("roll_profile", [])
+		if profile.empty():
+			_add_box(root, body, "Col_" + str(n["id"]), n["position"], n["size"], float(n.get("rise", 0.0)), true)
+			continue
+		# Pasarela peraltada: un segmento por entrada del perfil, girado sobre la linea central.
+		var seg_len: float = n["size"].z / float(profile.size())
+		for i in range(profile.size()):
+			var z: float = n["position"].z - n["size"].z * 0.5 + seg_len * (float(i) + 0.5)
+			_add_box(root, body, "Col_%s_%d" % [str(n["id"]), i], Vector3(n["position"].x, n["position"].y, z),
+				Vector3(n["size"].x, n["size"].y, seg_len), 0.0, true, float(profile[i]))
 	for b in chunk["blockers"]:
 		var blocker := StaticBody.new()
 		blocker.name = "Blocker_" + str(b["id"])
@@ -120,11 +129,12 @@ func _bake(id: String, chunk: Dictionary) -> bool:
 
 # `position` es el centro de la superficie caminable (deck) o el centro de la caja (blocker).
 # Una rampa sube `rise` a lo largo de +Z.
-func _add_box(root: Node, body: Node, shape_name: String, position: Vector3, size: Vector3, rise: float, is_deck: bool) -> void:
+func _add_box(root: Node, body: Node, shape_name: String, position: Vector3, size: Vector3, rise: float,
+		is_deck: bool, roll_deg: float = 0.0) -> void:
 	var col := CollisionShape.new()
 	col.name = shape_name
 	var box := BoxShape.new()
-	var basis := Basis(Vector3.RIGHT, -atan2(rise, size.z))
+	var basis := Basis(Vector3(0.0, 0.0, 1.0), deg2rad(roll_deg)) * Basis(Vector3.RIGHT, -atan2(rise, size.z))
 	var thickness: float = DECK_THICKNESS if is_deck else size.y
 	box.extents = Vector3(size.x, thickness, Vector2(size.z, rise).length()) * 0.5
 	col.shape = box

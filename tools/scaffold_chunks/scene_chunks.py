@@ -16,7 +16,7 @@ import math
 import os
 
 import bpy
-from mathutils import Vector
+from mathutils import Quaternion, Vector
 
 from odisea_lib import apply_mat, mat_interactable_cyan, mat_matte_plastic, mat_warning_yellow
 
@@ -37,6 +37,22 @@ POST = 0.07
 SPINE_DROP = 1.8
 
 M = {}
+# Peralte en curso: (radianes, x, y) = giro sobre el eje de avance alrededor de ese punto.
+# prism() y box() lo aplican a todo lo que se construya mientras este puesto.
+ROLL = None
+
+
+def rolled(p):
+    if ROLL is None:
+        return p
+    phi, px, py = ROLL
+    dx, dy = p[0] - px, p[1] - py
+    return (px + dx * math.cos(phi) - dy * math.sin(phi), py + dx * math.sin(phi) + dy * math.cos(phi), p[2])
+
+
+def roll_quat():
+    # Giro sobre +Z de Godot = sobre -Y de Blender.
+    return Quaternion((0.0, 1.0, 0.0), -ROLL[0]) if ROLL is not None else Quaternion()
 
 
 def g2b(p):
@@ -46,24 +62,30 @@ def g2b(p):
 
 def prism(name, p0, p1, w, h, mat, dx=0.0, dy=0.0):
     """Barra de seccion w x h entre dos puntos Godot, desplazada (dx lateral, dy vertical)."""
-    a = g2b((p0[0] + dx, p0[1] + dy, p0[2]))
-    b = g2b((p1[0] + dx, p1[1] + dy, p1[2]))
+    a = g2b(rolled((p0[0] + dx, p0[1] + dy, p0[2])))
+    b = g2b(rolled((p1[0] + dx, p1[1] + dy, p1[2])))
     d = b - a
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(a + b) / 2.0)
     o = bpy.context.active_object
     o.name = name
     o.scale = (w, d.length, h)
-    o.rotation_euler = d.to_track_quat("Y", "Z").to_euler()
+    # El track quat ya orienta el eje largo; para barras a lo largo del avance hay que sumar
+    # el giro de peralte sobre ese eje (las verticales ya quedan inclinadas por sus extremos).
+    quat = d.to_track_quat("Y", "Z")
+    if ROLL is not None and abs(d.normalized().y) > 0.9:
+        quat = roll_quat() @ quat
+    o.rotation_euler = quat.to_euler()
     apply_mat(o, M[mat])
     return o
 
 
 def box(name, center, size, mat):
     """Caja alineada a los ejes: centro y tamano en Godot (x, y, z)."""
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=g2b(center))
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=g2b(rolled(center)))
     o = bpy.context.active_object
     o.name = name
     o.scale = (size[0], size[2], size[1])
+    o.rotation_euler = roll_quat().to_euler()
     apply_mat(o, M[mat])
     return o
 
@@ -211,10 +233,6 @@ def extras(c):
     if cid == "scaffold_sprint_chute":
         for s in (-1, 1):
             box(f"Lane_{s}", (s * 0.85, 0.012, L / 2.0), (0.06, 0.02, L - 1.0), "cyan")
-    elif cid == "scaffold_curved_bank":
-        box("Kerb", (W / 2.0 - 0.1, 0.12, L / 2.0), (0.2, 0.24, L), "yellow")
-        for i in range(5):
-            box(f"Chevron_{i}", (-0.2, 0.012, 1.5 + i * 2.25), (W - 0.9, 0.02, 0.2), "yellow")
     elif cid == "scaffold_triple_cadence":
         for n in c["nodes"]:
             x, y, z = n["position"]
@@ -278,8 +296,24 @@ def build():
               "yellow": mat_warning_yellow(), "cyan": mat_interactable_cyan(),
               "cable": mat_matte_plastic("M_Cable", base=(0.08, 0.08, 0.09))})
     c = DATA["chunks"][CHUNK]
+    global ROLL
     for n in c["nodes"]:
-        deck(n, c["nodes"])
+        profile = n.get("roll_profile")
+        if not profile:
+            deck(n, c["nodes"])
+            continue
+        # Pasarela peraltada: un tramo por entrada del perfil, girado sobre la linea central.
+        x, y, z = n["position"]
+        seg = n["size"][2] / len(profile)
+        parts = [{"id": f"{n['id']}{i}", "position": [x, y, z - n["size"][2] / 2.0 + seg * (i + 0.5)],
+                  "size": [n["size"][0], n["size"][1], seg]} for i in range(len(profile))]
+        for part, deg in zip(parts, profile):
+            ROLL = (math.radians(deg), x, y)
+            deck(part, parts)
+            pz = part["position"][2]
+            box(f"Kerb_{part['id']}", (x + W / 2.0 - 0.1, y + 0.12, pz), (0.2, 0.24, seg), "yellow")
+            box(f"Chevron_{part['id']}", (x - 0.2, y + 0.012, pz), (W - 0.9, 0.02, 0.2), "yellow")
+            ROLL = None
     truss(c["nodes"])
     portal()
     blockers(c)

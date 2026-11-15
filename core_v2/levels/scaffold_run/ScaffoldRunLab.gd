@@ -19,7 +19,7 @@ const PILOT_SCENE := preload("res://core_v2/actors/Pilot_v2.tscn")
 const CHUNK_DIR := "res://core_v2/props/scaffold/chunks/"
 const SHOT_DIR := "res://test_output/scaffold_run/"
 const SHOT_SIZE := Vector2(960.0, 540.0)
-const SHOT_EVERY_TICKS := 200
+const SHOT_EVERY_TICKS := 100
 const SPAWN := Vector3(0.0, 0.1, 1.0)
 const FALL_LIMIT := 25.0
 
@@ -135,6 +135,6 @@ func _physics_process(_delta: float) -> void:
 		img.flip_y()
 		img.save_png(ProjectSettings.globalize_path(SHOT_DIR + "run_%02d.png" % _shots))
 		_shots += 1
-		if _autopilot.is_finished() or _shots >= 14:
+		if _autopilot.is_finished() or _shots >= 28:
 			print("[scaffold_lab] %d capturas, terminado=%s" % [_shots, str(_autopilot.is_finished())])
 			get_tree().quit()
