@@ -1,0 +1,71 @@
+// core_v2/tests/test_flow_metrics.oys
+//
+// Transit-Run / WFC flow metrics - verificacion EN EL MOTOR (OYS).
+//
+// Complementa core_v2/tests/test_flow_metrics.gd. Aca el input entra por el override real de
+// SessionManager (las mismas acciones del InputMap que lee el InputProviderV2) sobre un pilot
+// real, y las constantes se LEEN de Pilot_v2.tscn en runtime (GET_NODE_PROP); nada se
+// hardcodea. Corre al tick por defecto del motor (60 Hz); el caso 30 Hz lo cubre el test
+// GdUnit, que fija Engine.iterations_per_second.
+//
+// No se toca ninguna velocidad privada: solo se pide movimiento/salto y se leen posicion.
+//
+// Nota de diseno: las constantes se leen para evidencia (PRINT) pero NO se asertan contra su
+// valor leido, porque el replay JSON de PASS 2 re-ejecuta los comandos sin busqueda de nodo
+// (GET_NODE_PROP devuelve 0 ahi). Los asserts van sobre medidas de posicion, que si se
+// reproducen en ambos pases. La procedencia de las constantes la cubre el test GdUnit.
+
+LEVEL core_v2/levels/TestScene_v2.tscn
+WAIT 1.0
+
+// --- Constantes leidas de la escena (evidencia) ---
+SET $jump_force GET_NODE_PROP "Jump" "jump_force"
+SET $gravity GET_NODE_PROP "Jump" "gravity"
+SET $min_intensity GET_NODE_PROP "Jump" "min_jump_intensity"
+SET $move_speed GET_NODE_PROP "Movement" "move_speed"
+SET $run_mult GET_NODE_PROP "Movement" "run_speed_multiplier"
+MATH $run_speed $move_speed * $run_mult
+PRINT "constantes escena: jump_force=" + $jump_force + " gravity=" + $gravity + " run_speed=" + $run_speed
+
+// --- H_max: salto vertical completo, muestreado cerca del apice (~0.72 s tras despegar) ---
+WAIT 0.5
+SET $y0 AS pos.y
+JUMP 0.5
+WAIT 0.22
+SET $y_apex AS pos.y
+MATH $h_max $y_apex - $y0
+PRINT "H_max medido (OYS, 60 Hz) = " + $h_max
+ASSERT $h_max > 3.3 "H_max demasiado bajo"
+ASSERT $h_max < 4.0 "H_max demasiado alto"
+WAIT 1.0
+
+// --- H_tap: salto corto (soltar tras MIN_JUMP_TIME), apice ~0.43 s tras despegar ---
+SET $y0 AS pos.y
+JUMP 0.1
+WAIT 0.33
+SET $y_apex AS pos.y
+MATH $h_tap $y_apex - $y0
+PRINT "H_tap medido (OYS, 60 Hz) = " + $h_tap
+ASSERT $h_tap > 1.7 "H_tap demasiado bajo"
+ASSERT $h_tap < 2.7 "H_tap demasiado alto"
+WAIT 1.0
+
+// --- Carrera y frenado: distancia horizontal en 1 s de carrera y distancia de frenado ---
+SET $z0 AS pos.z
+FW 1.0s
+SET $z1 AS pos.z
+MATH $d_run $z0 - $z1
+MATH $d_run_abs 0 - $d_run
+PRINT "distancia 1 s de carrera = " + $d_run_abs
+ASSERT $d_run_abs > 5.2 "carrera demasiado corta"
+ASSERT $d_run_abs < 7.6 "carrera demasiado larga"
+WAIT 0.6
+SET $z2 AS pos.z
+MATH $d_brake $z1 - $z2
+MATH $d_brake_abs 0 - $d_brake
+PRINT "distancia de frenado = " + $d_brake_abs
+ASSERT $d_brake_abs > 0.3 "frenado demasiado corto"
+ASSERT $d_brake_abs < 1.8 "frenado demasiado largo"
+
+PRINT "flow_metrics OYS: OK (H_max, H_tap, carrera y frenado dentro de rango)"
+END
