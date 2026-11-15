@@ -1,0 +1,101 @@
+[gd_scene load_steps=12 format=2]
+
+[ext_resource path="res://core_v2/levels/bay_vertical/GlooSpan.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scaffold/chunks/g08/scaffold_catenary_span.mesh" type="ArrayMesh" id=2]
+[ext_resource path="res://core_v2/props/scaffold/chunks/g08/scaffold_catenary_span_dyn.mesh" type="ArrayMesh" id=3]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 1.25, 0.15, 0.5 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 0.05, 0.3, 0.5 )
+
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 1.25, 0.15, 1.75 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 0.05, 0.3, 1.75 )
+
+[sub_resource type="BoxShape" id=5]
+extents = Vector3( 1.25, 0.15, 1.75 )
+
+[sub_resource type="BoxShape" id=6]
+extents = Vector3( 0.05, 0.3, 1.75 )
+
+[sub_resource type="BoxShape" id=7]
+extents = Vector3( 1.25, 0.15, 0.5 )
+
+[sub_resource type="BoxShape" id=8]
+extents = Vector3( 0.05, 0.3, 0.5 )
+
+[node name="scaffold_catenary_span" type="Spatial"]
+__meta__ = {
+"chunk_id": "scaffold_catenary_span",
+"sockets": {
+"In_A": {
+"position": Vector3( 0, 0, 0 ),
+"type": "A"
+},
+"Out_A": {
+"bank_deg": 0.0,
+"position": Vector3( 0, 0, 12 ),
+"type": "A"
+}
+}
+}
+
+[node name="Mesh" type="MeshInstance" parent="."]
+mesh = ExtResource( 2 )
+
+[node name="Dyn" type="MeshInstance" parent="."]
+mesh = ExtResource( 3 )
+
+[node name="Collision" type="StaticBody" parent="."]
+
+[node name="Col_a" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 0.5 )
+shape = SubResource( 1 )
+
+[node name="Rail_a_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0.3, 0.5 )
+shape = SubResource( 2 )
+
+[node name="Col_s1" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, -0.15, 3.25 )
+shape = SubResource( 3 )
+
+[node name="Rail_s1_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.7, 0.3, 3.25 )
+shape = SubResource( 4 )
+
+[node name="Col_s2" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, -0.15, 8.75 )
+shape = SubResource( 5 )
+
+[node name="Rail_s2_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.7, 0.3, 8.75 )
+shape = SubResource( 6 )
+
+[node name="Col_b" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 11.5 )
+shape = SubResource( 7 )
+
+[node name="Rail_b_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0.3, 11.5 )
+shape = SubResource( 8 )
+
+[node name="Span_gloo_bridge" type="Area" parent="."]
+script = ExtResource( 1 )
+required_blobs = 3
+span_from = Vector3( 0, 0, 1 )
+span_to = Vector3( 0, 0, 11 )
+span_is_local = true
+span_height = 0.0
+bridge_width = 2.2
+bridge_thickness = 0.18
+cured_color = Color( 0.3, 0.75, 0.65, 1 )
+
+[node name="Socket_In_A" type="Position3D" parent="."]
+
+[node name="Socket_Out_A" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12 )

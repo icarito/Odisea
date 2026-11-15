@@ -1,0 +1,81 @@
+[gd_scene load_steps=9 format=2]
+
+[ext_resource path="res://core_v2/levels/bay_vertical/LaserGate.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/scaffold/chunks/g08/scaffold_laser_choke.mesh" type="ArrayMesh" id=2]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 1.25, 0.15, 3 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 0.05, 0.3, 3 )
+
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 1.25, 0.15, 3 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 0.05, 0.3, 3 )
+
+[sub_resource type="BoxShape" id=5]
+extents = Vector3( 1.25, 0.15, 3 )
+
+[sub_resource type="BoxShape" id=6]
+extents = Vector3( 0.05, 0.3, 3 )
+
+[node name="scaffold_laser_choke" type="Spatial"]
+__meta__ = {
+"chunk_id": "scaffold_laser_choke",
+"sockets": {
+"In_A": {
+"position": Vector3( 0, 0, 0 ),
+"type": "A"
+},
+"Out_A": {
+"bank_deg": 0.0,
+"position": Vector3( 0, 0, 12 ),
+"type": "A"
+}
+}
+}
+
+[node name="Mesh" type="MeshInstance" parent="."]
+mesh = ExtResource( 2 )
+
+[node name="Collision" type="StaticBody" parent="."]
+
+[node name="Col_a" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 3 )
+shape = SubResource( 1 )
+
+[node name="Rail_a_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0.3, 3 )
+shape = SubResource( 2 )
+
+[node name="Col_s" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, -0.15, 6 )
+shape = SubResource( 3 )
+
+[node name="Rail_s_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.7, 0.3, 6 )
+shape = SubResource( 4 )
+
+[node name="Col_b" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 9 )
+shape = SubResource( 5 )
+
+[node name="Rail_b_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0.3, 9 )
+shape = SubResource( 6 )
+
+[node name="Blocker_bulkhead" type="StaticBody" parent="."]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 3.8, 6 )
+script = ExtResource( 1 )
+cut_time = 2.5
+cool_rate = 0.4
+panel_size = Vector3( 0.3, 7.6, 2.5 )
+panel_color = Color( 0.35, 0.4, 0.5, 1 )
+heat_color = Color( 1, 0.35, 0.12, 1 )
+
+[node name="Socket_In_A" type="Position3D" parent="."]
+
+[node name="Socket_Out_A" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12 )

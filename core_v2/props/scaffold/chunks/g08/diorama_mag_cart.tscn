@@ -1,0 +1,68 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/props/scaffold/chunks/g08/diorama_mag_cart.mesh" type="ArrayMesh" id=1]
+[ext_resource path="res://core_v2/props/scaffold/chunks/g08/diorama_mag_cart_dyn.mesh" type="ArrayMesh" id=2]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 1.25, 0.15, 6 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 0.05, 0.3, 6 )
+
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 1.25, 0.15, 0.5 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 0.05, 0.3, 0.5 )
+
+[node name="diorama_mag_cart" type="Spatial"]
+__meta__ = {
+"chunk_id": "diorama_mag_cart",
+"sockets": {
+"In_A": {
+"position": Vector3( 0, 0, 0 ),
+"type": "A"
+},
+"Out_A": {
+"bank_deg": 0.0,
+"position": Vector3( 0, 0, 12 ),
+"type": "A"
+},
+"Out_R": {
+"position": Vector3( -2.5, 0, 11.5 ),
+"type": "R"
+}
+}
+}
+
+[node name="Mesh" type="MeshInstance" parent="."]
+mesh = ExtResource( 1 )
+
+[node name="Dyn" type="MeshInstance" parent="."]
+mesh = ExtResource( 2 )
+
+[node name="Collision" type="StaticBody" parent="."]
+
+[node name="Col_a" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 6 )
+shape = SubResource( 1 )
+
+[node name="Rail_a_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.3, 6 )
+shape = SubResource( 2 )
+
+[node name="Col_rail" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, -0.15, 11.5 )
+shape = SubResource( 3 )
+
+[node name="Rail_rail_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.7, 0.3, 11.5 )
+shape = SubResource( 4 )
+
+[node name="Socket_In_A" type="Position3D" parent="."]
+
+[node name="Socket_Out_A" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12 )
+
+[node name="Socket_Out_R" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0, 11.5 )

@@ -26,7 +26,12 @@ const RHYTHM_GAP_RATIO := 0.55   # WFC_FLOW_METRICS §5 RhythmSteps
 const SOCKET_REACH_RATIO := 0.95 # WFC_FLOW_METRICS §5 CuratedSocket (0.90-1.00)
 # Grados de peralte por segmento igual a lo largo del chunk (borde +X arriba).
 const BANK_PROFILE_DEG := [5.0, 10.0, 15.0, 15.0, 10.0, 5.0]
-const LANDING := 2.5             # tramo minimo de carrera antes/despues de un hueco
+const LANDING := 2.5
+const SCENE_DIR := "res://core_v2/props/scaffold/chunks/"
+# Gravedades (m/s2) para las que hay escenas horneadas. 14 es la del piloto.
+const GRAVITY_TIERS := [8.0, 14.0, 20.0]
+const DEFAULT_GRAVITY := 14.0
+const MAX_RAMP_SLOPE := 0.78   # ~38 grados: mas empinada no se camina             # tramo minimo de carrera antes/despues de un hueco
 
 # [id, familia]. El peso de la familia se reparte entre sus miembros.
 const CHUNKS := [
@@ -121,6 +126,9 @@ static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 			c["out"] = "b"
 			c["dy"] = rise
 			c["out_socket"] = "A_High"
+			# Con poca gravedad el muro crece mas de lo que la rampa de servicio puede subir en
+			# el largo del chunk: ahi el chunk no se usa (y tampoco hace falta: se salta mas).
+			c["unbuildable"] = rise / float(ramp["size"].z) > MAX_RAMP_SLOPE
 		"scaffold_catenary_span":
 			c["nodes"] = [_deck("a", 0.0, 1.0), _deck("s1", 1.5, 5.0, 0.0, side),
 				_deck("s2", 7.0, 10.5, 0.0, side), _deck("b", l - 1.0, l)]
@@ -199,35 +207,79 @@ static func sequence(seed_val: int, count: int) -> Array:
 	return out
 
 
-# Grafo completo {entry, exit, nodes, edges, placements} listo para FlowRouteValidator.validate().
+# Tramo de una sola seccion, a la gravedad de `m`.
 static func generate(seed_val: int, count: int, m: Dictionary) -> Dictionary:
+	return generate_sections(seed_val, [{"count": count, "gravity": float(m["g"])}], m)
+
+
+# Grafo completo {entry, exit, nodes, edges, placements} listo para FlowRouteValidator.validate().
+#
+# `sections`: [{count, gravity, ...}] en orden de avance. Cada seccion se dimensiona con SU
+# gravedad (snapeada a un escalon horneado) y sus nodos llevan `g`, que es lo que el validador
+# usa para evaluar cada arista con la gravedad local (WFC_FLOW_METRICS INV-4). Las claves
+# extra de cada seccion (p. ej. la deriva) viajan tal cual en el placement.
+static func generate_sections(seed_val: int, sections: Array, m: Dictionary) -> Dictionary:
 	var graph := {"entry": "", "exit": "", "nodes": [], "edges": [], "placements": []}
 	var base := Vector3.ZERO
 	var prev_out := ""
-	var ids: Array = sequence(seed_val, count)
-	for i in range(ids.size()):
-		var c: Dictionary = build_chunk(str(ids[i]), m)
-		var prefix := "c%02d_" % i
-		for n in c["nodes"]:
-			var node: Dictionary = n.duplicate()
-			node["id"] = prefix + str(n["id"])
-			node["position"] = n["position"] + base
-			graph["nodes"].append(node)
-		for e in c["edges"]:
-			var edge: Dictionary = e.duplicate()
-			edge["from"] = prefix + str(e["from"])
-			edge["to"] = prefix + str(e["to"])
-			graph["edges"].append(edge)
-		var in_id: String = prefix + str(c["in"])
-		if prev_out == "":
-			graph["entry"] = in_id
-		else:
-			graph["edges"].append(_edge(prev_out, in_id, 0.0))
-		prev_out = prefix + str(c["out"])
-		var low := 0.0
-		for n in c["nodes"]:
-			low = min(low, n["position"].y - float(n.get("rise", 0.0)) * 0.5)
-		graph["placements"].append({"index": i, "id": ids[i], "origin": base, "low": low, "bank_deg": c["bank_deg"], "side_outs": c["side_outs"]})
-		base += Vector3(0.0, float(c["dy"]), CHUNK_LENGTH)
+	var index := 0
+	for si in range(sections.size()):
+		var section: Dictionary = sections[si]
+		var g: float = gravity_tier(float(section["gravity"]))
+		var sm: Dictionary = m.duplicate()
+		sm["g"] = g
+		# Cada seccion saca su secuencia de una semilla propia; la primera usa la del tramo.
+		for id in sequence(seed_val + si * 7919, int(section["count"])):
+			var c: Dictionary = build_chunk(str(id), sm)
+			if bool(c.get("unbuildable", false)):
+				id = ENDPOINT_CHUNK
+				c = build_chunk(ENDPOINT_CHUNK, sm)
+			var prefix := "c%02d_" % index
+			for n in c["nodes"]:
+				var node: Dictionary = n.duplicate()
+				node["id"] = prefix + str(n["id"])
+				node["position"] = n["position"] + base
+				node["g"] = g
+				graph["nodes"].append(node)
+			for e in c["edges"]:
+				var edge: Dictionary = e.duplicate()
+				edge["from"] = prefix + str(e["from"])
+				edge["to"] = prefix + str(e["to"])
+				graph["edges"].append(edge)
+			var in_id: String = prefix + str(c["in"])
+			if prev_out == "":
+				graph["entry"] = in_id
+			else:
+				graph["edges"].append(_edge(prev_out, in_id, 0.0))
+			prev_out = prefix + str(c["out"])
+			var low := 0.0
+			for n in c["nodes"]:
+				low = min(low, n["position"].y - float(n.get("rise", 0.0)) * 0.5)
+			graph["placements"].append({"index": index, "id": id, "origin": base, "low": low,
+				"bank_deg": c["bank_deg"], "side_outs": c["side_outs"], "section": si, "gravity": g,
+				"scene": scene_path(str(id), g)})
+			base += Vector3(0.0, float(c["dy"]), CHUNK_LENGTH)
+			index += 1
 	graph["exit"] = prev_out
 	return graph
+
+
+# Escalon de gravedad horneado mas cercano. Las escenas existen solo para estos valores: el
+# hueco, el muro y la estacion de cada chunk se dimensionan con la gravedad, asi que una
+# escena horneada a 14 no sirve a 8 ni a 20.
+static func gravity_tier(g: float) -> float:
+	var best: float = GRAVITY_TIERS[0]
+	for tier in GRAVITY_TIERS:
+		if abs(float(tier) - g) < abs(best - g):
+			best = float(tier)
+	return best
+
+
+static func tier_tag(g: float) -> String:
+	var tier: float = gravity_tier(g)
+	return "" if tier == DEFAULT_GRAVITY else "g%02d" % int(round(tier))
+
+
+static func scene_path(id: String, g: float) -> String:
+	var tag: String = tier_tag(g)
+	return SCENE_DIR + ("" if tag == "" else tag + "/") + id + ".tscn"

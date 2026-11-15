@@ -22,6 +22,15 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 - **Los tamaños se derivan de las métricas** con las funciones de `FlowRouteValidator`, no
   se hardcodean: cambian solos con `g` (anillo centrífugo).
 - Vive en `core_v2/systems/scaffold/`; no existe ni se crea `core_v2/wfc/`.
+- **Escalones de gravedad.** Como los tamaños dependen de `g`, una escena horneada sirve para
+  una sola gravedad. El catálogo se hornea en `GRAVITY_TIERS` (8, 14 y 20 m/s²): el de 14 en
+  `chunks/` y los demás en `chunks/g08/`, `chunks/g20/`. Toda gravedad pedida se ajusta al
+  escalón más cercano (`gravity_tier`), y `scene_path(id, g)` da la escena. Un chunk que no
+  se puede construir a una gravedad (`unbuildable`: la rampa de `gloo_rise` a 8 m/s²) se
+  reemplaza por `scaffold_sprint_chute` al ensamblar.
+- **Secciones.** `generate_sections(seed, [{count, gravity, …}], m)` encadena tramos, cada uno
+  dimensionado con su gravedad; los nodos llevan `g` y el validador evalúa cada arista con
+  la gravedad local. `generate` es el caso de una sola sección.
 
 ## Invariantes
 
@@ -108,6 +117,24 @@ envés de terraza, pilón). Son solo malla: no llevan medidas de juego. El nivel
 `core_v2/levels/hull_underdeck/HullUnderdeck.tscn` cuelga un vano de cada chunk, estirado al
 arco que ocupa a **su** radio (`radio_del_vano / radio_del_chunk`) para que los vanos calcen,
 y le da colisión solo al forro del casco. Visión del lugar: `product/entrecasco.md`.
+
+## Nivel por secciones
+
+`core_v2/levels/hull_underdeck/HullSections.tscn`: anillos consecutivos a lo largo del eje de
+la nave; la ruta corre por el eje y los cruza. Visión: `product/entrecasco.md`.
+
+- En un cilindro, las secciones que giran distinto **solo pueden ser anillos a lo largo del
+  eje**: sobre un mismo arco todo gira junto. Por eso esta ruta es axial y no usa
+  `ScaffoldChunkOrbit`; el casco se curva hacia los lados.
+- `gravity` y `drift` (deriva lateral, m/s) son **perillas de diseño independientes**. No se
+  derivan con `g = ω²·r`: a ~300 m del eje, una diferencia de gravedad que se sienta
+  implicaría decenas de m/s de deriva entre anillos.
+- El mundo se ancla al anillo que pisa el jugador y los demás derivan. **Solo deriva el
+  fondo**, que es periódico por vano y se envuelve sin costura (un nodo sobre el eje que
+  gira, con el fondo en `MultiMesh`). La ruta de cada anillo no se mueve.
+- **Empalme:** al entrar a un anillo que gira distinto el jugador recibe un barrido lateral
+  (`set_external_velocity`, la API de las cintas) igual a la diferencia de deriva, que se
+  apaga solo. La gravedad cambia en ese mismo tick y el autonavegador relee sus métricas.
 
 ## Escena de prueba
 

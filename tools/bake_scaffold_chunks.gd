@@ -38,11 +38,17 @@ func _init() -> void:
 
 func _run() -> void:
 	Directory.new().make_dir_recursive(MAT_DIR)
-	var m: Dictionary = Exporter.metrics()
-	for id in Registry.chunk_ids():
-		if not _bake(id, Registry.build_chunk(id, m)):
-			quit(1)
-			return
+	for tier in Registry.GRAVITY_TIERS:
+		var m: Dictionary = Exporter.metrics(float(tier))
+		var tag: String = Registry.tier_tag(float(tier))
+		Directory.new().make_dir_recursive(OUT_DIR + tag)
+		for id in Registry.chunk_ids():
+			var chunk: Dictionary = Registry.build_chunk(id, m)
+			if bool(chunk.get("unbuildable", false)):
+				continue
+			if not _bake(id, chunk, tag):
+				quit(1)
+				return
 	Directory.new().make_dir_recursive(DECOR_DIR)
 	for id in DECOR:
 		if not _bake_decor(id):
@@ -83,9 +89,11 @@ func _bake_decor(id: String) -> bool:
 	return ok
 
 
-func _bake(id: String, chunk: Dictionary) -> bool:
+# `tag`: escalon de gravedad ("" = el del piloto). Cambia el GLB de origen y la subcarpeta.
+func _bake(id: String, chunk: Dictionary, tag: String) -> bool:
+	var out_dir: String = OUT_DIR + ("" if tag == "" else tag + "/")
 	var src: Node = ClassDB.instance("PackedSceneGLTF").import_gltf_scene(
-		ProjectSettings.globalize_path(SRC_DIR + id + ".glb"))
+		ProjectSettings.globalize_path(SRC_DIR + id + ("" if tag == "" else "_" + tag) + ".glb"))
 	if src == null:
 		push_error("[bake_chunks] no se pudo leer %s.glb (correr tools/scaffold_chunks/build.sh)" % id)
 		return false
@@ -114,7 +122,7 @@ func _bake(id: String, chunk: Dictionary) -> bool:
 		for key in keys:
 			buckets[suffix][key].index()
 			buckets[suffix][key].commit(mesh)
-		var path: String = OUT_DIR + id + suffix + ".mesh"
+		var path: String = out_dir + id + suffix + ".mesh"
 		mesh.take_over_path(path)
 		if ResourceSaver.save(path, mesh) != OK:
 			push_error("[bake_chunks] fallo guardando %s" % path)
@@ -187,8 +195,8 @@ func _bake(id: String, chunk: Dictionary) -> bool:
 
 	var packed := PackedScene.new()
 	packed.pack(root)
-	var ok: bool = ResourceSaver.save(OUT_DIR + id + ".tscn", packed) == OK
-	print("[bake_chunks] %s: %d cajas, %d sockets, dyn=%s" % [id, chunk["nodes"].size(),
+	var ok: bool = ResourceSaver.save(out_dir + id + ".tscn", packed) == OK
+	print("[bake_chunks] %s%s: %d cajas, %d sockets, dyn=%s" % [tag + "/" if tag != "" else "", id, chunk["nodes"].size(),
 		sockets.size(), str(not buckets["_dyn"].empty())])
 	root.free()
 	return ok

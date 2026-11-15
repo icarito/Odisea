@@ -71,6 +71,37 @@ func test_fifty_seeds_zero_deadlocks_and_main_line_preserved() -> void:
 		assert_bool(seen.has(id)).override_failure_message("chunk nunca generado: %s" % id).is_true()
 
 
+# Secciones con gravedad propia: cada tramo se dimensiona con SU gravedad y el validador
+# evalua cada arista con la gravedad local del nodo.
+func test_sections_with_their_own_gravity_keep_the_main_line() -> void:
+	var m := _metrics(60.0)
+	var sections := [{"count": 8, "gravity": 14.0}, {"count": 8, "gravity": 8.0}, {"count": 8, "gravity": 20.0}]
+	var gravities := {}
+	for s in range(SEEDS):
+		var graph: Dictionary = Registry.generate_sections(2000 + s, sections, m)
+		var res: Dictionary = Validator.validate(graph, m)
+		assert_bool(bool(res["valid_main_route"])) \
+			.override_failure_message("semilla %d: %s" % [2000 + s, str(res["report"])]).is_true()
+		for ev in res["main_path_edges"]:
+			assert_float(float(ev["ratio_d"])).is_less_equal(Registry.D_NOM_RATIO + EPS)
+			assert_float(float(ev["ratio_h"])).is_less_equal(Registry.H_NOM_RATIO + EPS)
+			gravities[float(ev["g_used"])] = true
+		for p in graph["placements"]:
+			assert_float(float(p["gravity"])).is_equal(float(sections[int(p["section"])]["gravity"]))
+			# Toda pieza del tramo tiene su escena horneada para esa gravedad.
+			assert_bool(ResourceLoader.exists(str(p["scene"]))) \
+				.override_failure_message("falta la escena %s" % p["scene"]).is_true()
+	assert_int(gravities.size()).is_equal(3)
+
+
+func test_gravity_snaps_to_a_baked_tier() -> void:
+	assert_float(Registry.gravity_tier(9.5)).is_equal(8.0)
+	assert_float(Registry.gravity_tier(13.0)).is_equal(14.0)
+	assert_float(Registry.gravity_tier(40.0)).is_equal(20.0)
+	assert_str(Registry.scene_path("scaffold_gap_leap", 14.0)).is_equal(Registry.SCENE_DIR + "scaffold_gap_leap.tscn")
+	assert_str(Registry.scene_path("scaffold_gap_leap", 8.0)).is_equal(Registry.SCENE_DIR + "g08/scaffold_gap_leap.tscn")
+
+
 func test_same_seed_same_topology_and_waypoints() -> void:
 	var m := _metrics(60.0)
 	var distinct := {}

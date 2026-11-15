@@ -71,7 +71,7 @@ func _run_stretch(orbit_radius: float):
 		orbit.set_physics_process(false)
 		_root.add_child(orbit)
 	for p in graph["placements"]:
-		var chunk: Spatial = load(DIR + str(p["id"]) + ".tscn").instance()
+		var chunk: Spatial = load(str(p["scene"])).instance()
 		if orbit != null:
 			orbit.add_chunk(chunk, p["origin"])
 		else:

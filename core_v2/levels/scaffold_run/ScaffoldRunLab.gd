@@ -16,7 +16,6 @@ const FlowMetricsScript := preload("res://core_v2/systems/flow/FlowMetrics.gd")
 const Validator := preload("res://core_v2/systems/flow/FlowRouteValidator.gd")
 const OrbitScript := preload("res://core_v2/systems/scaffold/ScaffoldChunkOrbit.gd")
 const PILOT_SCENE := preload("res://core_v2/actors/Pilot_v2.tscn")
-const CHUNK_DIR := "res://core_v2/props/scaffold/chunks/"
 const SHOT_DIR := "res://test_output/scaffold_run/"
 const SHOT_SIZE := Vector2(960.0, 540.0)
 const SHOT_EVERY_TICKS := 100
@@ -82,14 +81,14 @@ func _build_stage() -> void:
 func _build_stretch() -> void:
 	var fm = FlowMetricsScript.from_scene()
 	var m := {"g": fm.gravity, "v_run": fm.run_speed(), "v_jump": fm.jump_force, "tick": 1.0 / 60.0}
-	var graph: Dictionary = Registry.generate(seed_value, chunk_count, m)
+	var graph: Dictionary = _generate(m)
 	if orbit_radius > 0.0:
 		_orbit = OrbitScript.new()
 		_orbit.name = "Orbit"
 		_orbit.base_radius = orbit_radius
 		add_child(_orbit)
 	for p in graph["placements"]:
-		var chunk: Spatial = load(CHUNK_DIR + str(p["id"]) + ".tscn").instance()
+		var chunk: Spatial = load(str(p["scene"])).instance()
 		chunk.name = "Chunk_%02d_%s" % [int(p["index"]), str(p["id"])]
 		if _orbit != null:
 			_orbit.add_chunk(chunk, p["origin"])
@@ -103,7 +102,17 @@ func _build_stretch() -> void:
 		_lowest = min(_lowest, n["position"].y)
 	_route = []
 	for wp in Validator.extract_main_waypoints(graph, m):
-		_route.append(by_id[wp["id"]])
+		var node: Dictionary = by_id[wp["id"]].duplicate()
+		# Sin orbita los waypoints van en coordenadas de mundo (el nivel puede no estar en el
+		# origen); con orbita quedan en el espacio plano del registro.
+		if _orbit == null:
+			node["position"] = global_transform.xform(node["position"])
+		_route.append(node)
+
+
+# Gancho para niveles que arman el tramo de otra forma (p. ej. por secciones).
+func _generate(m: Dictionary) -> Dictionary:
+	return Registry.generate(seed_value, chunk_count, m)
 
 
 # Gancho para niveles que visten el tramo (fondo, luces) colgando nodos de cada chunk.
@@ -127,7 +136,7 @@ func _physics_process(_delta: float) -> void:
 	if not is_instance_valid(_pilot) or _autopilot == null:
 		return
 	# Caida al vacio: vuelve al inicio con la ruta rearmada (escena de prueba, sin KillZone).
-	if _pilot.global_transform.origin.y < _lowest - FALL_LIMIT:
+	if to_local(_pilot.global_transform.origin).y < _lowest - FALL_LIMIT:
 		_pilot.global_transform.origin = global_transform.xform(SPAWN)
 		_pilot.velocity = Vector3.ZERO
 		_pilot.movement_logic.horizontal_velocity = Vector3.ZERO
@@ -144,6 +153,6 @@ func _physics_process(_delta: float) -> void:
 		img.flip_y()
 		img.save_png(ProjectSettings.globalize_path(SHOT_DIR + "run_%02d.png" % _shots))
 		_shots += 1
-		if _autopilot.is_finished() or _shots >= 28:
+		if _autopilot.is_finished() or _shots >= 40:
 			print("[scaffold_lab] %d capturas, terminado=%s" % [_shots, str(_autopilot.is_finished())])
 			get_tree().quit()

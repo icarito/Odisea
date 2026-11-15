@@ -36,7 +36,8 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `props/hull_underdeck/` — Kit de fondo del entrecasco horneado (vano de casco, envés de terraza, pilón); producto de `tools/scaffold_chunks/build.sh`
 - `props/machines/` — Kit de máquinas (FD-320): `MachinePart`, `MachineHinge`, `MachineTrigger` y `MachineLevel` (niveles por layout JSON)
 - `levels/scaffold_run/` — `ScaffoldRunLab`: escena de prueba de un tramo Transit-Run generado por semilla, con modo asistido
-- `levels/hull_underdeck/` — `HullUnderdeck`: primer nivel del entrecasco (tramo Transit-Run sobre el casco, proyectado al cilindro); extiende `ScaffoldRunLab`
+- `levels/hull_underdeck/` — Niveles del entrecasco sobre `ScaffoldRunLab`: `HullUnderdeck` (tramo orbital sobre el casco) y `HullSections` (anillos axiales con gravedad y giro propios)
+- `levels/Experiments.gd` — Lista de episodios de prueba del submenú Experimentos
 - `levels/machines/` — Bahía de máquinas: `MachineBay.tscn` + `machine_bay.json`
 - `levels/` — Escenas de nivel; `levels/interiors/` domos y fuentes de bake
 - `input/` — `InputProviderV2` (árbitro LIVE/REPLAY), `InputDataV2` (frame serializable), `AutopilotInputV2` (modo asistido Transit-Run)
@@ -44,6 +45,6 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `systems/flow/` — `FlowMetrics` (alcance del jugador leído de `Pilot_v2`) y `FlowRouteValidator` (ruta principal y waypoints por semilla)
 - `systems/scaffold/`, `systems/ScaffoldStreamController.gd` — Andamio WFC por chunks en streaming; `ScaffoldOrbit` lo proyecta al cilindro; `ScaffoldChunkRegistry` es el catálogo 1D de chunks Transit-Run (datos puros); `ScaffoldChunkOrbit` proyecta un tramo de esos chunks al cilindro
 - `agents/` — Inferencia MLP de la política de ANNA en GDScript (`MLPPolicyInference`, `HoloPolicyController`)
-- `ui/` — HUD, OdiseaOS, menús, mouse virtual
+- `ui/` — HUD, OdiseaOS, menús, mouse virtual; `ExperimentsMenu` es el submenú de episodios de prueba
 - `telemetry/` — ANNAV2 y servidor MCP
 - `tests/` — GdUnit y OYS

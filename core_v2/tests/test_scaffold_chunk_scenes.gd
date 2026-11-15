@@ -6,20 +6,28 @@ extends GdUnitTestSuite
 
 const Registry = preload("res://core_v2/systems/scaffold/ScaffoldChunkRegistry.gd")
 const FlowMetricsScript = preload("res://core_v2/systems/flow/FlowMetrics.gd")
-const DIR := "res://core_v2/props/scaffold/chunks/"
 const TOL := 0.01
 
 
-func _metrics() -> Dictionary:
+func _metrics(g: float) -> Dictionary:
 	var fm = FlowMetricsScript.from_scene()
-	return {"g": fm.gravity, "v_run": fm.run_speed(), "v_jump": fm.jump_force, "tick": 1.0 / 60.0}
+	return {"g": g, "v_run": fm.run_speed(), "v_jump": fm.jump_force, "tick": 1.0 / 60.0}
 
 
+# Una escena por chunk y por escalon de gravedad horneado.
 func test_every_chunk_scene_matches_the_registry() -> void:
-	var m := _metrics()
+	for tier in Registry.GRAVITY_TIERS:
+		_check_tier(float(tier))
+
+
+func _check_tier(g: float) -> void:
+	var m := _metrics(g)
 	for id in Registry.chunk_ids():
 		var chunk: Dictionary = Registry.build_chunk(id, m)
-		var packed: PackedScene = load(DIR + id + ".tscn")
+		if bool(chunk.get("unbuildable", false)):
+			continue
+		id = "g%d/%s" % [int(g), id]  # solo para los mensajes
+		var packed: PackedScene = load(Registry.scene_path(str(chunk["id"]), g))
 		assert_object(packed).override_failure_message("falta la escena de %s" % id).is_not_null()
 		if packed == null:
 			continue

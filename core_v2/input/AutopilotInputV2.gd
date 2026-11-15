@@ -51,6 +51,13 @@ func setup(body: KinematicBody) -> void:
 	_fm = FlowMetricsScript.from_pilot_node(body)
 
 
+# La gravedad del piloto cambio (secciones del entrecasco): releer sus metricas de alcance.
+func refresh_metrics() -> void:
+	var body: KinematicBody = _body_ref.get_ref() if _body_ref != null else null
+	if body != null:
+		_fm = FlowMetricsScript.from_pilot_node(body)
+
+
 # Acepta Vector3 sueltos o los diccionarios de FlowRouteValidator ("main_waypoints", o nodos
 # con "size"). Con size, el punto de mira es el punto mas cercano de la plataforma (ver _aim).
 func set_route(points: Array) -> void:

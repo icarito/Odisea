@@ -5,6 +5,7 @@ core_v2/systems/scaffold/ScaffoldChunkRegistry.gd. Este script solo las viste (c
 bastidor, barandas, cercha, franjas, props). La colision la arma el baker desde el registro.
 
 Env: CHUNK=<id del registro>  (un chunk por corrida)
+     TIER=<"" | g08 | g20>   (escalon de gravedad; cambia huecos, muros y estaciones)
 
 Regenerar todo (desde la raiz del repo): tools/scaffold_chunks/build.sh
 
@@ -21,11 +22,13 @@ from mathutils import Quaternion, Vector
 from odisea_lib import apply_mat, mat_interactable_cyan, mat_matte_plastic, mat_warning_yellow
 
 CHUNK = os.environ.get("CHUNK", "scaffold_sprint_chute")
-NAME = CHUNK
+# TIER: escalon de gravedad ("" = el del piloto, "g08", "g20"); cada uno tiene su JSON.
+TIER = os.environ.get("TIER", "")
+NAME = CHUNK + ("_" + TIER if TIER else "")
 SELF_CAMERA = True
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = json.load(open(os.path.join(_HERE, "chunks.json")))
+DATA = json.load(open(os.path.join(_HERE, "chunks" + ("_" + TIER if TIER else "") + ".json")))
 L = DATA["chunk_length"]
 W = DATA["walkway_width"]
 RAIL = DATA["rail_height"]

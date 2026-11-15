@@ -6,12 +6,14 @@ extends SceneTree
 
 const Registry := preload("res://core_v2/systems/scaffold/ScaffoldChunkRegistry.gd")
 const FlowMetricsScript := preload("res://core_v2/systems/flow/FlowMetrics.gd")
-const OUT := "res://tools/scaffold_chunks/chunks.json"
+const OUT_DIR := "res://tools/scaffold_chunks/"
 
 
-static func metrics() -> Dictionary:
+# Metricas del piloto con la gravedad del escalon `g` (por defecto, la suya).
+static func metrics(g: float = -1.0) -> Dictionary:
 	var fm = FlowMetricsScript.from_scene()
-	return {"g": fm.gravity, "v_run": fm.run_speed(), "v_jump": fm.jump_force, "tick": 1.0 / 60.0}
+	return {"g": fm.gravity if g <= 0.0 else g, "v_run": fm.run_speed(), "v_jump": fm.jump_force,
+		"tick": 1.0 / 60.0}
 
 
 static func _plain(v):
@@ -32,14 +34,20 @@ static func _plain(v):
 
 
 func _init() -> void:
-	var m := metrics()
-	var out := {"chunk_length": Registry.CHUNK_LENGTH, "walkway_width": Registry.WALKWAY_WIDTH,
-		"rail_height": Registry.RAIL_HEIGHT, "chunks": {}}
-	for id in Registry.chunk_ids():
-		out["chunks"][id] = _plain(Registry.build_chunk(id, m))
-	var f := File.new()
-	f.open(OUT, File.WRITE)
-	f.store_string(JSON.print(out, "  ", true))
-	f.close()
-	print("[export_registry] %d chunks -> %s" % [out["chunks"].size(), OUT])
+	# Un JSON por escalon de gravedad: chunks.json (el del piloto), chunks_g08.json, ...
+	for tier in Registry.GRAVITY_TIERS:
+		var m := metrics(float(tier))
+		var out := {"chunk_length": Registry.CHUNK_LENGTH, "walkway_width": Registry.WALKWAY_WIDTH,
+			"rail_height": Registry.RAIL_HEIGHT, "chunks": {}}
+		for id in Registry.chunk_ids():
+			var c: Dictionary = Registry.build_chunk(id, m)
+			if not bool(c.get("unbuildable", false)):
+				out["chunks"][id] = _plain(c)
+		var tag: String = Registry.tier_tag(float(tier))
+		var path: String = OUT_DIR + "chunks" + ("" if tag == "" else "_" + tag) + ".json"
+		var f := File.new()
+		f.open(path, File.WRITE)
+		f.store_string(JSON.print(out, "  ", true))
+		f.close()
+		print("[export_registry] %d chunks -> %s" % [out["chunks"].size(), path])
 	quit(0)
