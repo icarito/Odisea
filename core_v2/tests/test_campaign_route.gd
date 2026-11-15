@@ -17,6 +17,7 @@ const MenuScript = preload("res://core_v2/ui/Menu.gd")
 const BayAirlockTriggerScript = preload("res://core_v2/props/tube/BayAirlockTrigger.gd")
 const HangarTransitionScript = preload("res://core_v2/props/hangar/HangarTransition.gd")
 const AirlockZoneScript = preload("res://core_v2/components/AirlockZoneV2.gd")
+const MachineLevelScript = preload("res://core_v2/props/machines/MachineLevel.gd")
 
 const DOME_INTRO := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const DOME_HANGAR := "res://core_v2/levels/interiors/Dome_Intro_Hangar.tscn"
@@ -25,20 +26,8 @@ const RING_HUB := "res://core_v2/levels/RingHub_Level.tscn"
 const MACHINE_BAY := "res://core_v2/levels/machines/MachineBay.tscn"
 const BAY_VERTICAL := "res://core_v2/levels/bay_vertical/BayVertical.tscn"
 
-# Niveles alcanzables ya cableados en la línea principal desde FIRST_GAME_SCENE.
+# Línea principal completa del slice, alcanzable desde FIRST_GAME_SCENE.
 const REQUIRED_REACHABLE_SCENES := [
-	DOME_INTRO,
-	DOME_HANGAR,
-	MAGRAIL_HANGAR_TO_RINGHUB,
-	RING_HUB,
-	MACHINE_BAY,
-]
-
-# TODO(src-61): mover BayVertical a REQUIRED_REACHABLE_SCENES cuando su pista
-# cablee MachineBay -> BayVertical. La salida por la CIMA (BayVertical -> RingHub,
-# seamless, con spawn real y marcador de slice completado) ya está cableada por
-# src-57 y cubierta por `test_bay_vertical_summit_exit_closes_slice`.
-const SLICE_FULL_LINE_SCENES := [
 	DOME_INTRO,
 	DOME_HANGAR,
 	MAGRAIL_HANGAR_TO_RINGHUB,
@@ -261,6 +250,68 @@ func test_bay_vertical_summit_exit_closes_slice() -> void:
 	assert_bool(bool(level.call("is_slice_completed"))).is_true()
 
 
+# MachineBay -> BayVertical: la esclusa del ExitPad dispara la salida seamless hacia
+# un spawn que EXISTE en la bahía radial y reenvía el payload de retorno al hub.
+func test_machine_bay_exit_airlock_enters_bay_vertical_seamless() -> void:
+	var manager := get_node_or_null("/root/SceneManager")
+	var airlock := get_node_or_null("/root/AirlockManager")
+	assert_object(manager).is_not_null()
+	assert_object(airlock).is_not_null()
+
+	var bay_root := (load(BAY_VERTICAL) as PackedScene).instance()
+	assert_array(_collect_spawn_ids(bay_root)).contains([MachineLevelScript.BAY_VERTICAL_SPAWN_ID])
+	bay_root.free()
+
+	# El trigger vive dentro de la esclusa física y está cableado a la salida.
+	var f := File.new()
+	assert_int(f.open("res://core_v2/levels/machines/machine_bay.json", File.READ)).is_equal(OK)
+	var items: Array = JSON.parse(f.get_as_text()).result["items"]
+	f.close()
+	var wired := false
+	var names := []
+	for item in items:
+		names.append(str(item.get("name", "")))
+		if item.get("type") == "link" and item.get("from") == "ExitLockTrigger" and item.get("to") == "@level":
+			wired = str(item.get("method", "")) == "enter_bay_vertical"
+	assert_bool(wired).is_true()
+	assert_array(names).contains(["ExitLockWallL", "ExitLockWallR", "ExitLockBack", "ExitLockRoof", "ExitLockTrigger"])
+
+	# Intercepción por la cola real del SceneManager (sin swap de escena en el test).
+	var saved := {
+		"is_transitioning": manager._is_transitioning,
+		"pending_path": manager._pending_scene_path,
+		"pending_params": manager._pending_transition_params.duplicate(true),
+		"transition_params": manager._transition_params.duplicate(true),
+	}
+	# MachineLevel._ready() mueve las palancas de luz plana del gate: se devuelven al final.
+	var gate := get_node_or_null("/root/GLES3VendorGate")
+	var gate_saved := [] if gate == null else [gate.get("_flat_ambient"), gate.get("_world_light"), gate.get("_glow_floor")]
+	var payload := {"wakeup": {"wakeup_completed": true}, "light_state": {"lit": true}}
+	manager._transition_params = {"ringhub_return_state": payload.duplicate(true)}
+	var level = MachineLevelScript.new()
+	level.enable_player_multi_tool = false
+	get_tree().root.add_child(level)
+	manager._transition_params = saved["transition_params"].duplicate(true)
+	manager._is_transitioning = true
+	level.enter_bay_vertical()
+
+	assert_str(manager._pending_scene_path).is_equal(BAY_VERTICAL)
+	var params: Dictionary = manager._pending_transition_params
+	assert_str(str(params.get("transition", ""))).is_equal("seamless")
+	assert_bool(bool(params.get("preserve_player_state", true))).is_false()
+	assert_str(str(params.get("target_spawn_id", ""))).is_equal("bay_vertical_entry")
+	assert_dict(params.get("ringhub_return_state", {})).is_equal(payload)
+
+	manager._is_transitioning = saved["is_transitioning"]
+	manager._pending_scene_path = saved["pending_path"]
+	manager._pending_transition_params = saved["pending_params"]
+	level.free()
+	if gate != null:
+		gate.set_flat_ambient(gate_saved[0])
+		gate.set_flat_world_light(gate_saved[1])
+		gate.set_flat_glow_floor(gate_saved[2])
+
+
 func test_campaign_route_reachability_and_valid_targets() -> void:
 	var start_scene := String(MenuScript.FIRST_GAME_SCENE).strip_edges()
 	assert_bool(ResourceLoader.exists(start_scene)).is_true()
@@ -319,10 +370,6 @@ func test_campaign_route_reachability_and_valid_targets() -> void:
 				required, start_scene, str(visited.keys()), str(all_edges)
 			]
 		).is_true()
-
-	# Verificar que todas las escenas del slice completo existen (incluyendo las cableadas por pistas paralelas).
-	for slice_scene in SLICE_FULL_LINE_SCENES:
-		assert_bool(ResourceLoader.exists(slice_scene)).is_true()
 
 
 func test_hangar_to_ringhub_seamless_preposition_uses_matching_airlock() -> void:

@@ -20,6 +20,9 @@ signal said(text, duration)
 
 const MachinePart = preload("res://core_v2/props/machines/MachinePart.gd")
 const MachineHinge = preload("res://core_v2/props/machines/MachineHinge.gd")
+const KineticBoostPad = preload("res://core_v2/props/machines/KineticBoostPad.gd")
+const BAY_VERTICAL_SCENE := "res://core_v2/levels/bay_vertical/BayVertical.tscn"
+const BAY_VERTICAL_SPAWN_ID := "bay_vertical_entry"
 const TriggerScript = preload("res://core_v2/props/machines/MachineTrigger.gd")
 const ProgrammerHoloNPC = preload("res://core_v2/actors/ProgrammerHoloNPC.gd")
 const LedgeV2 = preload("res://core_v2/components/LedgeV2.gd")
@@ -299,6 +302,12 @@ func _make(item: Dictionary) -> Spatial:
 			return _make_ledge(item)
 		"sign":
 			return _make_sign(item)
+		"boost_pad":
+			var pad = KineticBoostPad.new()
+			pad.size = _vec(item.get("size", [2.4, 1.2, 2.4]))
+			pad.impulse_velocity = _vec(item.get("impulse", [0.0, 8.5, 11.0]))
+			pad.starts_active = bool(item.get("starts_active", false))
+			return pad
 		"scene":
 			# "optional": decoracion cuyo import puede no existir (CI no importa assets nuevos).
 			if bool(item.get("optional", false)) and not ResourceLoader.exists(str(item.get("path", ""))):
@@ -628,6 +637,36 @@ func return_to_ring_hub() -> void:
 		get_tree().change_scene(target_scene)
 
 
+# Salida de la línea principal (CAMPAIGN_ROUTE §5): la esclusa del fondo del ExitPad
+# (ExitLock*) es el buffer físico hacia la bahía radial. Mismo camino seamless que
+# RingHubLightState.enter_bay_vertical: lift armado + spawn real, y reenvía el payload
+# del hub para que la cima de BayVertical pueda volver a RingHub.
+func preload_bay_vertical() -> void:
+	var scene_mgr = get_node_or_null("/root/SceneManager")
+	if scene_mgr != null and scene_mgr.has_method("request_scene_preload"):
+		scene_mgr.request_scene_preload(BAY_VERTICAL_SCENE)
+
+
+func enter_bay_vertical() -> void:
+	if not is_inside_tree():
+		return
+	var scene_mgr = get_node_or_null("/root/SceneManager")
+	if scene_mgr == null or not scene_mgr.has_method("goto_scene"):
+		get_tree().change_scene(BAY_VERTICAL_SCENE)
+		return
+	if not bool(scene_mgr.is_transitioning()):
+		var airlock_manager = get_node_or_null("/root/AirlockManager")
+		if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+			airlock_manager.notify_transition(BAY_VERTICAL_SCENE)
+	# Ruta literal a propósito: test_campaign_route la descubre leyendo este script.
+	scene_mgr.goto_scene("res://core_v2/levels/bay_vertical/BayVertical.tscn", {
+		"preserve_player_state": false,
+		"transition": "seamless",
+		"target_spawn_id": BAY_VERTICAL_SPAWN_ID,
+		"ringhub_return_state": _ringhub_return_state.duplicate(true),
+	})
+
+
 func _disable_shadow_casting(root: Node) -> void:
 	var stack := [root]
 	while not stack.empty():
@@ -748,6 +787,11 @@ func reset_station(station_id: int = 0) -> void:
 			node.transform = t
 			if node.has_method("set_active") and "is_active" in node and bool(node.is_active):
 				node.set_active(false, true)
+		elif item_type == "boost_pad":
+			if node is Spatial:
+				_place(node as Spatial, item)
+			# Snapshot vacío = estado de layout (starts_active) y cooldown 0.
+			node.restore_snapshot({})
 		else:
 			if node is Spatial:
 				_place(node as Spatial, item)

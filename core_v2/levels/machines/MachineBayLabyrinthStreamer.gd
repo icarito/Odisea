@@ -103,6 +103,99 @@ func get_junction_world_position(chunk_key: Vector2, row: int) -> Vector3:
 	var corner: Vector3 = region_origin + _key_to_local_origin(chunk_key)
 	return corner + Vector3(cell_size * 0.5, 0.0, float(row) * cell_size + cell_size * 0.5)
 
+
+# Valida la ruta por semilla con FlowRouteValidator (WFC_FLOW_METRICS §8): genera el
+# grid WFC real del chunk (0, 0) para `seed_val` y lo valida celda a celda.
+func validate_seed_with_flow_validator(seed_val: int = -1) -> Dictionary:
+	var effective_seed: int = seed_base if seed_val < 0 else seed_val
+	var prev_seed: int = seed_base
+	seed_base = effective_seed
+	var params: Dictionary = _chunk_params(Vector2(0, 0))
+	seed_base = prev_seed
+	var solver = WFCSolverCore.new()
+	solver.apply_params(params)
+	return validate_grid_with_flow_validator(solver.generate_grid_data(int(params["seed"])), effective_seed)
+
+
+# Construye el grafo desde las celdas del grid (posición, conexiones y alturas de
+# puerto) y exige ruta principal entre la costura oeste y la este. Una arista existe
+# solo si ambas celdas se conectan entre sí; su `delta_h` es el escalón real en la
+# costura (base + port_height de cada lado), el hueco sale de las posiciones.
+func validate_grid_with_flow_validator(grid: Array, seed_val: int = -1, entry_row: int = -1, exit_row: int = -1) -> Dictionary:
+	var effective_seed: int = seed_base if seed_val < 0 else seed_val
+	var validator_path := "res://core_v2/systems/flow/FlowRouteValidator.gd"
+	if not ResourceLoader.exists(validator_path):
+		return {"available": false, "seed": effective_seed, "valid": true}
+	var validator_script = load(validator_path)
+	if grid.size() != chunk_cells * chunk_cells:
+		return {"available": true, "seed": effective_seed, "valid": false, "report": {"valid_main_route": false}}
+
+	var prev_seed: int = seed_base
+	seed_base = effective_seed
+	if entry_row < 0:
+		entry_row = int(get_boundary_tile(Vector2(0, 0), "w")["row"]) if _junction_row(0, 0) < 0 else _junction_row(0, 0)
+	if exit_row < 0:
+		exit_row = int(get_boundary_tile(Vector2(0, 0), "e")["row"]) if _junction_row(1, 0) < 0 else _junction_row(1, 0)
+	seed_base = prev_seed
+
+	var nodes := []
+	var edges := []
+	var dir_offsets := [Vector2(0, -1), Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0)]  # N, E, S, W
+	for z in range(chunk_cells):
+		for x in range(chunk_cells):
+			var cell = grid[z * chunk_cells + x]
+			if _variant_id(_state_variant(cell)) in ["", "EMPTY"]:
+				continue
+			var nid := "%d,%d" % [x, z]
+			nodes.append({
+				"id": nid,
+				"position": region_origin + Vector3((float(x) + 0.5) * cell_size, float(cell.base_height), (float(z) + 0.5) * cell_size),
+				"size": Vector3(cell_size, 0.2, cell_size),
+			})
+			for d in range(4):
+				var nx: int = x + int(dir_offsets[d].x)
+				var nz: int = z + int(dir_offsets[d].y)
+				if nx < 0 or nx >= chunk_cells or nz < 0 or nz >= chunk_cells:
+					continue
+				var neighbor = grid[nz * chunk_cells + nx]
+				var opp: int = (d + 2) % 4
+				if _variant_id(_state_variant(neighbor)) in ["", "EMPTY"]:
+					continue
+				if not (bool(cell.variant.connections[d]) and bool(neighbor.variant.connections[opp])):
+					continue
+				edges.append({
+					"from": nid,
+					"to": "%d,%d" % [nx, nz],
+					"delta_h": (float(neighbor.base_height) + float(neighbor.variant.port_heights[opp]))
+						- (float(cell.base_height) + float(cell.variant.port_heights[d])),
+				})
+
+	var metrics: Dictionary = validator_script.default_metrics()
+	var fm_path := "res://core_v2/systems/flow/FlowMetrics.gd"
+	if ResourceLoader.exists(fm_path):
+		var fm = load(fm_path).from_scene()
+		if fm != null:
+			var raw: Dictionary = fm.metrics()
+			metrics = {
+				"g": float(raw["gravity"]),
+				"v_run": float(raw["run_speed"]),
+				"v_jump": float(raw["jump_force"]),
+				"tick": 1.0 / float(raw["tick_hz"]),
+				"main_threshold": float(raw["thr_main_max_ratio"]),
+			}
+	var report: Dictionary = validator_script.validate({
+		"entry": "0,%d" % entry_row,
+		"exit": "%d,%d" % [chunk_cells - 1, exit_row],
+		"nodes": nodes,
+		"edges": edges,
+	}, metrics)
+	return {
+		"available": true,
+		"seed": effective_seed,
+		"valid": bool(report.get("valid_main_route", false)),
+		"report": report,
+	}
+
 # ── Helpers de coordenadas ───────────────────────────────────────────────────
 
 func _chunk_world_step() -> float:

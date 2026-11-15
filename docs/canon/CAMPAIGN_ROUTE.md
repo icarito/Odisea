@@ -33,9 +33,13 @@ el mecanismo de transición, el buffer físico de cada tramo y los flags de conf
    - **Transición:** `"transition": "seamless"` vía `AirlockManager.notify_transition`.
    - **Atajos de debug:** `Hub/PedestalMachineBay` y `Hub/PedestalBayVertical` quedan desactivados y ocultos detrás de `RingHubLightState.debug_pedestals_enabled` (`false` por defecto).
 
-5. **`MachineBay.tscn` → `BayVertical.tscn` → Salida por la cima** *(pistas paralelas)*
-   - `MachineBay` (corredor de parkour) → `BayVertical` (bahía radial centrífuga, spawn `bay_vertical_entry`): cableado por pista `src-61`.
-   - `BayVertical` → salida por la cima: cableado por pista `src-57`.
+5. **`MachineBay.tscn` → `BayVertical.tscn` → Salida por la cima**
+   - **Ruta en la bahía:** corredor de parkour a salto limpio (≤ 80 % del alcance, `WFC_FLOW_METRICS.md`); las 5 estaciones son Side Sockets opcionales.
+   - **Productor:** `ExitLockTrigger` (fondo del `ExitPad`, en `machine_bay.json`) → `MachineLevel.enter_bay_vertical()`; sin compuerta de puzle. `VoiceExit` precarga el destino al pisar el `ExitPad`.
+   - **Buffer físico:** esclusa `ExitLock*` (cámara cerrada con una sola boca).
+   - **Transición:** `"transition": "seamless"` + `AirlockManager.notify_transition`, llegada por spawn `bay_vertical_entry`; reenvía `ringhub_return_state` para que la cima pueda volver al hub.
+   - **Retorno opcional:** `ReturnHubButton` (pedestal del `ExitPad`) sigue volviendo a RingHub con fade.
+   - `BayVertical` → salida por la cima (`ExitBuffer`, `completes_slice`) → `RingHub_Level.tscn`, spawn `bay_vertical_return`.
 
 ## 2. Flags relevantes
 
