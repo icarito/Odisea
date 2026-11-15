@@ -246,13 +246,11 @@ func step(delta: float):
 			fade_out()
 		return
 
-	velocity.y -= gravity * delta
-	
-	var motion := velocity * delta
+	var ball: Dictionary = step_ballistic(global_transform.origin, velocity, gravity, delta, max(_current_radius, collision_radius))
+	velocity = ball["velocity"]
+	var motion: Vector3 = ball["motion"]
 	var space_state := get_world().direct_space_state
-	var ray_end := global_transform.origin + motion
-	if motion.length_squared() > 0.0001:
-		ray_end += motion.normalized() * max(_current_radius, collision_radius)
+	var ray_end: Vector3 = ball["ray_end"]
 	var hit := space_state.intersect_ray(global_transform.origin, ray_end, [self], collision_mask)
 	if hit and _should_stick_to(hit.get("collider", null)):
 		_wake_collider(hit["collider"], hit["normal"])
@@ -262,6 +260,19 @@ func step(delta: float):
 	var collision = move_and_collide(motion)
 	if collision:
 		_handle_collision(collision)
+
+
+# Paso balistico compartido con el retículo del crosshair (MultiToolCrosshair): aplica la
+# gravedad ANTES de avanzar (como el proyectil real) y extiende el rayo de colision por el
+# radio. Devolver el mismo paso evita que la predicción diverja de la trayectoria real.
+static func step_ballistic(origin: Vector3, velocity: Vector3, gravity: float, delta: float, radius: float) -> Dictionary:
+	var v: Vector3 = velocity
+	v.y -= gravity * delta
+	var motion: Vector3 = v * delta
+	var ray_end: Vector3 = origin + motion
+	if motion.length_squared() > 0.0001:
+		ray_end += motion.normalized() * radius
+	return {"velocity": v, "motion": motion, "ray_end": ray_end}
 
 func get_snapshot() -> Dictionary:
 	return {

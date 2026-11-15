@@ -38,8 +38,10 @@ const PULSE_DECAY := 3.5
 const HEAT_UP := 1.4
 const HEAT_DOWN := 0.9
 const HEAT_MAX := 1.0
-const GLOO_SIM_DT := 0.04
 const GLOO_SIM_STEPS := 90
+# Reutiliza la MISMA integracion balistica del proyectil real para no duplicar (ni divergir
+# de) la fisica del gloo.
+const GlooProjectileScript = preload("res://core_v2/player/MultiToolGlooProjectile.gd")
 
 var _root: Control
 var _reticle: Control
@@ -287,16 +289,37 @@ func _refresh_gloo_target(space, cam) -> void:
 	var speed: float = float(_tool.gloo_projectile_speed)
 	var gravity: float = float(_tool.gloo_projectile_gravity)
 	var mask: int = int(_tool.gloo_collision_mask)
-	var vel := dir * speed
-	var p := from
+	# Mismo alcance de colision que el proyectil en vuelo: max(launch_radius, collision_radius).
+	var radius: float = max(float(_tool.gloo_launch_radius), float(_tool.gloo_collision_radius))
+	# Mismo paso temporal que la fisica del juego.
+	var dt: float = 1.0 / max(1.0, float(Engine.iterations_per_second))
+	# El proyectil colisiona con un CUERPO de radio `radius` (move_and_collide), no con un
+	# rayo recto: cerca de un borde, el rayo pasa por debajo mientras la esfera sí choca.
+	# Por eso la prediccion consulta una esfera (overlap) en el extremo de cada paso, con el
+	# MISMO paso balistico (step_ballistic) del proyectil.
+	var sphere := SphereShape.new()
+	sphere.radius = radius
+	var query := PhysicsShapeQueryParameters.new()
+	query.set_shape(sphere)
+	query.set_collision_mask(mask)
+	query.set_collide_with_areas(false)
+	query.set_collide_with_bodies(true)
+	if is_instance_valid(_player) and _player is CollisionObject:
+		query.set_exclude([(_player as CollisionObject).get_rid()])
+	var vel: Vector3 = dir * speed
+	var p: Vector3 = from
 	var hit: Dictionary = {}
 	for i in range(GLOO_SIM_STEPS):
-		var nxt := p + vel * GLOO_SIM_DT
-		hit = space.intersect_ray(p, nxt, _exclude(), mask)
-		if not hit.empty():
+		var ball: Dictionary = GlooProjectileScript.step_ballistic(p, vel, gravity, dt, radius)
+		vel = ball["velocity"]
+		var motion: Vector3 = ball["motion"]
+		var probe: Vector3 = p + motion
+		query.set_transform(Transform(Basis(), probe))
+		var res: Array = space.intersect_shape(query, 1)
+		if not res.empty():
+			hit = {"collider": res[0].get("collider", null), "position": probe}
 			break
-		p = nxt
-		vel.y -= gravity * GLOO_SIM_DT
+		p = probe
 	if hit.empty():
 		_last_world = p
 		_set_state(State.OUT_OF_RANGE)

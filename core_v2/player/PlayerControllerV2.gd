@@ -2,6 +2,7 @@ extends KinematicBody
 
 const InputProviderV2 = preload("../input/InputProviderV2.gd")
 const InputDataV2 = preload("../input/InputDataV2.gd")
+const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
 const ZeroGravitySettingsV2 = preload("ZeroGravitySettings.gd")
@@ -1975,13 +1976,14 @@ func _get_multi_tool_bone_attachment() -> Node:
 func _apply_multi_tool_hand_transform() -> void:
 	if not (multi_tool and is_instance_valid(multi_tool)):
 		return
-	# Pose local de agarre dentro del grip (offset de palma + un leve roll). El eje de
-	# disparo del modelo nace en -Z y DEBE quedar alineado con el -Z del grip (la
-	# dirección de puntería): cualquier rotación de X/Y aquí torcería el rayo real. Por
-	# eso solo se aplica un roll (rotación sobre Z), que no cambia el -Z.
+	# Pose local de agarre dentro del grip. El modelo del tool trae su geometria desplazada
+	# (Model en (0.2,-0.2,-0.3), Laser/GlooSpawnPoint en (0.2,-0.2,-0.5)), asi que hay que
+	# cancelar ese offset para que la herramienta quede EN LA PALMA (origen del grip) en vez
+	# de flotar al costado, y el muzzle 0.2 m al frente. Solo roll (sobre Z) para no torcer el
+	# eje de disparo -Z del tool (el laser/gloo disparan a lo largo de su -Z local).
 	multi_tool.transform = Transform(
-		Basis(Vector3(0, 0, 1), deg2rad(-14)),
-		Vector3(0.04, -0.02, -0.10))
+		Basis(Vector3(0, 0, 1), deg2rad(-12)),
+		Vector3(-0.2, 0.2, 0.3))
 
 func _sync_multi_tool_action_transform() -> void:
 	if not (multi_tool and is_instance_valid(multi_tool)) or not is_inside_tree():
@@ -2513,7 +2515,10 @@ func _is_over_touch_control(screen_position: Vector2) -> bool:
 	var nodes = tree.get_nodes_in_group("touch_control")
 	for node in nodes:
 		if is_instance_valid(node) and node is Control and node.is_visible_in_tree():
-			if node.get_global_rect().has_point(screen_position):
+			# Hit-test con el helper comun: get_global_rect() no escala el TAMANO por el
+			# rect_scale de UIScaleCompensator, asi que a escala chica el rect de toque
+			# invade vecinos y se come el toque.
+			if UIScaleCompensatorScript.point_in_control(node, screen_position):
 				return true
 	return false
 
