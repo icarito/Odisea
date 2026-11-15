@@ -310,7 +310,8 @@ class FlowWaypointBifurcationEnv(gym.Env):
         rays: List[float] = []
         step_m = 0.5
         for i in range(8):
-            theta = base_angle + (2.0 * math.pi * i) / 8.0
+            # Match Godot/AnnaInterface positive Y-rotation: from -Z forward, +90deg (i=2) points -X (left).
+            theta = base_angle - (2.0 * math.pi * i) / 8.0
             dx, dz = math.cos(theta), math.sin(theta)
             dist = SENSOR_RANGE
             d = step_m

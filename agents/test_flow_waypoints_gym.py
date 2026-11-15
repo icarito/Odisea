@@ -191,3 +191,22 @@ def test_waypoint_gym_wrapper_updates_obs_and_penalizes_socket_and_backtrack() -
     _, r_sock_after, _, _, info6 = wrapped.step(6)
     assert info6["side_socket_diversions"] == 1
     assert r_sock_after > 0.0
+
+
+def test_ray_angular_order_matches_anna_interface_left_is_ray2() -> None:
+    cfg = {
+        "start_pos": (0.0, 0.0, 0.0),
+        "start_yaw": 0.0,  # facing -Z
+        "bounds": (-30.0, 30.0, -30.0, 30.0),
+        "circles": [],
+        # Asymmetric obstacle on the player's LEFT (-X) at x=-4, z=0
+        "boxes": [(-4.0, 0.0, 1.0, 1.0)],
+        "main_waypoints": [(0.0, 0.0, 0.0), (0.0, 0.0, -10.0)],
+        "side_sockets": [],
+    }
+    env = FlowWaypointBifurcationEnv(config=cfg)
+    obs, _ = env.reset()
+    # Ray 0 = forward (-Z), Ray 2 = left (-X), Ray 6 = right (+X)
+    assert obs[2] < obs[6]
+    assert obs[2] < 0.25
+    assert obs[6] > 0.9
