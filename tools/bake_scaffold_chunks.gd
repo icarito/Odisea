@@ -22,6 +22,8 @@ const SRC_DIR := "res://tools/scaffold_chunks/glb/"
 const OUT_DIR := "res://core_v2/props/scaffold/chunks/"
 const MAT_DIR := OUT_DIR + "materials/"
 const DECK_THICKNESS := 0.3
+const GRATE_MATERIAL := "res://textures/trenchbroom/steel_grate_platform.tres"
+const GRATE_REPEAT_PER_METER := 1.35  # igual que SteelGratePlatform
 
 var _materials := {}
 
@@ -146,17 +148,51 @@ func _shared_material(source: Material) -> Material:
 	if not _materials.has(mat_name):
 		var path: String = MAT_DIR + mat_name + ".tres"
 		if not ResourceLoader.exists(path):
-			var fresh: Material = source.duplicate() if source != null else SpatialMaterial.new()
+			var fresh: Material = _game_material(mat_name, source)
 			fresh.resource_name = mat_name
-			# El acero pulido de la paleta de Blender (metallic 1) sale NEGRO en el juego sin
-			# reflejos de entorno: se baja a un metal mate que responde a la luz directa.
-			if fresh is SpatialMaterial and fresh.metallic > 0.5:
-				fresh.metallic = 0.35
-				fresh.roughness = max(fresh.roughness, 0.6)
-				fresh.albedo_color = fresh.albedo_color.lightened(0.25)
 			ResourceSaver.save(path, fresh)
 		_materials[mat_name] = load(path)
 	return _materials[mat_name]
+
+
+# Material del JUEGO para cada nombre de Blender. Misma familia que el andamio existente
+# (SteelGratePlatform): rejilla con alpha scissor, tubo oscuro, chapa. Nada por encima de
+# ~0.6 de metallic: sin cielo ni ReflectionProbe el metal puro sale negro.
+func _game_material(mat_name: String, source: Material) -> Material:
+	match mat_name:
+		"M_Grate":
+			var g: SpatialMaterial = load(GRATE_MATERIAL).duplicate()
+			g.flags_transparent = true
+			g.params_use_alpha_scissor = true
+			g.params_alpha_scissor_threshold = 0.46
+			g.params_cull_mode = SpatialMaterial.CULL_DISABLED
+			g.albedo_color = Color(0.66, 0.72, 0.78)
+			g.metallic = 0.5
+			g.roughness = 0.3
+			g.metallic_specular = 0.9
+			# Triplanar en coordenadas locales: las cajas de Blender no traen UV a escala.
+			g.uv1_triplanar = true
+			g.uv1_scale = Vector3(GRATE_REPEAT_PER_METER, GRATE_REPEAT_PER_METER, GRATE_REPEAT_PER_METER)
+			return g
+		"M_Frame":
+			var f := SpatialMaterial.new()
+			f.albedo_color = Color(0.27, 0.29, 0.32)
+			f.metallic = 0.6
+			f.roughness = 0.55
+			f.metallic_specular = 0.5
+			f.rim_enabled = true
+			f.rim = 0.4
+			f.rim_tint = 0.3
+			return f
+		"M_Panel":
+			var p := SpatialMaterial.new()
+			p.albedo_color = Color(0.42, 0.46, 0.50)
+			p.metallic = 0.45
+			p.roughness = 0.5
+			return p
+	if source != null:
+		return source.duplicate() as Material
+	return SpatialMaterial.new()
 
 
 func _all_meshes(node: Node) -> Array:

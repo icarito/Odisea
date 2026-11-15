@@ -18,8 +18,7 @@ import os
 import bpy
 from mathutils import Vector
 
-from odisea_lib import (apply_mat, mat_brushed_steel_dark, mat_brushed_steel_light,
-                        mat_interactable_cyan, mat_matte_plastic, mat_warning_yellow)
+from odisea_lib import apply_mat, mat_interactable_cyan, mat_matte_plastic, mat_warning_yellow
 
 CHUNK = os.environ.get("CHUNK", "scaffold_sprint_chute")
 NAME = CHUNK
@@ -32,6 +31,7 @@ W = DATA["walkway_width"]
 RAIL = DATA["rail_height"]
 
 PLATE_T = 0.12
+GRATE_T = 0.04
 FRAME = 0.12
 POST = 0.07
 SPINE_DROP = 1.8
@@ -108,14 +108,15 @@ def deck(n, nodes):
     nid = n["id"]
     p0, p1 = ends(n)
     sx = n["size"][0]
-    prism(f"Deck_{nid}", p0, p1, sx, PLATE_T, "light", dy=-PLATE_T / 2.0)
+    prism(f"Deck_{nid}", p0, p1, sx - 2.0 * FRAME, GRATE_T, "grate", dy=-GRATE_T / 2.0)
     for sign in (-1, 1):
         off = sign * (sx / 2.0 - FRAME / 2.0)
-        prism(f"Frame_{nid}_{sign}", p0, p1, FRAME, 0.24, "dark", dx=off, dy=-0.2)
+        prism(f"Frame_{nid}_{sign}", p0, p1, FRAME, 0.24, "dark", dx=off, dy=-0.12)
         if neighbour_on_side(n, nodes, sign):
             continue
         rail_dx = sign * (sx / 2.0 - POST / 2.0)
         prism(f"Rail_{nid}_{sign}", p0, p1, POST, POST, "dark", dx=rail_dx, dy=RAIL)
+        prism(f"MidRail_{nid}_{sign}", p0, p1, POST * 0.7, POST * 0.7, "dark", dx=rail_dx, dy=RAIL * 0.5)
         count = max(2, int(round((p1[2] - p0[2]) / 2.0)) + 1)
         for i in range(count):
             t = i / (count - 1)
@@ -125,12 +126,25 @@ def deck(n, nodes):
     for i in range(max(2, int(span / 2.0) + 1)):
         t = (i + 0.5) / max(2, int(span / 2.0) + 1)
         c = [p0[k] + (p1[k] - p0[k]) * t for k in range(3)]
-        box(f"Cross_{nid}_{i}", (c[0], c[1] - 0.2, c[2]), (sx, 0.16, FRAME), "dark")
+        box(f"Cross_{nid}_{i}", (c[0], c[1] - 0.14, c[2]), (sx, 0.16, FRAME), "dark")
+    # Cabeceros: cierran el bastidor en los dos extremos.
+    for i, p in enumerate((p0, p1)):
+        zin = p[2] + (FRAME / 2.0 if i == 0 else -FRAME / 2.0)
+        box(f"Header_{nid}_{i}", (p[0], p[1] - 0.12, zin), (sx, 0.24, FRAME), "dark")
     if not n.get("rise"):
         y = n["position"][1]
         for z_end, inward in ((p0[2], 1), (p1[2], -1)):
             if 0.01 < z_end < L - 0.01 and not continues(n, nodes, z_end):
-                box(f"Hazard_{nid}_{inward}", (p0[0], y + 0.012, z_end + inward * 0.2), (sx - 0.3, 0.02, 0.35), "yellow")
+                hazard(f"Hazard_{nid}_{inward}", (p0[0], y + 0.02, z_end + inward * 0.28), sx - 0.3)
+
+
+def hazard(name, center, width, depth=0.36, dashes=5):
+    """Franja de borde: placa oscura con tacos amarillos alternados (lectura a velocidad)."""
+    x, y, z = center
+    box(name + "_base", (x, y - 0.012, z), (width, 0.02, depth), "dark")
+    step = width / (dashes * 2 - 1)
+    for i in range(dashes):
+        box(f"{name}_{i}", (x - width / 2.0 + step * (2 * i + 0.5), y, z), (step, 0.03, depth), "yellow")
 
 
 def truss(nodes):
@@ -141,9 +155,34 @@ def truss(nodes):
         box(f"Collar_{z:.0f}", (0.0, y, min(max(z, 0.2), L - 0.2)), (0.5, 0.5, 0.4), "yellow")
     for n in nodes:
         p0, p1 = ends(n)
-        for i, p in enumerate((p0, p1)):
-            zin = p[2] + (0.3 if i == 0 else -0.3)
-            prism(f"Hanger_{n['id']}_{i}", (p[0], p[1] - 0.3, zin), (0.0, y, zin), 0.1, 0.1, "dark")
+        span = p1[2] - p0[2]
+        if abs(n["position"][0]) < 0.1 and span >= 3.0:
+            # Linea principal: cercha Warren (diagonales en zigzag entre cordon y tablero).
+            bays = max(2, int(round(span / 2.0)))
+            for i in range(bays):
+                za = p0[2] + span * i / bays
+                zb = p0[2] + span * (i + 1) / bays
+                ya = p0[1] + (p1[1] - p0[1]) * i / bays - 0.25
+                yb = p0[1] + (p1[1] - p0[1]) * (i + 1) / bays - 0.25
+                top, bottom = ((0.0, ya, za), (0.0, y, zb)) if i % 2 == 0 else ((0.0, yb, zb), (0.0, y, za))
+                prism(f"Web_{n['id']}_{i}", top, bottom, 0.09, 0.09, "dark")
+        else:
+            # Plataforma corta o lateral: mensulas desde el cordon.
+            for i, p in enumerate((p0, p1)):
+                zin = p[2] + (0.3 if i == 0 else -0.3)
+                prism(f"Hanger_{n['id']}_{i}", (p[0], p[1] - 0.3, zin), (0.0, y, zin), 0.1, 0.1, "dark")
+
+
+def portal():
+    """Portico en la junta de entrada (z=0): marca el modulo y da ritmo a la carrera.
+    Solo visual: los postes van por fuera de la pasarela y el dintel sobre la cabeza."""
+    half = W / 2.0 + 0.12
+    height = 2.7
+    for s in (-1, 1):
+        prism(f"PortalPost_{s}", (s * half, -0.3, 0.1), (s * half, height, 0.1), 0.14, 0.14, "dark")
+        box(f"PortalFoot_{s}", (s * half, 0.05, 0.1), (0.24, 0.3, 0.24), "yellow")
+    prism("PortalLintel", (-half, height, 0.1), (half, height, 0.1), 0.14, 0.18, "dark")
+    box("PortalLamp", (0.0, height - 0.12, 0.1), (W * 0.6, 0.05, 0.08), "cyan")
 
 
 def blockers(c):
@@ -151,12 +190,17 @@ def blockers(c):
         x, y, z = b["position"]
         sx, sy, sz = b["size"]
         if b["cuttable"]:
-            box("Dyn_Bulkhead", (x, y, z), (sx, sy, sz), "dark")
+            box("Dyn_Bulkhead", (x, y, z), (sx - 0.2, sy - 0.2, sz), "light")
+            for s in (-1, 1):
+                box(f"BulkheadJamb_{s}", (x + s * (sx / 2.0 - 0.06), y, z), (0.12, sy, sz + 0.1), "yellow")
+            box("BulkheadLintel", (x, y + sy / 2.0 - 0.06, z), (sx, 0.12, sz + 0.1), "yellow")
             for s in (-1, 1):
                 prism(f"Dyn_Brace_{s}", (x - s * sx / 2.2, y - sy / 2.2, z - sz), (x + s * sx / 2.2, y + sy / 2.2, z - sz),
                       0.1, 0.1, "yellow")
         else:
             box("GlooWall", (x, y, z), (sx, sy, sz), "light")
+            for i in range(1, int(sy)):
+                box(f"GlooRib_{i}", (x, float(i), z - sz / 2.0 - 0.02), (sx, 0.06, 0.05), "dark")
             for i in range(3):
                 box(f"GlooAnchor_{i}", (x, sy * (i + 1) / 4.0, z - sz / 2.0 - 0.03), (0.9, 0.25, 0.06), "cyan")
 
@@ -226,13 +270,18 @@ def camera(nodes):
 
 
 def build():
-    M.update({"light": mat_brushed_steel_light(), "dark": mat_brushed_steel_dark(),
+    # Nombres que el baker mapea a los materiales del juego (misma familia que el andamio
+    # existente): M_Grate rejilla, M_Frame tubo oscuro, M_Panel chapa.
+    M.update({"grate": mat_matte_plastic("M_Grate", base=(0.42, 0.46, 0.50)),
+              "light": mat_matte_plastic("M_Panel", base=(0.42, 0.46, 0.50), roughness=0.5),
+              "dark": mat_matte_plastic("M_Frame", base=(0.18, 0.19, 0.21), roughness=0.55),
               "yellow": mat_warning_yellow(), "cyan": mat_interactable_cyan(),
               "cable": mat_matte_plastic("M_Cable", base=(0.08, 0.08, 0.09))})
     c = DATA["chunks"][CHUNK]
     for n in c["nodes"]:
         deck(n, c["nodes"])
     truss(c["nodes"])
+    portal()
     blockers(c)
     extras(c)
     camera(c["nodes"])

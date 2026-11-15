@@ -1,0 +1,10 @@
+[gd_resource type="SpatialMaterial" format=2]
+
+[resource]
+resource_name = "M_Frame"
+albedo_color = Color( 0.27, 0.29, 0.32, 1 )
+metallic = 0.6
+roughness = 0.55
+rim_enabled = true
+rim = 0.4
+rim_tint = 0.3

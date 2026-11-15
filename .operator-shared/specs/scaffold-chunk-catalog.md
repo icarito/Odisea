@@ -51,6 +51,12 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 - Objetos de Blender con prefijo `Dyn_` van a `<id>_dyn.mesh` (nodo `Dyn`): son el lugar de
   los props dinámicos (mamparo cortable, cable, carro) y no se sueldan a la malla estática.
 - `materials/M_*.tres` se crean solo si faltan: se afinan a mano y el rehorneado no los pisa.
+- Blender nombra el material por función (`M_Grate`, `M_Frame`, `M_Panel`, …) y el baker
+  escribe el material **del juego** para ese nombre, de la misma familia que
+  `SteelGratePlatform` (rejilla con alpha scissor, triplanar local porque las cajas no traen
+  UV a escala). Ningún metal por encima de ~0.6 de `metallic`: sin cielo ni ReflectionProbe
+  sale negro.
+- El pórtico de junta va solo en la entrada (`z = 0`) de cada chunk y es solo visual.
 - Cada escena: `Mesh`, `Dyn` (si hay), `Collision/Col_<nodo>`, `Blocker_<id>/Col`,
   `Socket_In_A`, `Socket_Out_<tipo>` y metadata `sockets`.
 - Una rampa se declara con `rise` en el nodo y **se entra por su pie** (`ramp_foot`): de
@@ -64,8 +70,6 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
   props reales (`LaserGate`, `GlooSpan`, cuerda, carro).
 - Proyección al cilindro de `ScaffoldOrbit` y uso de `bank_deg`.
 - Consumidor en runtime (streaming de un tramo por semilla dentro de un nivel).
-- Materiales definitivos: hoy el acero es un metal mate claro, sin la rejilla de
-  `SteelGratePlatform`.
 
 ## Escena de prueba
 
@@ -73,5 +77,4 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 `chunk_count`) con las escenas horneadas y suelta al piloto con el modo asistido activo.
 `SCAFFOLD_LAB_SHOTS=1` guarda capturas desde la cámara del jugador en
 `test_output/scaffold_run/` y cierra; durante esa corrida no hay que tocar los controles
-(cualquier input interrumpe al piloto automático). El acero pulido de la paleta de Blender
-(`metallic = 1`) sale negro en el juego sin reflejos de entorno: el baker lo baja a metal mate.
+(cualquier input interrumpe al piloto automático).
