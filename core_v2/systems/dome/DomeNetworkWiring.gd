@@ -47,6 +47,11 @@ export(NodePath) var air_pump_path := NodePath()
 # el bus era restaurable antes de coolant y la red de energía podía sanar fuera de orden, que
 # es justo lo que el diseño evita. Ponerlo en false reproduce el comportamiento previo (el
 # interruptor restaura siempre). Documentado en el Inspector.
+#
+# Transit-Run: este gate sólo condiciona la red de ENERGÍA (opcional: da el atajo del blast
+# door por 4/4 y ventajas), NUNCA la ruta principal. El descenso de mantenimiento
+# (DomeSystemDirector.request_maintenance_override -> BlastDoorController.open_maintenance) es
+# independiente de las redes y del bus, así que el jugador siempre puede avanzar.
 export(bool) var require_coolant_for_bus: bool = true
 
 # Compuerta de piso (BlastDoorController, T3). El director ya la abre con blast_door_open vía

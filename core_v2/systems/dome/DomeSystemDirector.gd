@@ -50,6 +50,14 @@ export(Dictionary) var network_event_aliases: Dictionary = {
 # cuenta. Documentado en el Inspector.
 export(bool) var auto_load_airlock_scene: bool = true
 
+# Transit-Run: la ruta PRINCIPAL del domo NUNCA queda bloqueada por los puzles de redes. Con
+# este flag en true, `request_maintenance_override()` siempre puede forzar el descenso de
+# mantenimiento, independientemente de las redes HEALTHY y del gating del bus; el blast door
+# por 4/4 (blast_door_open) sigue siendo el atajo rápido. Ponerlo en false revierte al
+# comportamiento previo (descenso solo por 4/4). Es el switch de rollback del cambio.
+# Documentado en el Inspector.
+export(bool) var maintenance_override_enabled: bool = true
+
 # Se emite por cada entrada del timeline que se dispara (en orden de beat). El consumidor
 # (T6/T7) traduce `action` al prop/máquina que corresponde.
 signal timeline_event(event, action, beat)
@@ -59,6 +67,9 @@ signal blast_door_open()
 signal hangar_ready()
 # Fin del vertical slice del domo: pide la transición de escena al hangar/exterior.
 signal airlock_exit(target)
+# Transit-Run: el jugador forzó el sello de mantenimiento. Abre el descenso al hangar por la
+# ruta principal, sin depender de las redes HEALTHY (lo escucha BlastDoorController.open_maintenance).
+signal maintenance_open()
 
 var _config: Resource = null
 var _network_status: Node = null
@@ -157,6 +168,21 @@ func request_airlock_exit(target: String = "") -> void:
 	if path == "":
 		return
 	emit_signal("airlock_exit", path)
+
+
+# Transit-Run: fuerza la ruta de mantenimiento (ruta principal al hangar). No depende del
+# contador de redes HEALTHY ni del gating del bus: la ruta principal no se bloquea por puzles.
+# Emite maintenance_open (lo escucha BlastDoorController.open_maintenance). Devuelve true si la
+# apertura quedó habilitada; false si maintenance_override_enabled está apagado (rollback).
+func request_maintenance_override() -> bool:
+	if not maintenance_override_enabled:
+		return false
+	emit_signal("maintenance_open")
+	return true
+
+
+func is_maintenance_override_enabled() -> bool:
+	return maintenance_override_enabled
 
 
 # --- LECTURA DE ESTADO ---

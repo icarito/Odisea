@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=2]
+[gd_scene load_steps=32 format=2]
 
 ; DomeMachineLevel.tscn — nivel de máquinas del domo: las 4 redes (criocoolant, plasma,
 ; energía, aire) autoradas en un solo sub-árbol, cableadas a DomeNetworkStatus/DomeSystemDirector
@@ -41,6 +41,7 @@
 [ext_resource path="res://core_v2/systems/dome/dressing/PlasmaJunction.tscn" type="PackedScene" id=24]
 [ext_resource path="res://core_v2/systems/dome/dressing/PowerCabinet.tscn" type="PackedScene" id=25]
 [ext_resource path="res://core_v2/systems/dome/dressing/AirDuctUnit.tscn" type="PackedScene" id=26]
+[ext_resource path="res://core_v2/systems/dome/DomeMaintenanceSeal.tscn" type="PackedScene" id=27]
 
 [sub_resource type="SphereShape" id=1]
 radius = 0.35
@@ -370,3 +371,8 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.4, 13.35, 4.5 )
 
 [node name="BlastDoor" parent="Doors" instance=ExtResource( 22 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
+
+; Transit-Run: sello de mantenimiento junto a la compuerta. Forzarlo abre la ruta PRINCIPAL al
+; hangar (panel B del blast door) sin reparar las 4 redes; el atajo por 4/4 sigue igual.
+[node name="MaintenanceSeal" parent="Doors" instance=ExtResource( 27 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -5.8 )
