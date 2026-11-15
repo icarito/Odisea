@@ -725,12 +725,14 @@ func _build_summit_beacon() -> void:
 		return
 	var beacon := Spatial.new()
 	beacon.name = "SummitBeacon"
-	beacon.translation = _summit_world + Vector3(0.0, 2.0, 0.0)
+	# Desplazada respecto de la celda de cima para no atravesar al jugador; más
+	# baja y no colisionable (solo marcador visual + luz).
+	beacon.translation = _summit_world + Vector3(1.8, 1.6, 1.8)
 	var pillar := MeshInstance.new()
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = 0.12
 	cyl.bottom_radius = 0.18
-	cyl.height = 6.0
+	cyl.height = 3.2
 	pillar.mesh = cyl
 	var mat := SpatialMaterial.new()
 	mat.albedo_color = Color(1.0, 0.82, 0.5, 1.0)
@@ -742,7 +744,7 @@ func _build_summit_beacon() -> void:
 	pillar.add_to_group("no_occlusion")
 	beacon.add_child(pillar)
 	var light := OmniLight.new()
-	light.omni_range = 8.0
+	light.omni_range = 6.0
 	light.light_color = Color(1.0, 0.82, 0.5, 1.0)
 	light.light_energy = 1.6
 	light.shadow_enabled = false

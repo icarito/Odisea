@@ -51,7 +51,10 @@ func _build_panel() -> void:
 	_collision.shape = colbox
 	add_child(_collision)
 
-	collision_layer = 2
+	# Capa 1 (Entorno): incluida en la máscara del láser del MultiTool (765) Y en la
+	# máscara del jugador (79), así el rayo la detecta (laser_hit) y además bloquea
+	# el paso. La capa 2 es la del jugador y el láser la excluye.
+	collision_layer = 1
 	collision_mask = 0
 
 func _physics_process(_delta: float) -> void:
@@ -108,4 +111,4 @@ func restore_state(data: Dictionary) -> void:
 		_opened = false
 		_panel.visible = true
 		_collision.disabled = false
-		collision_layer = 2
+		collision_layer = 1

@@ -83,6 +83,19 @@ func _on_body_entered(body: Node) -> void:
 		if _well.toggle_gravity_mode():
 			_armed = false  # un disparo por entrada; se rearma al salir
 			call_deferred("_arm_after_exit")
+			return
+	# Fallback: sin dueño explícito, conmutar GravityWorld (agnóstico al modo).
+	var gw = get_node_or_null("/root/GravityWorld")
+	if gw:
+		var visible_mode: int = 0
+		if gw.has_method("get_current_gravity_mode"):
+			visible_mode = int(gw.get_current_gravity_mode())
+		var next := (1 if visible_mode == 0 else 0)
+		if gw.has_method("set_gravity_mode"):
+			gw.set_gravity_mode(next)
+		_refresh(next)
+		_armed = false
+		call_deferred("_arm_after_exit")
 
 func _arm_after_exit() -> void:
 	# Rearmar cuando el jugador ya no esté dentro (evita doble toggle por frame).

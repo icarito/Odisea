@@ -48,19 +48,33 @@ concéntricos con gravedad centrífuga radial. Rama
    solo modo.
 4. **Transiciones seamless** sin fade; entrada/salida como buffer físico; no `goto_scene`.
 
-## Pendiente / límites (con evidencia)
+## Estado del montaje cilíndrico (2026-11-14, 2.ª pasada)
 
-- El greybox **no monta todavía el cilindro rotante real** (`CylinderRotator` +
-  `ScaffoldStreamController(cylinder_mode=true)` + `GravityWorld` spin). Montar la
-  proyección canónica por chunk con colisiones estables exige el acarreo acotado por frame
-  de `WorldRotator` (lección de clip-through de `OdiseaExterior`) y una sesión dedicada: la
-  geometría/orientación de módulos para trepar radialmente no es directa (el frente de un
-  `ScaffoldStairs` sube a lo largo de su Z local, y la subida radial depende de la
-  proyección, no de una rampa de módulo). El FD deja el contrato y el seam
-  (`TODO(src-51/cilindro)`); el greybox actual usa la geometría vertical como placeholder
-  jugable de contenido.
-- En el greybox, la reproducción del modo se demuestra con el toggle de `GravityWorld` +
-  blend + un puente mode-gated; el reencuadre geométrico axial↔centrífugo por chunk queda
-  para la etapa G del FD.
-- Los atajos son 4 (cinta, caja, gloo, láser) + el puente mode-gated; enriquecer a ~5 por
-  semilla es etapa G.
+`BayVertical.tscn` ahora monta el **stack cilíndrico real**: `CylinderRotator` +
+`ScaffoldStreamController(cylinder_mode=true)` + `PhysicalTerrace` + `Pilot` (el mismo de
+`TestScaffoldOrbit`/`OdiseaExterior`), a `base_radius=48` para que la curvatura sea
+perceptible. Se agregó `BayGravityMount` (dueño del modo, lee/escribe `GravityWorld` y
+reconfigura un puente mode-gated), `BayModeConsole`, `BayProtocolCycle`, buffers
+seamless con transición real (`AirlockManager.notify_transition` + `SceneManager.goto_scene`
+sin fade) y luces de sala.
+
+### Pendiente / límites (con evidencia)
+
+- **Curvatura legible:** las capturas del montaje cilíndrico muestran la estructura y el
+  piso, pero a `base_radius=48` y con la cámara a nivel de ojo la curvatura del anillo no se
+  lee con claridad; además el OYS `LOOK pitch` no altera el encuadre en esta escena (las
+  capturas con distinto pitch salen idénticas), así que no se pudo tomar una vista elevada
+  que muestre el eje/la cima arriba. Falta tuning de cámara/altura y una vista de validación.
+- **Piso físico vs. decks:** el `PhysicalTerrace` plano domina el piso visible; los decks
+  del scaffold llegan como LOD delgado, por lo que la lectura de "piso = cara interior del
+  anillo" aún no es convincente. Requiere subir `full_detail_radius`, dar material a los
+  decks y/o reemplazar el piso plano por la superficie del anillo.
+- **Contenido curado sobre el cilindro:** los atajos (cintas, gloo, láser) y el ciclo de
+  luces siguen implementados sobre `BayVerticalWell` (componente con tests de determinismo
+  y conectividad); falta layerlos sobre los chunks del `ScaffoldStreamController`. El FD
+  deja el contrato; es la etapa G.
+- **Modo:** el toggle de `GravityWorld` + blend + puente mode-gated funciona y es
+  serializable; el reencuadre geométrico axial↔centrífugo por chunk (pisos↔paredes) queda
+  para la etapa G.
+- `BayVerticalWell` conserva la geometría polar de contenido (placeholder) y sus 11 tests;
+  no es ya la escena jugable, sino el componente de contenido/validación.

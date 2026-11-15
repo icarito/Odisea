@@ -81,18 +81,80 @@ func _build_exchange_zone() -> void:
 	add_child(_zone)
 	_zone.connect("body_entered", self, "_on_body_entered")
 
+signal transition_requested(buffer_id, target_scene)
+
+var _transitioning := false
+
 func _on_body_entered(body: Node) -> void:
 	if not body.is_in_group("player"):
 		return
 	request_seamless_transition(body)
 
-# Punto de enganche SEAMLESS (sin fade). La transición física se resuelve con el
-# mecanismo de airlock que src-54 generaliza en SceneManager.
-# TODO(src-54): reemplazar por la llamada real a la API seamless (ver
-# `.operator-shared/specs/seamless-transitions.md`). No usar goto_scene con fade.
-func request_seamless_transition(_player: Node) -> void:
+# Transición SEAMLESS real (sin fade): mismo camino que `AirlockZoneV2._trigger_transition`
+# — `AirlockManager.notify_transition()` levanta al jugador antes del swap y
+# SceneManager hace add-before-free. NO se usa `goto_scene` con fade.
+func request_seamless_transition(player: Node) -> void:
+	if _transitioning:
+		return
+	if target_scene.strip_edges() == "":
+		printerr("[BayTransitionBuffer:%s] target_scene vacío; no hay destino de %s" % [buffer_id, ("salida" if kind == Kind.EXIT else "entrada")])
+		return
+	_transitioning = true
+	emit_signal("transition_requested", buffer_id, target_scene)
+
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager == null or not scene_manager.has_method("goto_scene"):
+		printerr("[BayTransitionBuffer:%s] SceneManager ausente" % buffer_id)
+		_transitioning = false
+		return
+
+	var params := {
+		"transition": "none",
+		"transition_style": "airlock",
+		"preserve_player_state": true,
+		"fade_out": 0.0,
+		"fade_in": 0.0,
+		"show_loading": false,
+		"wait_for_fade_out": false,
+		"spawn_id": buffer_id,
+		"target_spawn_id": buffer_id,
+	}
+	var state_data := _build_state_data(player)
+	if not state_data.empty():
+		params["state_data"] = state_data
+
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+		airlock_manager.notify_transition(target_scene)
+
 	if OS.is_debug_build():
-		print("[BayTransitionBuffer:%s] seamless transition requested -> %s (TODO src-54)" % [buffer_id, target_scene])
+		print("[BayTransitionBuffer:%s] seamless -> %s" % [buffer_id, target_scene])
+	scene_manager.goto_scene(target_scene, params)
+
+func _build_state_data(player: Node) -> Dictionary:
+	var state_data := {}
+	if not is_instance_valid(player):
+		return state_data
+	if player.has_method("get_full_snapshot"):
+		var snapshot = player.get_full_snapshot()
+		if typeof(snapshot) == TYPE_DICTIONARY:
+			var clean: Dictionary = snapshot.duplicate(true)
+			for key in ["pos", "position", "global_position", "origin"]:
+				if clean.has(key):
+					clean[key] = Vector3.ZERO
+			for key in ["vel", "velocity", "linear_velocity"]:
+				if clean.has(key):
+					clean[key] = Vector3.ZERO
+			state_data["player_snapshot"] = clean
+	if player is Spatial:
+		var relative: Transform = global_transform.affine_inverse() * (player as Spatial).global_transform
+		state_data["airlock_relative_position"] = relative.origin
+		state_data["airlock_relative_transform"] = relative
+		if "yaw" in player:
+			state_data["camera_yaw"] = float(player.yaw)
+		if "pitch" in player:
+			state_data["camera_pitch"] = float(player.pitch)
+	return state_data
 
 func is_buffer() -> bool:
 	return true

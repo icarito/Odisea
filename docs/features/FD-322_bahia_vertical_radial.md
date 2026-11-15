@@ -89,11 +89,14 @@ Toda la gravedad sale del stack existente:
 - **FPS bajo = draw calls**, no el solver: agrupar visual (MultiMesh / mallas horneadas) y limitar
   las luces dinámicas.
 
-**Nota de integración (greybox):** el greybox monta la proyección cilíndrica canónica sobre el
-mismo convenio que `CylinderRotator`/`ScaffoldOrbit` y lee la gravedad de `GravityWorld`; el
-enganche a `CylinderRotator` + `ScaffoldStreamController(cylinder_mode=true)` es el destino
-declarado y se deja como seam explícito en el código (`TODO(src-51/cilindro)`) cuando el
-streaming controller acepte grillas curadas fijas.
+**Estado de integración (greybox):** `BayVertical.tscn` monta el stack cilíndrico real
+(`CylinderRotator` + `ScaffoldStreamController(cylinder_mode=true)` + `PhysicalTerrace` +
+`Pilot`), a `base_radius=48`. El modo de gravedad lo dueña `BayGravityMount` (lee/escribe
+`GravityWorld`, agnóstico al modo) y la consola lo activa. El contenido curado (atajos,
+ciclo, caída) sigue en `BayVerticalWell` (componente con tests) y falta layerlo sobre los
+chunks del controller (etapa G), junto con la legibilidad de la curvatura (cámara/vista
+elevada y decks con material). Ver la bitácora `docs/agents/sessions/2026-11-14_bahia_vertical.md`
+para el detalle de lo pendiente.
 
 ---
 
