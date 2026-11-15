@@ -151,6 +151,7 @@ omni_range = 36.0
 [node name="Level" type="Spatial" parent="."]
 script = ExtResource( 2 )
 layout_path = "res://core_v2/levels/machines/machine_bay.json"
+enable_station_streaming = true
 
 [node name="LabyrinthSection" parent="." instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 0, 6 )

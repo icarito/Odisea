@@ -28,7 +28,13 @@ aprovechable por la bahía vertical de src-53.
   queda siempre activa. Centro/radio salen del AABB de los ítems de la estación (en
   coordenadas **globales**, que es contra lo que compara el activador).
 - **`MachinePart.set_stream_active()`**: respeta `_is_cut`/`held` al reactivar (una
-  estación apagada y encendida conserva su partida).
+  estación apagada y encendida conserva su partida). Además registra `_stream_active`:
+  un `release()`/`set_active()` tardío (link con retardo) sobre una pieza fuera de área
+  cambia solo el estado lógico y **no** la despierta; al volver, la estación la pone en
+  `MODE_RIGID`. `_apply_cut_state()` también respeta `_stream_active` (no la hace visible
+  si el rearme llega con la estación apagada).
+- **Producción**: `MachineBay.tscn` trae `enable_station_streaming = true` en el nodo
+  `Level`. El default del export sigue en `false` para no alterar tests/layout.
 - **Tests**:
   - `core_v2/tests/test_machine_station_streaming.gd` (headless, sin render): 1 chunk por
     estación (>0), toggle por distancia, `station 0` nunca se apaga, corte sobrevive al ciclo.
@@ -83,18 +89,19 @@ Interpretación:
 
 ## Estado / pendientes
 
-- [x] Activador genérico por chunk + gancho opt-in en MachineLevel.
+- [x] Activador genérico por chunk + gancho en MachineLevel + **encendido en la escena
+  de producción** (`MachineBay.tscn`), con test sobre la escena real.
 - [x] Tabla antes/después.
+- [x] Fix de review: `release()`/link tardío fuera de área no despierta la pieza.
 - [x] Tests puntuales verdes: `pytest tests/test_odisea_runner.py -q -k
   'test_machine_level or test_machine_bay or test_machine_launch or test_machine_sign_scale'`
   → **11 passed** (incluye `test_machine_station_streaming` y `test_machine_bay_perf`).
-- [ ] **Cambio seamless en `return_to_ring_hub` (spec de src-54, `.operator-shared/specs/
-  seamless-transitions.md` §7)**: NO aplicado. Depende del PR #412 de src-54
-  (`ao/pulido-del-vertical-3/seamless-transitions`, **no mergeado** a la fecha). La API
-  `AirlockManager.notify_transition()` ya está en main, pero aplicar el snippet cambia el
-  contrato de params (`wait_for_fade_out` → `transition: "seamless"`) y exige actualizar
-  `test_machine_bay_return.gd` + snapshot/restore del estado de `AirlockManager` para no
-  filtrar a otros tests. Esperar aviso de coordinación / merge de #412.
+- [x] **Cambio seamless en `return_to_ring_hub`** (spec de src-54
+  `.operator-shared/specs/seamless-transitions.md` §7), aplicado tras el merge de #412
+  (`8a790d1d`): `airlock_manager.notify_transition(target_scene)` + `params["transition"]
+  = "seamless"`, conservando `ringhub_return_state` y `state_data.player_snapshot`.
+  `test_machine_bay_return.gd` actualizado al nuevo contrato (sin `wait_for_fade_out`) y
+  con snapshot/restore del estado de `AirlockManager` para no filtrar entre tests.
 - [ ] Siguiente palanca de perf (fuera de este scope): **shell/`station 0`**. La sombra
   direccional duplica draw calls; los 4553 del spawn no se explican por las máquinas.
   Medir apagar sombras / batch del shell antes de tocar más streaming.
@@ -108,5 +115,5 @@ Interpretación:
 2. Tests de streaming: `./runtest.sh -a ./core_v2/tests/test_machine_station_streaming.gd`.
 3. Medición: los dos comandos `STREAMING=0/1 ./runtest.sh --show -a
    ./core_v2/tests/test_machine_bay_perf.gd` (requiere display; no corre en headless CI).
-4. Si #412 ya está en main: aplicar §7 a `return_to_ring_hub`, actualizar
-   `test_machine_bay_return.gd`, y correr ese test.
+4. Transición seamless bahía→hub: ya aplicada (§7). Test: `./runtest.sh -a
+   ./core_v2/tests/test_machine_bay_return.gd`.

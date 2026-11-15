@@ -76,6 +76,63 @@ func test_streaming_creates_one_chunk_per_station_and_toggles_by_distance() -> v
 	yield(get_tree(), "idle_frame")
 
 
+# La escena real debe traer el streaming encendido; si no, el juego no obtiene la
+# mejora (el default del export es false para no cambiar tests/layout).
+func test_production_bay_enables_station_streaming() -> void:
+	var bay = load("res://core_v2/levels/machines/MachineBay.tscn").instance()
+	add_child(bay)
+	var level = bay.get_node("Level")
+	assert_bool(level.enable_station_streaming).is_true()
+	assert_object(level.get_station_streamer()).is_not_null()
+	assert_int(level.get_station_streamer().get_chunk_count()).is_equal(level.get_station_ids().size() - 1)
+	bay.queue_free()
+	yield(get_tree(), "idle_frame")
+
+
+func test_release_while_station_inactive_does_not_wake_part() -> void:
+	var root := _setup_root()
+	var level = MachineLevel.new()
+	level.name = "StreamLateLinkLevel"
+	level.enable_station_streaming = true
+	level.station_stream_margin = 5.0
+	root.add_child(level)
+	level.build({"items": [
+		{"type": "part", "name": "Door", "pos": [0, 1, 0], "size": [1, 1, 1],
+			"density": 100.0, "held": true, "station": 1},
+		{"type": "part", "name": "Far", "pos": [0, 1, 80], "size": [1, 1, 1], "station": 2},
+	]})
+	var player := Spatial.new()
+	player.add_to_group("player")
+	level.add_child(player)
+	player.translation = Vector3(0.0, 0.0, 0.0)
+	level.get_station_streamer().player = player
+	var door = level.get_item("Door")
+
+	# La estación 1 arranca activa (retenida).
+	level.get_station_streamer().refresh()
+	assert_int(door.mode).is_equal(RigidBody.MODE_STATIC)
+
+	# El jugador se aleja: la estación queda inactiva y el cuerpo dormido.
+	player.translation = Vector3(0.0, 0.0, 60.0)
+	level.get_station_streamer().refresh()
+	assert_bool(door.visible).is_false()
+	assert_int(door.mode).is_equal(RigidBody.MODE_STATIC)
+
+	# Un release() tardío (link con retardo) NO debe despertar la pieza invisible.
+	door.release()
+	assert_bool(door.held).is_false()
+	assert_int(door.mode).is_equal(RigidBody.MODE_STATIC)
+
+	# Al volver, la estación se reactiva y la pieza ya suelta pasa a rígida.
+	player.translation = Vector3(0.0, 0.0, 0.0)
+	level.get_station_streamer().refresh()
+	assert_bool(door.visible).is_true()
+	assert_int(door.mode).is_equal(RigidBody.MODE_RIGID)
+
+	root.queue_free()
+	yield(get_tree(), "idle_frame")
+
+
 func test_cut_part_reactivates_hidden() -> void:
 	var root := _setup_root()
 	var level = MachineLevel.new()
