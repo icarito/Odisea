@@ -6,6 +6,9 @@
 **Created:** 2026-09-11
 **Completed:** -
 
+> **2026-11-15:** en teclado la acción `hud_mode` pasó de TAB a X; TAB es ahora el
+> autonavegador (`nav_assist`). Donde este FD dice TAB, léase «la tecla del modo HUD».
+>
 > **Referencia de interfaz: `docs/odiseaos/MANUAL_DEL_TRIPULANTE.md`.**
 > Este FD sigue siendo el documento de la feature (arquitectura, fases, decisiones),
 > pero **la spec de lo que el jugador hace y ve es el Manual**. Donde este FD y el
