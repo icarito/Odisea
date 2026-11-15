@@ -199,6 +199,22 @@ func _has_touch_ui() -> bool:
 	return _touch_ui_hint
 
 
+# Target de interaccion actual del primer jugador vivo (grupo "player"). null si no hay
+# ninguno: ahi el clic izquierdo dispara el tool equipado, no interactua.
+func _current_interactable():
+	var loop = Engine.get_main_loop()
+	if loop == null or not (loop is SceneTree):
+		return null
+	var players = (loop as SceneTree).get_nodes_in_group("player")
+	for p in players:
+		if not is_instance_valid(p):
+			continue
+		var target = p.get("_current_interactable")
+		if target != null and is_instance_valid(target):
+			return target
+	return null
+
+
 func _is_digital_move_vector(v: Vector2) -> bool:
 	# Keyboard-style movement yields exact 0/1 action strengths.
 	# We use this to avoid forcing sprint on desktop keyboard movement.
@@ -304,9 +320,11 @@ func _read_live_input() -> InputDataV2:
 		d.tool_fire_primary = _action_pressed("tool_fire_primary") \
 			and (not pointer_is_from_touch() or touch_action_is_explicit("tool_fire_primary"))
 		d.tool_fire_secondary = _action_pressed("tool_fire_secondary")
-		d.tool_next_mode = _action_just_pressed("tool_next_mode")
-		d.tool_prev_mode = _action_just_pressed("tool_prev_mode")
 		d.cargol_ability = _action_pressed("cargol_ability")
+		# C2: el clic izquierdo comparte boton con interact. Si hay un interactuable apuntado/
+		# en prompt (target vivo del jugador), interact gana y no se dispara el tool equipado.
+		if (d.interact or d.interact_held) and _current_interactable() != null:
+			d.tool_fire_primary = false
 		d.hud_mode = _action_pressed("hud_mode")
 		d.hud_slot = 0
 		for n in range(1, 5): # HudSlots.COUNT; la primera sostenida gana
@@ -450,8 +468,6 @@ func _zero_gameplay_intents(d: InputDataV2) -> void:
 	d.roll_right = false
 	d.tool_fire_primary = false
 	d.tool_fire_secondary = false
-	d.tool_next_mode = false
-	d.tool_prev_mode = false
 	d.cargol_ability = false
 	d.mouse_delta = Vector2.ZERO
 	d.zoom_delta = 0.0
