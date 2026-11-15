@@ -194,6 +194,19 @@ class OdiseaPeer:
             return ws if ws is not None and not ws.closed else None
         return self.godot_ws  # default: the single / most-recent game
 
+    def _live_game_count(self) -> int:
+        """Number of connected game connections that a command could target."""
+        return len([ws for ws in self.godot_clients if not ws.closed])
+
+    def _ambiguous_target(self, player_id: Optional[str]) -> bool:
+        """True when a command without an explicit player_id cannot pick one game.
+
+        Several worktrees/agents share one peer, so a command with no player_id would
+        otherwise silently land on whichever game connected last — the exact cross-talk
+        that makes a screenshot capture someone else's scene. Callers must name the game.
+        """
+        return player_id is None and self._live_game_count() > 1
+
     # -------------------------------------------------------------- central link
     async def central_loop(self):
         """Maintain the uplink to central forever, with exponential backoff."""
@@ -431,6 +444,16 @@ class OdiseaPeer:
         """Execute one command; returns (response_dict, http_status)."""
         if not action:
             return {"error": "missing_action"}, 400
+
+        # Refuse to guess between several connected games: a command must name its target,
+        # otherwise it would silently hit the most-recent connection (another worktree's
+        # game) and, e.g., return the wrong screenshot.
+        if self._ambiguous_target(player_id):
+            return {
+                "error": "ambiguous_player",
+                "message": "More than one game is connected; pass player_id (see /peers).",
+                "players": sorted(self._live_heartbeats().keys()),
+            }, 400
 
         # Primary path: the live game over WebSocket (V2).
         if self._pick_game(player_id) is not None:

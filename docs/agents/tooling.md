@@ -167,6 +167,27 @@ tools/launch_game.sh --scene <res://...> --pos "x,y,z"
 tools/launch_game.sh --stop
 ```
 
+Cada worktree es una instancia aislada. Como todos los worktrees comparten `user://`
+(todos tienen `config/name="Odisea"`), sin esto dos agentes reportaban el **mismo**
+`player_id` y el peer (`:4999`) enrutaba latidos y comandos por él: ganaba la última
+conexión, así que una captura podía apuntar al juego de otro worker y los saves/settings
+se pisaban. `tools/launch_game.sh` lo resuelve por defecto:
+
+- `ODISEA_PLAYER_ID` = nombre del directorio del worktree (ej. `src-53`); override con
+  `--instance <name>` o `ODISEA_PLAYER_ID`/`ODISEA_INSTANCE` en el entorno.
+- `user://` apunta a `<data>/odisea-agents/<instance>` vía `override.cfg`
+  (`application/config/use_custom_user_dir`), así que saves/settings/logs no se cruzan.
+- `ODISEA_FORCE_TELEMETRY=1`: el `user://` nuevo no trae consentimiento guardado, y
+  `ANNAV2` solo conecta al peer con telemetría encendida. El launcher la enciende para que
+  el juego sea visible y comandable; un lanzamiento normal desde el editor nunca la fuerza.
+- Imprime `instance`, `player_id` y el `user://` resuelto al arrancar.
+
+`ANNAV2` respeta `ODISEA_PLAYER_ID`/`ODISEA_INSTANCE` por encima de
+`user://odisea_player_id.txt`; el archivo sigue siendo la identidad del install humano
+cuando no hay env. El peer rechaza con `ambiguous_player` (HTTP 400) un comando **sin**
+`player_id` cuando hay más de un juego conectado; para multi-juego, nombrar siempre el
+target o consultar `GET /peers`.
+
 Regla de debug: `GET /status` primero, luego `POST /command`.
 
 Si el juego esta pausado o su ventana perdio el foco, ANNA V2 deja de emitir latidos
@@ -174,6 +195,44 @@ Si el juego esta pausado o su ventana perdio el foco, ANNA V2 deja de emitir lat
 congelado en esa muestra, pero la conexion sigue viva y los comandos (`inspect_node`,
 `/eval`, `screenshot`) siguen funcionando. Las corridas headless no se ven afectadas;
 para forzar el stream en una ventana sin foco, exportar `ANNA_V2_ALWAYS_STREAM=1`.
+
+## Capturas: una sola receta
+
+Para "mostrame cómo se ve MI juego ahora" usar **solo** `tools/shot.sh`. Reutiliza el
+juego de este worktree si ya está conectado o lo arranca si no, captura apuntando a su
+propio `player_id` (nunca al de otro worktree), reduce a ≤800 px de ancho y guarda el PNG
+en la ruta pedida (por defecto el directorio de artifacts de la sesión si existe
+`$AO_SESSION_ID`).
+
+```bash
+tools/shot.sh                                   # vista actual del juego de este worktree
+tools/shot.sh --out /tmp/a.png                  # destino explícito
+tools/shot.sh --scene res://core_v2/levels/RingHub_Level.tscn
+tools/shot.sh --scene <res://...> --pos "-6.2,-24.7,-0.4" --yaw 19.5
+tools/shot.sh --headless                        # sin abrir ventana en el :0 del usuario
+tools/shot.sh --width 1280                      # más ancha (tope duro 2000)
+tools/shot.sh --no-launch                       # falla si no hay juego, no arranca uno
+```
+
+- **Aislamiento.** La identidad sale del worktree (`ODISEA_PLAYER_ID`/`--player-id`). Si no
+  hay juego para esa identidad y no existe, lo arranca vía `tools/launch_game.sh`; si
+  existe, lo reutiliza. Todas las llamadas al peer llevan `player_id`, y el peer no elige
+  por su cuenta cuando hay varios juegos: devuelve `ambiguous_player`. Si el `player_id`
+  no está conectado, falla con `player_not_found` en vez de capturar otra instancia.
+- **Headless (sin ventana).** Con `--headless` el juego corre `--no-window` y `ANNAV2`
+  captura a través de un `Viewport` hijo: el viewport raíz sale negro sin ventana, pero el
+  hijo (mismo World, cámara copiada) sí renderiza. `launch_game.sh --headless` exporta
+  `ODISEA_SHOT_VIEWPORT=child` para que el juego elija ese camino solo. Si el juego ya
+  estaba corriendo, `shot.sh` no abre otra ventana.
+- **Tamaño.** Ancho máximo por defecto 800 px, tope duro 2000 (`--width`); nunca agranda.
+- **Destino.** `--out` manda; si no, `$HOME/.ao/data/artifacts/$AO_SESSION_ID/` cuando
+  existe, si no `/tmp`. Imprime la ruta final y el viewport usado (`root`/`child`).
+
+No escribir harnesses `tools/*shot*.gd` nuevos ni abrir ventanas sueltas en `:0`. Los
+harnesses especializados que ya existen (`tools/shot_scaffold*.gd`, `tools/dbg_dome_shot.gd`,
+etc.) pertenecen al pipeline de dome-bake/scaffold y siguen ahí; para gameplay o escena
+normal, `tools/shot.sh` es la única vía.
+
 
 ### Seguridad del loop ANNA / VSCode
 

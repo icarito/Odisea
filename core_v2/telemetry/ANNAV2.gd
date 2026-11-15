@@ -79,6 +79,11 @@ func _ready():
 		_telemetry_enabled = sm.telemetry_enabled
 	else:
 		_telemetry_enabled = false
+	# Agent instances boot with an isolated, fresh user:// (no saved consent), which would
+	# leave the peer blind and make commands/screenshots impossible. tools/launch_game.sh
+	# opts in explicitly; a normal game launch never sets this.
+	if _telemetry_forced():
+		_telemetry_enabled = true
 
 	# Optimization for HTML5/Weak hardware
 	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
@@ -151,6 +156,10 @@ func set_replay_mode(enabled: bool = true) -> void:
 func set_telemetry_enabled(enabled: bool) -> void:
 	if _replay_mode or enabled == _telemetry_enabled:
 		return
+	# The agent launcher forces telemetry on; SettingsManager applies the (empty) saved
+	# consent right after boot and must not switch the isolated instance back off.
+	if not enabled and _telemetry_forced():
+		return
 	_telemetry_enabled = enabled
 	if not enabled:
 		if _net_thread:
@@ -160,6 +169,9 @@ func set_telemetry_enabled(enabled: bool) -> void:
 	if _net_thread:
 		_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", Constants.GAME_VERSION))
 	print("[ANNAV2] Telemetry enabled by user preference.")
+
+func _telemetry_forced() -> bool:
+	return OS.get_environment("ODISEA_FORCE_TELEMETRY") in ["1", "true", "yes", "on"]
 
 func _init_capture_from_env():
 	# Opt-in local capture for headless telemetry analysis. Never required for the
@@ -812,7 +824,7 @@ func _cmd_reload_resource(id, args):
 	else:
 		_send_response(id, false, {"error": "resource not found: " + str(path)})
 
-func _cmd_screenshot(id, _args):
+func _cmd_screenshot(id, args):
 	var pause_layer = get_tree().root.get_node_or_null("PauseMenuLayer")
 	var pause_was_visible := false
 	var should_restore_pause := false
@@ -822,13 +834,27 @@ func _cmd_screenshot(id, _args):
 			pause_layer.visible = false
 			should_restore_pause = true
 
+	# Windowless games (--no-window) have a live GL driver but the root viewport never
+	# presents, so its texture reads black. Capturing through a child Viewport with its
+	# own camera reproduces the same frame off-screen without opening a window on the
+	# human's display. tools/shot.sh exports ODISEA_SHOT_VIEWPORT=child for those runs;
+	# the peer can also request it explicitly with args.viewport="child".
+	var root_vp := get_viewport()
+	var capture_vp: Viewport = null
+	if _want_child_viewport_capture(args):
+		capture_vp = _make_child_capture_viewport(root_vp)
+
+	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
 	yield(VisualServer, "frame_post_draw")
 
-	var viewport = get_viewport()
-	var tex = viewport.get_texture()
-	var img = tex.get_data()
+	var source_vp: Viewport = capture_vp if capture_vp != null else root_vp
+	var img = source_vp.get_texture().get_data()
 	img.flip_y()
+
+	if capture_vp != null:
+		capture_vp.get_parent().remove_child(capture_vp)
+		capture_vp.queue_free()
 
 	var buffer = img.save_png_to_buffer()
 	var b64 = Marshalls.raw_to_base64(buffer)
@@ -836,7 +862,46 @@ func _cmd_screenshot(id, _args):
 	if should_restore_pause and pause_layer and is_instance_valid(pause_layer):
 		pause_layer.visible = pause_was_visible
 
-	_send_response(id, true, {"result": b64})
+	_send_response(id, true, {"result": b64, "viewport": "child" if capture_vp != null else "root"})
+
+func _want_child_viewport_capture(args) -> bool:
+	if typeof(args) == TYPE_DICTIONARY:
+		var mode = args.get("viewport")
+		if mode == "child":
+			return true
+		if mode == "root":
+			return false
+	return OS.get_environment("ODISEA_SHOT_VIEWPORT") == "child"
+
+# Off-screen twin of the live viewport: shares the running World (own_world=false, so no
+# second simulation), copies the active camera so it frames exactly what the player sees,
+# and renders every frame. Removed by the caller right after the capture.
+func _make_child_capture_viewport(parent_vp: Viewport) -> Viewport:
+	var vp := Viewport.new()
+	vp.name = "OdiseaShotCapture"
+	var size := parent_vp.size
+	if size.x <= 0 or size.y <= 0:
+		size = Vector2(1280, 720)
+	vp.size = size
+	vp.own_world = false
+	vp.usage = Viewport.USAGE_3D
+	vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	parent_vp.add_child(vp)
+
+	var cam := Camera.new()
+	cam.current = true
+	var active = parent_vp.get_camera()
+	if active != null and is_instance_valid(active):
+		cam.global_transform = active.global_transform
+		cam.fov = active.fov
+		cam.near = active.near
+		cam.far = active.far
+		cam.projection = active.projection
+		cam.cull_mask = active.cull_mask
+		cam.environment = active.environment
+	vp.add_child(cam)
+	return vp
+
 
 func _cmd_teleport_player(id, args):
 	var pos_arr = args.get("position")
@@ -991,6 +1056,19 @@ func dump_telemetry_json(path := "") -> String:
 # --- Helpers ---
 
 func _load_or_create_player_id() -> String:
+	# An explicit per-instance identity wins over the shared user:// file. Every worktree
+	# shares user:// (all copies of project.godot carry config/name="Odisea"), so without
+	# this two agents' games on the same machine report the SAME player_id and collide on
+	# the peer, which routes heartbeats and commands by player_id (last connection wins).
+	# tools/launch_game.sh sets ODISEA_PLAYER_ID (derived from the worktree) so an agent
+	# instance never inherits the human's install id. ODISEA_INSTANCE is a lighter alias.
+	var env_id: String = OS.get_environment("ODISEA_PLAYER_ID").strip_edges()
+	if env_id != "":
+		return env_id
+	var env_instance: String = OS.get_environment("ODISEA_INSTANCE").strip_edges()
+	if env_instance != "":
+		return env_instance
+
 	var f = File.new()
 	if f.file_exists(PLAYER_ID_FILE):
 		f.open(PLAYER_ID_FILE, File.READ)
