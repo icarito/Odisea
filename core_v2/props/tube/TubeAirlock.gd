@@ -137,12 +137,19 @@ func _physics_process(_delta: float) -> void:
 func _is_player_inside(player: Node) -> bool:
 	if not is_instance_valid(player) or not (player is Spatial):
 		return false
-	var local: Vector3 = global_transform.affine_inverse().xform((player as Spatial).global_transform.origin)
-	var extents := Vector3(2, 2, 1)
 	var shape_node := get_node_or_null("CollisionShape")
 	if shape_node and shape_node.shape is BoxShape:
-		extents = shape_node.shape.extents
-	return abs(local.x) <= extents.x and abs(local.y) <= extents.y and abs(local.z) <= extents.z
+		# El CollisionShape real de TubeAirlock.tscn NO está centrado en el Area (está
+		# desplazado +1 en Z, cubre Z local 0..2). Transformar la posición al ESPACIO
+		# GLOBAL de la forma (incluye desplazamiento, rotación y escala) y comparar con
+		# sus extents; no asumir que la forma coincide con el origen del Area.
+		var box := shape_node.shape as BoxShape
+		var local: Vector3 = shape_node.global_transform.affine_inverse().xform((player as Spatial).global_transform.origin)
+		return abs(local.x) <= box.extents.x and abs(local.y) <= box.extents.y and abs(local.z) <= box.extents.z
+	# Sin forma declarada (tests/fallback): geometría del Area centrada en el origen.
+	var local_area: Vector3 = global_transform.affine_inverse().xform((player as Spatial).global_transform.origin)
+	var extents := Vector3(2, 2, 1)
+	return abs(local_area.x) <= extents.x and abs(local_area.y) <= extents.y and abs(local_area.z) <= extents.z
 
 func _is_door_sealed() -> bool:
 	var door := get_node_or_null("IrisDoorV2")

@@ -246,6 +246,28 @@ func test_tube_airlock_cancels_when_player_leaves_during_seal() -> void:
 	assert_bool(tube.monitoring).is_true()
 	assert_bool(door.is_active).is_true()
 
+func test_tube_airlock_seal_containment_uses_real_collision_shape() -> void:
+	var tube = auto_free(load("res://core_v2/props/tube/TubeAirlock.tscn").instance())
+	add_child(tube)
+	var shape_node: Node = tube.get_node_or_null("CollisionShape")
+	assert_object(shape_node).is_not_null()
+	assert_object(shape_node.shape).is_not_null()
+
+	var player = auto_free(FakePlayable.new())
+	add_child(player)
+
+	# Extremo +Z: local (0,0,1.5) → dentro del volumen real (Z 0..2 por el offset +1).
+	player.global_transform.origin = tube.global_transform.xform(Vector3(0, 0, 1.5))
+	assert_bool(tube._is_player_inside(player)).is_true()
+
+	# Extremo -Z: local (0,0,-0.5) → fuera (la franja -1..0 no pertenece al volumen real).
+	player.global_transform.origin = tube.global_transform.xform(Vector3(0, 0, -0.5))
+	assert_bool(tube._is_player_inside(player)).is_false()
+
+	# Lejos, fuera.
+	player.global_transform.origin = tube.global_transform.xform(Vector3(0, 0, 8))
+	assert_bool(tube._is_player_inside(player)).is_false()
+
 func test_tube_airlock_retries_after_failed_transition() -> void:
 	var tube = auto_free(TubeAirlockScript.new())
 	add_child(tube)
