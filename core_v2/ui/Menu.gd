@@ -1,7 +1,7 @@
 extends Control
 
 const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
-const FIRST_GAME_SCENE := "res://core_v2/levels/RingHub_Level.tscn"
+const FIRST_GAME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const MENU_BGM := "Tin Cosmos"
 # RingHub no tiene BGMZoneV2, asi que este crossfade es la unica musica del arranque: queda
 # sonando la entrada al nivel en vez de cortarse.
@@ -446,8 +446,6 @@ func _start_in_overlay(scene_path: String) -> void:
 	# La escena ya está viva detrás del menú: Nueva partida al mundo actual (o Continuar al
 	# mismo escenario) => cerrar el overlay y entregar control, sin cambio de escena.
 	var same_world := scene_path == current_path
-	if not same_world and scene_path == FIRST_GAME_SCENE:
-		same_world = current_path.begins_with("res://core_v2/levels/RingHub")
 	if same_world:
 		if scene_path == FIRST_GAME_SCENE:
 			# Nueva partida en el mundo ya vivo: resetear progreso y reposicionar al spawn.

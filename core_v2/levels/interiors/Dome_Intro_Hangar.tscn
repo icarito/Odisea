@@ -319,13 +319,16 @@ omni_range = 30.0
 
 [node name="Exit" type="Spatial" parent="."]
 
+; Punto de insercion para el tramo MagRail por el brazo centrifugo (pista D).
+; Por ahora conecta directo de forma seamless con RingHub_Level usando la camara
+; de la esclusa como buffer fisico.
 [node name="Airlock_Exit" parent="Exit" instance=ExtResource( 7 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 21.9 )
 
 [node name="AirlockZoneV2" parent="Exit/Airlock_Exit" index="14"]
-target_scene = "res://core_v2/components/ScaffoldOrbit.tscn"
+target_scene = "res://core_v2/levels/RingHub_Level.tscn"
 target_spawn_id = "from_dome_intro_hangar"
-target_airlock_path = NodePath("Airlock_Basement")
+target_airlock_path = NodePath("Hub/Airlock_FromHangar")
 zone_dir = Vector3( 0, 0, 1 )
 
 [node name="ExitBeacon" parent="Exit" instance=ExtResource( 11 )]
@@ -343,7 +346,7 @@ omni_range = 9.0
 transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 3.2, 21.2 )
 pixel_size = 0.02
 modulate = Color( 0.4, 1, 0.6, 1 )
-text = "ESCLUSA / EXTERIOR"
+text = "ANDEN / RINGHUB"
 
 [node name="DomeLabel" type="Label3D" parent="Exit"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.6, -21.8 )

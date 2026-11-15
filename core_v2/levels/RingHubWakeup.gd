@@ -52,6 +52,10 @@ func _ready() -> void:
 		var lights := get_node_or_null("LightState")
 		if lights != null:
 			lights.restore_snapshot(return_state.get("light_state", {}))
+	elif _has_spawn_arrival():
+		# Llegada por transicion desde el hangar (o futuro MagRail): no encerrar al
+		# piloto en el criopod ni abrir la holoterminal de despertar.
+		_wakeup_completed = true
 	if open_pod_terminal_on_start and not _wakeup_completed:
 		_gate_wakeup_sequence()
 		call_deferred("_open_pod_terminal")
@@ -96,6 +100,16 @@ func _get_return_state() -> Dictionary:
 		return {}
 	var payload = params.get("ringhub_return_state", {})
 	return payload if typeof(payload) == TYPE_DICTIONARY else {}
+
+func _has_spawn_arrival() -> bool:
+	var manager := get_node_or_null("/root/SceneManager")
+	if manager == null or String(manager.get("_next_scene_path")) != filename:
+		return false
+	var params = manager.get("_transition_params")
+	if typeof(params) != TYPE_DICTIONARY:
+		return false
+	var spawn_id := String(params.get("target_spawn_id", params.get("spawn_id", ""))).strip_edges()
+	return spawn_id != ""
 
 # ---------------------------------------------------------------------------
 # Toolbox dev (env-gated; inerte sin las envs). Vive en el NIVEL y no en el Menu
