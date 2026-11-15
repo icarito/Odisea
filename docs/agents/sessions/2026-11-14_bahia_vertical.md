@@ -108,3 +108,16 @@ las capturas de la sesión (`anillo exterior con pitch arriba`, `anillo medio`, 
 Nuevos archivos: `BayCylinderRotator.gd`, `BayVerticalContent.gd`, `BayVerticalLevel.gd`,
 `core_v2/tests/test_bay_vertical_core.gd` (11 casos). `BayVerticalWell.gd` y sus 11 tests
 siguen intactos.
+
+---
+
+## 4.ª pasada — Transit-Run + review nativo (sesión src-57, 2026-11-15)
+
+- Rebase sobre `origin/main` con #422 (`FlowRouteValidator`). `BayTransitFlow` deja de
+  duplicar física y delega en el validador; el nivel se dimensiona con `main_route_gap()`
+  / `step_rise()` y valida la ruta principal por semilla.
+- 3 hallazgos P1 del revisor nativo resueltos: tramos como RAMPA (no escalones), cambio
+  de modo con blend acotado por frame, y salida que conserva el estado actual con
+  transferencia relativa de pose/velocidad.
+- Los 6 hilos del review de #415 quedaron respondidos con evidencia y marcados resueltos.
+- Draw calls del stream: 12138 (config vieja) → 4221 (-65%).

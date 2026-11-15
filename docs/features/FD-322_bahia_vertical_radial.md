@@ -384,3 +384,35 @@ generador de layout puro + contenido/validación, con sus tests).
 - `core_v2/levels/bay_vertical/BayVerticalContent.gd`
 - `core_v2/levels/bay_vertical/BayVerticalLevel.gd`
 - `core_v2/tests/test_bay_vertical_core.gd`
+
+---
+
+## 10. Unificación con Transit-Run (parkour cinético) y contrato de flow
+
+El juego se reenfocó a parkour cinético ("Transit-Run") y la bahía radial es su banco
+de pruebas (dirección de Sebastián, 2026-11-15). La geometría del nivel ya NO está
+hardcodeada: se deriva del contrato de métricas.
+
+- **`BayTransitFlow.gd`** (nuevo): delega las métricas al validador puro
+  `core_v2/systems/flow/FlowRouteValidator.gd` (#422) — `h_max`/`d_max` con corrección
+  por tick y umbrales main/opcional — y aporta solo lo propio: el `g` del anillo
+  (`g(r) = ω²·r`, leído de `GravityWorld.ship_angular_velocity_rad_s`) y el parser
+  tolerante de `docs/canon/WFC_FLOW_METRICS.md` (cuando aterrice). Sin doc usa los
+  **valores medidos en el motor** como fallback: H_max ≈ 3.66 m (60 Hz), D_max corriendo
+  ≈ 10.04 m, escalón ≤ 2.9 m, umbral main ≤ 80 %.
+- **Dimensionado del recorrido**: la espiral usa `main_route_gap()` (75 %, dentro de la
+  banda 70-80 % del contrato) como arco por tramo y `step_rise()` (≤ 2.9 m) como subida.
+  En cada **SprintGap** el arco avanza y la altura NO: el hueco queda **al mismo nivel**
+  (`delta_h = 0`), que es la condición que el contrato mide para el salto principal.
+- **Ruta principal nunca bloqueada con un puzle**: el recorrido es continuo y sus huecos
+  son saltables a `v_run`; gloo/láser/mag-rail viven en **Side Sockets OPCIONALES**
+  etiquetados (GlooClimb, CuratedSocket, MagRail). El roll-jump es técnica, no requisito
+  (ningún hueco lo exige).
+- **Validación por semilla**: `BayVerticalContent.build_route_graph()` +
+  `validate_main_route()` construyen el grafo de la ruta en el marco del cilindro (el
+  "horizontal" es el arco y el "up" el radial) y lo validan con `FlowRouteValidator`:
+  debe existir una ruta principal entrada→cima solo con saltos dentro del umbral main.
+  Los sockets varían por `generation_seed`; la ruta principal valida para todas.
+
+Cuando `FlowMetrics.gd` (#423) entre en main, se construyen las métricas con
+`FlowMetrics.metrics()` en el anillo (con `g(r)`) sin cambiar el resto del nivel.
