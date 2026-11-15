@@ -26,7 +26,7 @@ El airlock del laberinto de ductos con `standalone_cycle=true` es el prototipo d
 | 2 | Menu → RingHub/Dome_Intro (Nueva partida/Continuar) | `Menu.gd` | fade del menú (0.85s) + loading | **No seamless (reportado)** — frontera UI→mundo |
 | 3 | RingHub ↔ MachineBay | `RingHubLightState` / `MachineLevel.gd:526` | fade (default) + lift automático del par | **Seamless**: RingHubLightState declara `transition:"seamless"` explícito; MachineLevel debe hacer lo mismo (cambio reportado a src-51). Auto-upgrade como red de seguridad |
 | 4 | Dome_Crio ↔ OdiseaExterior | `AirlockZoneV2` | seamless (reference) pero con fade-out de BGM | **Seamless completo** (migrada a `transition:"seamless"`: sin fade ni corte de BGM) |
-| 5 | Dome → Hangar (#407) | `HangarTransition.gd` | fade + spawn | **Seamless (migrada)**: pozo como buffer, precarga al arrancar el descenso (`descend_started`), swap con AirlockManager |
+| 5 | Dome → Hangar (#407) | `HangarTransition.gd` | fade + spawn | **Fade (conservado)** tras review P1: sin buffer de llegada equivalente ni cámara continua; migración a seamless pendiente. Precarga temprana mantenida |
 | 6 | Tubos peatonales | `TubeAirlock.gd` | fade 0.5 | **Seamless (migrado)** |
 | 7 | Airlock de la bahía (fallback) | `BayAirlockTrigger.gd` | fade | **Seamless (migrado fallback)**; primario va por RingHubLightState |
 | 8 | Portales genéricos (estilo airlock) | `TransitionPortal.gd` | ciclo airlock + fade | **Seamless (migrado)** cuando AirlockManager presente |
@@ -78,7 +78,7 @@ El OYS `test_tube_airlock.oys` grababa con el camino fade (lento). Con el swap s
 - **Review 1 (Dome_Crio / BGM):** `AirlockZoneV2._trigger_transition` ahora usa `transition:"seamless"` (no `"none"`) cuando AirlockManager está presente. La referencia deja de cortar la BGM.
 - **Review 2 (TubeAirlock sello):** el swap espera a que la IrisDoor quede cerrada (`_is_door_sealed`, ticks de física, tope 90). Test unitario con puerta animada + OYS real.
 - **Review 3 (limpieza del lift):** `SceneManager._reset_runtime_state` llama a `AirlockManager.cancel_pending_transition()` (éxito/fallo/watchdog) y los productores reintentan vía `transition_failed`.
-- **Alcance ampliado (src-49):** `HangarTransition` (Dome→Hangar #407) migrado a seamless: pozo como buffer, precarga al arrancar el descenso (`descend_started` de `HangarPlatform`) y swap con AirlockManager. `RingHubLightState.enter_machine_bay` declara `transition:"seamless"` explícito.
+- **Alcance ampliado (src-49):** `HangarTransition` (Dome→Hangar #407) intentó migrarse a seamless, pero el reviewer P1 pidió conservar el fade: el destino no tiene buffer de llegada equivalente y el trigger libera el rig del pozo (corte visible). Se revirtió a fade; queda pendiente diseñar el buffer de llegada + cámara continua. `RingHubLightState.enter_machine_bay` declara `transition:"seamless"` explícito.
 - **Menú dentro del mundo:** decisión de Sebastián → SEGUNDO PR (rama desde origin/main tras mergear #412). No se toca en #412.
 
 ## Reporte para src-51 (MachineLevel.gd:526)

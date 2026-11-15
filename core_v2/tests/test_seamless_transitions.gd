@@ -217,6 +217,35 @@ func test_tube_airlock_without_door_does_not_block() -> void:
 	tube._physics_process(1.0 / 60.0)
 	assert_int(sm.calls.size()).is_equal(1)
 
+func test_tube_airlock_cancels_when_player_leaves_during_seal() -> void:
+	var tube = auto_free(TubeAirlockScript.new())
+	add_child(tube)
+	tube.target_dome = "res://core_v2/tests/test_tube_airlock.tscn"
+	tube.target_spawn = "end"
+	var door := FakeDoor.new()
+	door.name = "IrisDoorV2"
+	tube.add_child(door)
+	var sm = auto_free(FakeTubeSceneManager.new())
+	add_child(sm)
+	tube.scene_manager_override = sm
+
+	var player = auto_free(FakePlayable.new())
+	add_child(player)
+	var player_body: KinematicBody = player
+	player.global_transform.origin = Vector3(0, 0, 0)  # dentro del volumen (extents default 2,2,1)
+	tube._on_body_entered(player_body)
+	assert_bool(tube._awaiting_seal).is_true()
+
+	# El jugador sale del volumen antes de que cierre la puerta: se cancela y rearma.
+	player.global_transform.origin = Vector3(20, 0, 0)
+	tube._physics_process(1.0 / 60.0)
+
+	assert_int(sm.calls.size()).is_equal(0)
+	assert_bool(tube._has_triggered).is_false()
+	assert_bool(tube._awaiting_seal).is_false()
+	assert_bool(tube.monitoring).is_true()
+	assert_bool(door.is_active).is_true()
+
 func test_tube_airlock_retries_after_failed_transition() -> void:
 	var tube = auto_free(TubeAirlockScript.new())
 	add_child(tube)

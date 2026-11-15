@@ -44,6 +44,7 @@ var _seal_wait_frames := 0
 
 var _preload_requested := false
 var _preload_started := false
+var _triggered_player: Node = null
 # Seam de test: si está seteado, se usa en lugar de /root/SceneManager.
 var scene_manager_override = null
 
@@ -95,6 +96,7 @@ func _on_body_entered(body: Node) -> void:
 
 	if target_dome != "":
 		_has_triggered = true
+		_triggered_player = body
 		# monitoring no se puede tocar en caliente durante un callback de body_entered
 		# (Godot lo bloquea: "Function blocked during in/out signal"); set_deferred lo aplica
 		# despues de que la señal termine de procesarse.
@@ -120,12 +122,27 @@ func _physics_process(_delta: float) -> void:
 	if not _has_triggered:
 		return
 	if _awaiting_seal:
+		_seal_wait_frames += 1
+		# Si el jugador salió del volumen durante la espera (monitoring apagado, conserva
+		# movimiento), cancelar el ciclo y rearmar en vez de teletransportarlo desde afuera.
+		if not _is_player_inside(_triggered_player):
+			_cancel_pending()
+			return
 		if not _is_door_sealed() and _seal_wait_frames < MAX_DOOR_CLOSE_WAIT_FRAMES:
-			_seal_wait_frames += 1
 			return
 		_awaiting_seal = false
 	set_physics_process(false)
 	_transition_to_target()
+
+func _is_player_inside(player: Node) -> bool:
+	if not is_instance_valid(player) or not (player is Spatial):
+		return false
+	var local: Vector3 = global_transform.affine_inverse().xform((player as Spatial).global_transform.origin)
+	var extents := Vector3(2, 2, 1)
+	var shape_node := get_node_or_null("CollisionShape")
+	if shape_node and shape_node.shape is BoxShape:
+		extents = shape_node.shape.extents
+	return abs(local.x) <= extents.x and abs(local.y) <= extents.y and abs(local.z) <= extents.z
 
 func _is_door_sealed() -> bool:
 	var door := get_node_or_null("IrisDoorV2")
@@ -182,11 +199,15 @@ func _transition_to_target() -> void:
 func _on_transition_failed(path: String, _reason: String) -> void:
 	if String(path) != target_dome:
 		return
+	_cancel_pending()
+
+func _cancel_pending() -> void:
 	_has_triggered = false
 	_preload_requested = false
 	_preload_started = false
 	_awaiting_seal = false
 	_seal_wait_frames = 0
+	_triggered_player = null
 	set_physics_process(false)
 	monitoring = true
 	open_doors()

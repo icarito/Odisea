@@ -7,11 +7,12 @@ class_name HangarTransition
 # (`Dome_Intro_Hangar.tscn`). NO es un airlock: domo y hangar son interiores presurizados,
 # asi que no hay ciclo de presurizacion, ni AirlockControllerV2, ni target_airlock_path.
 #
-# Transición seamless: el POZO de descenso es el buffer físico. La escena del hangar se
-# precarga al arrancar el descenso (señal `descend_started` de la plataforma, o al entrar
-# al trigger para la rampa de servicio) y el swap ocurre detrás del umbral con el jugador
-# sostenido por el AirlockManager (cámara viva), sin fade ni cartel. Si el AirlockManager
-# no está disponible, cae al camino legacy con fade.
+# Transición: se conserva el fade existente. El trayecto NO es seamless todavía: el destino
+# (Spawn_FromDomeIntro) no tiene un pozo/plataforma equivalente y el trigger libera el rig
+# cinematográfico del pozo, así que sin fade aparece un corte de cámara/entorno. Requiere un
+# buffer de llegada equivalente + transferencia continua de cámara antes de migrar.
+# (Se mantiene la precarga temprana al arrancar el descenso como optimización: no cambia la
+# semántica del fade y adelanta la carga.)
 #
 # Dispara una sola vez (guard) y respeta POST_TRANSITION_GRACE_FRAMES desde que la escena
 # termino de cargar, igual que TubeAirlock/BayAirlockTrigger: el spawn de destino puede
@@ -153,20 +154,14 @@ func _transition_to_target() -> bool:
 		printerr("[HangarTransition] SceneManager ausente")
 		return false
 
-	# Frontera interior -> interior con el pozo como buffer. preserve_player_state=false
-	# reubica al jugador en el SpawnPointV2 del hangar. Con AirlockManager presente, el swap
-	# es seamless (sin fade ni cartel); sin él, queda el camino legacy con fade.
-	var airlock_manager := get_node_or_null("/root/AirlockManager")
-	var seamless := airlock_manager != null and airlock_manager.has_method("notify_transition")
-	var params := {
+	# Frontera interior -> interior: change_scene puro. preserve_player_state=false reubica al
+	# jugador en el SpawnPointV2 del hangar; wait_for_fade_out evita el corte seco.
+	# (Aún NO es seamless: falta un buffer de llegada equivalente y transferencia continua de
+	# cámara entre el pozo y el hangar. Ver comentario de cabecera.)
+	sm.goto_scene(resolved_scene, {
 		"target_spawn_id": resolved_spawn,
 		"spawn_id": resolved_spawn,
 		"preserve_player_state": false,
-	}
-	if seamless:
-		airlock_manager.notify_transition(resolved_scene)
-		params["transition"] = "seamless"
-	else:
-		params["wait_for_fade_out"] = true
-	sm.goto_scene(resolved_scene, params)
+		"wait_for_fade_out": true,
+	})
 	return true
