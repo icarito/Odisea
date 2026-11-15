@@ -70,13 +70,31 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 
 - Los `Dyn_*` y los `Blocker_*` cortables son malla y caja estáticas: falta cablearlos a los
   props reales (`LaserGate`, `GlooSpan`, cuerda, carro).
-- Proyección al cilindro de `ScaffoldOrbit` y uso de `bank_deg`.
+- `bank_deg` (`scaffold_curved_bank`) se registra en el placement pero nada lo usa: falta
+  decidir si es un giro de rumbo (ruta helicoidal) o un peralte visual.
 - Consumidor en runtime (streaming de un tramo por semilla dentro de un nivel).
+
+## Proyección orbital
+
+`core_v2/systems/scaffold/ScaffoldChunkOrbit.gd` coloca un tramo sobre el interior de un
+cilindro (marco del nodo: eje = X, arco = Z, subir = hacia el eje).
+
+- La física del jugador no cambia (`Vector3.UP`, `AGENTS.md` §5.1): se recoloca el mundo. El
+  tramo bajo el jugador queda plano y el resto se curva, igual que `CylinderRotator`.
+- **Dos espacios:** plano (el del registro: grafo, waypoints) y físico (donde están los
+  cuerpos). Coinciden en el punto bajo el jugador. Todo lo que razona sobre la ruta lo hace
+  en plano; `world_to_flat` / `flat_to_world` convierten.
+- Cada chunk es rígido y se apoya como cuerda del círculo a **su** radio (`base_radius −
+  altura`): las juntas calzan aunque el tramo suba o baje.
+- El estado sale solo de la posición del jugador: no necesita snapshot de replay.
+- No ajusta la gravedad al radio: los tamaños del registro siguen calculados con el `g` del
+  piloto, no con `g_eff = ω²·r`.
 
 ## Escena de prueba
 
 `core_v2/levels/scaffold_run/ScaffoldRunLab.tscn` arma un tramo por semilla (`seed_value`,
-`chunk_count`) con las escenas horneadas y suelta al piloto con el modo asistido activo.
+`chunk_count`, `orbit_radius` para proyectarlo al cilindro; `SCAFFOLD_LAB_RADIUS=<m>` lo
+fuerza) con las escenas horneadas y suelta al piloto con el modo asistido activo.
 `SCAFFOLD_LAB_SHOTS=1` guarda capturas desde la cámara del jugador en
 `test_output/scaffold_run/` y cierra; durante esa corrida no hay que tocar los controles
 (cualquier input interrumpe al piloto automático).

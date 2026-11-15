@@ -31,6 +31,11 @@ var enabled := false
 var idle_seconds := 0.5
 var arrive_radius := 1.0
 
+# Opcional: marco curvo (ScaffoldChunkOrbit). Si se asigna, los waypoints estan en el espacio
+# plano del registro y el piloto se convierte a ese espacio; solo la direccion de marcha y la
+# sonda de borde vuelven al espacio fisico. null = waypoints en coordenadas de mundo.
+var frame = null
+
 var _body_ref: WeakRef = null
 var _fm = null
 var _waypoints := []              # [{position: Vector3, size: Vector3 (opcional)}]
@@ -91,7 +96,8 @@ func apply(d: InputDataV2) -> void:
 		return
 	_active = true
 
-	var pos: Vector3 = body.global_transform.origin
+	var world_pos: Vector3 = body.global_transform.origin
+	var pos: Vector3 = frame.world_to_flat(world_pos) if frame != null else world_pos
 	var on_floor: bool = body.is_on_floor()
 	var target: Vector3 = _aim(_waypoints[_index], pos)
 	var to_target := Vector3(target.x - pos.x, 0.0, target.z - pos.z)
@@ -116,6 +122,8 @@ func apply(d: InputDataV2) -> void:
 		dist = to_target.length()
 		dy = 0.0
 	var dir: Vector3 = to_target.normalized() if dist > 0.01 else Vector3.ZERO
+	if frame != null:
+		dir = frame.flat_dir_to_world(dir)
 	var vel: Vector3 = body.get("velocity")
 	var h_vel := Vector3(vel.x, 0.0, vel.z)
 	var h_speed: float = h_vel.length()
@@ -150,7 +158,7 @@ func apply(d: InputDataV2) -> void:
 		_stuck_ticks = _stuck_ticks + 1 if h_speed < 0.5 else 0
 		var reach: float = max(h_speed, _fm.walk_speed()) * _fm.t_air(-1.0, dy) * REACH_MARGIN
 		var climb: bool = dy > STEP_HEIGHT and dist <= reach
-		if climb or _stuck_ticks > STUCK_TICKS or _gap_ahead(body, pos, dir):
+		if climb or _stuck_ticks > STUCK_TICKS or _gap_ahead(body, world_pos, dir):
 			_jump_held = true
 			_stuck_ticks = 0
 	elif vel.y <= 0.0 or not _full_jump:

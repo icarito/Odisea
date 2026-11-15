@@ -40,7 +40,7 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `input/` — `InputProviderV2` (árbitro LIVE/REPLAY), `InputDataV2` (frame serializable), `AutopilotInputV2` (modo asistido Transit-Run)
 - `systems/` — Sistemas de nave (cryo, room)
 - `systems/flow/` — `FlowMetrics` (alcance del jugador leído de `Pilot_v2`) y `FlowRouteValidator` (ruta principal y waypoints por semilla)
-- `systems/scaffold/`, `systems/ScaffoldStreamController.gd` — Andamio WFC por chunks en streaming; `ScaffoldOrbit` lo proyecta al cilindro; `ScaffoldChunkRegistry` es el catálogo 1D de chunks Transit-Run (datos puros)
+- `systems/scaffold/`, `systems/ScaffoldStreamController.gd` — Andamio WFC por chunks en streaming; `ScaffoldOrbit` lo proyecta al cilindro; `ScaffoldChunkRegistry` es el catálogo 1D de chunks Transit-Run (datos puros); `ScaffoldChunkOrbit` proyecta un tramo de esos chunks al cilindro
 - `agents/` — Inferencia MLP de la política de ANNA en GDScript (`MLPPolicyInference`, `HoloPolicyController`)
 - `ui/` — HUD, OdiseaOS, menús, mouse virtual
 - `telemetry/` — ANNAV2 y servidor MCP

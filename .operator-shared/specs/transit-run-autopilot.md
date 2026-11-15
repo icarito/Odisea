@@ -41,8 +41,10 @@ Contrato del relevo humano ↔ máquina. Métricas y umbrales de la ruta: `docs/
   sobre el punto de mira, y la conserva en el aire. El frenado en el aire queda como red.
 - Verificado con el piloto real sobre tramos generados de 12 chunks horneados
   (`test_scaffold_chunk_run.gd`; `SCAFFOLD_RUN_SEED=<n>` prueba otra semilla).
-- `size` de un waypoint se interpreta como AABB alineada a los ejes; sobre el cilindro de
-  `ScaffoldOrbit` los chunks giran en Z y hay que pasar puntos ya resueltos.
+- `size` de un waypoint es una AABB en el espacio de la ruta. Con `frame` (un
+  `ScaffoldChunkOrbit`) la ruta está en el espacio plano del registro y el piloto se convierte
+  a ese espacio cada tick; sin `frame`, los waypoints son coordenadas de mundo alineadas a los
+  ejes. Asume avance hacia +Z de ese espacio.
 - No gira la cámara: el personaje puede correr de lado respecto a la vista.
 - Ningún nivel lo activa todavía; falta quién arme la ruta en runtime y la señal diegética
   en el visor.
