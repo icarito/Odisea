@@ -96,7 +96,7 @@ func test_work_lighting_present() -> void:
 
 func test_exit_airlock_targets_ringhub_with_spawn() -> void:
 	var hangar = yield(_spawn_hangar(), "completed")
-	# Una sola esclusa de salida hacia RingHub (punto de insercion para MagRail).
+	# Una sola esclusa de salida hacia MagRailHangarToRingHub (con fallback a RingHub_Level).
 	assert_array(_nodes_with_script(hangar, AIRLOCK_SCRIPT)).has_size(1)
 	var zones := _nodes_with_script(hangar, AIRLOCK_ZONE_SCRIPT)
 	assert_array(zones).is_not_empty()
@@ -104,6 +104,18 @@ func test_exit_airlock_targets_ringhub_with_spawn() -> void:
 	for zone in zones:
 		var target_scene := String(zone.get("target_scene"))
 		var target_spawn := String(zone.get("target_spawn_id"))
-		if target_scene.find("RingHub_Level") >= 0 and target_spawn == "from_dome_intro_hangar":
+		if target_scene.find("MagRailHangarToRingHub") >= 0 and target_spawn == "from_hangar":
 			found = true
 	assert_bool(found).is_true()
+
+	var exit_node: Node = hangar.get_node_or_null("Exit")
+	assert_object(exit_node).is_not_null()
+	exit_node.set("magrail_hangar_connector_enabled", false)
+	exit_node.call("apply_route")
+	var fallback_found := false
+	for zone in zones:
+		var target_scene := String(zone.get("target_scene"))
+		var target_spawn := String(zone.get("target_spawn_id"))
+		if target_scene.find("RingHub_Level") >= 0 and target_spawn == "from_dome_intro_hangar":
+			fallback_found = true
+	assert_bool(fallback_found).is_true()
