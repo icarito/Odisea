@@ -18,6 +18,11 @@ enum Kind { ENTRY = 0, EXIT = 1, ELEVATOR = 2 }
 export(Kind) var kind := Kind.ENTRY
 export(String) var target_scene := ""
 export(String) var buffer_id := ""
+# Spawn REAL en la escena destino (existe allí): deja el grafo de transiciones
+# recorrible para el test de alcanzabilidad.
+export(String) var target_spawn_id := ""
+# La salida por la CIMA cierra el slice: marca el hito al cruzar.
+export(bool) var completes_slice := false
 export(bool) var exchange_zone := true
 export(Vector3) var chamber_size := Vector3(3.0, 3.0, 3.0)
 # Opcional: nodo de nivel que aporta los parámetros de salida reales
@@ -105,6 +110,10 @@ func request_seamless_transition(player: Node) -> void:
 	_transitioning = true
 	emit_signal("transition_requested", buffer_id, target_scene)
 
+	# La salida por la cima cierra el slice antes de cambiar de escena.
+	if completes_slice and _level != null and _level.has_method("complete_slice"):
+		_level.call("complete_slice")
+
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager == null or not scene_manager.has_method("goto_scene"):
 		printerr("[BayTransitionBuffer:%s] SceneManager ausente" % buffer_id)
@@ -117,7 +126,11 @@ func request_seamless_transition(player: Node) -> void:
 		# Destino REAL (hub): conserva el estado ACTUAL y transfiere pose/velocidad
 		# RELATIVAS al airlock de destino; no se restaura ningún snapshot viejo.
 		params = _level.call("build_ringhub_params")
+		if target_spawn_id != "":
+			params["target_spawn_id"] = target_spawn_id
 		var merged: Dictionary = params.get("state_data", {})
+		if target_spawn_id != "":
+			merged["target_spawn_id"] = target_spawn_id
 		for key in state_data.keys():
 			merged[key] = state_data[key]
 		params["state_data"] = merged
@@ -195,3 +208,12 @@ func is_buffer() -> bool:
 
 func get_kind() -> int:
 	return kind
+
+# Destino declarado, para el test de alcanzabilidad del grafo de transiciones.
+func get_transition_target() -> Dictionary:
+	return {
+		"target_scene": target_scene,
+		"spawn_id": target_spawn_id,
+		"buffer_id": buffer_id,
+		"completes_slice": completes_slice,
+	}

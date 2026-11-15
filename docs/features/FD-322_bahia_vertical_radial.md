@@ -416,3 +416,34 @@ hardcodeada: se deriva del contrato de métricas.
 
 Cuando `FlowMetrics.gd` (#423) entre en main, se construyen las métricas con
 `FlowMetrics.metrics()` en el anillo (con `g(r)`) sin cambiar el resto del nivel.
+
+---
+
+## 11. Pista E — ruta principal como parkour real y desvíos curados
+
+La ruta principal dejó de ser una rampa continua: ahora es **parkour** montado sobre
+los chunks del stream y dimensionado con el contrato (`FlowMetrics` + `FlowRouteValidator`).
+
+- **`BayTransitFlow` sobre `FlowMetrics` (#423)**: la física se lee de `Pilot_v2.tscn` y el
+  validador `FlowRouteValidator` (#422) aporta las funciones de alcance. Lo propio del
+  anillo es `g_eff(r) = ω²·r`: el nivel configura el giro para ~1 g del piloto en la
+  superficie (`configure_ring_gravity`), así el contrato aplica tal cual en el borde y el
+  alcance crece hacia el eje. Se evalúa con el tick **más bajo** (30 Hz, INV-4).
+- **Ruta principal**: plataformas separadas por saltos, alternando
+  - `RhythmSteps` (cadencia corta, `rise ≤ 0.70·H_max`) y
+  - `SprintGap` (cruce al mismo nivel, `gap ≤ 0.75·D_max`).
+  Cada salto queda dentro del 80 % del alcance local (INV-1) y el hueco se recorta contra
+  el límite de la superficie (cerca del eje `g_eff` cae y el alcance crece).
+- **Desvíos curados (Side Sockets OPCIONALES, INV-3)**: cinta/caja, láser, **GlooClimb**,
+  **cornisa con mantle** (≤ alcance de cornisa) y **MagRail** (solo propulsión), cada uno
+  con recompensa cinética (boost, atajo, grind, cornisa). Nunca cortan la ruta principal.
+- **Lenguaje visual fijo**: la ruta principal va en **luz cálida estable** (una lámpara por
+  plataforma + baliza cálida en la cima); los atajos llevan **franjas** amarillas y **luz fría**.
+- **Salida por la cima (fin del slice)**: buffer físico seamless hacia `RingHub_Level` con
+  `spawn_id = "bay_vertical_return"` (SpawnPointV2 real en el hub, verificado por raycast
+  sobre `GroundFloor`) y, al cruzar, un marcador de **slice completado** (la baliza vira a
+  verde estable, se emite `slice_completed` y se persiste en `user://odisea_slice_progress.cfg`).
+  Sin texto en pantalla, como pide el FD.
+- **Validación por semilla**: `validate_main_route()` arma el grafo en el marco del cilindro
+  (horizontal = arco, vertical = radial) con el `g_eff` local y el peor caso de cada arista,
+  y lo valida con `FlowRouteValidator`; el test lo corre para 10 semillas.

@@ -15,12 +15,17 @@ export(String) var ringhub_scene_path := "res://core_v2/levels/RingHub_Level.tsc
 # salida transfiere pose/velocidad RELATIVAS a este airlock — no restaura el
 # snapshot viejo del jugador.
 export(String) var ringhub_airlock_path := "Hub/BayConnector"
+# Spawn REAL de RingHub para la salida (declarado en la escena del hub) para que
+# el grafo de transiciones sea recorrible: `target_scene` y `spawn_id` existen.
+export(String) var ringhub_spawn_id := "bay_vertical_return"
 export(NodePath) var content_path := NodePath("")
 export(NodePath) var entry_buffer_path := NodePath("")
 export(NodePath) var exit_buffer_path := NodePath("")
 export(NodePath) var mode_console_path := NodePath("")
 
 var _ringhub_return_state: Dictionary = {}
+var _slice_completed := false
+var _slice_marker_written := false
 
 func _init() -> void:
 	add_to_group("replay_sync")
@@ -70,22 +75,49 @@ func build_ringhub_params() -> Dictionary:
 		"fade_in": 0.0,
 		"show_loading": false,
 		"wait_for_fade_out": false,
+		"ringhub_scene_path": ringhub_scene_path,
+		"target_spawn_id": ringhub_spawn_id,
 		# El hub no debe repetir el despertar; el resto del estado es el actual.
 		"ringhub_return_state": {"wakeup": _ringhub_return_state.get("wakeup", {}).duplicate(true),
 			"light_state": _ringhub_return_state.get("light_state", {}).duplicate(true)},
 		"state_data": {
 			"target_airlock_path": ringhub_airlock_path,
+			"target_spawn_id": ringhub_spawn_id,
 			# Conservar la orientación relativa del jugador (sin re-encarar): la
 			# pose relativa ya la aporta el buffer.
 			"target_airlock_exit_door": "none",
 		},
 	}
 
+# Cima = fin del slice: marca el hito (baliza verde + señal persistente).
+func complete_slice() -> bool:
+	var content = get_node_or_null(content_path)
+	if content == null or not content.has_method("mark_slice_completed"):
+		return false
+	content.call("mark_slice_completed")
+	_slice_completed = true
+	_write_slice_marker()
+	return true
+
+func is_slice_completed() -> bool:
+	return _slice_completed
+
+func _write_slice_marker() -> void:
+	if _slice_marker_written:
+		return
+	_slice_marker_written = true
+	var cfg := ConfigFile.new()
+	cfg.set_value("slice", "bay_vertical_completed", true)
+	cfg.save("user://odisea_slice_progress.cfg")
+
 # ── Replay / save ────────────────────────────────────────────────────────────
 
 func get_snapshot() -> Dictionary:
-	return {"ringhub_return_state": _ringhub_return_state.duplicate(true)}
+	return {"ringhub_return_state": _ringhub_return_state.duplicate(true),
+		"slice_completed": _slice_completed}
 
 func restore_snapshot(data: Dictionary) -> void:
 	if data.has("ringhub_return_state"):
 		_ringhub_return_state = data.get("ringhub_return_state", {}).duplicate(true)
+	if bool(data.get("slice_completed", false)):
+		_slice_completed = true

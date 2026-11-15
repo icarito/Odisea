@@ -113,6 +113,7 @@
 [ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_5_low_2.mesh" type="ArrayMesh" id=118]
 [ext_resource path="res://core_v2/levels/RingHubOccluders.gd" type="Script" id=119]
 [ext_resource path="res://core_v2/props/tube/RingHubBayConnector.tscn" type="PackedScene" id=120]
+[ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=121]
 
 [sub_resource type="BoxShape" id=400]
 extents = Vector3( 35, 0.3, 35 )
@@ -704,6 +705,11 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0 )
 light_color = Color( 0.3, 0.8, 1, 1 )
 light_energy = 0.8
 omni_range = 3.0
+
+[node name="BayVerticalReturnSpawn" type="Position3D" parent="Hub"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 24.0, 1.2, 2.8 )
+script = ExtResource( 121 )
+spawn_id = "bay_vertical_return"
 
 [node name="WallLights" type="Spatial" parent="Hub" groups=["light_budget_aggressive"]]
 script = ExtResource( 66 )
