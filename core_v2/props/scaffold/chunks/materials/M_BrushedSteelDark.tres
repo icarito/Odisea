@@ -4,6 +4,6 @@
 resource_name = "M_BrushedSteelDark"
 vertex_color_use_as_albedo = true
 params_cull_mode = 2
-albedo_color = Color( 0.583832, 0.601243, 0.618031, 1 )
-metallic = 1.0
-roughness = 0.3
+albedo_color = Color( 0.687874, 0.700933, 0.713524, 1 )
+metallic = 0.35
+roughness = 0.6

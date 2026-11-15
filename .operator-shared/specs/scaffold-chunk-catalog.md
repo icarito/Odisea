@@ -64,4 +64,14 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
   props reales (`LaserGate`, `GlooSpan`, cuerda, carro).
 - Proyección al cilindro de `ScaffoldOrbit` y uso de `bank_deg`.
 - Consumidor en runtime (streaming de un tramo por semilla dentro de un nivel).
-- Revisión visual del arte en el juego (hoy solo hay vistas previas de Blender).
+- Materiales definitivos: hoy el acero es un metal mate claro, sin la rejilla de
+  `SteelGratePlatform`.
+
+## Escena de prueba
+
+`core_v2/levels/scaffold_run/ScaffoldRunLab.tscn` arma un tramo por semilla (`seed_value`,
+`chunk_count`) con las escenas horneadas y suelta al piloto con el modo asistido activo.
+`SCAFFOLD_LAB_SHOTS=1` guarda capturas desde la cámara del jugador en
+`test_output/scaffold_run/` y cierra; durante esa corrida no hay que tocar los controles
+(cualquier input interrumpe al piloto automático). El acero pulido de la paleta de Blender
+(`metallic = 1`) sale negro en el juego sin reflejos de entorno: el baker lo baja a metal mate.

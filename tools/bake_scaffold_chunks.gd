@@ -148,6 +148,12 @@ func _shared_material(source: Material) -> Material:
 		if not ResourceLoader.exists(path):
 			var fresh: Material = source.duplicate() if source != null else SpatialMaterial.new()
 			fresh.resource_name = mat_name
+			# El acero pulido de la paleta de Blender (metallic 1) sale NEGRO en el juego sin
+			# reflejos de entorno: se baja a un metal mate que responde a la luz directa.
+			if fresh is SpatialMaterial and fresh.metallic > 0.5:
+				fresh.metallic = 0.35
+				fresh.roughness = max(fresh.roughness, 0.6)
+				fresh.albedo_color = fresh.albedo_color.lightened(0.25)
 			ResourceSaver.save(path, fresh)
 		_materials[mat_name] = load(path)
 	return _materials[mat_name]
