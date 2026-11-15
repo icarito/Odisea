@@ -40,6 +40,12 @@ export(float) var landing_roll_min_speed := 8.5
 export(float) var landing_roll_max_speed := 13.5
 export(float) var landing_roll_friction := 3.5
 
+# MagRail (PISTA D)
+export(float) var rail_drift_max := 0.35
+export(float) var rail_drift_recovery := 6.0
+export(float) var rail_input_accel := 10.0
+export(float) var rail_exit_cooldown := 0.25
+
 # State
 var horizontal_velocity := Vector3.ZERO
 var _floor_normal := Vector3.UP # Cached floor normal for alignment
@@ -49,6 +55,17 @@ var _ballistic_ticks := 0
 const BALLISTIC_LIFTOFF_TICKS := 4
 var _roll_timer := 0.0
 var _roll_direction := Vector3.ZERO
+
+# MagRail State
+var is_on_rail := false
+var rail_node_path := ""
+var _rail_offset := 0.0
+var _rail_direction := 1.0
+var _rail_speed := 0.0
+var _rail_drift_offset := 0.0
+var _rail_cooldown := 0.0
+var _rail_last_tangent := Vector3.FORWARD
+var _rail_last_platform_vel := Vector3.ZERO
 
 # External Velocity State
 var external_velocity := Vector3.ZERO
@@ -111,6 +128,139 @@ func start_landing_roll(forward_dir: Vector3, impact_vy: float) -> void:
 
 func is_rolling() -> bool:
 	return _roll_timer > 0.0
+
+func can_engage_rail() -> bool:
+	return not is_on_rail and _rail_cooldown <= 0.0
+
+func tick_rail_cooldown(dt: float) -> void:
+	if _rail_cooldown > 0.0:
+		_rail_cooldown = max(0.0, _rail_cooldown - dt)
+
+func enter_rail(rail: Node, world_pos: Vector3, current_vel: Vector3) -> Dictionary:
+	var info: Dictionary = rail.get_closest_point_info(world_pos)
+	if info.empty():
+		return {}
+	var base_tan: Vector3 = info["tangent"]
+	var dir_sign := 1.0
+	if rail.bidirectional:
+		var ref_vel := Vector3(current_vel.x, 0.0, current_vel.z)
+		if ref_vel.length_squared() < 0.05:
+			ref_vel = wish_direction
+		if ref_vel.length_squared() >= 0.01 and ref_vel.dot(Vector3(base_tan.x, 0.0, base_tan.z)) < 0.0:
+			dir_sign = -1.0
+	var horiz_speed := Vector3(current_vel.x, 0.0, current_vel.z).length()
+	var start_speed: float = clamp(
+		max(horiz_speed * rail.speed_multiplier, rail.min_rail_speed),
+		rail.min_rail_speed,
+		rail.max_rail_speed
+	)
+	is_on_rail = true
+	rail_node_path = String(rail.get_path())
+	_rail_offset = float(info["offset"])
+	_rail_direction = dir_sign
+	_rail_speed = start_speed
+	_rail_drift_offset = 0.0
+	_rail_last_tangent = (base_tan * dir_sign).normalized()
+	_rail_last_platform_vel = rail.get_platform_velocity_at(info["world_pos"], 0.0)
+	_ballistic_ticks = 0
+	_roll_timer = 0.0
+	horizontal_velocity = Vector3(_rail_last_tangent.x, 0.0, _rail_last_tangent.z) * _rail_speed
+	return {
+		"offset": _rail_offset,
+		"direction": _rail_direction,
+		"speed": _rail_speed,
+		"target_pos": info["world_pos"] + Vector3.UP * rail.player_offset_y
+	}
+
+func exit_rail(cooldown: float = -1.0) -> void:
+	is_on_rail = false
+	rail_node_path = ""
+	_rail_drift_offset = 0.0
+	_rail_cooldown = rail_exit_cooldown if cooldown < 0.0 else cooldown
+
+func step_rail(dt: float, rail: Node, move_vec: Vector2, _wish_dir: Vector3, jump_pressed: bool) -> Dictionary:
+	if not is_on_rail:
+		return {"active": false, "exit_reason": "none", "launch_velocity": Vector3.ZERO}
+	if not is_instance_valid(rail):
+		var fallback_vel := _rail_last_tangent * _rail_speed + _rail_last_platform_vel
+		exit_rail()
+		add_launch_velocity(fallback_vel)
+		return {"active": false, "exit_reason": "lost", "launch_velocity": fallback_vel}
+
+	var cur_sample: Dictionary = rail.sample_at_offset(_rail_offset, _rail_direction)
+	var cur_pos: Vector3 = cur_sample.get("world_pos", Vector3.ZERO)
+	_rail_last_platform_vel = rail.get_platform_velocity_at(cur_pos, dt)
+	var cur_tan: Vector3 = cur_sample.get("tangent", _rail_last_tangent)
+	_rail_last_tangent = cur_tan
+
+	if jump_pressed:
+		var jump_launch: Vector3 = cur_tan * _rail_speed + _rail_last_platform_vel
+		exit_rail()
+		add_launch_velocity(jump_launch)
+		return {"active": false, "exit_reason": "jump", "launch_velocity": jump_launch}
+
+	var length: float = rail.get_curve_length()
+	var closed: bool = rail.is_curve_closed()
+	_rail_offset += _rail_direction * _rail_speed * dt
+	if closed and length > 0.001:
+		_rail_offset = fposmod(_rail_offset, length)
+	elif _rail_offset <= 0.0 or _rail_offset >= length:
+		_rail_offset = clamp(_rail_offset, 0.0, length)
+		var end_launch: Vector3 = cur_tan * _rail_speed + _rail_last_platform_vel
+		exit_rail()
+		add_launch_velocity(end_launch)
+		return {"active": false, "exit_reason": "end", "launch_velocity": end_launch}
+
+	var sample: Dictionary = rail.sample_at_offset(_rail_offset, _rail_direction)
+	if sample.empty():
+		var empty_launch: Vector3 = cur_tan * _rail_speed + _rail_last_platform_vel
+		exit_rail()
+		add_launch_velocity(empty_launch)
+		return {"active": false, "exit_reason": "end", "launch_velocity": empty_launch}
+
+	var target_speed: float = clamp(
+		move_speed * run_speed_multiplier * rail.speed_multiplier,
+		rail.min_rail_speed,
+		rail.max_rail_speed
+	)
+	if move_vec.y < -0.1:
+		target_speed = clamp(target_speed + 2.0 * (-move_vec.y), rail.min_rail_speed, rail.max_rail_speed)
+	elif move_vec.y > 0.1:
+		target_speed = clamp(target_speed - 3.0 * move_vec.y, rail.min_rail_speed, rail.max_rail_speed)
+
+	var curvature: float = float(sample.get("curvature", 0.0))
+	var drift_force: float = curvature * rail.drift_factor * 0.55 - move_vec.x * 0.25
+	_rail_drift_offset += drift_force * dt * 4.0
+	_rail_drift_offset = lerp(_rail_drift_offset, 0.0, clamp(rail_drift_recovery * dt * 0.5, 0.0, 1.0))
+	_rail_drift_offset = clamp(_rail_drift_offset, -rail_drift_max, rail_drift_max)
+
+	# Penalizacion suave por derrape excesivo en curva sin contrapeso.
+	var curve_drag: float = abs(curvature) * abs(_rail_drift_offset) * 2.5
+	target_speed = max(rail.min_rail_speed, target_speed - curve_drag)
+	_rail_speed = move_toward(_rail_speed, target_speed, rail.rail_inertia * dt)
+
+	var next_tan: Vector3 = sample["tangent"]
+	_rail_last_tangent = next_tan
+	var lateral: Vector3 = next_tan.cross(Vector3.UP)
+	if lateral.length_squared() > 0.0001:
+		lateral = lateral.normalized()
+	else:
+		lateral = Vector3.RIGHT
+
+	var target_pos: Vector3 = sample["world_pos"] + Vector3.UP * rail.player_offset_y + lateral * _rail_drift_offset
+	var rail_vel: Vector3 = next_tan * _rail_speed + _rail_last_platform_vel
+	horizontal_velocity = Vector3(rail_vel.x, 0.0, rail_vel.z)
+	var horiz_tan := Vector3(next_tan.x, 0.0, next_tan.z)
+	if horiz_tan.length_squared() > 0.0001:
+		wish_direction = horiz_tan.normalized()
+
+	return {
+		"active": true,
+		"target_pos": target_pos,
+		"tangent": next_tan,
+		"velocity": rail_vel,
+		"drift": _rail_drift_offset
+	}
 
 func integrate_external_velocity(delta: float) -> Vector3:
 	if external_velocity.length() < 0.001:
@@ -217,7 +367,16 @@ func get_full_snapshot() -> Dictionary:
 		"_mouse_used_this_move": _mouse_used_this_move,
 		"_ballistic_ticks": _ballistic_ticks,
 		"_roll_timer": _roll_timer,
-		"_roll_direction": [_roll_direction.x, _roll_direction.y, _roll_direction.z]
+		"_roll_direction": [_roll_direction.x, _roll_direction.y, _roll_direction.z],
+		"is_on_rail": is_on_rail,
+		"rail_node_path": rail_node_path,
+		"_rail_offset": _rail_offset,
+		"_rail_direction": _rail_direction,
+		"_rail_speed": _rail_speed,
+		"_rail_drift_offset": _rail_drift_offset,
+		"_rail_cooldown": _rail_cooldown,
+		"_rail_last_tangent": [_rail_last_tangent.x, _rail_last_tangent.y, _rail_last_tangent.z],
+		"_rail_last_platform_vel": [_rail_last_platform_vel.x, _rail_last_platform_vel.y, _rail_last_platform_vel.z]
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -233,6 +392,17 @@ func restore_snapshot(data: Dictionary) -> void:
 	_roll_timer = float(data.get("_roll_timer", 0.0))
 	var rd = data.get("_roll_direction", [0, 0, 0])
 	_roll_direction = Vector3(rd[0], rd[1], rd[2])
+	is_on_rail = bool(data.get("is_on_rail", false))
+	rail_node_path = str(data.get("rail_node_path", ""))
+	_rail_offset = float(data.get("_rail_offset", 0.0))
+	_rail_direction = float(data.get("_rail_direction", 1.0))
+	_rail_speed = float(data.get("_rail_speed", 0.0))
+	_rail_drift_offset = float(data.get("_rail_drift_offset", 0.0))
+	_rail_cooldown = float(data.get("_rail_cooldown", 0.0))
+	var rlt = data.get("_rail_last_tangent", [0, 0, -1])
+	_rail_last_tangent = Vector3(rlt[0], rlt[1], rlt[2])
+	var rlp = data.get("_rail_last_platform_vel", [0, 0, 0])
+	_rail_last_platform_vel = Vector3(rlp[0], rlp[1], rlp[2])
 
 static func tank_lateral_input(x: float, zone_end: float, blend: float) -> float:
 	var ax := abs(x)
