@@ -16,6 +16,9 @@ signal opened()
 export(int) var required_blobs := 2
 export(Vector3) var span_from := Vector3.ZERO
 export(Vector3) var span_to := Vector3.ZERO
+# true: span_from/span_to estan en el espacio del PADRE (un chunk que se instancia y se
+# recoloca), no en coordenadas de mundo.
+export(bool) var span_is_local := false
 export(float) var span_height := 0.4
 export(float) var bridge_width := 2.2
 export(float) var bridge_thickness := 0.18
@@ -55,10 +58,16 @@ func _apply_span_transform() -> void:
 		right = right.normalized()
 		var basis := Basis(right, up, forward)
 		mid.y = max(span_from.y, span_to.y) + span_height
-		global_transform = Transform(basis, mid)
+		_place(Transform(basis, mid))
 	else:
 		mid.y = span_from.y + span_height
-		global_transform = Transform(Basis.IDENTITY, mid)
+		_place(Transform(Basis.IDENTITY, mid))
+
+func _place(xf: Transform) -> void:
+	if span_is_local:
+		transform = xf
+	else:
+		global_transform = xf
 
 func _build_sensor() -> void:
 	collision_layer = 0

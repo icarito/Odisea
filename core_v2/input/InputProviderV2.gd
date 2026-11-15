@@ -136,6 +136,8 @@ static func touch_action_is_explicit(action_name: String) -> bool:
 # avanza playback_index, asi que llamarlo desde fuera del bucle del jugador se comia
 # entradas del buffer y desincronizaba la reproduccion entera.
 var last_input: InputDataV2 = null
+# AutopilotInputV2 opcional (Transit-Run, modo asistido). null = comportamiento de siempre.
+var autopilot = null
 
 
 func peek_input() -> InputDataV2:
@@ -159,6 +161,13 @@ func get_input() -> InputDataV2:
 			return null
 	else:
 		last_input = _read_live_input()
+		# Modo asistido: va DESPUES de leer el hardware (el humano gana en el mismo tick) y
+		# antes de que nadie grabe el frame. No corre con el input bloqueado ni con el puntero
+		# liberado.
+		if autopilot != null and hardware_input_enabled and not _gameplay_pointer_release_suppressed():
+			# nav_assist (TAB) no viaja en el stream: lo que se graba es lo que el
+			# autonavegador escribe en el frame, y eso basta para reproducirlo.
+			autopilot.apply(last_input, _action_pressed("nav_assist"))
 		return last_input
 
 

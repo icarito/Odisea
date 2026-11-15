@@ -21,6 +21,8 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `runtest.sh`, `test_prop.sh`, `test_ui.sh` — Runners de tests, props y UI
 - `docs/` — Documentación; `docs/features/` Feature Docs, `docs/agents/` mapa de agentes, `docs/engineering/` contratos
 - `tools/`, `scripts/` — Utilidades de build, bake y CI
+- `tools/scaffold_chunks/`, `tools/bake_scaffold_chunks.gd` — Pipeline registro → Blender → GLB → escenas de chunks de andamio
+- `docs/skills/blender-bpy.md` — Skill de modelado headless con Blender (runner `render.py`, paleta `odisea_lib.py`)
 - `dashboard/` — Dashboard web (Vite PWA)
 - `assets/`, `textures/`, `models/`, `materials/`, `shaders/` — Arte; no listar archivos
 - `addons/`, `.import/`, `build/` — Dependencias y artefactos; no listar archivos
@@ -30,10 +32,19 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `player/` — Controladores del jugador, multi-tool, zero-G
 - `components/` — Bases de interactuables, zonas, plataformas, `PushableBoxV2`
 - `props/` — Props interactivos y decorativos
+- `props/scaffold/chunks/` — Chunks de andamio Transit-Run horneados (`.mesh` + `.tscn`); producto de `tools/scaffold_chunks/build.sh`, no editar a mano
+- `props/hull_underdeck/` — Kit de fondo del entrecasco horneado (vano de casco, envés de terraza, pilón); producto de `tools/scaffold_chunks/build.sh`
 - `props/machines/` — Kit de máquinas (FD-320): `MachinePart`, `MachineHinge`, `MachineTrigger` y `MachineLevel` (niveles por layout JSON)
+- `levels/scaffold_run/` — `ScaffoldRunLab`: escena de prueba de un tramo Transit-Run generado por semilla, con modo asistido
+- `levels/hull_underdeck/` — Niveles del entrecasco sobre `ScaffoldRunLab`: `HullUnderdeck` (tramo orbital sobre el casco) y `HullSections` (anillos axiales con gravedad y giro propios)
+- `levels/Experiments.gd` — Lista de episodios de prueba del submenú Experimentos
 - `levels/machines/` — Bahía de máquinas: `MachineBay.tscn` + `machine_bay.json`
 - `levels/` — Escenas de nivel; `levels/interiors/` domos y fuentes de bake
+- `input/` — `InputProviderV2` (árbitro LIVE/REPLAY), `InputDataV2` (frame serializable), `AutopilotInputV2` (modo asistido Transit-Run)
 - `systems/` — Sistemas de nave (cryo, room)
-- `ui/` — HUD, OdiseaOS, menús, mouse virtual
+- `systems/flow/` — `FlowMetrics` (alcance del jugador leído de `Pilot_v2`) y `FlowRouteValidator` (ruta principal y waypoints por semilla)
+- `systems/scaffold/`, `systems/ScaffoldStreamController.gd` — Andamio WFC por chunks en streaming; `ScaffoldOrbit` lo proyecta al cilindro; `ScaffoldChunkRegistry` es el catálogo 1D de chunks Transit-Run (datos puros); `ScaffoldChunkOrbit` proyecta un tramo de esos chunks al cilindro
+- `agents/` — Inferencia MLP de la política de ANNA en GDScript (`MLPPolicyInference`, `HoloPolicyController`)
+- `ui/` — HUD, OdiseaOS, menús, mouse virtual; `ExperimentsMenu` es el submenú de episodios de prueba
 - `telemetry/` — ANNAV2 y servidor MCP
 - `tests/` — GdUnit y OYS

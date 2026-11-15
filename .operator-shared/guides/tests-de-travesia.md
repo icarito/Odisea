@@ -16,5 +16,9 @@ Cómo escribir un test que recorre un nivel con `Pilot_v2` sin reventar el presu
   cada N ticks. Es el mismo controlador, el mismo dt y la misma colisión, sin esperar al reloj
   (`test_machine_bay_parkour.gd`: 43 s → 5 s). No vale si la ruta depende de cuerpos rígidos,
   plataformas móviles o áreas: esos sí necesitan el paso del servidor de física.
+- **Todos esos ticks manuales tienen que correr dentro del frame de física**, es decir, justo
+  después de un `yield(get_tree(), "physics_frame")`. Tras un `idle_frame`, `move_and_slide`
+  toma el delta de proceso y el piloto avanza a otra velocidad: el test pasa o falla según
+  cómo caiga el desfase.
 - **Una suite que comparte la escena entre tests debe devolver al piloto al spawn** antes de
   una travesía: los tests previos lo dejan donde cayó.

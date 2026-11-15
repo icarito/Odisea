@@ -1,0 +1,155 @@
+[gd_scene load_steps=20 format=2]
+
+[ext_resource path="res://core_v2/props/scaffold/chunks/scaffold_curved_bank.mesh" type="ArrayMesh" id=1]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 1.25, 0.15, 1 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 1.25, 0.15, 1 )
+
+[sub_resource type="BoxShape" id=5]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=6]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=7]
+extents = Vector3( 1.25, 0.15, 1 )
+
+[sub_resource type="BoxShape" id=8]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=9]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=10]
+extents = Vector3( 1.25, 0.15, 1 )
+
+[sub_resource type="BoxShape" id=11]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=12]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=13]
+extents = Vector3( 1.25, 0.15, 1 )
+
+[sub_resource type="BoxShape" id=14]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=15]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=16]
+extents = Vector3( 1.25, 0.15, 1 )
+
+[sub_resource type="BoxShape" id=17]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[sub_resource type="BoxShape" id=18]
+extents = Vector3( 0.05, 0.3, 1 )
+
+[node name="scaffold_curved_bank" type="Spatial"]
+__meta__ = {
+"chunk_id": "scaffold_curved_bank",
+"sockets": {
+"In_A": {
+"position": Vector3( 0, 0, 0 ),
+"type": "A"
+},
+"Out_A": {
+"bank_deg": 15.0,
+"position": Vector3( 0, 0, 12 ),
+"type": "A"
+}
+}
+}
+
+[node name="Mesh" type="MeshInstance" parent="."]
+mesh = ExtResource( 1 )
+
+[node name="Collision" type="StaticBody" parent="."]
+
+[node name="Col_a_0" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.996195, -0.0871557, 0, 0.0871557, 0.996195, 0, 0, 0, 1, 0.0130734, -0.149429, 1 )
+shape = SubResource( 1 )
+
+[node name="Rail_a_0_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.996195, -0.0871557, 0, 0.0871557, 0.996195, 0, 0, 0, 1, -1.22158, 0.194272, 1 )
+shape = SubResource( 2 )
+
+[node name="Rail_a_0_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.996195, -0.0871557, 0, 0.0871557, 0.996195, 0, 0, 0, 1, 1.16929, 0.403445, 1 )
+shape = SubResource( 3 )
+
+[node name="Col_a_1" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.984808, -0.173648, 0, 0.173648, 0.984808, 0, 0, 0, 1, 0.0260472, -0.147721, 3 )
+shape = SubResource( 4 )
+
+[node name="Rail_a_1_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.984808, -0.173648, 0, 0.173648, 0.984808, 0, 0, 0, 1, -1.23386, 0.0870645, 3 )
+shape = SubResource( 5 )
+
+[node name="Rail_a_1_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.984808, -0.173648, 0, 0.173648, 0.984808, 0, 0, 0, 1, 1.12967, 0.50382, 3 )
+shape = SubResource( 6 )
+
+[node name="Col_a_2" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, 0.0388229, -0.144889, 5 )
+shape = SubResource( 7 )
+
+[node name="Rail_a_2_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, -1.23676, -0.0208051, 5 )
+shape = SubResource( 8 )
+
+[node name="Rail_a_2_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, 1.08147, 0.600361, 5 )
+shape = SubResource( 9 )
+
+[node name="Col_a_3" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, 0.0388229, -0.144889, 7 )
+shape = SubResource( 10 )
+
+[node name="Rail_a_3_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, -1.23676, -0.0208051, 7 )
+shape = SubResource( 11 )
+
+[node name="Rail_a_3_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, 1.08147, 0.600361, 7 )
+shape = SubResource( 12 )
+
+[node name="Col_a_4" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.984808, -0.173648, 0, 0.173648, 0.984808, 0, 0, 0, 1, 0.0260472, -0.147721, 9 )
+shape = SubResource( 13 )
+
+[node name="Rail_a_4_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.984808, -0.173648, 0, 0.173648, 0.984808, 0, 0, 0, 1, -1.23386, 0.0870645, 9 )
+shape = SubResource( 14 )
+
+[node name="Rail_a_4_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.984808, -0.173648, 0, 0.173648, 0.984808, 0, 0, 0, 1, 1.12967, 0.50382, 9 )
+shape = SubResource( 15 )
+
+[node name="Col_a_5" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.996195, -0.0871557, 0, 0.0871557, 0.996195, 0, 0, 0, 1, 0.0130734, -0.149429, 11 )
+shape = SubResource( 16 )
+
+[node name="Rail_a_5_L" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.996195, -0.0871557, 0, 0.0871557, 0.996195, 0, 0, 0, 1, -1.22158, 0.194272, 11 )
+shape = SubResource( 17 )
+
+[node name="Rail_a_5_R" type="CollisionShape" parent="Collision"]
+transform = Transform( 0.996195, -0.0871557, 0, 0.0871557, 0.996195, 0, 0, 0, 1, 1.16929, 0.403445, 11 )
+shape = SubResource( 18 )
+
+[node name="Socket_In_A" type="Position3D" parent="."]
+
+[node name="Socket_Out_A" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12 )

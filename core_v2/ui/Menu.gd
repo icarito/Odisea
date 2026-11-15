@@ -1,6 +1,7 @@
 extends Control
 
 const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
+const ExperimentsMenuScript = preload("res://core_v2/ui/ExperimentsMenu.gd")
 const FIRST_GAME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const MENU_BGM := "Tin Cosmos"
 # RingHub no tiene BGMZoneV2, asi que este crossfade es la unica musica del arranque: queda
@@ -22,6 +23,7 @@ onready var options_button = find_node("Options")
 onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
 onready var version_label = get_node_or_null("VersionLabel")
+var _experiments_menu = null
 var _continue_scene_path := ""
 var _new_game_confirm: ConfirmationDialog = null
 # Modo overlay sobre un mundo 3D vivo (menú dentro del mundo, 2.º PR). Cuando está activo,
@@ -288,7 +290,24 @@ func _on_remote_pairing_prompt_requested(device_name: String, pin: String, callb
 		add_child(dialog)
 		dialog.prompt_pairing(device_name, pin, callback)
 
+# Boton "Experimentos": episodios de prueba sueltos, fuera de la linea de campaña. Se crea
+# por codigo (copia del de Opciones) para no tocar scenes/Menu.tscn.
+func _add_experiments_button() -> void:
+	var button: Button = options_button.duplicate()
+	button.name = "Experiments"
+	button.text = tr("EXPERIMENTOS")
+	options_button.get_parent().add_child_below_node(continue_button, button)
+	button.connect("pressed", self, "_on_Experiments_pressed")
+
+func _on_Experiments_pressed() -> void:
+	if _experiments_menu == null:
+		_experiments_menu = ExperimentsMenuScript.new()
+		add_child(_experiments_menu)
+		_experiments_menu.connect("experiment_chosen", self, "_start_game")
+	_experiments_menu.open()
+
 func _connect_signals():
+	_add_experiments_button()
 	new_game_button.connect("pressed", self, "_on_NewGame_pressed")
 	continue_button.connect("pressed", self, "_on_Continue_pressed")
 	if remote_control_button:

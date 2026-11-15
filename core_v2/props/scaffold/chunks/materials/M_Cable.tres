@@ -1,0 +1,8 @@
+[gd_resource type="SpatialMaterial" format=2]
+
+[resource]
+resource_name = "M_Cable"
+vertex_color_use_as_albedo = true
+params_cull_mode = 2
+albedo_color = Color( 0.313304, 0.313304, 0.33183, 1 )
+roughness = 0.7

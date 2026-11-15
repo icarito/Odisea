@@ -151,15 +151,20 @@ Nueve. No hay más.
 
 | # | Verbo | Teclado | Mando | Dedo / puntero |
 |---|---|---|---|---|
-| 1 | **Abrir el dial** — sus favoritos | `Tab` | `Y` | botón del HUD |
-| 2 | **Abrir el cajón** — todo | sostener `Tab` | sostener `Y` | sostener el botón |
-| 3 | **Cerrar OdiseaOS** | `Tab` o `Esc` | `Y` o `B` | botón del HUD |
+| 1 | **Abrir el dial** — sus favoritos | `X` | `Y` | botón del HUD |
+| 2 | **Abrir el cajón** — todo | sostener `X` | sostener `Y` | sostener el botón |
+| 3 | **Cerrar OdiseaOS** | `X` o `Esc` | `Y` o `B` | botón del HUD |
 | 4 | **Apuntar el dial** | `WASD` | stick izquierdo | mover / arrastrar |
 | 5 | **Confirmar** | `Enter` | `A` | tocar el sector |
 | 6 | **Abrir la pantalla de un slot** | `1`–`4` | un hombro | tocar el widget |
 | 7 | **Guardar en un slot** | sostener `1`–`4` | sostener un hombro | sostener y arrastrar |
 | 8 | **Operar una pantalla** | `Enter` sobre el botón | `A` / `B` / `X` | tocar el botón |
 | 9 | **Vaciar un slot** | arrastrar al reciclaje | arrastrar al reciclaje | arrastrar al reciclaje |
+
+> **Cambio de tecla, 2026-11-15 (Sebastián):** en teclado el modo HUD pasó de `Tab` a `X`.
+> `Tab` quedó exclusivo del autonavegador de Transit-Run (se mantiene para que conduzca; ver
+> `.operator-shared/specs/transit-run-autopilot.md`). Mando y táctil no cambiaron. Las
+> menciones a `Tab` en el resto de este manual y en los FD son anteriores a este cambio.
 
 **Toque para lo que usa siempre, sostenga para lo demás.** Esa es toda la regla. Vale
 para el botón del HUD (dial / cajón) y para los botones de slot (abrir / reasignar).
