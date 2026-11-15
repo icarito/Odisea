@@ -112,9 +112,15 @@ func request_seamless_transition(player: Node) -> void:
 		return
 
 	var params := {}
+	var state_data := _build_state_data(player)
 	if _has_level_return_target():
-		# Destino REAL: vuelve al hub restaurando la pose con la que se entró.
+		# Destino REAL (hub): conserva el estado ACTUAL y transfiere pose/velocidad
+		# RELATIVAS al airlock de destino; no se restaura ningún snapshot viejo.
 		params = _level.call("build_ringhub_params")
+		var merged: Dictionary = params.get("state_data", {})
+		for key in state_data.keys():
+			merged[key] = state_data[key]
+		params["state_data"] = merged
 	else:
 		# Fallback relativo (destino con airlock espejo): conserva pose/velocidad
 		# relativas al buffer como AirlockZoneV2.
@@ -129,7 +135,6 @@ func request_seamless_transition(player: Node) -> void:
 			"spawn_id": buffer_id,
 			"target_spawn_id": buffer_id,
 		}
-		var state_data := _build_state_data(player)
 		if not state_data.empty():
 			params["state_data"] = state_data
 

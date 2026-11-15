@@ -149,8 +149,10 @@ generation_seed = 20261114
 rotator_path = NodePath("../CylinderRotator")
 cycle_path = NodePath("../BayProtocolCycle")
 stream_path = NodePath("../CylinderRotator/ScaffoldStreamController")
-turns = 1.25
-spine_segments = 56
+lights_path = NodePath("../BayLights")
+flow_contract_path = ""
+spine_segments = 0
+sprint_gap_every = 5
 
 [node name="EntryBuffer" type="Spatial" parent="."]
 script = ExtResource( 8 )

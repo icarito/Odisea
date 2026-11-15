@@ -17,6 +17,8 @@ const RotatorScript := preload("res://core_v2/levels/bay_vertical/BayCylinderRot
 const LevelScript := preload("res://core_v2/levels/bay_vertical/BayVerticalLevel.gd")
 const BufferScript := preload("res://core_v2/levels/bay_vertical/BayTransitionBuffer.gd")
 const RingHubLightStateScript := preload("res://core_v2/levels/RingHubLightState.gd")
+const FlowScript := preload("res://core_v2/levels/bay_vertical/BayTransitFlow.gd")
+const GravityMountScript := preload("res://core_v2/levels/bay_vertical/BayGravityMount.gd")
 
 const ENTRY_SPAWN_ID := "bay_vertical_entry"
 const RINGHUB_SCENE := "res://core_v2/levels/RingHub_Level.tscn"
@@ -73,19 +75,22 @@ func test_buffers_target_real_scene_with_level_params() -> void:
 		assert_bool(buf.level_path.is_empty()).is_false()
 		assert_bool(buf.kind == BufferScript.Kind.ENTRY or buf.kind == BufferScript.Kind.EXIT).is_true()
 
-func test_level_return_params_are_seamless_and_dont_invent_ids() -> void:
+func test_level_return_params_are_seamless_and_keep_current_state() -> void:
 	var lvl = auto_free(LevelScript.new())
 	add_child(lvl)
-	lvl._ringhub_return_state = {"player_snapshot": {"position": Vector3(1.0, 2.0, 3.0)}}
-	assert_bool(lvl.has_return_state()).is_true()
+	lvl._ringhub_return_state = {"wakeup": {"x": 1}, "light_state": {"lit": true},
+		"player_snapshot": {"position": Vector3(1.0, 2.0, 3.0)}}
 	var params: Dictionary = lvl.build_ringhub_params()
 	assert_str(String(params.get("transition"))).is_equal("seamless")
-	assert_bool(params.get("preserve_player_state")).is_false()
-	assert_bool(params.has("state_data")).is_true()
+	# Conserva el estado ACTUAL: no restaura el snapshot viejo del hub.
+	assert_bool(params.get("preserve_player_state")).is_true()
+	var sd: Dictionary = params.get("state_data", {})
+	assert_bool(sd.has("player_snapshot")).is_false()
+	assert_bool(sd.has("target_airlock_path")).is_true()
+	assert_str(String(sd.get("target_airlock_path"))).is_equal(lvl.ringhub_airlock_path)
+	# Nada de IDs de spawn inventados.
 	assert_bool(params.has("target_spawn_id")).is_false()
 	assert_bool(params.has("spawn_id")).is_false()
-	var sd: Dictionary = params.get("state_data", {})
-	assert_bool(sd.has("player_snapshot")).is_true()
 
 func test_entry_trigger_points_at_bay_scene_and_spawn() -> void:
 	# El pedestal del hub entra a la escena de la bahía con el spawn real.
@@ -112,7 +117,7 @@ func test_scene_mounts_curated_content_over_stream() -> void:
 	var content = level.get_node_or_null("BayContent")
 	assert_object(content).is_not_null()
 	# Recorrido sembrado (más de un puñado de tramos de suelo).
-	assert_int(content.get_segment_count()).is_greater(20)
+	assert_int(content.get_segment_count()).is_greater(15)
 	# Landmarks y atajos curados presentes.
 	assert_object(content.get_laser_gate()).is_not_null()
 	assert_object(content.get_gloo_span()).is_not_null()
@@ -187,3 +192,132 @@ func test_content_rotor_follows_cycle_clock() -> void:
 	var b := float(rotor.rotation.z)
 	# Giro determinista derivado del reloj del ciclo (sin timer propio).
 	assert_float(b).is_not_equal(a)
+
+# ── Transit-Run: presupuesto de flow, ruta principal y sockets ───────────────
+
+func test_transit_flow_budget_matches_contract() -> void:
+	var flow = auto_free(FlowScript.new())
+	flow.g = 14.0
+	flow.v_jump = 10.0
+	flow.v_run = 7.0
+	# h_max = v_jump²/(2g) ≈ 3.57 m ; d_max = v_run·2·v_jump/g ≈ 10 m
+	assert_float(flow.h_max()).is_equal_approx(3.571, 0.01)
+	assert_float(flow.d_max()).is_equal_approx(10.0, 0.05)
+	# Ruta principal 70-80 % del alcance; opcional 90-100 %.
+	assert_float(flow.main_route_gap()).is_greater_equal(0.70 * flow.d_max() - 0.01)
+	assert_float(flow.main_route_gap()).is_less_equal(0.80 * flow.d_max() + 0.01)
+	assert_float(flow.optional_gap()).is_greater_equal(0.90 * flow.d_max() - 0.01)
+	assert_float(flow.optional_gap()).is_less_equal(1.00 * flow.d_max() + 0.01)
+
+func test_flow_reads_ring_angular_velocity() -> void:
+	var gw = get_node_or_null("/root/GravityWorld")
+	assert_object(gw).is_not_null()
+	var saved: float = float(gw.ship_angular_velocity_rad_s)
+	# g(r) = ω²·r: elegimos ω para que g=14 en r=48.
+	gw.ship_angular_velocity_rad_s = sqrt(14.0 / 48.0)
+	var flow = auto_free(FlowScript.new())
+	var ok: bool = flow.configure_gravity_from_world(gw, 48.0)
+	gw.ship_angular_velocity_rad_s = saved
+	assert_bool(ok).is_true()
+	assert_float(flow.g).is_equal_approx(14.0, 0.2)
+	assert_str(String(flow.source)).is_equal("gravity_world")
+
+func test_flow_parses_contract_text() -> void:
+	var flow = auto_free(FlowScript.new())
+	var parsed: bool = flow.parse_contract("| g | 11.2 |\n- v_jump: 9\n- v_run = 8\n")
+	assert_bool(parsed).is_true()
+	assert_float(flow.g).is_equal_approx(11.2, 0.001)
+	assert_float(flow.v_jump).is_equal_approx(9.0, 0.001)
+	assert_float(flow.v_run).is_equal_approx(8.0, 0.001)
+
+func test_main_route_gaps_are_jumpable() -> void:
+	var level = auto_free(ScenePacked.instance())
+	add_child(level)
+	var content = level.get_node_or_null("BayContent")
+	var limit: float = content.get_main_route_gap_limit()
+	assert_float(limit).is_greater(0.0)
+	var gaps: Array = content.get_main_route_gaps()
+	assert_int(gaps.size()).is_greater(0)
+	for g in gaps:
+		# Ningún hueco de la ruta principal excede el umbral (saltable a v_run).
+		assert_float(float(g)).is_less_equal(limit * 1.10)
+
+func test_main_route_has_no_puzzle_blocker() -> void:
+	var level = auto_free(ScenePacked.instance())
+	add_child(level)
+	var content = level.get_node_or_null("BayContent")
+	# La ruta principal nunca se bloquea con un puzle (gloo/láser viven en sockets).
+	assert_bool(content.main_route_has_puzzle_blocker()).is_false()
+
+func test_main_route_is_a_walkable_ramp() -> void:
+	var level = auto_free(ScenePacked.instance())
+	add_child(level)
+	var content = level.get_node_or_null("BayContent")
+	var limit: float = content.get_main_route_gap_limit()
+	var flats: Array = content.get_spine_flat_points()
+	assert_int(flats.size()).is_greater(10)
+	# Conectividad en el marco del cilindro (donde camina el jugador): cada tramo
+	# sube dentro del presupuesto y avanza menos que el alcance; pendiente < 40°.
+	for i in range(flats.size() - 1):
+		var a: Vector3 = flats[i]
+		var b: Vector3 = flats[i + 1]
+		var run: float = abs(b.x - a.x)
+		var rise: float = b.y - a.y
+		assert_float(run).is_less_equal(limit * 1.10)
+		assert_float(rise).is_less_equal(limit * 0.60)
+		if run > 0.01:
+			assert_float(rise / run).is_less(0.84)  # tan(40°)
+	# Las placas siguen AMBOS extremos: el +Z del tramo NO es perpendicular al
+	# "up" proyectado (sería un escalón horizontal en vez de rampa).
+	var plates: Array = content.get_main_segment_nodes()
+	assert_int(plates.size()).is_greater(10)
+	var tilted := false
+	for p in plates:
+		var parts: Array = String(p.name).split("_")
+		if parts.size() < 2:
+			continue
+		var idx: int = int(parts[1])
+		if idx + 1 >= flats.size():
+			continue
+		var up: Vector3 = content._project_point(flats[idx]).basis.y.normalized()
+		var z: Vector3 = p.transform.basis.z.normalized()
+		if abs(up.dot(z)) > 0.05:
+			tilted = true
+			break
+	assert_bool(tilted).is_true()
+
+func test_sockets_are_optional_and_labeled() -> void:
+	var level = auto_free(ScenePacked.instance())
+	add_child(level)
+	var content = level.get_node_or_null("BayContent")
+	var labels: Array = content.get_socket_labels()
+	assert_bool(labels.has("GlooClimb")).is_true()
+	assert_bool(labels.has("CuratedSocket")).is_true()
+	assert_bool(labels.has("MagRail")).is_true()
+	# Todas las etiquetas usadas pertenecen al contrato.
+	var known: Array = content.get_known_labels()
+	for l in known:
+		assert_bool(FlowScript.LABEL_SPRINT_GAP == l or FlowScript.LABEL_RHYTHM_STEPS == l
+			or FlowScript.LABEL_GLOO_CLIMB == l or FlowScript.LABEL_MAG_RAIL == l
+			or FlowScript.LABEL_CURATED_SOCKET == l).is_true()
+
+# ── El cambio de modo no teletransporta la geometría ─────────────────────────
+
+func test_mode_switch_blend_is_bounded_per_frame() -> void:
+	var mount = auto_free(GravityMountScript.new())
+	add_child(mount)
+	# Arranca en centrífugo (blend 1).
+	assert_float(mount.get_gravity_blend()).is_equal_approx(1.0, 0.0001)
+	assert_bool(mount.toggle_gravity_mode()).is_true()
+	# Un solo frame de 16 ms no debe saltar el blend completo (1 -> 0).
+	mount._physics_process(0.016)
+	var after_one: float = mount.get_gravity_blend()
+	assert_float(after_one).is_less(1.0)
+	assert_float(after_one).is_greater(0.9)
+	# Y tras suficientes frames converge exactamente al target (propulsión = 0).
+	var steps := 0
+	while mount.is_blending() and steps < 600:
+		mount._physics_process(0.016)
+		steps += 1
+	assert_bool(mount.is_blending()).is_false()
+	assert_float(mount.get_gravity_blend()).is_equal_approx(0.0, 0.0001)

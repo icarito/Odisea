@@ -19,10 +19,16 @@ signal gravity_mode_changed(mode)
 export(NodePath) var gravity_world_path: NodePath = NodePath("/root/GravityWorld")
 export(NodePath) var mode_bridge_path: NodePath = NodePath("")
 export(int) var initial_mode := GRAVITY_MODE_SPIN
+# Transición ACOTADA por frame del blend (unidades de blend por segundo). Evita
+# que el modo salte 0<->1 en un frame y la geometría/colisiones se teletransporten
+# decenas de metros bajo el jugador.
+export(float, 0.05, 5.0) var blend_rate := 0.6
 
 var _gravity_mode := GRAVITY_MODE_SPIN
 var _gravity_blend := 1.0
 var _bridge: Spatial = null
+var _blend_target := 1.0
+var _blending := false
 
 func _init() -> void:
 	add_to_group("replay_sync")
@@ -31,7 +37,25 @@ func _ready() -> void:
 	_gravity_mode = initial_mode
 	if not mode_bridge_path.is_empty():
 		_bridge = get_node_or_null(mode_bridge_path)
+	_blend_target = 1.0 if _gravity_mode == GRAVITY_MODE_SPIN else 0.0
+	_gravity_blend = _blend_target
 	_apply_mode(false)
+	set_physics_process(true)
+
+func _physics_process(delta: float) -> void:
+	if not _blending:
+		return
+	var step: float = max(0.0001, blend_rate * delta)
+	var diff: float = _blend_target - _gravity_blend
+	if abs(diff) <= step:
+		_gravity_blend = _blend_target
+		_blending = false
+	else:
+		_gravity_blend += sign(diff) * step
+	_push_blend(_gravity_blend)
+
+func is_blending() -> bool:
+	return _blending
 
 func _gravity_world() -> Node:
 	return get_node_or_null(gravity_world_path)
@@ -54,21 +78,35 @@ func set_gravity_mode_mode(mode: int) -> bool:
 	return true
 
 func _apply_mode(notify: bool) -> void:
-	_gravity_blend = 1.0 if _gravity_mode == GRAVITY_MODE_SPIN else 0.0
+	_blend_target = 1.0 if _gravity_mode == GRAVITY_MODE_SPIN else 0.0
 	var gw := _gravity_world()
 	if gw:
 		if gw.has_method("set_gravity_mode"):
 			gw.set_gravity_mode(_gravity_mode)
-		if gw.has_method("set_gravity_blend"):
-			gw.set_gravity_blend(_gravity_blend)
-		if gw.has_method("set_spiral_blend"):
-			gw.set_spiral_blend(_gravity_blend)
+	if Engine.editor_hint or not is_inside_tree():
+		_gravity_blend = _blend_target
+		_push_blend(_gravity_blend)
+		_blending = false
+	else:
+		# Arranca la transición acotada; los frames siguientes la llevan al target.
+		_blending = abs(_blend_target - _gravity_blend) > 0.0001
+		if not _blending:
+			_push_blend(_gravity_blend)
 	# Ruta mode-gated: el puente sólo existe/solida en propulsión.
 	if is_instance_valid(_bridge):
 		var thrust: bool = _gravity_mode == GRAVITY_MODE_THRUST
 		_set_bridge_solid(_bridge, thrust)
 	if notify:
 		emit_signal("gravity_mode_changed", _gravity_mode)
+
+func _push_blend(value: float) -> void:
+	var gw := _gravity_world()
+	if gw == null:
+		return
+	if gw.has_method("set_gravity_blend"):
+		gw.set_gravity_blend(value)
+	if gw.has_method("set_spiral_blend"):
+		gw.set_spiral_blend(value)
 
 func _set_bridge_solid(node: Node, solid: bool) -> void:
 	if node is CollisionObject:
@@ -84,5 +122,10 @@ func get_snapshot() -> Dictionary:
 func restore_snapshot(data: Dictionary) -> void:
 	if data.has("gravity_mode"):
 		_gravity_mode = int(data["gravity_mode"])
-		_gravity_blend = float(data.get("gravity_blend", _gravity_blend))
-		_apply_mode(false)
+		_blend_target = 1.0 if _gravity_mode == GRAVITY_MODE_SPIN else 0.0
+		_gravity_blend = float(data.get("gravity_blend", _blend_target))
+		_blending = false
+		_push_blend(_gravity_blend)
+		var gw := _gravity_world()
+		if gw != null and gw.has_method("set_gravity_mode"):
+			gw.set_gravity_mode(_gravity_mode)

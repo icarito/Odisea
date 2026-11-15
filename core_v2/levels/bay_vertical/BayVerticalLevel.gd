@@ -11,6 +11,10 @@ extends Spatial
 # inventados en RingHub.
 
 export(String) var ringhub_scene_path := "res://core_v2/levels/RingHub_Level.tscn"
+# Anchor de destino en RingHub (el tramo físico del conectador de la bahía). La
+# salida transfiere pose/velocidad RELATIVAS a este airlock — no restaura el
+# snapshot viejo del jugador.
+export(String) var ringhub_airlock_path := "Hub/BayConnector"
 export(NodePath) var content_path := NodePath("")
 export(NodePath) var entry_buffer_path := NodePath("")
 export(NodePath) var exit_buffer_path := NodePath("")
@@ -53,20 +57,28 @@ func get_ringhub_return_state() -> Dictionary:
 func has_return_state() -> bool:
 	return not _ringhub_return_state.empty()
 
-# Parámetros de salida hacia RingHub: restaura la pose con la que el jugador
-# entró al hub. Mismo camino seamless sin airlock que RingHub <-> MachineBay
-# (`AirlockManager._pre_position_without_airlock` usa `player_snapshot`).
+# Parámetros de salida hacia RingHub. CONSERVA el estado actual del jugador
+# (`preserve_player_state = true`: modo, velocidad y orientación de AHORA, no los
+# de la entrada) y transfiere pose/velocidad RELATIVAS al buffer de destino
+# (`airlock_relative_transform`/`_velocity`, que el buffer completa) contra el
+# airlock real del hub. NO restaura el snapshot viejo capturado al entrar.
 func build_ringhub_params() -> Dictionary:
-	var snapshot = _ringhub_return_state.get("player_snapshot", {})
 	return {
-		"preserve_player_state": false,
+		"preserve_player_state": true,
 		"transition": "seamless",
 		"fade_out": 0.0,
 		"fade_in": 0.0,
 		"show_loading": false,
 		"wait_for_fade_out": false,
-		"ringhub_return_state": _ringhub_return_state.duplicate(true),
-		"state_data": {"player_snapshot": snapshot},
+		# El hub no debe repetir el despertar; el resto del estado es el actual.
+		"ringhub_return_state": {"wakeup": _ringhub_return_state.get("wakeup", {}).duplicate(true),
+			"light_state": _ringhub_return_state.get("light_state", {}).duplicate(true)},
+		"state_data": {
+			"target_airlock_path": ringhub_airlock_path,
+			# Conservar la orientación relativa del jugador (sin re-encarar): la
+			# pose relativa ya la aporta el buffer.
+			"target_airlock_exit_door": "none",
+		},
 	}
 
 # ── Replay / save ────────────────────────────────────────────────────────────
