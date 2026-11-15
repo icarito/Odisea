@@ -574,6 +574,7 @@ func full_reset() -> void:
 		movement_logic.wish_direction = Vector3.ZERO
 		movement_logic._roll_timer = 0.0
 		movement_logic._roll_direction = Vector3.ZERO
+		movement_logic.exit_rail(0.0)
 	_pre_land_vy = 0.0
 	_landed_impact_vy = 0.0
 	_landed_roll_grace_timer = 0.0
@@ -3072,6 +3073,14 @@ func step(dt: float, input: InputDataV2) -> void:
 	_apply_crouch_collision_state(is_crouching)
 	var effective_sprint = (input.sprint and not is_crouching) or is_rolling_now
 
+	if _step_magrail(dt, input, world_dir, jump_just_pressed):
+		if _pm_fino:
+			_pm_perfil.perfil_fin("PC.move.pre")
+			_pm_perfil.perfil_fin("PC.move")
+			_pm_perfil.perfil_inicio("PC.post")
+		_finalize_step(dt, input, prof_enabled, _pm_fino, prof_t0, prof_t_control, prof_t_move)
+		return
+
 	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.movement")
 	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching and not is_rolling_now)
 	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.movement")
@@ -3240,6 +3249,9 @@ func step(dt: float, input: InputDataV2) -> void:
 		_pm_perfil.perfil_fin("PC.move")
 		_pm_perfil.perfil_inicio("PC.post")
 
+	_finalize_step(dt, input, prof_enabled, _pm_fino, prof_t0, prof_t_control, prof_t_move)
+
+func _finalize_step(dt: float, input: InputDataV2, prof_enabled: bool, _pm_fino: bool, prof_t0: int, prof_t_control: int, prof_t_move: int) -> void:
 	var should_step_animator := true
 	var animator_dt := dt
 	if _hyper_low_animator_throttle:
@@ -3275,6 +3287,71 @@ func step(dt: float, input: InputDataV2) -> void:
 		_rl_step_profile_add(prof_t0, prof_t_control, prof_t_move, OS.get_ticks_usec())
 	if _pm_fino: _pm_perfil.perfil_fin("PC.post")
 	_update_input_edge_state(input)
+
+func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_pressed: bool) -> bool:
+	if not is_instance_valid(movement_logic):
+		return false
+	movement_logic.tick_rail_cooldown(dt)
+
+	if not movement_logic.is_on_rail:
+		if not movement_logic.can_engage_rail() or is_ragdoll or CinematicManager.latch_active:
+			return false
+		var tree := get_tree()
+		if tree == null:
+			return false
+		var best_rail: Node = null
+		var best_dist := INF
+		for rail in tree.get_nodes_in_group("magrail"):
+			if not is_instance_valid(rail) or not rail.has_method("get_closest_point_info"):
+				continue
+			var info: Dictionary = rail.get_closest_point_info(global_transform.origin)
+			if info.empty():
+				continue
+			var dist: float = float(info["distance"])
+			var rail_pt: Vector3 = info["world_pos"]
+			# Enganche al saltar sobre el riel o pasar por encima dentro del radio.
+			if dist <= rail.engage_radius and dist < best_dist and velocity.y <= 2.5 and global_transform.origin.y >= rail_pt.y - 0.6:
+				best_dist = dist
+				best_rail = rail
+		if best_rail != null:
+			best_rail.register_player_exception(self)
+			movement_logic.enter_rail(best_rail, global_transform.origin, velocity)
+		else:
+			return false
+
+	var active_rail: Node = get_node_or_null(movement_logic.rail_node_path)
+	var res: Dictionary = movement_logic.step_rail(dt, active_rail, input.move_vec, world_dir, jump_just_pressed)
+	if res.get("active", false):
+		global_transform.origin = res["target_pos"]
+		velocity = res["velocity"]
+		_platform_collider = null
+		_platform_tracking_key = ""
+		_platform_velocity = Vector3.ZERO
+		if is_instance_valid(jump_logic):
+			jump_logic.reset_on_floor()
+			jump_logic.set_internal_velocity(0.0)
+		return true
+
+	var launch_v: Vector3 = res.get("launch_velocity", Vector3.ZERO)
+	var reason: String = str(res.get("exit_reason", ""))
+	if reason == "jump":
+		var jump_v: float = jump_logic.jump_force if is_instance_valid(jump_logic) else 12.0
+		velocity = Vector3(launch_v.x, jump_v + max(0.0, launch_v.y), launch_v.z)
+		if is_instance_valid(jump_logic):
+			jump_logic.consume_jump()
+			jump_logic.set_internal_velocity(velocity.y)
+			jump_logic._jump_time_tracker = 0.0
+		global_transform.origin += Vector3.UP * min(0.15, velocity.y * dt)
+		_emit_anim_event("jumped")
+		velocity = move_and_slide(velocity, UP, true, 4, deg2rad(45), false)
+		return true
+	elif reason == "end" or reason == "lost":
+		velocity = launch_v
+		if is_instance_valid(jump_logic) and launch_v.y > 0.1:
+			jump_logic.launch(launch_v.y)
+		velocity = move_and_slide(velocity, UP, true, 4, deg2rad(45), false)
+		return true
+	return false
 
 func _rl_step_profile_add(t0: int, t_control: int, t_move: int, t_end: int) -> void:
 	if t0 <= 0:

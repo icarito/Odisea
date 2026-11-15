@@ -1,0 +1,15 @@
+// PISTA D: MagRail MVP E2E test
+// Verifica enganche en MagRail_Straight, velocidad sostenida y avance por el tramo.
+
+LEVEL res://core_v2/levels/tests/MagRailTest.tscn
+
+SECTION "MagRail Straight Engage & Travel"
+    PRINT "Starting MagRail E2E test"
+    ASSERT pos.z > 2.0 "Pilot should start at z=4"
+
+    BACKWARD 6.0m
+    WAIT 1.6
+
+    ASSERT pos.z < -15.0 "Pilot should have traveled along MagRail_Straight past z=-15"
+    PRINT "SUCCESS: MagRail straight travel verified!"
+END
