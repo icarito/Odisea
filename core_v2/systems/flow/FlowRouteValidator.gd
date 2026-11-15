@@ -239,9 +239,14 @@ static func validate(graph: Dictionary, metrics: Dictionary = {}) -> Dictionary:
 		m
 	)
 
+	var main_waypoints: Array = _build_main_waypoints(main_path, nodes_by_id)
+	var side_socket_waypoints: Array = _build_side_socket_waypoints(optional_edges, nodes_by_id)
+
 	return {
 		"valid_main_route": valid_main,
 		"main_path": main_path,
+		"main_waypoints": main_waypoints,
+		"side_socket_waypoints": side_socket_waypoints,
 		"main_path_edges": main_path_edges,
 		"edges_evaluated": evaluated_edges,
 		"optional_edges": optional_edges,
@@ -253,6 +258,72 @@ static func validate(graph: Dictionary, metrics: Dictionary = {}) -> Dictionary:
 		"metrics_used": m,
 		"report": report,
 	}
+
+
+# Hook de lectura determinista: devuelve la lista ordenada de waypoints de la ruta
+# principal (entry -> exit) sin mutar el grafo ni la generacion.
+static func extract_main_waypoints(graph: Dictionary, metrics: Dictionary = {}) -> Array:
+	var res := validate(graph, metrics)
+	if not bool(res.get("valid_main_route", false)):
+		return []
+	return res.get("main_waypoints", [])
+
+
+# Hook de lectura determinista: devuelve los Side Sockets (CuratedSocket) fuera
+# de la ruta principal, ordenados por id de destino.
+static func extract_side_socket_waypoints(graph: Dictionary, metrics: Dictionary = {}) -> Array:
+	var res := validate(graph, metrics)
+	return res.get("side_socket_waypoints", [])
+
+
+static func _build_main_waypoints(main_path: Array, nodes_by_id: Dictionary) -> Array:
+	var out: Array = []
+	var count := main_path.size()
+	for i in range(count):
+		var nid := str(main_path[i])
+		var node: Dictionary = nodes_by_id.get(nid, {})
+		out.append({
+			"index": i,
+			"id": nid,
+			"position": _to_vec3(node.get("position", Vector3.ZERO)),
+			"has_position": node.has("position"),
+			"tags": _copy_string_array(node.get("tags", [])),
+			"is_entry": i == 0,
+			"is_exit": i == count - 1,
+		})
+	return out
+
+
+static func _build_side_socket_waypoints(optional_edges: Array, nodes_by_id: Dictionary) -> Array:
+	var seen: Dictionary = {}
+	var out: Array = []
+	for ev in optional_edges:
+		if str(ev.get("category", "")) != CAT_SOCKET:
+			continue
+		var to_id := str(ev.get("to", ""))
+		if to_id == "" or seen.has(to_id):
+			continue
+		seen[to_id] = true
+		var to_node: Dictionary = nodes_by_id.get(to_id, {})
+		out.append({
+			"id": to_id,
+			"from": str(ev.get("from", "")),
+			"position": _to_vec3(to_node.get("position", Vector3.ZERO)),
+			"has_position": to_node.has("position"),
+			"tags": _copy_string_array(to_node.get("tags", [])),
+			"category": CAT_SOCKET,
+		})
+	return out
+
+
+static func _copy_string_array(raw) -> Array:
+	var out: Array = []
+	if typeof(raw) == TYPE_ARRAY:
+		for item in raw:
+			var s := str(item)
+			if s != "":
+				out.append(s)
+	return out
 
 
 static func _normalize_metrics(metrics: Dictionary) -> Dictionary:

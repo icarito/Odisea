@@ -37,11 +37,17 @@ def main() -> int:
     ap.add_argument("--max-steps", type=int, default=1500)
     ap.add_argument("--no-shim", action="store_true",
                     help="Do not adapt a stale (non 13/8) model to the current bridge.")
+    ap.add_argument("--env-preset", choices=("godot", "ringhub_bifurcation", "machinebay_bifurcation"),
+                    default="godot", help="Environment backend: live Godot bridge or waypoint bifurcation gym.")
+    ap.add_argument("--waypoint-shaping", action="store_true",
+                    help="Wrap Godot AnnaGymEnv with FlowWaypointGymWrapper.")
     args = ap.parse_args()
 
     repo = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo / "core_v2" / "anna" / "client"))
+    sys.path.insert(0, str(repo / "agents"))
     from anna_gym import AnnaGymEnv  # type: ignore
+    from flow_waypoint_env import FlowWaypointBifurcationEnv, FlowWaypointGymWrapper  # type: ignore
 
     policy = None
     obs_dim, n_act, shim = 13, 8, False
@@ -56,7 +62,12 @@ def main() -> int:
               f"timesteps={policy.num_timesteps} shim={shim}")
 
     os.environ.setdefault("ANNA_RL_MAX_STEPS", str(args.max_steps))
-    env = AnnaGymEnv(scene_path=args.scene, port=args.port, launch_godot=True, headless=True)
+    if args.env_preset == "godot":
+        env = AnnaGymEnv(scene_path=args.scene, port=args.port, launch_godot=True, headless=True)
+        if args.waypoint_shaping:
+            env = FlowWaypointGymWrapper(env)
+    else:
+        env = FlowWaypointBifurcationEnv(preset=args.env_preset)
     rng = np.random.default_rng(args.seed)
     rewards, steps, reasons = [], [], []
     try:

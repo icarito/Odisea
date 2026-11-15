@@ -50,6 +50,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--init-from", default="", help="Warm-start PPO from this checkpoint; --timesteps are then ADDITIONAL steps.")
     p.add_argument("--tensorboard-log", default="agents/runs/tensorboard")
     p.add_argument("--verbose", type=int, default=1)
+    p.add_argument("--env-preset", choices=("godot", "ringhub_bifurcation", "machinebay_bifurcation"),
+                   default="godot", help="Environment backend: live Godot bridge or waypoint bifurcation gym.")
+    p.add_argument("--waypoint-shaping", action="store_true",
+                   help="Wrap Godot AnnaGymEnv with FlowWaypointGymWrapper.")
     return p.parse_args()
 
 
@@ -67,6 +71,9 @@ def main() -> int:
     client_dir = repo / "core_v2" / "anna" / "client"
     if str(client_dir) not in sys.path:
         sys.path.insert(0, str(client_dir))
+    agents_dir = repo / "agents"
+    if str(agents_dir) not in sys.path:
+        sys.path.insert(0, str(agents_dir))
 
     import numpy as np
     import torch
@@ -74,6 +81,7 @@ def main() -> int:
     from stable_baselines3.common.callbacks import CheckpointCallback
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecMonitor
     from anna_gym import AnnaGymEnv  # type: ignore
+    from flow_waypoint_env import FlowWaypointBifurcationEnv, FlowWaypointGymWrapper  # type: ignore
 
     torch.set_num_threads(max(1, int(args.cpu_threads)))
     random.seed(args.seed)
@@ -89,12 +97,17 @@ def main() -> int:
 
     def make_env(rank: int):
         def _init():
-            return AnnaGymEnv(
+            if args.env_preset != "godot":
+                return FlowWaypointBifurcationEnv(preset=args.env_preset)
+            env = AnnaGymEnv(
                 scene_path=scene_path,
                 port=args.port_base + rank,
                 launch_godot=True,
                 headless=True,
             )
+            if args.waypoint_shaping:
+                env = FlowWaypointGymWrapper(env)
+            return env
         return _init
 
     model_out = (repo / args.model_out).resolve()
