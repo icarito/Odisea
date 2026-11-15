@@ -49,7 +49,7 @@ Los productores **instantáneos** (p.ej. `TubeAirlock`) pueden disparar apenas e
 | Menu → RingHub / Dome_Intro (Nueva partida / Continuar) | Menu.gd | — | **No seamless (reportado):** frontera UI→mundo, sin espacio físico previo. Queda fade del menú + loading. |
 | RingHub ↔ MachineBay | RingHubLightState / MachineLevel:526 | umbral | Seamless: RingHubLightState ya declara `transition:"seamless"` explícito; MachineLevel debe hacer lo mismo (cambio reportado a src-51). El auto-upgrade los cubre igual mientras el AirlockManager esté armado. |
 | Dome_Crio ↔ OdiseaExterior | AirlockZoneV2 | airlock | Seamless (referencia, migrada a `transition:"seamless"`): sin fade ni corte de BGM. |
-| Dome → Hangar (#407) | HangarTransition | pozo/descenso | **Fade (conservado):** falta buffer de llegada equivalente y continuidad de cámara entre el pozo y el hangar; la migración a seamless quedó pendiente (review P1). Se mantiene la precarga temprana (descend_started) como optimización. |
+| Dome → Hangar (#407) | HangarTransition | pozo/descenso | **Fade (conservado) — DEUDA:** falta buffer de llegada equivalente y continuidad de cámara entre el pozo y el hangar; la migración a seamless quedó pendiente (review P1). Se mantiene la precarga temprana (descend_started) como optimización. |
 | Tubos peatonales | TubeAirlock | tubo + IrisDoor | Seamless (migrado). |
 | Airlock de la bahía (fallback) | BayAirlockTrigger | — | Seamless (migrado fallback; el camino primario va por RingHubLightState). |
 | Portales genéricos (estilo airlock) | TransitionPortal | airlock | Seamless (migrado) cuando AirlockManager está presente; fade como fallback. |

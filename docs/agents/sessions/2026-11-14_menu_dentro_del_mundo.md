@@ -24,14 +24,20 @@
   - `_start_in_overlay(scene_path)`: si el destino es el mundo actual (Nueva partida a RingHub, o Continuar al mismo escenario) ⇒ cierra el overlay y entrega control (hardware input on, puntero virtual liberado), sin cambio de escena. Si es otra escena ⇒ `goto_scene` seamless (`transition:"seamless"` + `notify_transition`), con el mundo como buffer; el overlay se oculta al llegar (`scene_ready`).
 - **Pendientes (siguiente iteración)**: PauseMenu; estética mínima (quitar títulos grandes / Backdrop sobre mundo); BGM del mundo vs menú; forzar cámara al piloto al entrar (zoom suave); mediciones de arranque (desktop/web) y memoria tier LOW; posible necesidad de tocar PlayerControllerV2 / core_v2/ui/hud (coordinar con src-50).
 
-## Alcance del commit actual
+## Alcance hasta acá (iteraciones)
 
 Cambios aditivos y off por defecto (riesgo de regresión ~nulo):
 - `BootLoader.gd`: export `startup_world_scene_path`, target de arranque, `_attach_menu_overlay()`.
-- `Menu.gd`: `overlay_mode`, `configure_world_overlay()`, `_start_in_overlay()`, `_on_arrival_hide_overlay()`, `_close_overlay_and_give_control()`.
+- `Menu.gd`: `overlay_mode`, `configure_world_overlay()`, `_start_in_overlay()` (parámetro tipado), `_on_arrival_hide_overlay()`, `_close_overlay_and_give_control()` (ahora también `snap_camera_to_current_state()` al entregar control: cámara al piloto sin corte).
+- `PauseMenu.gd`: `MainMenu` muestra el overlay del menú principal si existe (no hace change_scene a Menu); `_find_world_menu_overlay()`.
+- Spec: el fade Dome→Hangar quedó anotado como DEUDA (falta buffer de llegada equivalente + cámara continua).
 - Este doc de sesión.
+
+## Mediciones de arranque (estado)
+
+El pipeline existe: `StartupTrace` escribe `user://startup_trace.json` (auto-finalize ~30 s o al abrirse el startup gate). Intento headless en este entorno (binario editor + --headless) no completó el arranque (solo eventos de conexión; finalize por timeout) — no es representativo. Falta medición real: desktop (ventana) antes/después y web con Thorium con ventana; y memoria en tier LOW/Anbernic. Metodología propuesta: correr el juego con `startup_world_scene_path` seteado, leer `startup_trace.json` (hitos boot_loader_scene_request → scene_ready → startup_gate) y comparar contra el boot classic.
 
 ## Verificación
 
-- Tests legacy del menú (`test_menu_checkpoint_flow`) y suites de transición/seamless verdes (el modo overlay no altera el flujo por defecto).
-- Falta: corrida de juego real (desktop/web) para validar overlay, cámara y memoria.
+- Tests legacy del menú (`test_menu_checkpoint_flow`), `test_pause_menu_minimal` y suites seamless verdes en la rama (el modo overlay no altera el flujo por defecto).
+- Falta: corrida de juego real (desktop/web) para validar overlay, cámara al piloto, PauseMenu→menú principal y memoria.

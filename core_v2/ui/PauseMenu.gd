@@ -101,7 +101,22 @@ func _on_main_menu_pressed():
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr:
 		audio_mgr.reset()
+	# Menú dentro del mundo: si hay un overlay del menú principal vivo (instanciado por
+	# BootLoader en modo overlay), mostrarlo en lugar de cambiar a la escena Menu.
+	var world_menu := _find_world_menu_overlay()
+	if is_instance_valid(world_menu):
+		world_menu.visible = true
+		return
 	get_tree().change_scene("res://scenes/Menu.tscn")
+
+func _find_world_menu_overlay() -> Node:
+	var scene = get_tree().current_scene
+	if not is_instance_valid(scene):
+		return null
+	for node in scene.get_children():
+		if node.name == "Menu" and node.has_method("configure_world_overlay") and bool(node.get("overlay_mode")):
+			return node
+	return null
 
 func _on_quit_pressed():
 	get_tree().quit()

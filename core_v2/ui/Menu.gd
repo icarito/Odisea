@@ -476,6 +476,10 @@ func _close_overlay_and_give_control() -> void:
 	# Entregar control al jugador (hardware input on) y liberar el puntero virtual.
 	var session = get_node_or_null("/root/SessionManager")
 	if session and is_instance_valid(session.player):
+		# Cámara al piloto: al salir del menú, la vista aterriza en la cámara del jugador
+		# (sin corte; usa la API existente del controlador, no se toca PlayerControllerV2).
+		if session.player.has_method("snap_camera_to_current_state"):
+			session.player.snap_camera_to_current_state()
 		if "input_provider" in session.player and is_instance_valid(session.player.input_provider):
 			session.player.input_provider.hardware_input_enabled = true
 	var vm = get_node_or_null("/root/VirtualMouse")
