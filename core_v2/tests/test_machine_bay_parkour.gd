@@ -8,9 +8,11 @@ extends GdUnitTestSuite
 const BayScene = preload("res://core_v2/levels/machines/MachineBay.tscn")
 const FlowMetricsScript = preload("res://core_v2/systems/flow/FlowMetrics.gd")
 const FlowRouteValidatorScript = preload("res://core_v2/systems/flow/FlowRouteValidator.gd")
+const TICKS_PER_FRAME := 8
 const MOVE_ACTIONS := ["move_forward", "move_backward", "move_left", "move_right", "jump", "run"]
 
 var _bay: Node = null
+var _pilot_spawn := Transform.IDENTITY
 
 
 func after_test() -> void:
@@ -20,6 +22,7 @@ func after_test() -> void:
 func before() -> void:
 	_bay = BayScene.instance()
 	get_tree().root.add_child(_bay)
+	_pilot_spawn = _bay.get_node("Pilot").global_transform
 	for zone in get_tree().get_nodes_in_group("CheckZoneV2"):
 		if _bay.is_a_parent_of(zone):
 			zone.queue_free()
@@ -147,7 +150,9 @@ func test_labyrinth_streamer_flow_validator_hook_is_safe_without_flow_system() -
 	assert_bool(res.has("report")).is_true()
 	var rep: Dictionary = res.get("report", {})
 	assert_bool(rep.has("valid_main_route")).is_true()
-	assert_bool(bool(res.get("valid", true))).is_equal(bool(rep.get("valid_main_route", false)))
+	# El veredicto sale del grid generado: válido solo si hay ruta principal real entre
+	# la costura oeste y la este (el generador puede podar la celda de costura).
+	assert_bool(bool(res.get("valid", false))).is_equal(rep.get("main_path", []).size() > 1)
 
 
 func test_labyrinth_streamer_flow_validator_accepts_connected_valid_grid() -> void:
@@ -175,7 +180,6 @@ func test_labyrinth_streamer_flow_validator_rejects_disconnected_or_impossible_g
 	var disc_res: Dictionary = streamer.validate_grid_with_flow_validator(disconnected, 20261114, 0, 0)
 	assert_bool(bool(disc_res.get("valid", true))).is_false()
 	# Grid con salto vertical imposible (delta_h = 5.0m > 0.80 * H_max) -> inválido.
-	var solver = WFCSolverCore.new()
 	var v_flat = WFCSolverCore.ModuleVariant.new("W", 0, [true, true, true, true], [0.0, 0.0, 0.0, 0.0], 1.0)
 	var bad_height_grid := []
 	for z in range(int(streamer.chunk_cells)):
@@ -201,12 +205,12 @@ func test_main_route_passes_flow_route_validator_within_80_percent_threshold() -
 		var shape: CollisionShape = body.get_child(0) as CollisionShape
 		var box: BoxShape = shape.shape as BoxShape
 		var top_pos: Vector3 = body.global_transform.origin + Vector3(0.0, box.extents.y, 0.0)
-		nodes.append({"id": n, "pos": top_pos, "size": box.extents * 2.0})
+		nodes.append({"id": n, "position": top_pos, "size": box.extents * 2.0})
 	var edges := []
 	for i in range(node_names.size() - 1):
 		if node_names[i] == "TowerRamp" and node_names[i + 1] == "ExitPad":
 			# Conexión caminable continua mediante TowerAscendRamp (inclinada 39°).
-			edges.append({"from": "TowerRamp", "to": "ExitPad", "gap_h": 0.0, "delta_h": 0.0})
+			edges.append({"from": "TowerRamp", "to": "ExitPad", "gap_horizontal": 0.0, "delta_h": 0.0})
 		else:
 			edges.append({"from": node_names[i], "to": node_names[i + 1]})
 	var fm = FlowMetricsScript.from_scene()
@@ -264,17 +268,17 @@ func _drive_toward(pilot: Spatial, target: Vector3) -> void:
 
 
 func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
-	# Desactiva nodos pesados no usados en la ruta principal para acelerar el test en CI.
-	for heavy_name in ["LabyrinthSection", "MachineBayLabyrinthStreamer", "MachineBayMazeRouting"]:
-		var heavy := _bay.get_node_or_null(heavy_name)
-		if heavy != null:
-			heavy.queue_free()
-	var level_node := _bay.get_node_or_null("Level")
-	if level_node != null:
-		for child in level_node.get_children():
-			if child.name.begins_with("Voice") or child.name == "BayFireSystem" or child.name == "BayFireVisual" or child.name == "BayShell":
-				child.queue_free()
 	var pilot: KinematicBody = _bay.get_node("Pilot")
+	# Los tests de impulsor dejan al piloto lanzado: la travesía parte del spawn.
+	pilot.global_transform = _pilot_spawn
+	pilot.velocity = Vector3.ZERO
+	pilot.movement_logic.horizontal_velocity = Vector3.ZERO
+	pilot.jump_logic.internal_velocity = 0.0
+	# La travesía a tiempo real (~40 s) no cabe en el shard de CI. La ruta principal es
+	# geometría estática y el piloto simula con step(1/ips, input), así que el test avanza
+	# su tick real TICKS_PER_FRAME veces por frame del motor: misma simulación, sin reloj.
+	pilot.set_physics_process(false)
+	var ticks := 0
 	pilot.input_provider.set_live_mode()
 	pilot.input_provider.hardware_input_enabled = true
 	var cinematic: Node = get_node_or_null("/root/CinematicManager")
@@ -305,7 +309,7 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 		[Vector3(4.8, 10.9, 98.0), true, 1.3, 4.5],
 		[Vector3(2.2, 10.0, 103.0), true, 1.4, 4.5],
 		[Vector3(2.2, 10.4, 111.5), false, 1.5],
-		[Vector3(2.2, 22.0, 128.0), false, 2.0],
+		[Vector3(2.2, 22.0, 129.0), false, 1.8],
 	]
 
 	for i in range(waypoints.size()):
@@ -340,7 +344,10 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 				Input.action_release("jump")
 			if jump_cooldown > 0:
 				jump_cooldown -= 1
-			yield(get_tree(), "physics_frame")
+			pilot._physics_process(0.0)
+			ticks += 1
+			if ticks % TICKS_PER_FRAME == 0:
+				yield(get_tree(), "physics_frame")
 			if not is_instance_valid(pilot):
 				break
 			var pos: Vector3 = pilot.global_transform.origin
@@ -358,5 +365,6 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 		assert_bool(reached).is_true()
 
 	_release_actions()
+	pilot.set_physics_process(true)
 	assert_float(pilot.global_transform.origin.z).is_greater_equal(127.0)
 	assert_float(pilot.global_transform.origin.y).is_greater_equal(21.5)

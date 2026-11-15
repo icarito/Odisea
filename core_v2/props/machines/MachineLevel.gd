@@ -758,11 +758,8 @@ func reset_station(station_id: int = 0) -> void:
 		elif item_type == "boost_pad":
 			if node is Spatial:
 				_place(node as Spatial, item)
-			if node.has_method("restore_snapshot"):
-				node.restore_snapshot({
-					"is_active": bool(item.get("starts_active", false)),
-					"cooldown": 0,
-				})
+			# Snapshot vacío = estado de layout (starts_active) y cooldown 0.
+			node.restore_snapshot({})
 		else:
 			if node is Spatial:
 				_place(node as Spatial, item)
