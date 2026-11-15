@@ -94,9 +94,9 @@ func test_work_lighting_present() -> void:
 	assert_array(_nodes_with_script(hangar, TRIPOD_SCRIPT)).is_not_empty()
 
 
-func test_exit_airlock_targets_scaffold_orbit_with_spawn() -> void:
+func test_exit_airlock_targets_ringhub_with_spawn() -> void:
 	var hangar = yield(_spawn_hangar(), "completed")
-	# Una sola frontera presurizada -> vacio: exactamente una esclusa de salida.
+	# Una sola esclusa de salida hacia RingHub (punto de insercion para MagRail).
 	assert_array(_nodes_with_script(hangar, AIRLOCK_SCRIPT)).has_size(1)
 	var zones := _nodes_with_script(hangar, AIRLOCK_ZONE_SCRIPT)
 	assert_array(zones).is_not_empty()
@@ -104,6 +104,6 @@ func test_exit_airlock_targets_scaffold_orbit_with_spawn() -> void:
 	for zone in zones:
 		var target_scene := String(zone.get("target_scene"))
 		var target_spawn := String(zone.get("target_spawn_id"))
-		if target_scene.find("ScaffoldOrbit") >= 0 and target_spawn == "from_dome_intro_hangar":
+		if target_scene.find("RingHub_Level") >= 0 and target_spawn == "from_dome_intro_hangar":
 			found = true
 	assert_bool(found).is_true()

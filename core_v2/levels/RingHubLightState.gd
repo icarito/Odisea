@@ -37,6 +37,8 @@ export(NodePath) var dark_lighting_path := NodePath("../DarkLevelLighting")
 export(NodePath) var wall_lights_path := NodePath("../Hub/WallLights")
 export(NodePath) var fixture_batch_path := NodePath("../Hub/WallLights/FixtureBatch_00")
 export(NodePath) var button_path := NodePath("../Hub/PedestalLight")
+export(NodePath) var bay_connector_path := NodePath("../Hub/BayConnector")
+export(bool) var debug_pedestals_enabled := false
 export(NodePath) var machine_bay_button_path := NodePath("../Hub/PedestalMachineBay")
 export(String) var machine_bay_scene_path := "res://core_v2/levels/machines/MachineBay.tscn"
 # FD-322: segundo pedestal que entra a la bahía RADIAL centrífuga (la Bahía 3
@@ -143,6 +145,7 @@ func _ready() -> void:
 	_build_luminaries()
 	_prepare_fixture_emission()
 	_connect_button()
+	_apply_debug_pedestals()
 	set_process(false)
 	# Deferred para correr despues del _apply() de DarkLevelLighting, pero sus
 	# setters guardan pendiente igual, asi que el orden no es critico.
@@ -254,10 +257,11 @@ func _notify_suit_lights_restored() -> void:
 	model.add_comms("ODISEA", "Iluminación primaria restablecida. Orden 0001 asignada: acceda a Bahía 3.", "odisea")
 	if suit_screen.has_method("notify_state_changed"):
 		suit_screen.notify_state_changed()
-	var bay_btn := get_node_or_null(machine_bay_button_path) as Spatial
+	var connector := get_node_or_null(bay_connector_path) as Spatial
 	var npc := ProgrammerHoloNPC.summon(get_tree(), 7.5)
-	if is_instance_valid(npc) and is_instance_valid(bay_btn) and npc.has_method("guide_to"):
-		npc.call("guide_to", bay_btn.global_transform.origin + Vector3(0, 0.3, 0), 3.6)
+	if is_instance_valid(npc) and is_instance_valid(connector) and npc.has_method("guide_to"):
+		# Boca del corredor real hacia MachineBay (no el pedestal de debug).
+		npc.call("guide_to", connector.to_global(Vector3(5.0, 0.3, 0.0)), 3.6)
 
 # --- Flicker determinista ---------------------------------------------------
 
@@ -515,16 +519,37 @@ func _connect_button() -> void:
 	if bay_vertical_button != null and bay_vertical_button.has_signal("activated") and not bay_vertical_button.is_connected("activated", self, "_on_bay_vertical_button_activated"):
 		bay_vertical_button.connect("activated", self, "_on_bay_vertical_button_activated")
 
+func _apply_debug_pedestals() -> void:
+	for path in [machine_bay_button_path, bay_vertical_button_path]:
+		var pedestal := get_node_or_null(path) as Spatial
+		if pedestal == null:
+			continue
+		pedestal.visible = debug_pedestals_enabled
+		_set_pedestal_interactive(pedestal, debug_pedestals_enabled)
+
+func _set_pedestal_interactive(node: Node, enabled: bool) -> void:
+	if node is Area:
+		(node as Area).monitoring = enabled
+		(node as Area).monitorable = enabled
+	elif node is CollisionShape:
+		(node as CollisionShape).disabled = not enabled
+	for child in node.get_children():
+		_set_pedestal_interactive(child, enabled)
+
 func _on_button_activated() -> void:
 	toggle()
 
 func _on_machine_bay_button_activated() -> void:
+	if not debug_pedestals_enabled:
+		return
 	enter_machine_bay()
 
 # FD-322: entrada a la bahía radial centrífuga. Reusa el mismo contrato de
 # retorno que `enter_machine_bay` para que la salida de la bahía restaure la pose
 # del hub; agrega el `target_spawn_id` real (`bay_vertical_entry`).
 func _on_bay_vertical_button_activated() -> void:
+	if not debug_pedestals_enabled:
+		return
 	enter_bay_vertical()
 
 func enter_bay_vertical() -> void:

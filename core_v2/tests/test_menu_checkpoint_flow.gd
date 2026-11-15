@@ -57,12 +57,17 @@ func after_test() -> void:
 	_cleanup_test_directories()
 
 func test_first_game_scene_loads_and_instances() -> void:
-	assert_str(MenuScript.FIRST_GAME_SCENE).is_equal(RING_HUB)
-	var hub_scene := load(RING_HUB) as PackedScene
-	assert_object(hub_scene).is_not_null()
-	var hub: Node = auto_free(hub_scene.instance())
-	assert_object(hub.get_node_or_null("Pilot")).is_not_null()
-	assert_object(hub.get_node_or_null("Criopod_Vert")).is_not_null()
+	assert_str(MenuScript.FIRST_GAME_SCENE).is_equal(DOME_INTRO)
+	var intro_scene := load(DOME_INTRO) as PackedScene
+	assert_object(intro_scene).is_not_null()
+	var intro: Node = auto_free(intro_scene.instance())
+	assert_object(intro.get_node_or_null("Dome_Base/Pilot_v2")).is_not_null()
+	assert_object(intro.get_node_or_null("Dome_Base/SpawnPointV2")).is_not_null()
+	assert_object(intro.get_node_or_null("DomeMachineLevel")).is_not_null()
+	assert_object(intro.get_node_or_null("HangarDescent")).is_not_null()
+	var director := get_node_or_null("/root/DomeSystemDirector")
+	assert_object(director).is_not_null()
+	assert_bool(director.is_maintenance_override_enabled()).is_true()
 
 func test_continue_requires_a_real_last_checkpoint() -> void:
 	var persistence = auto_free(PersistenceManagerScript.new())

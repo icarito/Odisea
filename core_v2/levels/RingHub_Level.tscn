@@ -1,4 +1,4 @@
-[gd_scene load_steps=150 format=2]
+[gd_scene load_steps=151 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=2]
@@ -657,6 +657,11 @@ script = ExtResource( 79 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.175, -0.123402 )
 
 [node name="Hub" type="Spatial" parent="."]
+
+[node name="Spawn_FromHangar" type="Position3D" parent="Hub"]
+transform = Transform( 0, 0, -1, 0, 1, 0, 1, 0, 0, -22, 0.5, 0 )
+script = ExtResource( 121 )
+spawn_id = "from_dome_intro_hangar"
 
 [node name="PedestalLight" parent="Hub" instance=ExtResource( 75 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, 0, 0 )
