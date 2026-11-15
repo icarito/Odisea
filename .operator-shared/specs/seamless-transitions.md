@@ -48,6 +48,7 @@ Los productores **instantáneos** (p.ej. `TubeAirlock`) pueden disparar apenas e
 | Boot → Menu | BootLoader | — | **No seamless (reportado):** no hay espacio previo que bufferear; es el arranque. Queda loading screen + fade 0. |
 | Menu → RingHub / Dome_Intro (Nueva partida / Continuar) | Menu.gd | — | **No seamless (reportado):** frontera UI→mundo, sin espacio físico previo. Queda fade del menú + loading. |
 | RingHub ↔ MachineBay | RingHubLightState / MachineLevel:526 | umbral | Seamless: RingHubLightState ya declara `transition:"seamless"` explícito; MachineLevel debe hacer lo mismo (cambio reportado a src-51). El auto-upgrade los cubre igual mientras el AirlockManager esté armado. |
+| MachineBay → BayVertical | MachineLevel.enter_bay_vertical (`ExitLockTrigger`) | esclusa del ExitPad | Seamless con llegada por spawn (`bay_vertical_entry`): BayVertical no tiene airlock espejo de entrada, así que la pose no se transfiere relativa al buffer. |
 | Dome_Crio ↔ OdiseaExterior | AirlockZoneV2 | airlock | Seamless (referencia, migrada a `transition:"seamless"`): sin fade ni corte de BGM. |
 | Dome → Hangar (#407) | HangarTransition | pozo/descenso | **Fade (conservado) — DEUDA:** falta buffer de llegada equivalente y continuidad de cámara entre el pozo y el hangar; la migración a seamless quedó pendiente (review P1). Se mantiene la precarga temprana (descend_started) como optimización. |
 | Tubos peatonales | TubeAirlock | tubo + IrisDoor | Seamless (migrado). |
