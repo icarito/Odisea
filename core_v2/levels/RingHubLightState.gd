@@ -39,6 +39,12 @@ export(NodePath) var fixture_batch_path := NodePath("../Hub/WallLights/FixtureBa
 export(NodePath) var button_path := NodePath("../Hub/PedestalLight")
 export(NodePath) var machine_bay_button_path := NodePath("../Hub/PedestalMachineBay")
 export(String) var machine_bay_scene_path := "res://core_v2/levels/machines/MachineBay.tscn"
+# FD-322: segundo pedestal que entra a la bahía RADIAL centrífuga (la Bahía 3
+# rediseñada). Mismo camino seamless que la bahía actual, con el SpawnPointV2
+# real de la escena destino y el payload de retorno del hub.
+export(NodePath) var bay_vertical_button_path := NodePath("../Hub/PedestalBayVertical")
+export(String) var bay_vertical_scene_path := "res://core_v2/levels/bay_vertical/BayVertical.tscn"
+export(String) var bay_vertical_spawn_id := "bay_vertical_entry"
 
 # --- Ambiente de escritorio (Environment duplicado por DarkLevelLighting) ---
 export(float, 0.0, 4.0, 0.01) var dark_ambient_energy := 0.02
@@ -505,12 +511,43 @@ func _connect_button() -> void:
 	var bay_button := get_node_or_null(machine_bay_button_path)
 	if bay_button != null and bay_button.has_signal("activated") and not bay_button.is_connected("activated", self, "_on_machine_bay_button_activated"):
 		bay_button.connect("activated", self, "_on_machine_bay_button_activated")
+	var bay_vertical_button := get_node_or_null(bay_vertical_button_path)
+	if bay_vertical_button != null and bay_vertical_button.has_signal("activated") and not bay_vertical_button.is_connected("activated", self, "_on_bay_vertical_button_activated"):
+		bay_vertical_button.connect("activated", self, "_on_bay_vertical_button_activated")
 
 func _on_button_activated() -> void:
 	toggle()
 
 func _on_machine_bay_button_activated() -> void:
 	enter_machine_bay()
+
+# FD-322: entrada a la bahía radial centrífuga. Reusa el mismo contrato de
+# retorno que `enter_machine_bay` para que la salida de la bahía restaure la pose
+# del hub; agrega el `target_spawn_id` real (`bay_vertical_entry`).
+func _on_bay_vertical_button_activated() -> void:
+	enter_bay_vertical()
+
+func enter_bay_vertical() -> void:
+	if not is_inside_tree():
+		return
+	var scene_mgr = get_node_or_null("/root/SceneManager")
+	if scene_mgr == null or not scene_mgr.has_method("goto_scene"):
+		get_tree().change_scene(bay_vertical_scene_path)
+		return
+	var hub := get_tree().current_scene
+	var return_state: Dictionary = {}
+	if hub != null and hub.has_method("get_snapshot"):
+		var pilot := hub.get_node_or_null("Pilot")
+		if pilot != null and pilot.has_method("get_full_snapshot"):
+			return_state = {"wakeup": hub.get_snapshot(), "light_state": get_snapshot(),
+				"player_snapshot": pilot.get_full_snapshot()}
+	if not scene_mgr.has_method("is_transitioning") or not bool(scene_mgr.is_transitioning()):
+		var airlock_manager = get_node_or_null("/root/AirlockManager")
+		if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+			airlock_manager.notify_transition(bay_vertical_scene_path)
+	scene_mgr.goto_scene(bay_vertical_scene_path, {"preserve_player_state": false,
+		"transition": "seamless", "target_spawn_id": bay_vertical_spawn_id,
+		"ringhub_return_state": return_state})
 
 func _build_sound_player() -> void:
 	if switch_sound == null:

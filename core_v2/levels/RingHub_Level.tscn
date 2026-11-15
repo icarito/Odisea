@@ -689,6 +689,22 @@ light_color = Color( 0.91, 0.36, 0.02, 1 )
 light_energy = 0.8
 omni_range = 3.0
 
+[node name="PedestalBayVertical" parent="Hub" instance=ExtResource( 75 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 31.8, 0, -3.2 )
+interaction_text = "Acceder"
+interaction_title = "Esclusa Radial — Bahía 3"
+interaction_description = "Accede al pozo radial centrífugo de la Bahía 3."
+interaction_verb_active = "Entrar al pozo radial"
+interaction_verb_inactive = "Entrar al pozo radial"
+light_path = NodePath("ButtonLight")
+momentary = true
+
+[node name="ButtonLight" type="OmniLight" parent="Hub/PedestalBayVertical"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0 )
+light_color = Color( 0.3, 0.8, 1, 1 )
+light_energy = 0.8
+omni_range = 3.0
+
 [node name="WallLights" type="Spatial" parent="Hub" groups=["light_budget_aggressive"]]
 script = ExtResource( 66 )
 snap_to_surface = false

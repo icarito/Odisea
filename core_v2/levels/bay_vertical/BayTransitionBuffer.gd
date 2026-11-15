@@ -1,18 +1,17 @@
 extends Spatial
-class_name BayTransitionBuffer
 
-# Buffer de transición FÍSICO de la bahía vertical (FD-322).
+# Buffer de transición FÍSICO de la bahía radial (FD-322).
 #
 # Requisito de Sebastián (2026-11-14): las transiciones deben ser completamente
-# seamless, sin fade a negro; la referencia es el airlock. La entrada (planta) y la
-# salida (sala de control, cima) de la bahía vertical son un ESPACIO BUFFER FÍSICO
-# (airlock / ascensor) compatible con la API que src-54 está generalizando en
-# SceneManager, NO un `goto_scene` con fade.
+# seamless, sin fade a negro; la referencia es el airlock. La entrada (planta) y
+# la salida (sala de control, cima) de la bahía son un ESPACIO BUFFER FÍSICO
+# (airlock/ascensor) que USA la API seamless de `SceneManager`/`AirlockManager`
+# (`.operator-shared/specs/seamless-transitions.md`): arma el lift
+# (`notify_transition`), pide `transition: "seamless"` y dispara el swap.
 #
-# Mientras esa API no aterrice (contrato en
-# `.operator-shared/specs/seamless-transitions.md`), este nodo construye el espacio
-# físico y deja el punto de enganche explícito: `request_seamless_transition()` es un
-# no-op con TODO(src-54). NO llamar a goto_scene desde acá.
+# El destino es un destino REAL: la SALIDA hacia RingHub restaura la pose del hub
+# capturada al entrar (`BayVerticalLevel.build_ringhub_params`), por el mismo
+# camino sin airlock que RingHub <-> MachineBay. No hay IDs de spawn inventados.
 
 enum Kind { ENTRY = 0, EXIT = 1, ELEVATOR = 2 }
 
@@ -21,8 +20,16 @@ export(String) var target_scene := ""
 export(String) var buffer_id := ""
 export(bool) var exchange_zone := true
 export(Vector3) var chamber_size := Vector3(3.0, 3.0, 3.0)
+# Opcional: nodo de nivel que aporta los parámetros de salida reales
+# (`build_ringhub_params()`); si está, se usa ese camino.
+export(NodePath) var level_path := NodePath("")
 
 var _zone: Area = null
+var _level: Node = null
+
+signal transition_requested(buffer_id, target_scene)
+
+var _transitioning := false
 
 func _ready() -> void:
 	_build_chamber()
@@ -81,18 +88,14 @@ func _build_exchange_zone() -> void:
 	add_child(_zone)
 	_zone.connect("body_entered", self, "_on_body_entered")
 
-signal transition_requested(buffer_id, target_scene)
-
-var _transitioning := false
-
 func _on_body_entered(body: Node) -> void:
 	if not body.is_in_group("player"):
 		return
 	request_seamless_transition(body)
 
-# Transición SEAMLESS real (sin fade): mismo camino que `AirlockZoneV2._trigger_transition`
-# — `AirlockManager.notify_transition()` levanta al jugador antes del swap y
-# SceneManager hace add-before-free. NO se usa `goto_scene` con fade.
+# Transición SEAMLESS real (sin fade): mismo camino que `AirlockZoneV2` —
+# `AirlockManager.notify_transition()` levanta al jugador antes del swap y
+# SceneManager hace add-before-free. NO se usa un fade a negro.
 func request_seamless_transition(player: Node) -> void:
 	if _transitioning:
 		return
@@ -108,20 +111,27 @@ func request_seamless_transition(player: Node) -> void:
 		_transitioning = false
 		return
 
-	var params := {
-		"transition": "none",
-		"transition_style": "airlock",
-		"preserve_player_state": true,
-		"fade_out": 0.0,
-		"fade_in": 0.0,
-		"show_loading": false,
-		"wait_for_fade_out": false,
-		"spawn_id": buffer_id,
-		"target_spawn_id": buffer_id,
-	}
-	var state_data := _build_state_data(player)
-	if not state_data.empty():
-		params["state_data"] = state_data
+	var params := {}
+	if _has_level_return_target():
+		# Destino REAL: vuelve al hub restaurando la pose con la que se entró.
+		params = _level.call("build_ringhub_params")
+	else:
+		# Fallback relativo (destino con airlock espejo): conserva pose/velocidad
+		# relativas al buffer como AirlockZoneV2.
+		params = {
+			"transition": "seamless",
+			"transition_style": "airlock",
+			"preserve_player_state": true,
+			"fade_out": 0.0,
+			"fade_in": 0.0,
+			"show_loading": false,
+			"wait_for_fade_out": false,
+			"spawn_id": buffer_id,
+			"target_spawn_id": buffer_id,
+		}
+		var state_data := _build_state_data(player)
+		if not state_data.empty():
+			params["state_data"] = state_data
 
 	var airlock_manager = get_node_or_null("/root/AirlockManager")
 	if airlock_manager != null and airlock_manager.has_method("notify_transition"):
@@ -130,6 +140,12 @@ func request_seamless_transition(player: Node) -> void:
 	if OS.is_debug_build():
 		print("[BayTransitionBuffer:%s] seamless -> %s" % [buffer_id, target_scene])
 	scene_manager.goto_scene(target_scene, params)
+
+func _has_level_return_target() -> bool:
+	if _level == null or not is_instance_valid(_level):
+		_level = get_node_or_null(level_path) if not level_path.is_empty() else null
+	return _level != null and _level.has_method("build_ringhub_params") \
+		and (not _level.has_method("has_return_state") or bool(_level.call("has_return_state")))
 
 func _build_state_data(player: Node) -> Dictionary:
 	var state_data := {}

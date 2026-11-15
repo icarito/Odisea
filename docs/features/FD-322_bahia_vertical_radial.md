@@ -309,3 +309,78 @@ con `TODO(src-54)` y referencia al contrato `.operator-shared/specs/seamless-tra
 El streaming de `BayVerticalWell` es local y mínimo. El activador por cercanía de src-51 se
 engancha en `_call_proximity_activator(player_pos, chunks)` (marcado `TODO(src-51)`); hasta
 entonces cae a la implementación local. No duplicar esa lógica al mergear.
+
+---
+
+## 9. Resolución del review de #415 (sesión src-57)
+
+El review de #415 dejó abiertos tres hilos bloqueantes + uno de perf. Se resolvieron
+todos sobre la escena cilíndrica real (`BayCylinderRotator` + `ScaffoldStreamController`),
+sin volver a la geometría polar del componente `BayVerticalWell` (que sigue como
+generador de layout puro + contenido/validación, con sus tests).
+
+### Hilo 2 — el modo ahora REORIENTA la geometría
+- `core_v2/levels/bay_vertical/BayCylinderRotator.gd` extiende el `CylinderRotator`
+  compartido y:
+  - expone `spiral_blend` (0 = axial/propulsión plano, 1 = centrífugo/anillo) y lo
+    consume al proyectar cada chunk (interpola entre la pose plana y la del cilindro);
+  - se registra en `GravityWorld` (`register_rotator`), así
+    `set_spiral_blend`/`set_gravity_blend` — que ya llaman `BayGravityMount` y
+    `BayModeConsole` — llegan a la geometría real y no solo al estado del autoload.
+- El atajo mode-gated (puente sólido solo en propulsión) pasó de un puente flotante en
+  y=36 a un tramo anclado a la espiral (`BayVerticalContent`), o sea conectado al
+  recorrido real.
+
+### Hilo 1 — contenido curado montado SOBRE los chunks del stream
+- `core_v2/levels/bay_vertical/BayVerticalContent.gd` monta, en el plano del stream
+  (flat: x = arco, y = radial hacia el eje, z = axial) y proyectado con
+  `project_flat_point()` cada frame:
+  - el RECORRIDO: una espiral sembrada (56 tramos de suelo con colisión + rails) que
+    sube del anillo exterior al eje (conectividad determinista, independiente del WFC);
+  - la CIMA: plataforma + sala de control + baliza en el eje;
+  - los ATAJOS: puerta de láser, tramo de gloo (hueco de la espiral), caja de apoyo;
+  - el PELIGRO: rotor sincronizado con el ciclo;
+  - consumidor del `BayProtocolCycle` (`phase_changed`).
+- El contenido viaja con el cilindro (el marco rota con el jugador) y con el modo.
+
+### Hilo 3 — entrada y salida reales (API seamless de #412)
+- `BayVertical.tscn` declara `SpawnPointV2` con `spawn_id = "bay_vertical_entry"`.
+- `core_v2/levels/bay_vertical/BayVerticalLevel.gd` captura el payload de retorno del
+  hub (`ringhub_return_state`, mismo contrato que `MachineLevel.gd`) y arma los
+  parámetros de salida seamless hacia `RingHub_Level.tscn`.
+- Los buffers (`EntryBuffer`/`ExitBuffer`) ya no apuntan a IDs inexistentes: usan el
+  retorno real del nivel y el camino seamless sin airlock de `AirlockManager`.
+- Entrada REAL desde el hub: `RingHubLightState.enter_bay_vertical()` + pedestal
+  `Hub/PedestalBayVertical` en `RingHub_Level.tscn` (mismo patrón que la bahía actual,
+  con `target_spawn_id` al spawn real). No se toca el airlock existente.
+
+### Hilo 5 — perf del stream (draw calls, no fps)
+- Ajuste de límites por cercanía en `ScaffoldStreamController` dentro de la escena:
+  `load_radius 64→30`, `collision_radius 40→18`, `full_detail_radius 28→10`,
+  `lod1_radius 64→30`, `prewarm_chunk_radius 2→1`.
+- `full_detail_radius` es la palanca dominante: los chunks dentro de ese radio se
+  detallan celda por celda (muchas superficies), los de afuera caen a LOD multimesh.
+- Medición A/B/A (mismo commit, mismo proceso-cámara canónica, `VisualServer.get_render_info`):
+  | config | draw calls | objetos en frame | vértices | chunks | nodos |
+  |---|---|---|---|---|---|
+  | A (escena: 30/18/10) | 4411 | 609 | 3.81M | 9 | 1701 |
+  | B (viejo: 64/40/28) | 12138 | 1419 | 5.20M | 6 | 4893 |
+  | A2 (escena otra vez) | 4411 | 609 | 3.81M | 9 | 1701 |
+  A = A2 (repetible); el ajuste corta **-64%** draw calls y -57% objetos en frame.
+- Capturas (Viewport hijo, proceso propio, no el comando screenshot del peer):
+  `anillo exterior con pitch hacia arriba`, `anillo medio` y `eje/cima`.
+
+### Tests
+- `core_v2/tests/test_bay_vertical_core.gd` (nuevo, 11 casos): blend consumido por el
+  rotator + registro en `GravityWorld`; escena con contenido curado (recorrido,
+  atajos, rotor); la espiral sube hacia el eje y la cima queda cerca del eje; el
+  puente mode-gated es sólido solo en propulsión; el ciclo tiene consumidor;
+  `SpawnPointV2` real; buffers hacia RingHub con parámetros del nivel; el hub declara
+  el pedestal de entrada.
+- `core_v2/tests/test_bay_vertical.gd`: 11 casos existentes, sin cambios.
+
+### Archivos nuevos de esta sesión
+- `core_v2/levels/bay_vertical/BayCylinderRotator.gd`
+- `core_v2/levels/bay_vertical/BayVerticalContent.gd`
+- `core_v2/levels/bay_vertical/BayVerticalLevel.gd`
+- `core_v2/tests/test_bay_vertical_core.gd`

@@ -30,10 +30,16 @@ func _init() -> void:
 	add_to_group("replay_sync")
 
 func _ready() -> void:
-	_length = max(1.0, (span_to - span_from).length())
-	_apply_span_transform()
+	refresh_span()
 	_build_sensor()
 	_build_closed_visual()
+
+# Recalcula el tramo (largo y transform) desde span_from/span_to. La llama el
+# contenido de la bahía tras re-proyectar los extremos (el tramo se mueve con el
+# jugador y con el modo); también corre en _ready.
+func refresh_span() -> void:
+	_length = max(1.0, (span_to - span_from).length())
+	_apply_span_transform()
 
 # Coloca el nodo en el centro del tramo, elevado respecto de los extremos, con su
 # +Z alineado al tramo (span_to - span_from). Los hijos usan coordenadas locales.
