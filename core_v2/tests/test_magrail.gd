@@ -214,3 +214,56 @@ func test_magrail_snapshot_determinism() -> void:
 	assert_float(pos_a.distance_to(pos_b)).is_less(0.0001)
 	assert_float(vel_a.distance_to(vel_b)).is_less(0.0001)
 	root.queue_free()
+
+
+func _add_wall(root: Spatial, at: Vector3, extents: Vector3) -> StaticBody:
+	var wall := StaticBody.new()
+	var shape := CollisionShape.new()
+	var box := BoxShape.new()
+	box.extents = extents
+	shape.shape = box
+	wall.add_child(shape)
+	wall.translation = at
+	root.add_child(wall)
+	return wall
+
+
+func test_magrail_blocked_engage_through_wall() -> void:
+	var root := _setup_root("BlockedEngage")
+	_add_floor(root)
+	var _rail := _make_straight_rail(root, Vector3(0, 0.5, 0), Vector3(0, 0.5, -12))
+	# Pared entre el jugador (z=0.8) y el riel (z=0.0).
+	_add_wall(root, Vector3(0, 1.5, 0.4), Vector3(4.0, 2.0, 0.15))
+	var player := _setup_player(root, Vector3(0, 0.0, 0.8))
+
+	for _i in range(10):
+		player.step(FIXED_DT, _make_input(-1.0, 0.0, false, true))
+
+	assert_bool(player.movement_logic.is_on_rail).is_false()
+	assert_float(player.translation.z).is_greater(0.45)
+	root.queue_free()
+
+
+func test_magrail_blocked_path_exits_at_obstacle() -> void:
+	var root := _setup_root("BlockedPath")
+	_add_floor(root)
+	var _rail := _make_straight_rail(root, Vector3(0, 0.5, 0), Vector3(0, 0.5, -20))
+	# Puerta/pared cerrada atravesando el riel en z=-8.
+	_add_wall(root, Vector3(0, 1.5, -8.0), Vector3(4.0, 2.0, 0.25))
+	var player := _setup_player(root, Vector3(0, 0.6, -1.0))
+
+	var engaged := false
+	var exited_at_wall := false
+	for _i in range(120):
+		player.step(FIXED_DT, _make_input(-1.0, 0.0, false, true))
+		if player.movement_logic.is_on_rail:
+			engaged = true
+		elif engaged:
+			exited_at_wall = true
+			break
+
+	assert_bool(engaged).is_true()
+	assert_bool(exited_at_wall).is_true()
+	assert_bool(player.movement_logic.is_on_rail).is_false()
+	assert_float(player.translation.z).is_greater(-8.0)
+	root.queue_free()

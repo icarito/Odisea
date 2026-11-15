@@ -3311,6 +3311,10 @@ func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_
 			var rail_pt: Vector3 = info["world_pos"]
 			# Enganche al saltar sobre el riel o pasar por encima dentro del radio.
 			if dist <= rail.engage_radius and dist < best_dist and velocity.y <= 2.5 and global_transform.origin.y >= rail_pt.y - 0.6:
+				var engage_target: Vector3 = rail_pt + Vector3.UP * rail.player_offset_y
+				var engage_delta: Vector3 = engage_target - global_transform.origin
+				if engage_delta.length_squared() > 0.0001 and test_move(global_transform, engage_delta):
+					continue
 				best_dist = dist
 				best_rail = rail
 		if best_rail != null:
@@ -3322,7 +3326,19 @@ func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_
 	var active_rail: Node = get_node_or_null(movement_logic.rail_node_path)
 	var res: Dictionary = movement_logic.step_rail(dt, active_rail, input.move_vec, world_dir, jump_just_pressed)
 	if res.get("active", false):
-		global_transform.origin = res["target_pos"]
+		var delta_pos: Vector3 = res["target_pos"] - global_transform.origin
+		var col: KinematicCollision = move_and_collide(delta_pos)
+		if col != null:
+			var move_dir: Vector3 = delta_pos.normalized() if delta_pos.length_squared() > 0.000001 else res["tangent"]
+			if col.normal.dot(move_dir) < -0.25 or col.remainder.length() > 0.02:
+				movement_logic.exit_rail()
+				velocity = res["velocity"].slide(col.normal)
+				movement_logic.horizontal_velocity = Vector3(velocity.x, 0.0, velocity.z)
+				movement_logic._ballistic_ticks = 0
+				_platform_collider = null
+				_platform_tracking_key = ""
+				_platform_velocity = Vector3.ZERO
+				return true
 		velocity = res["velocity"]
 		_platform_collider = null
 		_platform_tracking_key = ""
