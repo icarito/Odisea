@@ -73,6 +73,14 @@ El OYS `test_tube_airlock.oys` grababa con el camino fade (lento). Con el swap s
 - Menú→primera escena y boot siguen con fade/loading a propósito (reportado).
 - Tier low/Anbernic: costo de precargar (memoria) — pendiente de medir en hardware.
 
+## Ronda 2: reviews P1 + alcance ampliado (mismo PR #412)
+
+- **Review 1 (Dome_Crio / BGM):** `AirlockZoneV2._trigger_transition` ahora usa `transition:"seamless"` (no `"none"`) cuando AirlockManager está presente. La referencia deja de cortar la BGM.
+- **Review 2 (TubeAirlock sello):** el swap espera a que la IrisDoor quede cerrada (`_is_door_sealed`, ticks de física, tope 90). Test unitario con puerta animada + OYS real.
+- **Review 3 (limpieza del lift):** `SceneManager._reset_runtime_state` llama a `AirlockManager.cancel_pending_transition()` (éxito/fallo/watchdog) y los productores reintentan vía `transition_failed`.
+- **Alcance ampliado (src-49):** `HangarTransition` (Dome→Hangar #407) migrado a seamless: pozo como buffer, precarga al arrancar el descenso (`descend_started` de `HangarPlatform`) y swap con AirlockManager. `RingHubLightState.enter_machine_bay` declara `transition:"seamless"` explícito.
+- **Menú dentro del mundo:** decisión de Sebastián → SEGUNDO PR (rama desde origin/main tras mergear #412). No se toca en #412.
+
 ## Reporte para src-51 (MachineLevel.gd:526)
 
 Cambio exacto requerido en `return_to_ring_hub` (ver spec §7):
