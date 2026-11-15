@@ -4,6 +4,8 @@ extends GdUnitTestSuite
 
 const MultiToolScene = preload("res://core_v2/player/MultiToolV2.tscn")
 const MultiToolScreenScript = preload("res://core_v2/things/MultiToolScreen.gd")
+const LaserScreenScript = preload("res://core_v2/ui/hud/LaserScreen.gd")
+const GlooScreenScript = preload("res://core_v2/ui/hud/GlooScreen.gd")
 
 var _tool = null
 var _screen = null
@@ -21,6 +23,8 @@ func before_test() -> void:
 	_screen = auto_free(MultiToolScreenScript.new())
 	_screen.multitool_path = _tool.get_path()
 	add_child(_screen)
+	# Las pantallas equipables Laser/Gloo las instancia el propio MultiToolV2 (call_deferred).
+	yield(get_tree(), "idle_frame")
 
 func test_multitool_exposed_api() -> void:
 	assert_str(_tool.get_mode_name()).is_equal("LASER")
@@ -36,11 +40,28 @@ func test_screen_snapshot_and_registration() -> void:
 	assert_str(snapshot.get("mode", "")).is_equal("LASER")
 	assert_dict(snapshot).contains_keys(["proto", "title", "charge"])
 
-func test_mode_switch_emits_signal_and_updates_relevance() -> void:
+func test_laser_and_gloo_screens_register_and_equip() -> void:
+	assert_bool(SuitOS.has_screen("player:laser")).is_true()
+	assert_bool(SuitOS.has_screen("player:gloo")).is_true()
+
+	var laser = _tool.get_node_or_null("LaserScreen")
+	var gloo = _tool.get_node_or_null("GlooScreen")
+	assert_object(laser).is_not_null()
+	assert_object(gloo).is_not_null()
+
+	assert_bool(laser.perform_action("equip", {"desired": true}).get("ok", false)).is_true()
+	assert_int(_tool.equipped_tool).is_equal(1) # LASER
+	assert_bool(gloo.perform_action("equip", {"desired": true}).get("ok", false)).is_true()
+	assert_int(_tool.equipped_tool).is_equal(2) # GLOO
+	assert_bool(gloo.perform_action("equip", {"desired": false}).get("ok", false)).is_true()
+	assert_int(_tool.equipped_tool).is_equal(0) # NONE
+
+
+func test_equip_updates_relevance_and_snapshot() -> void:
 	var initial_rel = _screen.relevance()
 
-	# Switch mode to GLOO
-	_tool._switch_mode(1) # Mode.GLOO
+	# Equipar GLOO (Equipped.GLOO = 2)
+	assert_bool(_tool.set_equipped(2)).is_true()
 	assert_str(_tool.get_mode_name()).is_equal("GLOO")
 
 	var gloo_rel = _screen.relevance()

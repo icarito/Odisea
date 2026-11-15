@@ -1,9 +1,11 @@
 extends GdUnitTestSuite
 
-# test_touch_multitool_controls.gd - La UI tactil debe poder disparar el multitool y ciclar su
-# modo. El click fantasma que el X server emula de cada toque apaga tool_fire_primary
-# (MobileUIManager.is_pointer_from_touch); un boton explicito marca la accion que sintetiza para
-# que InputProviderV2 la deje pasar sin reactivar ese bug (ver test_touch_mouse_emulation).
+# test_touch_multitool_controls.gd - La UI tactil debe poder disparar el multitool y equipar
+# laser/gloo. FireButton sintetiza tool_fire_primary (gatillo derecho del gamepad) y los botones
+# LASER/GLOO sintetizan los slots de hombro slot_2/slot_3 (1:1 con el mapa del gamepad). El click
+# fantasma que el X server emula de cada toque apaga tool_fire_primary (MobileUIManager
+# .is_pointer_from_touch); un boton explicito marca la accion que sintetiza para que
+# InputProviderV2 la deje pasar sin reactivar ese bug (ver test_touch_mouse_emulation).
 
 const MobileUIManagerScript = preload("res://core_v2/autoloads/MobileUIManager.gd")
 const InputProviderV2Script = preload("res://core_v2/input/InputProviderV2.gd")
@@ -12,8 +14,8 @@ const TouchActionButtonScript = preload("res://core_v2/ui/TouchActionButton.gd")
 
 func after_test() -> void:
 	Input.action_release("tool_fire_primary")
-	Input.action_release("tool_next_mode")
-	Input.action_release("tool_prev_mode")
+	Input.action_release("slot_2")
+	Input.action_release("slot_3")
 	MobileUIManager._touch_pointer_until = 0
 	MobileUIManager._explicit_touch_actions.clear()
 	MobileUIManager._touch_trackers.clear()
@@ -54,20 +56,20 @@ func test_phantom_click_still_suppressed_without_explicit_button() -> void:
 	assert_bool(provider.get_input().tool_fire_primary).is_false()
 
 
-# Los botones de modo sintetizan tool_next_mode/tool_prev_mode, que el provider lee como flanco
-# y MultiToolV2 usa en step() -> _switch_mode(dir).
-func test_tool_mode_buttons_synthesize_cycle_actions() -> void:
-	var next_btn := _orphan_button("tool_next_mode")
-	next_btn._press()
-	assert_bool(Input.is_action_pressed("tool_next_mode")).is_true()
-	next_btn._release()
-	assert_bool(Input.is_action_pressed("tool_next_mode")).is_false()
+# Los botones de herramienta sintetizan los slots de hombro (slot_2/slot_3), que el provider
+# lee como slot del HUD y HudSlotGamepadV2 convierte en equipar el tool fijado ahi.
+func test_tool_equip_buttons_synthesize_slot_actions() -> void:
+	var laser_btn := _orphan_button("slot_2")
+	laser_btn._press()
+	assert_bool(Input.is_action_pressed("slot_2")).is_true()
+	laser_btn._release()
+	assert_bool(Input.is_action_pressed("slot_2")).is_false()
 
-	var prev_btn := _orphan_button("tool_prev_mode")
-	prev_btn._press()
-	assert_bool(Input.is_action_pressed("tool_prev_mode")).is_true()
-	prev_btn._release()
-	assert_bool(Input.is_action_pressed("tool_prev_mode")).is_false()
+	var gloo_btn := _orphan_button("slot_3")
+	gloo_btn._press()
+	assert_bool(Input.is_action_pressed("slot_3")).is_true()
+	gloo_btn._release()
+	assert_bool(Input.is_action_pressed("slot_3")).is_false()
 
 
 # El .tscn trae los controles nuevos cableados a las acciones correctas.
@@ -93,8 +95,8 @@ func test_mobile_ui_scene_has_fire_and_tool_buttons() -> void:
 	assert_object(prev_btn).is_not_null()
 	assert_object(next_btn).is_not_null()
 	if prev_btn != null:
-		assert_str(String(prev_btn.action_name)).is_equal("tool_prev_mode")
+		assert_str(String(prev_btn.action_name)).is_equal("slot_2") # LASER
 	if next_btn != null:
-		assert_str(String(next_btn.action_name)).is_equal("tool_next_mode")
+		assert_str(String(next_btn.action_name)).is_equal("slot_3") # GLOO
 
 	mgr.queue_free()

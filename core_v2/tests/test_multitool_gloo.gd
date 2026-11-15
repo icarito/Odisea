@@ -19,11 +19,9 @@ func before_test():
 	yield(get_tree(), "idle_frame")
 	_multi_tool = _player.multi_tool
 	
-	# Switch to Gloo mode
-	var input = InputDataV2.new()
-	input.tool_next_mode = true
-	_multi_tool.step(1.0/60.0, input)
-	assert_int(_multi_tool.current_mode).is_equal(1) # GLOO
+	# Equipar gloo (Equipped.GLOO = 2)
+	_multi_tool.set_equipped(2)
+	assert_int(_multi_tool.equipped_tool).is_equal(2)
 
 func after_test():
 	_player.queue_free()

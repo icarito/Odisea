@@ -1560,9 +1560,9 @@ func _gamepad_screen(id: String, title: String) -> Node:
 
 
 func test_the_shoulders_feed_the_slot_actions_of_the_hud_layer() -> void:
-	# FD-304 §1.1: 1 y 2 a la izquierda (L1/L2), 3 y 4 a la derecha (R1/R2), para que el hombro
-	# del lado sea el slot del lado. Con deadzone 0.5, como hud_mode.
-	var expected := {"slot_1": JOY_L, "slot_2": JOY_L2, "slot_3": JOY_R, "slot_4": JOY_R2}
+	# FD-304 §1.1: los slots 1..3 conservan hombro (L1/L2/R1), con deadzone 0.5, como hud_mode.
+	# El gatillo derecho (R2=7) ya NO es slot_4: es tiro del multitool (tool_fire_primary, C3).
+	var expected := {"slot_1": JOY_L, "slot_2": JOY_L2, "slot_3": JOY_R}
 	for action in expected.keys():
 		var found := false
 		for event in InputMap.get_action_list(action):
@@ -1571,6 +1571,17 @@ func test_the_shoulders_feed_the_slot_actions_of_the_hud_layer() -> void:
 		assert_bool(found) \
 			.override_failure_message("%s sin su boton de hombro" % action).is_true()
 		assert_float(InputMap.action_get_deadzone(action)).is_equal_approx(0.5, 0.001)
+	# slot_4 queda solo con tecla: su hombro ahora es tiro.
+	var four_has_shoulder := false
+	for event in InputMap.get_action_list("slot_4"):
+		if event is InputEventJoypadButton:
+			four_has_shoulder = true
+	assert_bool(four_has_shoulder).override_failure_message("slot_4 no debe tener boton de hombro").is_false()
+	var fire_has_rt := false
+	for event in InputMap.get_action_list("tool_fire_primary"):
+		if event is InputEventJoypadButton and event.button_index == JOY_R2:
+			fire_has_rt = true
+	assert_bool(fire_has_rt).override_failure_message("tool_fire_primary debe estar en el gatillo derecho (R2)").is_true()
 
 
 func test_middle_mouse_is_mapped_to_hud_mode() -> void:

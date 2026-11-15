@@ -40,7 +40,7 @@ func after_test() -> void:
 	_homes.clear()
 
 func _reset_state() -> void:
-	for action in ["tool_fire_primary", "tool_fire_secondary", "tool_next_mode", "tool_prev_mode"]:
+	for action in ["tool_fire_primary", "tool_fire_secondary", "slot_2", "slot_3"]:
 		if InputMap.has_action(action):
 			Input.action_release(action)
 	Input.flush_buffered_events()
@@ -111,24 +111,26 @@ func test_phantom_fire_without_explicit_button_stays_suppressed() -> void:
 	assert_bool(_last_event(client, "tool_fire_primary").empty()).is_true()
 	assert_bool(home._sent_action_strength.has("tool_fire_primary")).is_false()
 
-# Los botones de modo (< TOOL / TOOL >) no los aprieta el fantasma: viajan directo.
-func test_tool_mode_buttons_reach_the_host() -> void:
+# Los botones de herramienta (LASER/GLOO) son slots locales del HUD del dispositivo (slot_2/
+# slot_3): no viajan como accion de gameplay al host (no estan en FORWARDED_BUTTON_ACTIONS).
+# La accion de equipar resultante sale por el canal de HUD (perform_hud_widget_action), no por aca.
+func test_tool_equip_buttons_are_local_slot_actions() -> void:
 	var client = auto_free(DummyClient.new())
 	add_child(client)
 	var home := _home(client)
 
-	var next_btn := _button("tool_next_mode")
-	next_btn._press()
+	var laser_btn := _button("slot_2")
+	laser_btn._press()
 	home._send_touch_actions(client)
-	assert_bool(_last_event(client, "tool_next_mode").get("p", false)).is_true()
-	next_btn._release()
+	assert_bool(_last_event(client, "slot_2").empty()).is_true()
+	laser_btn._release()
 	home._send_touch_actions(client)
-	assert_bool(_last_event(client, "tool_next_mode").get("p", true)).is_false()
+	assert_bool(_last_event(client, "slot_2").empty()).is_true()
 
-	var prev_btn := _button("tool_prev_mode")
-	prev_btn._press()
+	var gloo_btn := _button("slot_3")
+	gloo_btn._press()
 	home._send_touch_actions(client)
-	assert_bool(_last_event(client, "tool_prev_mode").get("p", false)).is_true()
-	prev_btn._release()
+	assert_bool(_last_event(client, "slot_3").empty()).is_true()
+	gloo_btn._release()
 	home._send_touch_actions(client)
-	assert_bool(_last_event(client, "tool_prev_mode").get("p", true)).is_false()
+	assert_bool(_last_event(client, "slot_3").empty()).is_true()
