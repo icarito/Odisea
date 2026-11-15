@@ -103,6 +103,8 @@ export(float) var max_coolant_height := 18.0
 # Fallo visual de luces dinámicas bajo la superficie; no toca la iluminación baked.
 export(bool) var fail_submerged_lights := true
 export(float) var light_submersion_margin := 0.1
+# Semieje del hueco cuadrado central libre en IceCollider (0.0 = placa sólida).
+export(float, 0.0, 25.0) var shaft_opening_half_extent := 0.0 setget set_shaft_opening_half_extent
 
 var ice_height := 0.0
 var ice_speed := 0.0
@@ -539,6 +541,11 @@ func _find_environment() -> Environment:
 
 const ICE_FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_ice.tres")
 
+func set_shaft_opening_half_extent(v: float) -> void:
+	shaft_opening_half_extent = max(v, 0.0)
+	if is_inside_tree():
+		_ensure_ice_collider()
+
 func _ensure_ice_collider() -> void:
 	_ice_collider = get_node_or_null("IceCollider") as StaticBody
 	if _ice_collider == null:
@@ -546,9 +553,6 @@ func _ensure_ice_collider() -> void:
 		_ice_collider.name = "IceCollider"
 		_ice_collider.collision_layer = 1
 		_ice_collider.collision_mask = 0
-		var shape_node := CollisionShape.new()
-		shape_node.shape = BoxShape.new()
-		_ice_collider.add_child(shape_node)
 		add_child(_ice_collider)
 	# Elías pisa esta placa una vez el hielo sube por encima del piso real: sin esto
 	# FootstepDetector caía al fallback genérico también sobre hielo ya subido.
@@ -557,9 +561,32 @@ func _ensure_ice_collider() -> void:
 	# corta, junto a la pared se ve hielo pero se cae al piso de abajo. Es una caja
 	# (cubre de más en las diagonales), pero ahí la pared del domo ya frena al jugador.
 	var extent: float = _max_surface_radius()
+	var hole_half: float = clamp(shaft_opening_half_extent, 0.0, max(extent - 1.0, 0.0))
 	for child in _ice_collider.get_children():
-		if child is CollisionShape and child.shape is BoxShape:
-			child.shape.extents = Vector3(extent, 0.1, extent)
+		_ice_collider.remove_child(child)
+		child.queue_free()
+	if hole_half <= 0.0:
+		var shape_node := CollisionShape.new()
+		var box := BoxShape.new()
+		box.extents = Vector3(extent, 0.1, extent)
+		shape_node.shape = box
+		_ice_collider.add_child(shape_node)
+		return
+	var ring_thickness: float = (extent - hole_half) * 0.5
+	var center_offset: float = (extent + hole_half) * 0.5
+	var slabs := [
+		{"extents": Vector3(extent, 0.1, ring_thickness), "offset": Vector3(0.0, 0.0, center_offset)},
+		{"extents": Vector3(extent, 0.1, ring_thickness), "offset": Vector3(0.0, 0.0, -center_offset)},
+		{"extents": Vector3(ring_thickness, 0.1, hole_half), "offset": Vector3(center_offset, 0.0, 0.0)},
+		{"extents": Vector3(ring_thickness, 0.1, hole_half), "offset": Vector3(-center_offset, 0.0, 0.0)},
+	]
+	for slab in slabs:
+		var sn := CollisionShape.new()
+		var b := BoxShape.new()
+		b.extents = slab["extents"]
+		sn.shape = b
+		sn.translation = slab["offset"]
+		_ice_collider.add_child(sn)
 
 func _update_ice_collider() -> void:
 	if is_instance_valid(_ice_collider):

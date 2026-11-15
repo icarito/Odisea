@@ -21,7 +21,8 @@ onready var _knob: Spatial = get_node_or_null("Knob")
 
 func _ready() -> void:
 	._ready()
-	interaction_text = "Sintonizar"
+	if interaction_text.strip_edges() == "" or interaction_text == "Interactuar":
+		interaction_text = "Sintonizar"
 	# El barrido no termina nunca por sí solo: no hay progreso que "completar", se suelta.
 	hold_duration = 0.0
 	repeatable = false

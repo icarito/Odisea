@@ -23,12 +23,14 @@ var _is_locked: bool = false
 
 func _ready() -> void:
 	add_to_group("replay_sync")
+	_update_pointer_visual()
 
 
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
 
+	_update_pointer_visual()
 	var is_in_zone: bool = abs(value - target) <= tolerance
 	if is_in_zone:
 		if not _is_locked:
@@ -46,6 +48,13 @@ func _physics_process(delta: float) -> void:
 
 func nudge(delta_value: float) -> void:
 	value = clamp(value + delta_value, 0.0, 1.0)
+	_update_pointer_visual()
+
+
+func _update_pointer_visual() -> void:
+	var pointer := get_node_or_null("Pointer") as Spatial
+	if pointer != null:
+		pointer.rotation.z = lerp(deg2rad(135.0), deg2rad(-135.0), clamp(value, 0.0, 1.0))
 
 
 func get_proximity() -> float:
@@ -90,3 +99,4 @@ func restore_snapshot(data: Dictionary) -> void:
 		_hold_timer = float(data["hold_timer"])
 	if data.has("is_locked"):
 		_is_locked = bool(data["is_locked"])
+	_update_pointer_visual()

@@ -359,6 +359,8 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
 
 [node name="ColdRuptureTrigger" type="Area" parent="."]
 transform = Transform( 0.984808, 0, -0.173648, 0, 1, 0, 0.173648, 0, 0.984808, 5, 21.7, 5 )
+monitoring = false
+monitorable = false
 collision_layer = 2
 collision_mask = 2
 script = ExtResource( 5020 )
@@ -381,7 +383,8 @@ script = ExtResource( 5023 )
 
 [node name="RandomLeakSeeder" type="Node" parent="."]
 script = ExtResource( 5001 )
-randomize_on_start = true
+randomize_on_start = false
+leak_count = 0
 candidate_leak_paths = [ NodePath("TowerCoolantRiser/LeakWestFloor0"), NodePath("CryoLoopWest/LeakWestFloor1"), NodePath("TowerCoolantRiser/LeakWestFloor2"), NodePath("TowerCoolantRiser/LeakWestFloor3"), NodePath("TowerCoolantRiser/LeakWestFloor4"), NodePath("TowerCoolantRiser/LeakWestRing1"), NodePath("TowerCoolantRiser/LeakWestRing2"), NodePath("TowerCoolantRiser/LeakWestRing3"), NodePath("TowerCoolantRiser/LeakWestRing4"), NodePath("TowerCoolantRiser/LeakWestRing5"), NodePath("TowerCoolantRiserEast/LeakEastFloor0"), NodePath("CryoLoopEast/LeakEastFloor1"), NodePath("TowerCoolantRiserEast/LeakEastFloor2"), NodePath("TowerCoolantRiserEast/LeakEastFloor3"), NodePath("TowerCoolantRiserEast/LeakEastFloor4"), NodePath("TowerCoolantRiserEast/LeakEastRing1"), NodePath("TowerCoolantRiserEast/LeakEastRing2"), NodePath("TowerCoolantRiserEast/LeakEastRing3"), NodePath("TowerCoolantRiserEast/LeakEastRing4"), NodePath("TowerCoolantRiserEast/LeakEastRing5") ]
 
 [node name="PipeNetworkVisualAuthoring" type="Node" parent="."]
@@ -2240,6 +2243,7 @@ script = ExtResource( 16 )
 auto_start = false
 room_path = NodePath("../Dome_Base/DomeRoom3D")
 evap_contamination_rate = 0.02
+shaft_opening_half_extent = 5.5
 
 [node name="IceObjectFreezer" type="Node" parent="IceLevel"]
 script = ExtResource( 99 )

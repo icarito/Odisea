@@ -109,25 +109,31 @@ blast_door_path = NodePath("../Doors/BlastDoor")
 
 ; ---------------------------------------------------------------------------
 ; CRIOCOOLANT — tanque + rama de máquinas + 2 fugas, 1 válvula aguas arriba, 3 parches.
+; Ubicada en Sureste (+X, -Z) sobre arco caminable de Floor_2 (Y=9.20).
 ; ---------------------------------------------------------------------------
 [node name="Coolant" type="Spatial" parent="."]
 
 [node name="CoolantTank" parent="Coolant" instance=ExtResource( 3 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 10.9, 4.5 )
+transform = Transform( 0.6, 0, -0.8, 0, 1, 0, 0.8, 0, 0.6, 8.2, 10.9, -5.8 )
 drain_rate = 0.00833333
 
 [node name="CoolantRiserPipe" type="CSGCylinder" parent="Coolant"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 11.7, 2 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.0, 11.7, -5.6 )
 radius = 0.16
 height = 5.0
 sides = 12
 material = ExtResource( 21 )
 
 [node name="CoolantValve" parent="Coolant" groups=["coolant_valve"] instance=ExtResource( 16 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.5, 9.3, 0.5 )
+transform = Transform( 0.6, 0, -0.8, 0, 1, 0, 0.8, 0, 0.6, 5.6, 9.2, -5.8 )
+interaction_text = "Cerrar válvula de aislamiento"
+interaction_title = "Válvula de Aislamiento Criogénico (Paso 2A)"
+interaction_description = "Cierra el paso de criorefrigerante para despresurizar las fugas."
+interaction_verb_active = "Cerrar válvula de aislamiento"
+interaction_verb_inactive = "Abrir válvula de aislamiento"
 
 [node name="CoolantManometer" parent="Coolant" instance=ExtResource( 17 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.5, 10.4, 2.5 )
+transform = Transform( 0.6, 0, -0.8, 0, 1, 0, 0.8, 0, 0.6, 7.3, 10.4, -5.0 )
 flow_adapter_path = NodePath("../CoolantFlowAdapter")
 tank_path = NodePath("../CoolantTank")
 segment_index = 1
@@ -139,19 +145,23 @@ branch_id = "machine_level"
 
 ; Vestido cian (#00E5FF): skid de bombeo con tanque/colector + corrida de coolant y lámpara.
 [node name="CoolantSkid" parent="Coolant" instance=ExtResource( 23 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 9, 3.6 )
+transform = Transform( 0.6, 0, -0.8, 0, 1, 0, 0.8, 0, 0.6, 7.8, 9.2, -5.4 )
 
 [node name="LeakA" type="Spatial" parent="Coolant"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 9.3, 5.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6, 9.55, -4.8 )
 script = ExtResource( 4 )
 valve_path = NodePath("../CoolantValve")
 flow_adapter_path = NodePath("../CoolantFlowAdapter")
 
 [node name="LeakA_Patch" type="Spatial" parent="Coolant"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 9.3, 5.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6, 9.55, -4.8 )
 script = ExtResource( 5 )
 leak_path = NodePath("../LeakA")
 flow_adapter_path = NodePath("../CoolantFlowAdapter")
+interaction_text = "Sellar circuito de refrigeración"
+interaction_title = "Fuga de Criorefrigerante (Paso 2)"
+interaction_description = "Aísla la línea y sella las fisuras del circuito criogénico."
+seal_group_on_interact = true
 
 [node name="StaticBody" type="StaticBody" parent="Coolant/LeakA_Patch"]
 collision_layer = 64
@@ -165,16 +175,20 @@ leak_path = NodePath("../../LeakA")
 patch_point_path = NodePath("..")
 
 [node name="LeakB" type="Spatial" parent="Coolant"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 9.3, 7.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.4, 9.55, -3.7 )
 script = ExtResource( 4 )
 valve_path = NodePath("../CoolantValve")
 flow_adapter_path = NodePath("../CoolantFlowAdapter")
 
 [node name="LeakB_Patch" type="Spatial" parent="Coolant"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 9.3, 7.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.4, 9.55, -3.7 )
 script = ExtResource( 5 )
 leak_path = NodePath("../LeakB")
 flow_adapter_path = NodePath("../CoolantFlowAdapter")
+interaction_text = "Sellar circuito de refrigeración"
+interaction_title = "Fuga de Criorefrigerante (Paso 2)"
+interaction_description = "Aísla la línea y sella las fisuras del circuito criogénico."
+seal_group_on_interact = true
 
 [node name="StaticBody" type="StaticBody" parent="Coolant/LeakB_Patch"]
 collision_layer = 64
@@ -188,10 +202,14 @@ leak_path = NodePath("../../LeakB")
 patch_point_path = NodePath("..")
 
 [node name="LeakB_Patch2" type="Spatial" parent="Coolant"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 9.3, 8.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.4, 9.85, -3.7 )
 script = ExtResource( 5 )
 leak_path = NodePath("../LeakB")
 flow_adapter_path = NodePath("../CoolantFlowAdapter")
+interaction_text = "Sellar circuito de refrigeración"
+interaction_title = "Fuga de Criorefrigerante (Paso 2)"
+interaction_description = "Aísla la línea y sella las fisuras del circuito criogénico."
+seal_group_on_interact = true
 
 [node name="StaticBody" type="StaticBody" parent="Coolant/LeakB_Patch2"]
 collision_layer = 64
@@ -206,41 +224,57 @@ patch_point_path = NodePath("..")
 
 ; ---------------------------------------------------------------------------
 ; PLASMA — fisura del reactor + 3 válvulas de redirección (PlasmaRoute).
+; Ubicada en Este-Noreste (+X, +Z) sobre arco caminable de Floor_2 (Y=9.20).
 ; ---------------------------------------------------------------------------
 [node name="Plasma" type="Spatial" parent="."]
 
 [node name="PlasmaConduit" type="Spatial" parent="Plasma" groups=["plasma_conduit"]]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 10.5, 0.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 10.6, 3.8 )
 script = ExtResource( 9 )
 
 [node name="PlasmaPipe" type="CSGCylinder" parent="Plasma"]
-transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 10.5, 10.5, 3.0 )
+transform = Transform( -0.436, 0, -0.9, 0, 1, 0, 0.9, 0, -0.436, 8.1, 10.7, 3.6 )
 radius = 0.18
-height = 6.0
+height = 3.5
 sides = 12
 material = ExtResource( 21 )
 
 [node name="PlasmaFissureGlow" type="CSGSphere" parent="Plasma"]
-transform = Transform( 0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 10.5, 9.7, 2.5 )
+transform = Transform( 0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 7.2, 9.65, 3.3 )
 radius = 0.35
 radial_segments = 12
 rings = 8
 material = SubResource( 3 )
 
 [node name="PlasmaValveA" parent="Plasma" instance=ExtResource( 16 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 9.3, 5 )
+transform = Transform( -0.436, 0, -0.9, 0, 1, 0, 0.9, 0, -0.436, 7.8, 9.2, 2.2 )
+interaction_text = "Cerrar Válvula A"
+interaction_title = "Válvula de Plasma A (Nominal)"
+interaction_description = "Línea estable. No requiere cierre."
+interaction_verb_active = "Cerrar Válvula A"
+interaction_verb_inactive = "Abrir Válvula A"
 
 [node name="PlasmaValveB" parent="Plasma" instance=ExtResource( 16 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 9.3, 6.5 )
+transform = Transform( -0.436, 0, -0.9, 0, 1, 0, 0.9, 0, -0.436, 7.4, 9.2, 3.4 )
+interaction_text = "Cerrar válvula en fuga"
+interaction_title = "Válvula de Derivación en Fuga (Paso 4)"
+interaction_description = "Fuga activa de plasma detectada en este colector. Ciérrala para estabilizar la red."
+interaction_verb_active = "Cerrar válvula en fuga"
+interaction_verb_inactive = "Abrir válvula de derivación"
 
 [node name="PlasmaValveC" parent="Plasma" instance=ExtResource( 16 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 9.3, 4 )
+transform = Transform( -0.436, 0, -0.9, 0, 1, 0, 0.9, 0, -0.436, 6.8, 9.2, 4.6 )
+interaction_text = "Cerrar Válvula C"
+interaction_title = "Válvula de Plasma C (Nominal)"
+interaction_description = "Línea estable. No requiere cierre."
+interaction_verb_active = "Cerrar Válvula C"
+interaction_verb_inactive = "Abrir Válvula C"
 
 [node name="PlasmaManometer" parent="Plasma" instance=ExtResource( 17 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, 10.4, 2 )
+transform = Transform( -0.436, 0, -0.9, 0, 1, 0, 0.9, 0, -0.436, 7.9, 10.5, 3.5 )
 
 [node name="PlasmaRoute" type="Spatial" parent="Plasma"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 9.3, 8 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.4, 9.2, 3.4 )
 script = ExtResource( 10 )
 valve_paths = [ NodePath("../PlasmaValveA"), NodePath("../PlasmaValveB"), NodePath("../PlasmaValveC") ]
 required_pattern = PoolIntArray( 1, 0, 1 )
@@ -248,80 +282,99 @@ conduit_path = NodePath("../PlasmaConduit")
 
 ; Vestido ámbar (#FF8F00): junta de plasma con bocas radiales + lámpara.
 [node name="PlasmaJunction" parent="Plasma" instance=ExtResource( 24 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 9, 5.2 )
+transform = Transform( -0.436, 0, -0.9, 0, 1, 0, 0.9, 0, -0.436, 8.5, 9.2, 3.8 )
 
 ; ---------------------------------------------------------------------------
 ; ENERGÍA — bus + interruptor principal (beat 1) + interruptor del bus + fusible.
+; Ubicada en Sur (-Z) sobre arco caminable de Floor_2 (Y=9.20).
 ; ---------------------------------------------------------------------------
 [node name="Energy" type="Spatial" parent="."]
 
 [node name="AuxPowerBus" type="Spatial" parent="Energy" groups=["aux_power"]]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.6, 10.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.6, -8.9 )
 script = ExtResource( 11 )
 
 [node name="MasterSwitch" parent="Energy" instance=ExtResource( 18 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 9.3, 11 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.1, 9.2, -8.1 )
+interaction_text = "Activar Interruptor Maestro"
+interaction_title = "Interruptor Maestro (Paso 1)"
+interaction_description = "Intenta energizar el bus primario del Domo."
+interaction_verb_active = "Interruptor Maestro Activo"
+interaction_verb_inactive = "Activar Interruptor Maestro"
 
 [node name="BusSwitch" parent="Energy" instance=ExtResource( 18 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 9.3, 11 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1, 9.2, -8.1 )
+interaction_text = "Conectar Bus Auxiliar"
+interaction_title = "Bus de Energía Auxiliar (Paso 3)"
+interaction_description = "Conecta la energía auxiliar una vez sellada la línea de Refrigeración."
+interaction_verb_active = "Desconectar Bus Auxiliar"
+interaction_verb_inactive = "Conectar Bus Auxiliar"
 
 [node name="Fusible" parent="Energy" instance=ExtResource( 19 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.3, 12.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.2, -8.1 )
 
 [node name="EnergyManometer" parent="Energy" instance=ExtResource( 17 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.4, 9 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.75, -8.8 )
 
 ; Vestido verde (#00FF88): gabinete eléctrico con barra de bus y bajantes + lámpara.
-; Rotado 180° (yaw) para que la barra de bus y los breakers miren hacia el centro del domo.
+; Mira hacia +Z (el centro del domo).
 [node name="PowerCabinet" parent="Energy" instance=ExtResource( 25 )]
-transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 9, 11.2 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.2, -9.1 )
 
 ; ---------------------------------------------------------------------------
 ; AIRE — PressureSection + bomba (sostener) + purga (dial + tuner).
+; Ubicada en Norte (+Z) sobre arco caminable de Floor_2 (Y=9.20).
 ; ---------------------------------------------------------------------------
 [node name="Air" type="Spatial" parent="."]
 
 [node name="AirPressureSection" type="Spatial" parent="Air" groups=["pressure_section"]]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 13.8, 4.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.6, 8.8 )
 script = ExtResource( 12 )
 starts_rising = true
 rise_needs_input = true
 warning_duration = 8.0
 
 [node name="AirPump" parent="Air" instance=ExtResource( 13 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 13.8, 3.5 )
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0.8, 9.2, 8.0 )
+interaction_text = "Mantener para bombear y purgar aire"
+interaction_title = "Bomba de Purga Atmosférica (Paso 4)"
+interaction_description = "Mantén presionado para presurizar y purgar el colector de aire en un solo ciclo."
+hold_duration = 1.0
 
 [node name="AirPurgeDial" type="Spatial" parent="Air"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 13.8, 3.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.1, 8.4 )
 script = ExtResource( 14 )
 section_path = NodePath("../AirPressureSection")
 
-; Vestido del dial de purga: cara de instrumento + marca de zona. La cara mira hacia +X
-; (el jugador llega desde el centro del domo). No hay aguja animada: PurgeDial no expone una.
+; Vestido del dial de purga: cara de instrumento + marca de zona. La cara mira hacia -Z
+; (el jugador llega desde el centro del domo). Pointer gira alrededor de Z con `value`.
 [node name="DialFace" type="CSGCylinder" parent="Air/AirPurgeDial"]
-transform = Transform( 0, 0, -1, 1, 0, 0, 0, -1, 0, 0.05, 0, 0 )
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0 )
 radius = 0.2
 height = 0.08
 sides = 20
 material = ExtResource( 21 )
 
 [node name="SafeZone" type="CSGBox" parent="Air/AirPurgeDial"]
-transform = Transform( 0, 0, -1, 1, 0, 0, 0, -1, 0, 0.11, 0.06, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.06, 0.08, -0.05 )
 width = 0.04
 height = 0.06
 depth = 0.02
 material = SubResource( 4 )
 
 [node name="Pointer" type="CSGBox" parent="Air/AirPurgeDial"]
-transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 0.12, -0.02, 0 )
+transform = Transform( -0.707107, -0.707107, 0, 0.707107, -0.707107, 0, 0, 0, 1, 0, 0, -0.06 )
 width = 0.16
 height = 0.02
 depth = 0.02
 material = ExtResource( 21 )
 
 [node name="AirPurgeTuner" type="Spatial" parent="Air"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 13.8, 5.5 )
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, -0.8, 9.2, 8.0 )
 script = ExtResource( 15 )
+interaction_text = "Sintonizar dial de purga"
+interaction_title = "Sintonizador Manual de Purga"
+interaction_description = "Ajuste fino opcional del dial de purga."
 dial_path = NodePath("../AirPurgeDial")
 
 ; Vestido del mando de purga: poste + volante "Knob" (PurgeTuner lo gira con el valor).
@@ -356,12 +409,11 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.34, 0 )
 shape = SubResource( 5 )
 
 [node name="AirManometer" parent="Air" instance=ExtResource( 17 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 14.9, 6 )
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 10.8, 8.8 )
 
-; Vestido rojo (#FF5252): unidad de ducto de mayor diámetro + lámpara. Desplazada en X para
-; no quedar oculta tras el tanque de criocoolant (que es vertical y está debajo).
+; Vestido rojo (#FF5252): unidad de ducto de mayor diámetro + lámpara. Mira hacia -Z.
 [node name="AirDuctUnit" parent="Air" instance=ExtResource( 26 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.4, 13.35, 4.5 )
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 9.2, 9.0 )
 
 ; ---------------------------------------------------------------------------
 ; COMPUERTA DE PISO (T3) — el bus la alcanza vía el semáforo de red del cableado y la

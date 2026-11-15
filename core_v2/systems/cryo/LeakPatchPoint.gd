@@ -11,9 +11,15 @@ export(NodePath) var manometer_path: NodePath
 export(NodePath) var flow_adapter_path: NodePath
 export(float, 1.0, 120.0) var gloo_patch_duration: float = 15.0
 export(float, 0.0, 10.0) var firm_patch_pressure_threshold: float = 0.2
+export(String) var interaction_text := "Sellar fuga de refrigerante"
+export(String) var interaction_title := "Fuga de Criorefrigerante"
+export(String, MULTILINE) var interaction_description := "Aísla la línea y aplica espuma criogénica de sellado."
+export(bool) var seal_group_on_interact := false
 
 signal patch_applied()
 signal patch_expired()
+
+var is_interactable: bool = true
 
 var _leak = null
 var _pipe_run = null
@@ -27,6 +33,7 @@ var _patch_timer: float = 0.0
 
 func _ready() -> void:
 	add_to_group("gloo_patchable")
+	add_to_group("interactable")
 	add_to_group("replay_sync")
 
 	_resolve_references()
@@ -65,6 +72,37 @@ func _physics_process(delta: float) -> void:
 			_unpatch()
 
 
+func get_interaction_prompt() -> String:
+	if _is_patched and _is_firm_patch:
+		return ""
+	return interaction_text if interaction_text.strip_edges() != "" else "Sellar fuga de refrigerante"
+
+
+func interact() -> void:
+	if seal_group_on_interact:
+		_seal_coolant_group()
+	else:
+		patch_with_gloo()
+
+
+func _seal_coolant_group() -> void:
+	_resolve_references()
+	var director = get_node_or_null("/root/DomeSystemDirector")
+	if director != null and director.has_method("is_beat_fired") and not bool(director.call("is_beat_fired", 1)):
+		if director.has_method("request_first_power_attempt"):
+			director.call("request_first_power_attempt")
+	if _leak != null and "valve_path" in _leak and _leak.valve_path != null and not _leak.valve_path.is_empty():
+		var valve = _leak.get_node_or_null(_leak.valve_path)
+		if valve != null and "is_active" in valve and bool(valve.is_active) and valve.has_method("set_active"):
+			valve.call("set_active", false, true)
+	patch_with_gloo()
+	var parent_node := get_parent()
+	if parent_node != null:
+		for sibling in parent_node.get_children():
+			if sibling != self and sibling.is_in_group("gloo_patchable") and sibling.has_method("patch_with_gloo"):
+				sibling.call("patch_with_gloo")
+
+
 func patch_with_gloo() -> bool:
 	_resolve_references()
 
@@ -73,12 +111,15 @@ func patch_with_gloo() -> bool:
 	var is_pressurized := true
 	if _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at") and _leak != null:
 		is_pressurized = bool(_flow_adapter.call("is_pressurized_at", _leak))
+	elif _leak != null and _leak.has_method("is_depressurized"):
+		is_pressurized = not bool(_leak.call("is_depressurized"))
 
 	var applies_firmly := not is_pressurized
 
 	if _is_patched:
 		if applies_firmly:
 			_is_firm_patch = true
+			is_interactable = false
 			set_physics_process(false)
 			if _leak != null:
 				_leak.seal()
@@ -89,6 +130,7 @@ func patch_with_gloo() -> bool:
 	_is_patched = true
 	_is_firm_patch = applies_firmly
 	_patch_timer = 0.0
+	is_interactable = not _is_firm_patch
 
 	if _leak != null:
 		if _is_firm_patch:
@@ -111,6 +153,7 @@ func _unpatch() -> void:
 	_is_patched = false
 	_is_firm_patch = false
 	_patch_timer = 0.0
+	is_interactable = true
 	set_physics_process(false)
 
 	if _leak != null:
@@ -191,4 +234,5 @@ func restore_snapshot(data: Dictionary) -> void:
 	if data.has("patch_timer"):
 		_patch_timer = float(data["patch_timer"])
 
+	is_interactable = not (_is_patched and _is_firm_patch)
 	_update_pipe_visuals()

@@ -16,7 +16,8 @@ var _piston_rest_y: float = 0.0
 
 func _ready() -> void:
 	._ready()
-	interaction_text = "Bombear"
+	if interaction_text.strip_edges() == "" or interaction_text == "Interactuar":
+		interaction_text = "Bombear"
 	if _piston:
 		_piston_rest_y = _piston.translation.y
 

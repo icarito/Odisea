@@ -170,6 +170,8 @@ func _connect_sources() -> void:
 			_pump.connect("hold_started", self, "_on_pump_hold_changed")
 		if _pump.has_signal("hold_released") and not _pump.is_connected("hold_released", self, "_on_pump_hold_changed"):
 			_pump.connect("hold_released", self, "_on_pump_hold_changed")
+		if _pump.has_signal("hold_completed") and not _pump.is_connected("hold_completed", self, "_on_air_pump_completed"):
+			_pump.connect("hold_completed", self, "_on_air_pump_completed")
 
 
 func _connect_switch(path: NodePath, handler: String) -> void:
@@ -218,15 +220,32 @@ func _arm_air() -> void:
 
 # --- INTERACCIÓN ---
 
+func _notify_status_hint(msg: String, duration: float = 5.0) -> void:
+	if not is_inside_tree():
+		return
+	var hints := get_node_or_null("/root/PlayerHintManager")
+	if hints != null and hints.has_method("show_status_hint"):
+		hints.call("show_status_hint", msg, duration)
+
+
 func _on_master_switch(_is_on = null) -> void:
+	if typeof(_is_on) == TYPE_BOOL and not bool(_is_on):
+		return
 	# El interruptor principal sólo dispara el beat 1 (el director lo ignora si ya pasó).
 	if _director != null and _director.has_method("request_first_power_attempt"):
 		_director.call("request_first_power_attempt")
+	_notify_status_hint("Fallo en bus primario — [1/4] Sella la fuga de Refrigeración (Cian)", 5.0)
 
 
 func _on_power_switch(_is_on = null) -> void:
+	if typeof(_is_on) == TYPE_BOOL and not bool(_is_on):
+		return
 	# Gating §5 beat 3: la palanca del bus no restaura energía hasta que coolant esté sano.
 	if require_coolant_for_bus and not _auxpower_enabled:
+		var sw := _node(power_switch_path)
+		if sw != null and sw.has_method("set_active"):
+			sw.call("set_active", false, true)
+		_notify_status_hint("Bus Auxiliar bloqueado: primero activa el Interruptor Maestro y sella Refrigeración (Cian)", 5.0)
 		return
 	if _bus != null and _bus.has_method("request_restore"):
 		_bus.call("request_restore")
@@ -241,6 +260,19 @@ func is_auxpower_enabled() -> bool:
 func _on_pump_hold_changed(_arg = null) -> void:
 	if is_inside_tree() and _section != null and _pump != null and "inject" in _section:
 		set_physics_process(_pump.has_method("is_held") and bool(_pump.call("is_held")))
+
+
+func _on_air_pump_completed() -> void:
+	if _section != null:
+		if _section.has_method("get_state") and int(_section.call("get_state")) == 0 and _section.has_method("raise_pressure"):
+			_section.call("raise_pressure")
+		if _section.has_method("purge"):
+			_section.call("purge")
+	var dial := get_node_or_null("../Air/AirPurgeDial")
+	if dial != null and "value" in dial and "target" in dial:
+		dial.value = dial.target
+		if dial.has_method("_update_pointer_visual"):
+			dial.call("_update_pointer_visual")
 
 
 # --- SALUD DE RED ---
@@ -303,8 +335,23 @@ func _mark_healthy(network_id: String) -> void:
 
 # --- SEMÁFORO DE LA COMPUERTA (§6.2) ---
 
-func _on_network_healthy(_network_id) -> void:
+func _on_network_healthy(network_id) -> void:
 	_relay_healthy_count()
+	var count := 0
+	if _status != null and _status.has_method("healthy_count"):
+		count = int(_status.call("healthy_count"))
+	if count >= 4:
+		_notify_status_hint("¡Sistemas del Domo al 100%! Compuerta central abierta — Desciende al Hangar", 5.0)
+		return
+	match String(network_id):
+		"criocoolant":
+			_notify_status_hint("[1/4] Refrigeración sellada — Ahora activa el Bus Auxiliar en Energía (Verde)", 5.0)
+		"energia":
+			_notify_status_hint("[2/4] Energía auxiliar en línea — Equilibra Plasma (Ámbar) y purga Aire (Rojo)", 5.0)
+		"plasma":
+			_notify_status_hint("[%d/4] Red de Plasma estabilizada" % count, 5.0)
+		"aire":
+			_notify_status_hint("[%d/4] Presión atmosférica estabilizada" % count, 5.0)
 
 
 func _relay_healthy_count() -> void:
