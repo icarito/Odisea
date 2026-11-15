@@ -4,6 +4,10 @@ const FALLBACK_SUBTITLE_FONT = preload("res://TinyFont.tres")
 # FD-316 (tarea GG): en tier LOW los subtitulos no pagan la sombra dinamica del panel (blur
 # de StyleBoxFlat por cuadro). El A/B es ODISEA_LOW_UI_OPT.
 const LowUiOptScript = preload("res://core_v2/systems/LowUiOpt.gd")
+# El proyecto dibuja la UI en el viewport reducido por render_scale; a < 1 lo medido en
+# pixeles fijos crece relativo a la pantalla. Compensamos con la misma escala que el resto
+# de la UI para que el subtitulo mida igual en 16:9, en el handheld y en tactil.
+const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
 
 export(float) var default_duration := 2.5
 export(float) var fade_in_sec := 0.2
@@ -12,14 +16,27 @@ export(float) var clear_fade_out_sec := 0.14
 export(float) var stack_shift_sec := 0.12
 export(float) var bottom_margin := 36.0
 export(float) var horizontal_margin := 32.0
-export(float) var line_spacing := 8.0
-export(float) var max_width_ratio := 0.86
-export(float) var panel_alpha := 0.62
+export(float) var line_spacing := 6.0
+# Ancho maximo del subtitulo como fraccion de la pantalla: angosto para no tapar la accion.
+export(float) var max_width_ratio := 0.60
+# El fondo solo sostiene el texto; la legibilidad la da el contorno de la fuente.
+export(float) var panel_alpha := 0.28
 export(float) var safe_area_padding := 20.0
-export(int, 1, 8) var max_visible_lines := 4
+# Como maximo dos frases en pantalla a la vez; la mas vieja sale y encadena la que sigue.
+export(int, 1, 8) var max_visible_lines := 2
 export(int, 10, 48) var font_size := 20
+# Duracion proporcional al largo del texto: base + caracteres * por_caracter, acotada al tope.
+export(float) var reading_base_sec := 0.9
+export(float) var reading_per_char_sec := 0.045
+export(float) var min_duration := 1.4
+export(float) var max_duration := 5.0
+export(float) var panel_corner_radius := 4.0
+export(int, 0, 4) var text_outline_size := 2
 
 var _entries := []
+# Frases que llegan cuando ya hay max_visible_lines en pantalla: se encadenan en vez de
+# apilarse cuatro a la vez. Cada una mide su duracion desde que se monta, no desde que llega.
+var _pending := []
 var _layout_tween: Tween = null
 var _cached_font: DynamicFont = null
 var _expiry_timer: Timer = null
@@ -70,17 +87,32 @@ func show_hint(text: String, color: Color = Color(0.85, 1.0, 0.95), duration: fl
 	_show_entry(text, color, duration, true)
 
 func _show_entry(text: String, color: Color, duration: float, is_hint: bool) -> void:
-	if text.strip_edges() == "":
+	var clean := text.strip_edges()
+	if clean == "":
 		return
-	var line = _build_line(text, color, is_hint)
-	_layer.add_child(line)
-	var now = OS.get_ticks_msec() / 1000.0
-	var entry = {
-		"node": line,
+	var entry := {
+		"text": clean,
+		"color": color,
+		"is_hint": is_hint,
+		"duration": _resolve_duration(clean, duration),
+		"node": null,
 		"fading": false,
-		"expires_at": now + max(0.05, duration if duration > 0.0 else default_duration),
-		"target_pos": Vector2.ZERO
+		"expires_at": 0.0,
+		"target_pos": Vector2.ZERO,
 	}
+	if _occupied_count() >= max_visible_lines:
+		_pending.append(entry)
+		return
+	_mount_entry(entry)
+
+func _mount_entry(entry: Dictionary) -> void:
+	if not is_instance_valid(_layer):
+		return
+	var line := _build_line(entry.get("text", ""), entry.get("color", Color.white), bool(entry.get("is_hint", false)))
+	_layer.add_child(line)
+	entry["node"] = line
+	entry["fading"] = false
+	entry["expires_at"] = _now() + float(entry.get("duration", default_duration))
 	_entries.append(entry)
 	_trim_excess_lines()
 	line.modulate.a = 0.0
@@ -92,12 +124,38 @@ func clear_subtitles(immediate: bool = false) -> void:
 	if immediate:
 		_kill_all()
 		return
+	_pending.clear()
 	var copied = _entries.duplicate()
 	for entry in copied:
 		_start_fade_out(entry, clear_fade_out_sec)
 	_schedule_next_expiry()
 
+# Duracion proporcional al largo del texto con tope. Si el productor pide una duracion, se
+# respeta pero nunca por encima de lo que el texto necesita (asi una frase corta no se queda
+# cinco segundos en pantalla).
+func _resolve_duration(text: String, requested: float) -> float:
+	var auto := default_duration
+	if reading_per_char_sec > 0.0 or reading_base_sec > 0.0:
+		auto = clamp(
+			reading_base_sec + float(text.length()) * reading_per_char_sec,
+			min_duration,
+			max_duration
+		)
+	if requested <= 0.0:
+		return auto
+	return clamp(min(requested, auto), 0.05, max_duration)
+
+func _now() -> float:
+	return OS.get_ticks_msec() / 1000.0
+
+func _ui_scale() -> float:
+	return clamp(UIScaleCompensatorScript.scale_for(self), 0.5, 1.0)
+
 func _build_line(text: String, color: Color, is_hint: bool = false) -> PanelContainer:
+	var k := _ui_scale()
+	var pad_x := round(12.0 * k)
+	var pad_y := round(6.0 * k)
+
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.modulate.a = 1.0
@@ -105,10 +163,10 @@ func _build_line(text: String, color: Color, is_hint: bool = false) -> PanelCont
 	panel.add_stylebox_override("panel", _build_stylebox(is_hint))
 
 	var margin := MarginContainer.new()
-	margin.add_constant_override("margin_left", 18)
-	margin.add_constant_override("margin_right", 18)
-	margin.add_constant_override("margin_top", 10)
-	margin.add_constant_override("margin_bottom", 10)
+	margin.add_constant_override("margin_left", pad_x)
+	margin.add_constant_override("margin_right", pad_x)
+	margin.add_constant_override("margin_top", pad_y)
+	margin.add_constant_override("margin_bottom", pad_y)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(margin)
 
@@ -119,65 +177,74 @@ func _build_line(text: String, color: Color, is_hint: bool = false) -> PanelCont
 	label.valign = Label.VALIGN_CENTER
 	label.text = text
 	label.add_color_override("font_color", color)
-	var font = _get_subtitle_font()
+	var font := _get_subtitle_font()
 	label.add_font_override("font", font)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(label)
 
-	# Calculate required width based on text
-	var text_w = font.get_string_size(text).x
-	if text_w <= 10.0: text_w = text.length() * 12.0 # Fallback
-	
-	var v_size = _layer.get_viewport_rect().size
-	if v_size.x <= 0: v_size = Vector2(1024, 600)
-	var safe_margins = _get_safe_margins()
-	var usable_width = max(
-		240.0,
-		v_size.x - float(safe_margins.get("left", 0.0)) - float(safe_margins.get("right", 0.0)) - (horizontal_margin * 2.0)
+	# Ancho requerido segun el texto en una sola linea.
+	var text_w := font.get_string_size(text).x
+	if text_w <= 10.0:
+		text_w = float(text.length()) * float(font_size) * 0.6 * k
+
+	var v_size := _layer.get_viewport_rect().size
+	if v_size.x <= 0.0:
+		v_size = Vector2(1024.0, 600.0)
+	var safe_margins := _get_safe_margins()
+	var min_w: float = 180.0 * k
+	var usable_width: float = max(
+		min_w,
+		v_size.x - float(safe_margins.get("left", 0.0)) - float(safe_margins.get("right", 0.0)) - (horizontal_margin * k * 2.0)
 	)
-	var max_w = min(usable_width, v_size.x * max_width_ratio)
-	var req_w = clamp(text_w + 64.0, 240.0, max_w)
-	
+	var max_w: float = min(usable_width, v_size.x * max_width_ratio)
+	var req_w: float = clamp(text_w + pad_x * 2.0, min_w, max_w)
+
 	panel.rect_min_size = Vector2(req_w, 0.0)
 	panel.rect_size = panel.rect_min_size
-	
-	label.rect_min_size = Vector2(req_w - 48.0, 0.0)
+
+	label.rect_min_size = Vector2(max(1.0, req_w - pad_x * 2.0), 0.0)
 	label.rect_size = label.rect_min_size
-	
-	var min_h = max(40.0, label.get_combined_minimum_size().y + 24.0)
+
+	var min_h: float = max(28.0 * k, label.get_combined_minimum_size().y + pad_y * 2.0)
 	panel.rect_min_size = Vector2(req_w, min_h)
 	panel.rect_size = panel.rect_min_size
 	return panel
 
 func _build_stylebox(is_hint: bool = false) -> StyleBoxFlat:
+	var k := _ui_scale()
+	var radius: int = int(round(panel_corner_radius * k))
 	var sb := StyleBoxFlat.new()
 	if is_hint:
-		sb.bg_color = Color(0.01, 0.08, 0.09, 0.78)
-		sb.border_color = Color(0.0, 0.9, 0.78, 0.72)
+		sb.bg_color = Color(0.01, 0.08, 0.09, 0.55)
+		sb.border_color = Color(0.0, 0.9, 0.78, 0.55)
 		sb.border_width_left = 1
 		sb.border_width_right = 1
 		sb.border_width_top = 1
 		sb.border_width_bottom = 1
 	else:
 		sb.bg_color = Color(0.0, 0.0, 0.0, panel_alpha)
-	sb.corner_radius_top_left = 6
-	sb.corner_radius_top_right = 6
-	sb.corner_radius_bottom_left = 6
-	sb.corner_radius_bottom_right = 6
+	sb.corner_radius_top_left = radius
+	sb.corner_radius_top_right = radius
+	sb.corner_radius_bottom_left = radius
+	sb.corner_radius_bottom_right = radius
 	sb.shadow_color = Color(0, 0, 0, 0.35)
 	sb.shadow_size = 0 if LowUiOptScript.enabled() else 4
 	sb.shadow_offset = Vector2(0, 1)
 	return sb
 
 func _get_subtitle_font() -> DynamicFont:
-	if _cached_font:
-		return _cached_font
-	_cached_font = DynamicFont.new()
-	if FALLBACK_SUBTITLE_FONT and FALLBACK_SUBTITLE_FONT.font_data:
-		_cached_font.font_data = FALLBACK_SUBTITLE_FONT.font_data
-	_cached_font.size = font_size
-	_cached_font.use_filter = false
-	_cached_font.use_mipmaps = false
+	var k := _ui_scale()
+	var wanted: int = int(max(10, round(float(font_size) * k)))
+	if _cached_font == null:
+		_cached_font = DynamicFont.new()
+		if FALLBACK_SUBTITLE_FONT and FALLBACK_SUBTITLE_FONT.font_data:
+			_cached_font.font_data = FALLBACK_SUBTITLE_FONT.font_data
+		_cached_font.use_filter = false
+		_cached_font.use_mipmaps = false
+	_cached_font.size = wanted
+	# Contorno oscuro: el texto se lee sobre fondos claros y oscuros sin panel opaco.
+	_cached_font.outline_size = int(round(float(text_outline_size) * k))
+	_cached_font.outline_color = Color(0.0, 0.0, 0.0, 0.9)
 	return _cached_font
 
 func _build_font() -> DynamicFont:
@@ -187,11 +254,12 @@ func _reflow(animated: bool) -> void:
 	if not is_instance_valid(_layer):
 		return
 	_cleanup_stale_entries()
+	var k := _ui_scale()
 	var v_size = _layer.get_viewport_rect().size
 	if v_size.x <= 0.0: v_size = Vector2(1024, 600)
 
 	var safe_margins = _get_safe_margins()
-	var cursor_y = v_size.y - bottom_margin - float(safe_margins.get("bottom", 0.0))
+	var cursor_y = v_size.y - bottom_margin * k - float(safe_margins.get("bottom", 0.0))
 	for i in range(_entries.size() - 1, -1, -1):
 		var entry = _entries[i]
 		var node = entry.get("node", null)
@@ -203,7 +271,7 @@ func _reflow(animated: bool) -> void:
 		var pos = Vector2(pos_x, cursor_y - node_size.y)
 		entry["target_pos"] = pos
 		_entries[i] = entry
-		cursor_y = pos.y - line_spacing
+		cursor_y = pos.y - line_spacing * k
 
 	if is_instance_valid(_layout_tween):
 		_layout_tween.stop_all()
@@ -261,6 +329,7 @@ func _on_fade_out_completed(entry: Dictionary, tw: Tween) -> void:
 	if is_instance_valid(node):
 		node.queue_free()
 	_remove_entry(entry)
+	_promote_pending()
 	_reflow(false)
 	_schedule_next_expiry()
 
@@ -285,6 +354,7 @@ func _kill_all() -> void:
 		if is_instance_valid(node):
 			node.queue_free()
 	_entries.clear()
+	_pending.clear()
 	if is_instance_valid(_expiry_timer):
 		_expiry_timer.stop()
 
@@ -299,7 +369,7 @@ func _ensure_expiry_timer() -> void:
 	_expiry_timer.connect("timeout", self, "_on_expiry_timeout")
 
 func _on_expiry_timeout() -> void:
-	var now = OS.get_ticks_msec() / 1000.0
+	var now = _now()
 	var copied = _entries.duplicate()
 	for entry in copied:
 		if bool(entry.get("fading", false)):
@@ -311,7 +381,7 @@ func _on_expiry_timeout() -> void:
 func _schedule_next_expiry() -> void:
 	if not is_instance_valid(_expiry_timer):
 		return
-	var now = OS.get_ticks_msec() / 1000.0
+	var now = _now()
 	var next_expire := -1.0
 	for entry in _entries:
 		if bool(entry.get("fading", false)):
@@ -323,6 +393,20 @@ func _schedule_next_expiry() -> void:
 		_expiry_timer.stop()
 		return
 	_expiry_timer.start(max(0.01, next_expire - now))
+
+# Entradas montadas (visibles o desvaneciendose): ocupan lugar hasta que terminan de salir.
+func _occupied_count() -> int:
+	_cleanup_stale_entries()
+	var count := 0
+	for entry in _entries:
+		if is_instance_valid(entry.get("node", null)):
+			count += 1
+	return count
+
+# Monta las frases encoladas apenas se libera un lugar, encadenandolas en vez de apilarlas.
+func _promote_pending() -> void:
+	while not _pending.empty() and _occupied_count() < max_visible_lines:
+		_mount_entry(_pending.pop_front())
 
 func _trim_excess_lines() -> void:
 	if max_visible_lines <= 0:
