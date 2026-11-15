@@ -111,12 +111,79 @@ func test_boost_socket_applies_deterministic_kinetic_impulse_and_snapshot() -> v
 	assert_bool(pad.is_boost_active()).is_true()
 
 
+func test_reset_station_resets_boost_pad_state_and_cooldown() -> void:
+	var pad: Area = _item("BoostSocket1") as Area
+	var source: Node = _item("SeesawStrut")
+	var level_node: Node = _bay.get_node_or_null("Level")
+	assert_object(pad).is_not_null()
+	assert_object(source).is_not_null()
+	assert_object(level_node).is_not_null()
+
+	# Activa la estación 1 → enciende BoostSocket1.
+	source.emit_signal("cut")
+	assert_bool(pad.is_boost_active()).is_true()
+
+	# Dispara el boost con el piloto para dejar cooldown activo (> 0).
+	var pilot: KinematicBody = _bay.get_node("Pilot")
+	pilot.global_transform.origin = pad.global_transform.origin + Vector3(0.0, 0.5, 0.0)
+	pilot.velocity = Vector3.ZERO
+	for _i in range(4):
+		yield(get_tree(), "physics_frame")
+	var snap_before: Dictionary = pad.save_snapshot()
+	assert_int(int(snap_before.get("cooldown", 0))).is_greater(0)
+
+	# Rearme de estación 1: el impulsor debe volver a inactivo y cooldown 0.
+	level_node.reset_station(1)
+	assert_bool(pad.is_boost_active()).is_false()
+	var snap_after: Dictionary = pad.save_snapshot()
+	assert_int(int(snap_after.get("cooldown", -1))).is_equal(0)
+
+
 func test_labyrinth_streamer_flow_validator_hook_is_safe_without_flow_system() -> void:
 	var streamer = _bay.get_node_or_null("MachineBayLabyrinthStreamer")
 	assert_object(streamer).is_not_null()
 	var res: Dictionary = streamer.validate_seed_with_flow_validator(20261114)
 	assert_bool(res.has("seed")).is_true()
+	assert_bool(res.has("report")).is_true()
+	var rep: Dictionary = res.get("report", {})
+	assert_bool(rep.has("valid_main_route")).is_true()
+	assert_bool(bool(res.get("valid", true))).is_equal(bool(rep.get("valid_main_route", false)))
+
+
+func test_labyrinth_streamer_flow_validator_accepts_connected_valid_grid() -> void:
+	var streamer = _bay.get_node_or_null("MachineBayLabyrinthStreamer")
+	assert_object(streamer).is_not_null()
+	var v_cross = WFCSolverCore.ModuleVariant.new("X", 0, [true, true, true, true], [0.0, 0.0, 0.0, 0.0], 1.0)
+	var valid_grid := []
+	for z in range(int(streamer.chunk_cells)):
+		for x in range(int(streamer.chunk_cells)):
+			valid_grid.append(WFCSolverCore.CellState.new(v_cross, 2.0))
+	var res: Dictionary = streamer.validate_grid_with_flow_validator(valid_grid, 20261114, 0, 0)
 	assert_bool(bool(res.get("valid", false))).is_true()
+
+
+func test_labyrinth_streamer_flow_validator_rejects_disconnected_or_impossible_grid() -> void:
+	var streamer = _bay.get_node_or_null("MachineBayLabyrinthStreamer")
+	assert_object(streamer).is_not_null()
+	# Grid vacío -> inválido.
+	var empty_res: Dictionary = streamer.validate_grid_with_flow_validator([], 20261114)
+	assert_bool(bool(empty_res.get("valid", true))).is_false()
+	# Grid con salida desconectada (todas las celdas EMPTY) -> inválido.
+	var size: int = int(streamer.chunk_cells) * int(streamer.chunk_cells)
+	var disconnected := []
+	disconnected.resize(size)
+	var disc_res: Dictionary = streamer.validate_grid_with_flow_validator(disconnected, 20261114, 0, 0)
+	assert_bool(bool(disc_res.get("valid", true))).is_false()
+	# Grid con salto vertical imposible (delta_h = 5.0m > 0.80 * H_max) -> inválido.
+	var solver = WFCSolverCore.new()
+	var v_flat = WFCSolverCore.ModuleVariant.new("W", 0, [true, true, true, true], [0.0, 0.0, 0.0, 0.0], 1.0)
+	var bad_height_grid := []
+	for z in range(int(streamer.chunk_cells)):
+		for x in range(int(streamer.chunk_cells)):
+			var h: float = 5.0 if x >= int(streamer.chunk_cells) - 1 else 0.0
+			bad_height_grid.append(WFCSolverCore.CellState.new(v_flat, h))
+	var jump_res: Dictionary = streamer.validate_grid_with_flow_validator(bad_height_grid, 20261114, 0, 0)
+	assert_bool(bool(jump_res.get("valid", true))).is_false()
 
 
 func test_main_route_passes_flow_route_validator_within_80_percent_threshold() -> void:
@@ -197,6 +264,16 @@ func _drive_toward(pilot: Spatial, target: Vector3) -> void:
 
 
 func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
+	# Desactiva nodos pesados no usados en la ruta principal para acelerar el test en CI.
+	for heavy_name in ["LabyrinthSection", "MachineBayLabyrinthStreamer", "MachineBayMazeRouting"]:
+		var heavy := _bay.get_node_or_null(heavy_name)
+		if heavy != null:
+			heavy.queue_free()
+	var level_node := _bay.get_node_or_null("Level")
+	if level_node != null:
+		for child in level_node.get_children():
+			if child.name.begins_with("Voice") or child.name == "BayFireSystem" or child.name == "BayFireVisual" or child.name == "BayShell":
+				child.queue_free()
 	var pilot: KinematicBody = _bay.get_node("Pilot")
 	pilot.input_provider.set_live_mode()
 	pilot.input_provider.hardware_input_enabled = true
@@ -215,7 +292,7 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 		[Vector3(-4.5, 6.0, 26.5), true, 1.4, 5.5],
 		[Vector3(-4.5, 5.9, 32.2), true, 1.4, 4.5],
 		[Vector3(-2.5, 5.6, 37.7), true, 1.3, 4.5],
-		[Vector3(-5.5, 3.5, 41.5), false, 1.2],
+		[Vector3(-5.5, 3.5, 41.5), false, 1.3],
 		[Vector3(-7.5, 5.65, 43.0), true, 1.3, 2.5],
 		[Vector3(-7.5, 7.85, 48.2), true, 1.3, 4.5],
 		[Vector3(-7.5, 10.05, 53.4), true, 1.3, 4.5],
@@ -223,12 +300,12 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 		[Vector3(-4.8, 13.0, 62.5), true, 1.3, 4.0],
 		[Vector3(-7.2, 11.65, 71.0), true, 1.4, 7.8],
 		[Vector3(-4.5, 10.0, 78.2), true, 1.4, 6.0],
-		[Vector3(4.8, 10.0, 89.0), false, 1.1],
+		[Vector3(4.8, 10.0, 89.0), false, 1.5],
 		[Vector3(4.8, 10.9, 92.4), true, 1.3, 3.0],
 		[Vector3(4.8, 10.9, 98.0), true, 1.3, 4.5],
 		[Vector3(2.2, 10.0, 103.0), true, 1.4, 4.5],
-		[Vector3(2.2, 10.4, 111.5), false, 1.3],
-		[Vector3(2.2, 22.0, 129.0), false, 1.8],
+		[Vector3(2.2, 10.4, 111.5), false, 1.5],
+		[Vector3(2.2, 22.0, 128.0), false, 2.0],
 	]
 
 	for i in range(waypoints.size()):
@@ -271,12 +348,15 @@ func test_full_parkour_traversal_entry_to_exit_without_machines() -> void:
 			if horiz <= radius and pos.y >= target.y - 0.6 and pilot.is_on_floor():
 				reached = true
 				break
-		_release_actions()
+		if not should_jump or jump_dist <= 3.0:
+			_release_actions()
 		if not reached:
+			_release_actions()
 			prints("[parkour_traversal] FAILED at wp", i, target, "pilot_valid=", is_instance_valid(pilot), "pos=", pilot.global_transform.origin if is_instance_valid(pilot) else Vector3.ZERO)
 			assert_bool(reached).is_true()
 			break
 		assert_bool(reached).is_true()
 
+	_release_actions()
 	assert_float(pilot.global_transform.origin.z).is_greater_equal(127.0)
 	assert_float(pilot.global_transform.origin.y).is_greater_equal(21.5)

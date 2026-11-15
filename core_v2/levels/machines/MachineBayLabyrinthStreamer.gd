@@ -105,8 +105,29 @@ func get_junction_world_position(chunk_key: Vector2, row: int) -> Vector3:
 
 
 # Valida la conectividad de la ruta por semilla usando FlowRouteValidator.gd (pista C).
-# Si FlowRouteValidator no estuviera disponible, degrada de forma segura.
+# Genera el grid WFC real para `seed_val` y construye el grafo desde sus celdas,
+# conexiones y alturas reales. Si FlowRouteValidator no estuviera disponible,
+# degrada de forma segura.
 func validate_seed_with_flow_validator(seed_val: int = -1) -> Dictionary:
+	var effective_seed: int = seed_base if seed_val < 0 else seed_val
+	var prev_seed: int = seed_base
+	seed_base = effective_seed
+	var params: Dictionary = _chunk_params(Vector2(0, 0))
+	var entry_row: int = _junction_row(0, 0)
+	if entry_row < 0:
+		entry_row = _stable_hash(0, 0, 202) % chunk_cells
+	var exit_row: int = _junction_row(1, 0)
+	if exit_row < 0:
+		exit_row = _stable_hash(1, 0, 202) % chunk_cells
+	seed_base = prev_seed
+
+	var solver = WFCSolverCore.new()
+	solver.apply_params(params)
+	var grid: Array = solver.generate_grid_data(int(params.get("seed", effective_seed)))
+	return validate_grid_with_flow_validator(grid, effective_seed, entry_row, exit_row)
+
+
+func validate_grid_with_flow_validator(grid: Array, seed_val: int = -1, entry_row: int = -1, exit_row: int = -1) -> Dictionary:
 	var effective_seed: int = seed_base if seed_val < 0 else seed_val
 	var validator_path := "res://core_v2/systems/flow/FlowRouteValidator.gd"
 	if not ResourceLoader.exists(validator_path):
@@ -114,25 +135,78 @@ func validate_seed_with_flow_validator(seed_val: int = -1) -> Dictionary:
 	var validator_script = load(validator_path)
 	if validator_script == null:
 		return {"available": false, "seed": effective_seed, "valid": true}
-	# Construye grafo mínimo de costura oeste->este para el chunk (0, 0) de la semilla.
+
+	if grid.empty() or grid.size() != chunk_cells * chunk_cells:
+		return {
+			"available": true,
+			"seed": effective_seed,
+			"valid": false,
+			"reason": "invalid_or_empty_grid",
+			"report": {"valid_main_route": false},
+		}
+
 	var prev_seed: int = seed_base
 	seed_base = effective_seed
-	var fixed: Dictionary = _fixed_border_tiles(Vector2(0, 0))
+	if entry_row < 0:
+		entry_row = _junction_row(0, 0)
+		if entry_row < 0:
+			entry_row = _stable_hash(0, 0, 202) % chunk_cells
+	if exit_row < 0:
+		exit_row = _junction_row(1, 0)
+		if exit_row < 0:
+			exit_row = _stable_hash(1, 0, 202) % chunk_cells
 	seed_base = prev_seed
-	var entry_pos: Vector3 = get_junction_world_position(Vector2(0, 0), _junction_row(0, 0) if _junction_row(0, 0) >= 0 else 1)
-	var exit_pos: Vector3 = region_origin + Vector3(float(chunk_cells - 1) * cell_size + cell_size * 0.5, 0.0, cell_size * 1.5)
+
+	var entry_id := "0,%d" % entry_row
+	var exit_id := "%d,%d" % [chunk_cells - 1, exit_row]
+	var nodes := []
+	var edges := []
+	var dir_offsets := [
+		Vector2(0, -1),  # DIR_NORTH = 0
+		Vector2(1, 0),   # DIR_EAST  = 1
+		Vector2(0, 1),   # DIR_SOUTH = 2
+		Vector2(-1, 0),  # DIR_WEST  = 3
+	]
+	var opp_dirs := [2, 3, 0, 1]
+
+	for z in range(chunk_cells):
+		for x in range(chunk_cells):
+			var cell = grid[z * chunk_cells + x]
+			if cell == null or cell.variant == null or String(cell.variant.id) == "EMPTY":
+				continue
+			var nid := "%d,%d" % [x, z]
+			var pos := region_origin + Vector3(
+				float(x) * cell_size + cell_size * 0.5,
+				float(cell.base_height),
+				float(z) * cell_size + cell_size * 0.5
+			)
+			nodes.append({"id": nid, "pos": pos, "size": Vector3(cell_size, 0.2, cell_size)})
+
+			for d in range(4):
+				if not bool(cell.variant.connections[d]):
+					continue
+				var nx: int = x + int(dir_offsets[d].x)
+				var nz: int = z + int(dir_offsets[d].y)
+				if nx < 0 or nx >= chunk_cells or nz < 0 or nz >= chunk_cells:
+					continue
+				var neighbor = grid[nz * chunk_cells + nx]
+				if neighbor == null or neighbor.variant == null or String(neighbor.variant.id) == "EMPTY":
+					continue
+				if not bool(neighbor.variant.connections[opp_dirs[d]]):
+					continue
+				var delta_h: float = float(neighbor.base_height) - float(cell.base_height)
+				edges.append({
+					"from": nid,
+					"to": "%d,%d" % [nx, nz],
+					"gap_h": 0.0,
+					"delta_h": delta_h,
+				})
+
 	var graph := {
-		"entry": "west_seam",
-		"exit": "east_seam",
-		"nodes": [
-			{"id": "west_seam", "pos": entry_pos, "size": Vector3(cell_size, 0.2, cell_size)},
-			{"id": "chunk_hub", "pos": _key_to_world_center(Vector2(0, 0)), "size": Vector3(cell_size * 2.0, 0.2, cell_size * 2.0)},
-			{"id": "east_seam", "pos": exit_pos, "size": Vector3(cell_size, 0.2, cell_size)},
-		],
-		"edges": [
-			{"from": "west_seam", "to": "chunk_hub", "gap_h": 2.0, "delta_h": 0.0},
-			{"from": "chunk_hub", "to": "east_seam", "gap_h": 2.0, "delta_h": 0.0},
-		],
+		"entry": entry_id,
+		"exit": exit_id,
+		"nodes": nodes,
+		"edges": edges,
 	}
 	var metrics: Dictionary = validator_script.default_metrics()
 	var fm_path := "res://core_v2/systems/flow/FlowMetrics.gd"
@@ -153,7 +227,7 @@ func validate_seed_with_flow_validator(seed_val: int = -1) -> Dictionary:
 	return {
 		"available": true,
 		"seed": effective_seed,
-		"valid": bool(report.get("valid_main_route", false)) and not fixed.empty(),
+		"valid": bool(report.get("valid_main_route", false)),
 		"report": report,
 	}
 
