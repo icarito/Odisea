@@ -110,10 +110,15 @@ func _on_main_menu_pressed():
 	get_tree().change_scene("res://scenes/Menu.tscn")
 
 func _find_world_menu_overlay() -> Node:
-	var scene = get_tree().current_scene
-	if not is_instance_valid(scene):
+	var tree := get_tree()
+	if tree == null:
 		return null
-	for node in scene.get_children():
+	var candidates := []
+	if is_instance_valid(tree.current_scene):
+		candidates.append_array(tree.current_scene.get_children())
+	# El overlay del menú cuelga de la raíz (/root) para sobrevivir al swap de escenas.
+	candidates.append_array(tree.root.get_children())
+	for node in candidates:
 		if node.name == "Menu" and node.has_method("configure_world_overlay") and bool(node.get("overlay_mode")):
 			return node
 	return null

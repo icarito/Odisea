@@ -268,6 +268,21 @@ func test_tube_airlock_seal_containment_uses_real_collision_shape() -> void:
 	player.global_transform.origin = tube.global_transform.xform(Vector3(0, 0, 8))
 	assert_bool(tube._is_player_inside(player)).is_false()
 
+func test_scene_manager_attaches_world_menu_overlay_under_root() -> void:
+	var mgr := get_node_or_null("/root/SceneManager")
+	assert_object(mgr).is_not_null()
+	if mgr == null:
+		return
+	mgr._attach_world_menu_overlay(null)
+	var found: Node = null
+	for child in get_tree().root.get_children():
+		if child.name == "Menu" and child.has_method("configure_world_overlay") and bool(child.get("overlay_mode")):
+			found = child
+			break
+	assert_object(found).is_not_null()
+	if is_instance_valid(found):
+		found.queue_free()
+
 func test_tube_airlock_retries_after_failed_transition() -> void:
 	var tube = auto_free(TubeAirlockScript.new())
 	add_child(tube)

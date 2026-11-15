@@ -449,6 +449,14 @@ func _start_in_overlay(scene_path: String) -> void:
 	if not same_world and scene_path == FIRST_GAME_SCENE:
 		same_world = current_path.begins_with("res://core_v2/levels/RingHub")
 	if same_world:
+		if scene_path == FIRST_GAME_SCENE:
+			# Nueva partida en el mundo ya vivo: resetear progreso y reposicionar al spawn.
+			_apply_new_game_reset_in_place()
+		else:
+			# Continuar a la misma escena: aplicar el checkpoint EN VIVO (la restauración
+			# pendiente de request_continue() solo corre en la carga de escena, que acá
+			# no ocurre).
+			_apply_continue_in_place()
 		_close_overlay_and_give_control()
 		return
 	# Continuar a otra escena: mecanismo seamless con el mundo actual como buffer.
@@ -468,6 +476,71 @@ func _start_in_overlay(scene_path: String) -> void:
 func _on_arrival_hide_overlay(_path, _scene_root, _params) -> void:
 	_close_overlay_and_give_control()
 
+func _apply_new_game_reset_in_place() -> void:
+	var persistence = get_node_or_null("/root/PersistenceManager")
+	if persistence and persistence.has_method("clear_campaign_progress"):
+		persistence.clear_campaign_progress()
+	var player = _overlay_player()
+	if not is_instance_valid(player):
+		return
+	var spawn := _find_spawn_point_in_current_scene()
+	if is_instance_valid(spawn) and spawn is Spatial:
+		if player.has_method("teleport_to"):
+			player.teleport_to((spawn as Spatial).global_transform)
+		else:
+			player.global_transform = (spawn as Spatial).global_transform
+		if "velocity" in player:
+			player.velocity = Vector3.ZERO
+	if player.has_method("snap_camera_to_current_state"):
+		player.snap_camera_to_current_state()
+
+func _apply_continue_in_place() -> void:
+	var persistence = get_node_or_null("/root/PersistenceManager")
+	if not persistence or not persistence.has_method("request_continue"):
+		return
+	if not persistence.request_continue():
+		return
+	var player = _overlay_player()
+	if not is_instance_valid(player):
+		return
+	var scene_path := ""
+	var tree := get_tree()
+	if tree and is_instance_valid(tree.current_scene):
+		scene_path = String(tree.current_scene.filename)
+	var slot = persistence.consume_continue_checkpoint(scene_path) if persistence.has_method("consume_continue_checkpoint") else null
+	if typeof(slot) == TYPE_DICTIONARY:
+		var checkpoint_manager = get_node_or_null("/root/CheckpointManager")
+		if checkpoint_manager and checkpoint_manager.has_method("restore_replay_sync_state"):
+			checkpoint_manager.restore_replay_sync_state(slot.get("replay_snapshot", {}))
+		var target = slot.get("transform", null)
+		if target is Transform and player.has_method("teleport_to"):
+			player.teleport_to(target)
+		if "yaw" in player:
+			player.yaw = float(slot.get("yaw", player.yaw))
+		if "pitch" in player:
+			player.pitch = float(slot.get("pitch", player.pitch))
+	if player.has_method("snap_camera_to_current_state"):
+		player.snap_camera_to_current_state()
+
+func _overlay_player() -> Node:
+	var session = get_node_or_null("/root/SessionManager")
+	if session and is_instance_valid(session.player):
+		return session.player
+	return null
+
+func _find_spawn_point_in_current_scene() -> Node:
+	var scene = get_tree().current_scene
+	if not is_instance_valid(scene):
+		return null
+	var pending := [scene]
+	while not pending.empty():
+		var node = pending.pop_front()
+		if node is Position3D and "spawn_id" in node:
+			return node
+		for child in node.get_children():
+			pending.push_back(child)
+	return null
+
 func _close_overlay_and_give_control() -> void:
 	visible = false
 	if fade_rect:
@@ -482,11 +555,12 @@ func _close_overlay_and_give_control() -> void:
 			session.player.snap_camera_to_current_state()
 		if "input_provider" in session.player and is_instance_valid(session.player.input_provider):
 			session.player.input_provider.hardware_input_enabled = true
+	# Al cerrar el overlay hay que DEVOLVER la captura de cámara: set_pointer_released(false)
+	# desactiva el modo liberado (desktop mouse mode) y se re-captura el mouse para gameplay.
 	var vm = get_node_or_null("/root/VirtualMouse")
 	if vm and vm.has_method("set_pointer_released"):
-		vm.set_pointer_released(true)
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		vm.set_pointer_released(false)
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _on_fade_out_complete(_object, _key, scene_path):
 	var scene_manager = get_node_or_null("/root/SceneManager")

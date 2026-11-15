@@ -28,8 +28,9 @@
 
 Cambios aditivos y off por defecto (riesgo de regresión ~nulo):
 - `BootLoader.gd`: export `startup_world_scene_path`, target de arranque, `_attach_menu_overlay()`.
-- `Menu.gd`: `overlay_mode`, `configure_world_overlay()`, `_start_in_overlay()` (parámetro tipado), `_on_arrival_hide_overlay()`, `_close_overlay_and_give_control()` (ahora también `snap_camera_to_current_state()` al entregar control: cámara al piloto sin corte).
-- `PauseMenu.gd`: `MainMenu` muestra el overlay del menú principal si existe (no hace change_scene a Menu); `_find_world_menu_overlay()`.
+- `Menu.gd`: `overlay_mode`, `configure_world_overlay()`, `_start_in_overlay()` (parámetro tipado), `_on_arrival_hide_overlay()`, `_close_overlay_and_give_control()` (cámara al piloto con `snap_camera_to_current_state()` y `set_pointer_released(false)` + CAPTURED al cerrar: se devuelve la captura de mouse). Restauración en vivo: `_apply_continue_in_place()` (checkpoint aplicado a la escena actual) y `_apply_new_game_reset_in_place()` (clear de progreso + spawn).
+- Dueño persistente del overlay: SceneManager (autoload) instala `Menu.tscn` bajo `/root` vía `_attach_world_menu_overlay()` cuando la transición de arranque lleva `attach_world_menu` (BootLoader). Así el overlay sobrevive al swap y su handler de `scene_ready` sigue válido. `BootLoader` ya no instala nada después del swap (su coroutine moría con la escena Boot).
+- `PauseMenu.gd`: `MainMenu` muestra el overlay del menú principal si existe (no hace change_scene a Menu); `_find_world_menu_overlay()` busca en current_scene y en `/root`.
 - Spec: el fade Dome→Hangar quedó anotado como DEUDA (falta buffer de llegada equivalente + cámara continua).
 - Este doc de sesión.
 

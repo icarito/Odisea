@@ -162,13 +162,15 @@ func _start_boot_transition() -> void:
 			"fade_in": 0.0,
 			"audio_fade_out": 0.0,
 			"audio_fade_in": 0.0,
-			"preserve_player_state": false
+			"preserve_player_state": false,
+			# La instalación del overlay la hace SceneManager (autoload persistente) al
+			# terminar el swap: BootLoader vive en la escena Boot que se libera durante el
+			# swap, así que un call_deferred posterior no tendría receptor válido.
+			"attach_world_menu": world_mode
 		})
 		if state is GDScriptFunctionState:
 			yield(state, "completed")
 		_notify_player_released()
-		if world_mode:
-			call_deferred("_attach_menu_overlay")
 		return
 
 	_mark_trace("boot_loader_scene_request_fallback", {"path": _boot_target_path})
@@ -185,21 +187,6 @@ func _on_transition_failed(path: String, reason: String) -> void:
 		"reason": reason
 	})
 	call_deferred("_start_direct_scene_fallback", reason)
-
-# Menú dentro del mundo: instancia el menú como overlay sobre la escena de mundo ya viva
-# (sin swap de escena). La escena debe haber terminado de cargar; se llama diferido.
-func _attach_menu_overlay() -> void:
-	var tree := get_tree()
-	if tree == null or not is_instance_valid(tree.current_scene):
-		return
-	var menu_packed := load("res://scenes/Menu.tscn")
-	if menu_packed == null:
-		printerr("[BootLoader] No se pudo cargar Menu.tscn para el overlay")
-		return
-	var menu = menu_packed.instance()
-	tree.current_scene.add_child(menu)
-	if menu.has_method("configure_world_overlay"):
-		menu.configure_world_overlay()
 
 func _start_direct_scene_fallback(reason: String = "") -> void:
 	if _fallback_started:

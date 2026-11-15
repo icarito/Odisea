@@ -658,6 +658,12 @@ func _set_new_scene(resource: PackedScene):
 
 	emit_signal("scene_ready", _next_scene_path, new_scene, _transition_params)
 	_report_transition("scene_ready")
+	# Menú dentro del mundo: si este arranque lo pidió (BootLoader con
+	# startup_world_scene_path set), instalar el overlay del menú sobre el mundo YA vivo.
+	# SceneManager es un autoload persistente: sobrevive al swap, a diferencia de BootLoader
+	# (escena Boot, liberada durante la transición).
+	if bool(_transition_params.get("attach_world_menu", false)):
+		_attach_world_menu_overlay(new_scene)
 
 
 func _prepare_android_environment(scene: Node, os_name: String) -> void:
@@ -767,6 +773,22 @@ func _apply_transition_world_state(state_data: Dictionary) -> void:
 		gravity_world.restore_snapshot(state_data["gravity_world_snapshot"])
 	elif state_data.has("gravity_mode") and gravity_world.has_method("set_gravity_mode"):
 		gravity_world.set_gravity_mode(int(state_data["gravity_mode"]))
+
+# Menú dentro del mundo: instancia Menu.tscn como overlay colgado de la raíz (/root),
+# de modo que sobreviva al swap de escenas y su handler de llegada (scene_ready) siga
+# válido. El manejo de estado (Nueva partida / Continuar) lo hace el propio menú al
+# entregar control.
+func _attach_world_menu_overlay(_scene_root: Node) -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	var menu_packed := load("res://scenes/Menu.tscn")
+	if menu_packed == null:
+		return
+	var menu = menu_packed.instance()
+	tree.root.add_child(menu)
+	if menu.has_method("configure_world_overlay"):
+		menu.configure_world_overlay()
 
 func _find_spawn_point(scene_root: Node, spawn_id: String) -> Position3D:
 	if not is_instance_valid(scene_root):
