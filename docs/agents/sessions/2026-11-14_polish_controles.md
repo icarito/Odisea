@@ -86,6 +86,28 @@ ajenos. Commits locales sí. Push/PR al final (autorización de src-49).
   verifica que el punto proyectado coincide con el impacto real del rayo (caso central y
   lateral).
 
+## Seguimiento (feedback de Sebastián sobre las capturas)
+1. **Texto de modo eliminado**: se quitaron los nodos `HUD/UIIndicator` (`ModeLabel`,
+   `CountLabel`) de `MultiToolV2.tscn` y su llamada en `step()`; `MultiToolModeIndicator.gd`
+   quedó sin uso y se eliminó. El estado del tool ya no se pinta como texto; lo muestran las
+   pantallas HUDable (Láser/Gloo).
+2. **Crosshair dinámico y caso obstruido visible**: se agregó punto central del láser, anillo
+   rojo pulsante cuando el objetivo está obstruido, y un heurístico de obstrucción sin falsos
+   positivos (algo pegado al arma, o el centro de pantalla mira al vacío mientras el muzzle golpea
+   algo cercano). La proyección ya no oculta el retículo con un punto muy cercano: lo sujeta al
+   borde del viewport.
+3. **Tool en la mano**: el multi-tool ahora cuelga de un `MultiToolGrip` montado en un
+   `BoneAttachment` del hueso `DEF-handR` (sigue la animación). El grip es el pivote que apunta al
+   objetivo; el tool conserva una pose local de agarre (solo roll + offset de palma, para no torcer
+   el eje de disparo -Z). Si no hay hueso, cae a un socket fallback.
+4. **Review PR #411**: C2 ahora solo cede el clic COMPARTIDO (botón izquierdo) ante interact, sin
+   cancelar controles independientes (E/gamepad/touch); el tap de slot alterna el estado cuando no
+   se pasa `desired` (Láser/Gloo).
+
+Capturas finales (`~/.ao/data/artifacts/src-50/`): `crosshair_laser_valid.png`,
+`crosshair_laser_izquierda.png`, `crosshair_laser_derecha.png`, `crosshair_laser_obstruido.png`,
+`crosshair_gloo_lado.png` (800x450, jugador en cuadro para ver la mano).
+
 ## Pasos
 1. project.godot [input]: quitar tool_next_mode/tool_prev_mode; agregar botón 7 a
    tool_fire_primary; quitar botón 7 de slot_4.

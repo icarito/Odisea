@@ -268,7 +268,7 @@ var is_acrobatic_ready := false
 var multi_tool = null
 var _multi_tool_enabled := false
 var _tool_secondary_was_pressed := false
-var _multi_tool_mount: Spatial = null
+var _multi_tool_grip: Spatial = null
 var _multi_tool_skeleton: Skeleton = null
 var _multi_tool_hand_bone_idx := -1
 # Retículo del multi-tool (decision 3 + feedback de Sebastián): nodo propio
@@ -1910,12 +1910,7 @@ func _setup_multi_tool():
 	var existing_tool = get_node_or_null("MultiTool")
 	if existing_tool:
 		multi_tool = existing_tool
-		var existing_mount = _get_multi_tool_mount()
-		if existing_mount:
-			remove_child(multi_tool)
-			existing_mount.add_child(multi_tool)
-			_apply_multi_tool_hand_transform()
-			_sync_multi_tool_action_transform()
+		_setup_multi_tool_grip()
 		return
 
 	if not _multi_tool_enabled:
@@ -1924,13 +1919,28 @@ func _setup_multi_tool():
 	var mt_scene = load("res://core_v2/player/MultiToolV2.tscn")
 	if mt_scene:
 		multi_tool = mt_scene.instance()
-		var mount = _get_multi_tool_mount()
-		if mount:
-			mount.add_child(multi_tool)
-			_apply_multi_tool_hand_transform()
-			_sync_multi_tool_action_transform()
-		else:
-			add_child(multi_tool)
+		_setup_multi_tool_grip()
+
+# El tool cuelga de un grip: si hay esqueleto con hueso de mano (DEF-handR), el grip se
+# monta en un BoneAttachment del esqueleto y sigue la animación; si no, cae a un socket
+# fallback junto al cuerpo. El grip es el pivote de agarre: se apunta por frame y el
+# tool conserva su pose local de empuñadura.
+func _setup_multi_tool_grip():
+	if not (multi_tool and is_instance_valid(multi_tool)):
+		return
+	_multi_tool_grip = Spatial.new()
+	_multi_tool_grip.name = "MultiToolGrip"
+	var bone_parent = _get_multi_tool_bone_attachment()
+	if bone_parent != null:
+		bone_parent.add_child(_multi_tool_grip)
+	else:
+		add_child(_multi_tool_grip)
+		_multi_tool_grip.translation = Vector3(0.32, 1.05, -0.28)
+	if multi_tool.get_parent() != null:
+		multi_tool.get_parent().remove_child(multi_tool)
+	_multi_tool_grip.add_child(multi_tool)
+	_apply_multi_tool_hand_transform()
+	_sync_multi_tool_action_transform()
 
 # Retículo del multi-tool: nodo propio (MultiToolCrosshair.gd) que lee el estado del
 # multitool y proyecta el impacto real del rayo; no vive en este controlador.
@@ -1945,53 +1955,50 @@ func _setup_crosshair():
 	add_child(_crosshair_ui)
 
 
-func _get_multi_tool_mount() -> Spatial:
-	if _multi_tool_mount and is_instance_valid(_multi_tool_mount):
-		return _multi_tool_mount
-
+func _get_multi_tool_bone_attachment() -> Node:
 	var skeleton = get_node_or_null("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton")
-	if skeleton and skeleton is Skeleton:
-		_multi_tool_skeleton = skeleton
-		_multi_tool_hand_bone_idx = skeleton.find_bone("DEF-handR")
-		_multi_tool_mount = self
-		return _multi_tool_mount
-
-	var pivot = get_node_or_null("Visual/Pivot")
-	if pivot:
-		var fallback = pivot.get_node_or_null("MultiToolHandSocket")
-		if fallback == null:
-			fallback = Spatial.new()
-			fallback.name = "MultiToolHandSocket"
-			pivot.add_child(fallback)
-			fallback.translation = Vector3(0.32, 1.05, -0.28)
-		_multi_tool_mount = fallback
-		return _multi_tool_mount
-
-	return null
+	if skeleton == null or not (skeleton is Skeleton):
+		return null
+	var idx = skeleton.find_bone("DEF-handR")
+	if idx < 0:
+		return null
+	_multi_tool_skeleton = skeleton
+	_multi_tool_hand_bone_idx = idx
+	var att = skeleton.get_node_or_null("MultiToolBoneAttachment")
+	if att == null:
+		att = BoneAttachment.new()
+		att.name = "MultiToolBoneAttachment"
+		att.bone_name = "DEF-handR"
+		skeleton.add_child(att)
+	return att
 
 func _apply_multi_tool_hand_transform() -> void:
 	if not (multi_tool and is_instance_valid(multi_tool)):
 		return
-	# Ajuste fino de mano (decision 4): el modelo nace con su eje de disparo en -Z;
-	# el offset acomoda la herramienta en la palma. Revisar visualmente con captura.
-	multi_tool.transform = Transform(Basis(Vector3.UP, PI), Vector3(0.06, -0.02, -0.14))
+	# Pose local de agarre dentro del grip (offset de palma + un leve roll). El eje de
+	# disparo del modelo nace en -Z y DEBE quedar alineado con el -Z del grip (la
+	# dirección de puntería): cualquier rotación de X/Y aquí torcería el rayo real. Por
+	# eso solo se aplica un roll (rotación sobre Z), que no cambia el -Z.
+	multi_tool.transform = Transform(
+		Basis(Vector3(0, 0, 1), deg2rad(-14)),
+		Vector3(0.04, -0.02, -0.10))
 
 func _sync_multi_tool_action_transform() -> void:
-	if not (multi_tool and is_instance_valid(multi_tool)):
+	if not (multi_tool and is_instance_valid(multi_tool)) or not is_inside_tree():
 		return
-	if not is_inside_tree():
+	if not (is_instance_valid(_multi_tool_grip) and _multi_tool_grip.is_inside_tree()):
 		return
-	var t: Transform = multi_tool.global_transform
-	t.origin = _get_multi_tool_hand_origin()
-	var aim_dir: Vector3 = _get_multi_tool_aim_direction(t.origin)
-	var look: Transform = Transform(t.basis, t.origin).looking_at(t.origin + aim_dir, Vector3.UP)
-	t.basis = look.basis
-	multi_tool.global_transform = t
+	var origin: Vector3 = _get_multi_tool_hand_origin()
+	var aim_dir: Vector3 = _get_multi_tool_aim_direction(origin)
+	var look: Transform = Transform(Basis(), origin).looking_at(origin + aim_dir, Vector3.UP)
+	_multi_tool_grip.global_transform = look
 
 func _get_multi_tool_hand_origin() -> Vector3:
 	if _multi_tool_skeleton and is_instance_valid(_multi_tool_skeleton) and _multi_tool_hand_bone_idx >= 0:
 		var bone_pose: Transform = _multi_tool_skeleton.get_bone_global_pose(_multi_tool_hand_bone_idx)
 		return (_multi_tool_skeleton.global_transform * bone_pose).origin
+	if is_instance_valid(_multi_tool_grip):
+		return _multi_tool_grip.global_transform.origin
 	return global_transform.origin + Vector3(0.32, 1.05, -0.28)
 
 func _get_multi_tool_forward() -> Vector3:

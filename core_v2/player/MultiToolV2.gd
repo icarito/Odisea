@@ -57,7 +57,7 @@ var _gloo_cooldown_left := 0.0
 onready var _laser: Spatial = $Laser
 onready var _gloo_spawn_point: Position3D = $GlooSpawnPoint
 onready var _model: MeshInstance = $Model
-onready var _ui: Control = $HUD/UIIndicator
+# El indicador de modo textual se eliminó (tool diegético): ya no hay HUD propio.
 
 const GlooProjectileScene = preload("res://core_v2/player/MultiToolGloo.tscn")
 const LaserScreenScript = preload("res://core_v2/ui/hud/LaserScreen.gd")
@@ -111,8 +111,8 @@ func step(dt: float, input):
 	if _active_gloo_projectiles.size() != prev_count:
 		emit_signal("tool_state_changed")
 
-	if _ui and _ui.has_method("update_info"):
-		_ui.update_info(equipped_tool, _active_gloo_projectiles.size(), max_gloo_projectiles)
+	# El estado del tool ya no se pinta como texto de modo (diegético): la lectura vive en
+	# las pantallas HUDable (Laser/GlooScreen, patrón Linterna).
 
 # Equipa uno de los tools (Equipped.*). Devuelve false si ya estaba equipado.
 func set_equipped(p_tool: int) -> bool:

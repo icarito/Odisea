@@ -46,7 +46,10 @@ var _reticle: Control
 var _laser_ui: Control
 var _gloo_ui: Control
 var _gloo_core: ColorRect
+var _center_dot: ColorRect
+var _obstruction_ring: Polygon2D
 var _interact_tag: Control
+var _ring_phase := 0.0
 var _shape: int = ReticleShape.NONE
 var _state: int = State.IDLE
 var _pulse := 0.0
@@ -102,7 +105,23 @@ func _build_reticle() -> void:
 		r.rect_position = piece[0]
 		r.rect_size = piece[1]
 		_laser_ui.add_child(r)
+	# Punto central del láser (distingue el láser del gloo incluso en estados tenues).
+	_center_dot = ColorRect.new()
+	_center_dot.name = "CenterDot"
+	_center_dot.color = Color.white
+	_center_dot.rect_position = Vector2(-2.0, -2.0)
+	_center_dot.rect_size = Vector2(4.0, 4.0)
+	_laser_ui.add_child(_center_dot)
 	_reticle.add_child(_laser_ui)
+
+	# Anillo de obstrucción: aviso claro cuando el muzzle está bloqueado por algo cercano
+	# que el centro de pantalla no ve (paralaje).
+	_obstruction_ring = Polygon2D.new()
+	_obstruction_ring.name = "ObstructionRing"
+	_obstruction_ring.polygon = _make_circle_polygon(13.0, 24)
+	_obstruction_ring.color = Color(1.0, 0.3, 0.3, 0.85)
+	_obstruction_ring.visible = false
+	_reticle.add_child(_obstruction_ring)
 
 	# Gloo: rombo (contorno) + núcleo de cooldown.
 	_gloo_ui = Control.new()
@@ -153,6 +172,7 @@ func _resolve_refs() -> void:
 
 func _process(delta: float) -> void:
 	_frame += 1
+	_ring_phase += delta * 6.0
 	_resolve_refs()
 	if not is_instance_valid(_tool):
 		_set_hidden()
@@ -285,21 +305,29 @@ func _refresh_gloo_target(space, cam) -> void:
 		_eval_hit_state(hit, from, hit["position"], space, cam)
 	_project_point(_last_world, cam)
 
-# Un hit del rayo del muzzle es "obstruido" si algo cercano lo corta antes que lo que ve
-# el centro de pantalla (paralaje), y "interact" si el collider pertenece al interactuable
-# apuntado (que gana el clic, C2).
+# Un hit del rayo/arco del muzzle es "obstruido" si algo está muy cerca del arma, o si el
+# punto de impacto se aleja de la línea del rayo de cámara (el centro de pantalla ve otra
+# cosa). Si el collider pertenece al interactuable apuntado, gana el clic (C2) -> "interact".
 func _eval_hit_state(hit: Dictionary, from: Vector3, point: Vector3, space, cam) -> void:
 	var collider = hit.get("collider", null)
-	var interact_root = _hit_is_current_interactable(collider)
-	if interact_root:
+	if _hit_is_current_interactable(collider):
 		_set_state(State.INTERACT)
 		return
+	var hit_dist: float = from.distance_to(point)
+	var tool_name := String(_tool.get_equipped_name())
+	# Algo pegado al arma: se marca aunque el centro también lo vea (pared en la cara).
+	var near: float = 1.0 if tool_name == "LASER" else 0.9
+	if hit_dist <= near:
+		_set_state(State.OBSTRUCTED)
+		return
+	# Paralaje genuino: el centro de pantalla mira al vacío, pero el muzzle golpea algo
+	# cercano (un obstáculo al costado de la mano que el centro no ve). Apuntar al piso o a
+	# una caja no dispara esto porque el rayo de cámara sí golpea esa misma superficie.
 	var center: Vector2 = get_viewport().size * 0.5
 	var cam_from: Vector3 = cam.project_ray_origin(center)
 	var cam_dir: Vector3 = cam.project_ray_normal(center).normalized()
 	var cam_hit = space.intersect_ray(cam_from, cam_from + cam_dir * 80.0, _exclude(), int(_tool.laser_collision_mask))
-	var hit_dist: float = from.distance_to(point)
-	if cam_hit.empty() or hit_dist < cam_from.distance_to(cam_hit["position"]) * 0.85:
+	if cam_hit.empty() and hit_dist < 2.5:
 		_set_state(State.OBSTRUCTED)
 		return
 	_set_state(State.VALID)
@@ -326,10 +354,22 @@ func _project_point(world: Vector3, cam) -> void:
 	var screen: Vector2 = cam.unproject_position(world)
 	var cam_pos: Vector3 = cam.global_transform.origin
 	var to_target: Vector3 = world - cam_pos
-	# Detrás de la cámara: ocultar (unproject lo mapea igual y se vería espejado).
-	if to_target.dot(-cam.global_transform.basis.z) <= 0.0:
+	var forward: Vector3 = -cam.global_transform.basis.z.normalized()
+	# Detrás de la cámara (claro): ocultar. Con un punto muy cercano (pared pegada) se
+	# mantiene visible y se sujeta al borde del viewport para que el aviso de obstrucción
+	# siempre se note.
+	if to_target.dot(forward) < -0.15:
 		_has_target = false
 		return
+	var vp_size: Vector2 = get_viewport().size
+	if screen.x < 0.0:
+		screen.x = 0.0
+	elif screen.x > vp_size.x:
+		screen.x = vp_size.x
+	if screen.y < 0.0:
+		screen.y = 0.0
+	elif screen.y > vp_size.y:
+		screen.y = vp_size.y
 	_has_target = true
 	_last_screen = screen
 
@@ -374,9 +414,20 @@ func _apply_visual(delta: float) -> void:
 		_apply_color_recursive(_gloo_ui, col)
 		# Cooldown del gloo: el núcleo se desvanece mientras recarga.
 		if _gloo_core != null:
-			_gloo_core.modulate.a = _cooldown_ratio
+			_gloo_core.modulate.a = col.a * _cooldown_ratio
 	if _interact_tag != null:
 		_apply_color_recursive(_interact_tag, PAL["interact"])
+
+	# Anillo de obstrucción: pulso rojo y más grande que la cruz (siempre visible en ese
+	# estado, incluso con el punto pegado a la pared).
+	if _obstruction_ring != null:
+		var obstructed: bool = _state == State.OBSTRUCTED
+		_obstruction_ring.visible = obstructed
+		if obstructed:
+			var pulse := 0.5 + 0.5 * sin(_ring_phase)
+			_obstruction_ring.color.a = 0.55 + 0.4 * pulse
+			var ring_scale := 1.0 + 0.12 * pulse
+			_obstruction_ring.scale = Vector2(ring_scale, ring_scale)
 
 func _state_color() -> Color:
 	match _state:
@@ -390,6 +441,13 @@ func _apply_color_recursive(node: Node, col: Color) -> void:
 	for child in node.get_children():
 		if child is CanvasItem:
 			child.modulate = col
+
+func _make_circle_polygon(radius: float, segments: int) -> PoolVector2Array:
+	var pts := PoolVector2Array()
+	for i in range(segments):
+		var ang := TAU * float(i) / float(segments)
+		pts.append(Vector2(cos(ang), sin(ang)) * radius)
+	return pts
 
 func _refresh_cooldown() -> void:
 	var cooldown: float = float(_tool.get("_gloo_cooldown_left"))

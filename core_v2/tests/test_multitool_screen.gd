@@ -56,6 +56,12 @@ func test_laser_and_gloo_screens_register_and_equip() -> void:
 	assert_bool(gloo.perform_action("equip", {"desired": false}).get("ok", false)).is_true()
 	assert_int(_tool.equipped_tool).is_equal(0) # NONE
 
+	# Toggle sin desired (tap de hombro/touch): desde NONE equipa; el segundo tap desequipa.
+	assert_bool(laser.perform_action("equip", {}).get("ok", false)).is_true()
+	assert_int(_tool.equipped_tool).is_equal(1) # LASER
+	assert_bool(laser.perform_action("equip", {}).get("ok", false)).is_true()
+	assert_int(_tool.equipped_tool).is_equal(0) # NONE
+
 
 func test_equip_updates_relevance_and_snapshot() -> void:
 	var initial_rel = _screen.relevance()

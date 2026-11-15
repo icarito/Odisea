@@ -60,7 +60,13 @@ func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
 	if op == "equip":
 		var tool_node = _get_tool()
 		if is_instance_valid(tool_node) and tool_node.has_method("set_equipped"):
-			var desired: bool = bool(args.get("desired", true))
+			# Sin desired explícito (tap de hombro/touch) se alterna el estado actual; con
+			# desired (botón del widget) se respeta el pedido.
+			var desired: bool
+			if args.has("desired"):
+				desired = bool(args["desired"])
+			else:
+				desired = tool_node.get_equipped_name() != "LASER"
 			tool_node.set_equipped(1 if desired else 0) # 1=LASER, 0=NONE
 			notify_state_changed()
 			return {"ok": true, "result": "equipped", "tool": "LASER", "on": desired}

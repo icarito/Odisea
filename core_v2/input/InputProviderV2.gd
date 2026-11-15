@@ -321,9 +321,12 @@ func _read_live_input() -> InputDataV2:
 			and (not pointer_is_from_touch() or touch_action_is_explicit("tool_fire_primary"))
 		d.tool_fire_secondary = _action_pressed("tool_fire_secondary")
 		d.cargol_ability = _action_pressed("cargol_ability")
-		# C2: el clic izquierdo comparte boton con interact. Si hay un interactuable apuntado/
-		# en prompt (target vivo del jugador), interact gana y no se dispara el tool equipado.
-		if (d.interact or d.interact_held) and _current_interactable() != null:
+		# C2: el clic COMPARTIDO (botón izquierdo) cede ante interact cuando hay un interactuable
+		# apuntado/en prompt (target vivo). La prioridad es de ese clic compartido: controles
+		# independientes (E, botón de gamepad, touch) no se cancelan entre sí, así que solo se
+		# suprime el disparo si la fuente viva del interact es el propio botón izquierdo.
+		if (d.interact or d.interact_held) and _current_interactable() != null \
+				and Input.is_mouse_button_pressed(BUTTON_LEFT):
 			d.tool_fire_primary = false
 		d.hud_mode = _action_pressed("hud_mode")
 		d.hud_slot = 0
