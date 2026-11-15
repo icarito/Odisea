@@ -32,6 +32,14 @@ var _beacon_time_accumulator := 0.0
 var _exterior_scene: Node = null
 var _exterior_paused := false
 
+# Limpia el estado del lift cuando una transición falla o expira sin llegar al swap
+# (pre_scene_swap nunca se emitió). Sin esto, _pending_transition/_seamless_swap quedan
+# armados y la siguiente transición ajena se interpreta como seamless y levanta al jugador
+# inesperadamente.
+func cancel_pending_transition() -> void:
+	_pending_transition = false
+	_seamless_swap = false
+
 
 func _ready() -> void:
 	var scene_manager := get_node_or_null("/root/SceneManager")

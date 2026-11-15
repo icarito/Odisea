@@ -21,6 +21,8 @@ func _ready() -> void:
 	var sm = get_node_or_null("/root/SceneManager")
 	if sm != null and sm.has_signal("scene_ready") and not sm.is_connected("scene_ready", self, "_on_scene_ready"):
 		sm.connect("scene_ready", self, "_on_scene_ready")
+	if sm != null and sm.has_signal("transition_failed") and not sm.is_connected("transition_failed", self, "_on_transition_failed"):
+		sm.connect("transition_failed", self, "_on_transition_failed")
 
 func _on_scene_ready(_path, scene_root, _params) -> void:
 	if is_instance_valid(scene_root) and (scene_root == get_tree().current_scene or _is_ancestor(scene_root)):
@@ -46,6 +48,12 @@ func _on_body_entered(body: Node) -> void:
 	set_deferred("monitoring", false)
 	_enter_machine_bay()
 
+func _on_transition_failed(path: String, _reason: String) -> void:
+	if String(path).strip_edges() != "res://core_v2/levels/machines/MachineBay.tscn":
+		return
+	_has_triggered = false
+	monitoring = true
+
 func _enter_machine_bay() -> void:
 	var level: Node = get_tree().current_scene
 	if level != null:
@@ -56,6 +64,11 @@ func _enter_machine_bay() -> void:
 	# Fallback (nivel de test sin LightState): misma escena destino que el pedestal.
 	var sm = get_node_or_null("/root/SceneManager")
 	if sm != null and sm.has_method("goto_scene"):
-		sm.goto_scene("res://core_v2/levels/machines/MachineBay.tscn", {"wait_for_fade_out": true})
+		var params := {"preserve_player_state": false}
+		var airlock_manager = get_node_or_null("/root/AirlockManager")
+		if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+			airlock_manager.notify_transition("res://core_v2/levels/machines/MachineBay.tscn")
+			params["transition"] = "seamless"
+		sm.goto_scene("res://core_v2/levels/machines/MachineBay.tscn", params)
 	else:
 		printerr("[BayAirlockTrigger] sin LightState.enter_machine_bay ni SceneManager")

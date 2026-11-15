@@ -2,19 +2,17 @@ LEVEL res://core_v2/tests/test_tube_airlock.tscn
 
 SECTION "Tube Airlock Transition Test"
     // The player starts at "start" (0, 0.5, 0)
-    // AirlockStart is at (0, 2, -5)
+    // AirlockStart is at (0, 2, -5); its Area covers roughly z ∈ [-5, -3].
 
-    // 1. Move player to the airlock entrance
-    SET_POS "Pilot" [0, 0.5, -4]
-    WAIT 0.5
-
-    // 2. Trigger the airlock by moving inside its Area
-    // The Area CollisionShape is at (0, 0, 1) relative to its parent (0, 2, -5)
-    // So global collision is at (0, 2, -4)
+    // 1. Teleport directly inside the airlock chamber (inside its Area).
+    // El camino seamless no tiene fade: el swap ocurre casi de inmediato, así que
+    // cualquier teleport posterior al swap reescribiría la posición de llegada.
+    // Por eso el script usa UN SOLO teleport y espera a que el swap y el asiento
+    // del jugador en SpawnPointEnd terminen.
     SET_POS "Pilot" [0, 2, -4]
-    WAIT 1.0
+    WAIT 2.0
 
-    // 3. Since the target_dome is the same scene but different spawn point,
+    // 2. Since the target_dome is the same scene but different spawn point,
     // we should eventually end up at SpawnPointEnd (0, 2, -17)
 
     SET $pilot_z GET_NODE_POS_Z "Pilot"

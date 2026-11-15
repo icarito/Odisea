@@ -210,7 +210,7 @@ func enter_machine_bay() -> void:
 			if airlock_manager != null and airlock_manager.has_method("notify_transition"):
 				airlock_manager.notify_transition(machine_bay_scene_path)
 		scene_mgr.goto_scene(machine_bay_scene_path, {"preserve_player_state": false,
-			"wait_for_fade_out": true, "ringhub_return_state": return_state})
+			"transition": "seamless", "ringhub_return_state": return_state})
 	else:
 		get_tree().change_scene(machine_bay_scene_path)
 

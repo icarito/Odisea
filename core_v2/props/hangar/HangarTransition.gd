@@ -6,13 +6,13 @@ class_name HangarTransition
 # Frontera interior -> interior entre el pozo del blast door del domo y el hangar
 # (`Dome_Intro_Hangar.tscn`). NO es un airlock: domo y hangar son interiores presurizados,
 # asi que no hay ciclo de presurizacion, ni AirlockControllerV2, ni target_airlock_path.
-# Es un `change_scene` puro.
 #
-# Reutiliza el MISMO patron de transicion que RingHub <-> Bahia de Maquinas
-# (`BayAirlockTrigger.gd` / `TubeAirlock.gd`): un Area que, al entrar el jugador, resuelve
-# la escena destino + el spawn y llama a `SceneManager.goto_scene(...)`. No duplica el
-# sistema de transicion del airlock (AirlockZoneV2 exige un AirlockControllerV2 vivo, que
-# aca no existe por diseño).
+# Transición: se conserva el fade existente. El trayecto NO es seamless todavía: el destino
+# (Spawn_FromDomeIntro) no tiene un pozo/plataforma equivalente y el trigger libera el rig
+# cinematográfico del pozo, así que sin fade aparece un corte de cámara/entorno. Requiere un
+# buffer de llegada equivalente + transferencia continua de cámara antes de migrar.
+# (Se mantiene la precarga temprana al arrancar el descenso como optimización: no cambia la
+# semántica del fade y adelanta la carga.)
 #
 # Dispara una sola vez (guard) y respeta POST_TRANSITION_GRACE_FRAMES desde que la escena
 # termino de cargar, igual que TubeAirlock/BayAirlockTrigger: el spawn de destino puede
@@ -49,6 +49,14 @@ func _ready() -> void:
 	var sm := _resolve_scene_manager()
 	if sm != null and sm.has_signal("scene_ready") and not sm.is_connected("scene_ready", self, "_on_scene_ready"):
 		sm.connect("scene_ready", self, "_on_scene_ready")
+	if sm != null and sm.has_signal("transition_failed") and not sm.is_connected("transition_failed", self, "_on_transition_failed"):
+		sm.connect("transition_failed", self, "_on_transition_failed")
+	# Precarga temprana: al arrancar el descenso de la plataforma (el jugador se subió),
+	# se empieza a cargar el hangar en background. El pozo completo queda como tiempo de
+	# buffer antes de llegar al trigger del fondo.
+	var platform := get_parent().get_node_or_null("HangarPlatform") if get_parent() else null
+	if is_instance_valid(platform) and platform.has_signal("descend_started") and not platform.is_connected("descend_started", self, "_begin_seamless_preload"):
+		platform.connect("descend_started", self, "_begin_seamless_preload")
 
 func _resolve_scene_manager() -> Node:
 	if scene_manager_override != null and is_instance_valid(scene_manager_override):
@@ -80,6 +88,7 @@ func _on_body_entered(body: Node) -> void:
 	set_deferred("monitoring", false)
 	# La camara cinematica del descenso es de ESTA escena: se libera antes del swap para que
 	# CinematicManager no quede con un rig ya liberado y el jugador recupere el control limpio.
+	_begin_seamless_preload()
 	_release_transition_camera()
 	_transition_to_target()
 
@@ -109,6 +118,24 @@ func _resolve_director() -> Node:
 func is_triggered() -> bool:
 	return _has_triggered
 
+# Si la transición falla o expira, rearmamos el trigger para que el jugador pueda
+# reintentar (el state del lift lo limpia SceneManager en _reset_runtime_state).
+func _on_transition_failed(path: String, _reason: String) -> void:
+	if String(path).strip_edges() != resolve_target_scene():
+		return
+	_has_triggered = false
+	monitoring = true
+
+# Pide al SceneManager precargar la escena del hangar en background. Idempotente y seguro
+# si el manager no existe o ya está precargada.
+func _begin_seamless_preload() -> void:
+	var resolved := resolve_target_scene()
+	if resolved == "":
+		return
+	var sm := _resolve_scene_manager()
+	if sm and sm.has_method("request_scene_preload") and not sm.has_preloaded_scene(resolved):
+		sm.request_scene_preload(resolved)
+
 func _release_transition_camera() -> void:
 	var cm = get_node_or_null("/root/CinematicManager")
 	if cm != null and cm.has_method("is_active") and cm.has_method("deactivate_rig") and bool(cm.is_active()):
@@ -129,6 +156,8 @@ func _transition_to_target() -> bool:
 
 	# Frontera interior -> interior: change_scene puro. preserve_player_state=false reubica al
 	# jugador en el SpawnPointV2 del hangar; wait_for_fade_out evita el corte seco.
+	# (Aún NO es seamless: falta un buffer de llegada equivalente y transferencia continua de
+	# cámara entre el pozo y el hangar. Ver comentario de cabecera.)
 	sm.goto_scene(resolved_scene, {
 		"target_spawn_id": resolved_spawn,
 		"spawn_id": resolved_spawn,

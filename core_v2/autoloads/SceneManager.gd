@@ -185,18 +185,26 @@ func goto_scene(path: String, params: Dictionary = {}):
 
 	_capture_player_state_for_transition()
 	_disable_input_for_transition()
-	# skip_audio_fade: quien pidio la transicion ya esta manejando la musica a mano
-	# (p.ej. Menu.gd crossfadeando hacia la BGM del nivel de destino durante la carga).
-	# audio_fade_out=0.0 NO sirve para esto: fade_out_current_bgm(0.0) corta de
-	# inmediato el _active_player en vez de dejarlo en paz.
-	if not bool(_transition_params.get("skip_audio_fade", false)):
-		_fade_audio_out(float(_transition_params.get("audio_fade_out", default_audio_fade_out)))
 	emit_signal("transition_started", _next_scene_path, _transition_params)
+
+	# Auto-seamless: si el AirlockManager ya está armado para este viaje (un productor
+	# llamó notify_transition, o el par hub<->bahía lo arma solo) y el productor no pidió
+	# un modo explícito, la transición ya es seamless: sin fade, sin cartel, sin corte de
+	# audio. Quien quiera fade explícito lo declara con transition:"fade".
+	_maybe_upgrade_seamless()
 
 	var transition_layer = _get_transition_layer()
 	var transition_mode := _get_transition_mode()
+	var seamless_mode := transition_mode == "seamless"
 	var show_loading := _should_show_loading(transition_mode)
 	var use_fade := _should_use_fade(transition_mode)
+	# skip_audio_fade: quien pidio la transicion ya esta manejando la musica a mano
+	# (p.ej. Menu.gd crossfadeando hacia la BGM del nivel de destino durante la carga).
+	# audio_fade_out=0.0 NO sirve para esto: fade_out_current_bgm(0.0) corta de
+	# inmediato el _active_player en vez de dejarlo en paz. En seamless no se corta la
+	# BGM actual: la zona del destino toma el control sin hueco al llegar.
+	if not seamless_mode and not bool(_transition_params.get("skip_audio_fade", false)):
+		_fade_audio_out(float(_transition_params.get("audio_fade_out", default_audio_fade_out)))
 	if transition_layer:
 		if show_loading and transition_layer.has_method("show_loading"):
 			transition_layer.show_loading(
@@ -268,7 +276,10 @@ func goto_scene(path: String, params: Dictionary = {}):
 		_finalize_failed_transition(_load_error)
 		return false
 
-	_fade_audio_in(float(_transition_params.get("audio_fade_in", default_audio_fade_in)), bool(_transition_params.get("skip_audio_fade", false)))
+	if seamless_mode:
+		_fade_audio_in(0.0, false)
+	else:
+		_fade_audio_in(float(_transition_params.get("audio_fade_in", default_audio_fade_in)), bool(_transition_params.get("skip_audio_fade", false)))
 
 	if transition_layer:
 		if use_fade and transition_layer.has_method("play"):
@@ -1063,6 +1074,13 @@ func _finalize_failed_transition(reason: String) -> void:
 	_reset_runtime_state()
 
 func _reset_runtime_state() -> void:
+	# Si la transición terminó (bien o mal) sin llegar al swap, el AirlockManager puede
+	# haber quedado con el lift armado (_pending_transition/_seamless_swap). Limpiarlo acá
+	# tapa todos los caminos (éxito, fallo y watchdog) y evita que una transición ajena
+	# siguiente se interprete como seamless.
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	if is_instance_valid(airlock_manager) and airlock_manager.has_method("cancel_pending_transition"):
+		airlock_manager.cancel_pending_transition()
 	_lock()
 	_loader = null
 	_loaded_scene = null
@@ -1159,10 +1177,21 @@ func _report_transition(stage: String, error: String = "", progress: float = -1.
 func _get_transition_layer() -> Node:
 	return get_node_or_null("/root/TransitionLayer")
 
+# Auto-seamless: si el AirlockManager ya está armado para este viaje y el productor no
+# pidió un modo explícito, la transición se convierte en seamless. Es la forma en que los
+# productores que no conocen la API (p.ej. el par hub<->bahía, que arma notify_transition
+# por su cuenta) terminan sin fade sin tener que tocarlos.
+func _maybe_upgrade_seamless() -> void:
+	if String(_transition_params.get("transition", "")).strip_edges() != "":
+		return
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	if is_instance_valid(airlock_manager) and bool(airlock_manager.get("_seamless_swap")):
+		_transition_params["transition"] = "seamless"
+
 func _get_transition_mode() -> String:
 	var mode := String(_transition_params.get("transition", "fade")).strip_edges().to_lower()
 	match mode:
-		"fade", "loading", "none":
+		"fade", "loading", "none", "seamless":
 			return mode
 		"instant":
 			return "none"
@@ -1170,9 +1199,11 @@ func _get_transition_mode() -> String:
 			return "fade"
 
 func _should_use_fade(mode: String) -> bool:
-	return mode != "none"
+	return mode != "none" and mode != "seamless"
 
 func _should_show_loading(mode: String) -> bool:
+	if mode == "seamless":
+		return false
 	if _transition_params.has("show_loading"):
 		return bool(_transition_params.get("show_loading", false))
 	return mode == "loading"

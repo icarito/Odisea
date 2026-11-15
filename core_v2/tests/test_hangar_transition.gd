@@ -119,6 +119,7 @@ func test_player_entry_triggers_once_and_calls_goto_scene() -> void:
 	assert_str(sm.calls[0]["path"]).is_equal(HANGAR_SCENE)
 	assert_str(sm.calls[0]["params"]["target_spawn_id"]).is_equal(HANGAR_SPAWN)
 	assert_bool(sm.calls[0]["params"]["preserve_player_state"]).is_false()
+	assert_bool(sm.calls[0]["params"].get("wait_for_fade_out", false)).is_true()
 
 	# Segundo cuerpo (o el mismo otra vez): no re-dispara.
 	t._on_body_entered(player)
