@@ -56,6 +56,11 @@ func _enter_machine_bay() -> void:
 	# Fallback (nivel de test sin LightState): misma escena destino que el pedestal.
 	var sm = get_node_or_null("/root/SceneManager")
 	if sm != null and sm.has_method("goto_scene"):
-		sm.goto_scene("res://core_v2/levels/machines/MachineBay.tscn", {"wait_for_fade_out": true})
+		var params := {"preserve_player_state": false}
+		var airlock_manager = get_node_or_null("/root/AirlockManager")
+		if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+			airlock_manager.notify_transition("res://core_v2/levels/machines/MachineBay.tscn")
+			params["transition"] = "seamless"
+		sm.goto_scene("res://core_v2/levels/machines/MachineBay.tscn", params)
 	else:
 		printerr("[BayAirlockTrigger] sin LightState.enter_machine_bay ni SceneManager")

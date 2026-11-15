@@ -71,13 +71,26 @@ func _run_travel_sequence(destination_id: String, destination_name: String) -> v
 		}
 
 		var scene_path = _get_scene_path_for_destination(destination_id)
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	var seamless := airlock_manager != null and airlock_manager.has_method("notify_transition")
+	if seamless and scene_manager and scene_manager.has_method("request_scene_preload"):
+		scene_manager.request_scene_preload(scene_path)
 
 		# Start scene transition but wait for travel duration first
 		# In Godot 3, goto_scene usually handles the fade itself.
 		# To simulate travel duration, we can either call it after the timer,
 		# or pass it to the transition system if it supports it.
 		# Given current SceneManager, we'll wait then call goto_scene.
+		# La cápsula es el buffer físico: la puerta del pod queda cerrada durante el
+		# viaje y el swap ocurre detrás de ella. Si el AirlockManager está disponible,
+		# la transición es seamless (sin fade ni cartel); si no, se mantiene el fade.
 		yield(get_tree().create_timer(travel_duration), "timeout")
+		if seamless:
+			airlock_manager.notify_transition(scene_path)
+			params["transition"] = "seamless"
+			params["fade_out"] = 0.0
+			params["fade_in"] = 0.0
+			params["wait_for_fade_out"] = false
 		scene_manager.goto_scene(scene_path, params)
 
 	_is_traveling = false

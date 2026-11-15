@@ -138,6 +138,14 @@ func _activate(player: Node = null):
 			yield(wait_state, "completed")
 
 	var params := _build_transition_params(player)
+	if transition_style == "airlock":
+		var airlock_manager = get_node_or_null("/root/AirlockManager")
+		if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+			# El ciclo del airlock es el buffer físico: el jugador ya está dentro de la
+			# cámara sellada al llegar acá. Armar el lift seamless y pedir modo seamless:
+			# sin fade, sin cartel; el swap ocurre detrás de las puertas cerradas.
+			airlock_manager.notify_transition(target_scene)
+			params = _seamless_params(params)
 	if _preloaded_scene != null:
 		params["_preloaded_scene"] = _preloaded_scene
 	emit_signal("transition_requested", target_scene, params)
@@ -221,6 +229,17 @@ func _append_airlock_frame_state(state_data: Dictionary, player: Node) -> void:
 	if "velocity" in player:
 		var velocity: Vector3 = player.velocity
 		state_data["airlock_relative_velocity"] = source_transform.basis.xform_inv(velocity)
+
+# Devuelve una copia de params con los campos que convierten la transición en seamless
+# (sin fade, sin cartel). El lift del AirlockManager lo arma el llamador antes de invocar
+# esto; acá solo se ajusta el payload que consume SceneManager.
+func _seamless_params(params: Dictionary) -> Dictionary:
+	var out := params.duplicate(true)
+	out["transition"] = "seamless"
+	out["fade_out"] = 0.0
+	out["fade_in"] = 0.0
+	out.erase("show_loading")
+	return out
 
 func _scene_manager_transition_mode() -> String:
 	match transition_style:
