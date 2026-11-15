@@ -435,7 +435,7 @@ func _start_first_game_bgm() -> void:
 	if audio_mgr:
 		audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
 
-func _start_in_overlay(scene_path) -> void:
+func _start_in_overlay(scene_path: String) -> void:
 	var sm = get_node_or_null("/root/SceneManager")
 	if not sm:
 		return
@@ -461,7 +461,7 @@ func _start_in_overlay(scene_path) -> void:
 	}
 	if not sm.is_connected("scene_ready", self, "_on_arrival_hide_overlay"):
 		sm.connect("scene_ready", self, "_on_arrival_hide_overlay")
-	var state := sm.goto_scene(String(scene_path), params)
+	var state = sm.goto_scene(String(scene_path), params)
 	if state is GDScriptFunctionState:
 		yield(state, "completed")
 
