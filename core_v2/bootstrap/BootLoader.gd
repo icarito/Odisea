@@ -1,6 +1,11 @@
 extends Node
 
 export(String, FILE, "*.tscn,*.scn") var startup_scene_path := "res://scenes/Menu.tscn"
+# Menú dentro del mundo (2.º PR): si se setea, el boot arranca directo a esta escena de
+# mundo (fade desde negro, permitido) y el menú se instancia como overlay encima, sin
+# cambio de escena. Vacío = comportamiento legacy (boot → Menu.tscn como escena).
+export(String, FILE, "*.tscn,*.scn") var startup_world_scene_path := ""
+var _boot_target_path := ""
 export(String) var loading_message := "ODiSEA"
 export(String) var version_label := ""
 export(bool) var show_progress := true
@@ -141,11 +146,13 @@ func _start_boot_transition() -> void:
 		wait_frames -= 1
 		yield(get_tree(), "idle_frame")
 		scene_manager = get_node_or_null("/root/SceneManager")
-	_mark_trace("boot_loader_scene_request", {"path": startup_scene_path})
+	var world_mode := startup_world_scene_path.strip_edges() != ""
+	_boot_target_path = startup_world_scene_path if world_mode else startup_scene_path
+	_mark_trace("boot_loader_scene_request", {"path": _boot_target_path})
 	if scene_manager and scene_manager.has_method("goto_scene"):
 		if not scene_manager.is_connected("transition_failed", self, "_on_transition_failed"):
 			scene_manager.connect("transition_failed", self, "_on_transition_failed")
-		var state = scene_manager.goto_scene(startup_scene_path, {
+		var state = scene_manager.goto_scene(_boot_target_path, {
 			"transition": "loading",
 			"show_loading": true,
 			"show_progress": show_progress,
@@ -160,13 +167,15 @@ func _start_boot_transition() -> void:
 		if state is GDScriptFunctionState:
 			yield(state, "completed")
 		_notify_player_released()
+		if world_mode:
+			call_deferred("_attach_menu_overlay")
 		return
 
-	_mark_trace("boot_loader_scene_request_fallback", {"path": startup_scene_path})
+	_mark_trace("boot_loader_scene_request_fallback", {"path": _boot_target_path})
 	_start_direct_scene_fallback("scene_manager_missing")
 
 func _on_transition_failed(path: String, reason: String) -> void:
-	if String(path) != startup_scene_path:
+	if String(path) != _boot_target_path:
 		return
 	if _fallback_started:
 		return
@@ -176,6 +185,21 @@ func _on_transition_failed(path: String, reason: String) -> void:
 		"reason": reason
 	})
 	call_deferred("_start_direct_scene_fallback", reason)
+
+# Menú dentro del mundo: instancia el menú como overlay sobre la escena de mundo ya viva
+# (sin swap de escena). La escena debe haber terminado de cargar; se llama diferido.
+func _attach_menu_overlay() -> void:
+	var tree := get_tree()
+	if tree == null or not is_instance_valid(tree.current_scene):
+		return
+	var menu_packed := load("res://scenes/Menu.tscn")
+	if menu_packed == null:
+		printerr("[BootLoader] No se pudo cargar Menu.tscn para el overlay")
+		return
+	var menu = menu_packed.instance()
+	tree.current_scene.add_child(menu)
+	if menu.has_method("configure_world_overlay"):
+		menu.configure_world_overlay()
 
 func _start_direct_scene_fallback(reason: String = "") -> void:
 	if _fallback_started:

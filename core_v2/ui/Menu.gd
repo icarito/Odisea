@@ -24,6 +24,10 @@ onready var options_menu = $OptionsMenu
 onready var version_label = get_node_or_null("VersionLabel")
 var _continue_scene_path := ""
 var _new_game_confirm: ConfirmationDialog = null
+# Modo overlay sobre un mundo 3D vivo (menú dentro del mundo, 2.º PR). Cuando está activo,
+# el menú no se swapea como escena: Nueva partida entrega control en la escena actual y
+# Continuar a otra escena usa el mecanismo seamless con el mundo como buffer.
+var overlay_mode := false
 # estado -> [estilo dorado, estilo gris] del boton de control remoto
 var _remote_styles: Dictionary = {}
 
@@ -90,6 +94,17 @@ func _hold_full_resolution() -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm and sm.has_method("hold_full_resolution_ui"):
 		sm.hold_full_resolution_ui(self, is_visible_in_tree())
+
+# Habilita el modo overlay: el menú se dibuja sobre el mundo 3D vivo (sin forzar
+# resolución completa ni cambio de escena). Off por defecto: el comportamiento legacy
+# (menú como escena con fade/loading) queda intacto.
+func configure_world_overlay() -> void:
+	overlay_mode = true
+	if is_connected("visibility_changed", self, "_hold_full_resolution"):
+		disconnect("visibility_changed", self, "_hold_full_resolution")
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and sm.has_method("hold_full_resolution_ui"):
+		sm.hold_full_resolution_ui(self, false)
 
 func _on_fade_in_complete() -> void:
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -383,6 +398,9 @@ func _on_first_run_loading_requested(scene_path) -> void:
 	_begin_start_game(scene_path)
 
 func _begin_start_game(scene_path):
+	if overlay_mode:
+		_start_in_overlay(scene_path)
+		return
 	# La pantalla de carga NO se muestra aca. El overlay vive en layer 1000, encima
 	# del fundido del menu, y su texto y su barra son opacos: revelarlos en el frame
 	# del click los pega sobre el menu todavia visible durante los 0.85 s que dura el
@@ -416,6 +434,55 @@ func _start_first_game_bgm() -> void:
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr:
 		audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
+
+func _start_in_overlay(scene_path) -> void:
+	var sm = get_node_or_null("/root/SceneManager")
+	if not sm:
+		return
+	var tree := get_tree()
+	var current_path := ""
+	if tree and is_instance_valid(tree.current_scene):
+		current_path = String(tree.current_scene.filename)
+	# La escena ya está viva detrás del menú: Nueva partida al mundo actual (o Continuar al
+	# mismo escenario) => cerrar el overlay y entregar control, sin cambio de escena.
+	var same_world := scene_path == current_path
+	if not same_world and scene_path == FIRST_GAME_SCENE:
+		same_world = current_path.begins_with("res://core_v2/levels/RingHub")
+	if same_world:
+		_close_overlay_and_give_control()
+		return
+	# Continuar a otra escena: mecanismo seamless con el mundo actual como buffer.
+	var airlock_manager = get_node_or_null("/root/AirlockManager")
+	if airlock_manager != null and airlock_manager.has_method("notify_transition"):
+		airlock_manager.notify_transition(String(scene_path))
+	var params := {
+		"transition": "seamless",
+		"preserve_player_state": false
+	}
+	if not sm.is_connected("scene_ready", self, "_on_arrival_hide_overlay"):
+		sm.connect("scene_ready", self, "_on_arrival_hide_overlay")
+	var state := sm.goto_scene(String(scene_path), params)
+	if state is GDScriptFunctionState:
+		yield(state, "completed")
+
+func _on_arrival_hide_overlay(_path, _scene_root, _params) -> void:
+	_close_overlay_and_give_control()
+
+func _close_overlay_and_give_control() -> void:
+	visible = false
+	if fade_rect:
+		fade_rect.color.a = 0.0
+		fade_rect.visible = false
+	# Entregar control al jugador (hardware input on) y liberar el puntero virtual.
+	var session = get_node_or_null("/root/SessionManager")
+	if session and is_instance_valid(session.player):
+		if "input_provider" in session.player and is_instance_valid(session.player.input_provider):
+			session.player.input_provider.hardware_input_enabled = true
+	var vm = get_node_or_null("/root/VirtualMouse")
+	if vm and vm.has_method("set_pointer_released"):
+		vm.set_pointer_released(true)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _on_fade_out_complete(_object, _key, scene_path):
 	var scene_manager = get_node_or_null("/root/SceneManager")
