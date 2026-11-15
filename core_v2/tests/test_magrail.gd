@@ -267,3 +267,46 @@ func test_magrail_blocked_path_exits_at_obstacle() -> void:
 	assert_bool(player.movement_logic.is_on_rail).is_false()
 	assert_float(player.translation.z).is_greater(-8.0)
 	root.queue_free()
+
+
+func test_magrail_rigidbody_exception_restored_on_exit() -> void:
+	var root := _setup_root("RigidException")
+	_add_floor(root)
+
+	# 1. RigidBody sin excepcion previa: debe agregarse al enganchar y eliminarse al salir.
+	var rb := RigidBody.new()
+	rb.name = "MovingBeam"
+	rb.mode = RigidBody.MODE_KINEMATIC
+	var rb_shape := CollisionShape.new()
+	var rb_box := BoxShape.new()
+	rb_box.extents = Vector3(1.0, 0.2, 6.0)
+	rb_shape.shape = rb_box
+	rb.add_child(rb_shape)
+	rb.translation = Vector3(0, 0.2, -6)
+	root.add_child(rb)
+
+	var rail := _make_straight_rail(rb, Vector3(0, 0.4, 5), Vector3(0, 0.4, -5))
+	var player := _setup_player(root, Vector3(0, 0.7, -1.0))
+
+	for _i in range(5):
+		player.step(FIXED_DT, _make_input(-1.0, 0.0, false, true))
+	assert_bool(player.movement_logic.is_on_rail).is_true()
+	assert_bool(player in rb.get_collision_exceptions()).is_true()
+
+	# Saltar del riel: la excepcion agregada debe restaurarse.
+	player.step(FIXED_DT, _make_input(-1.0, 0.0, true, true))
+	assert_bool(player.movement_logic.is_on_rail).is_false()
+	assert_bool(player in rb.get_collision_exceptions()).is_false()
+
+	# 2. Excepcion preexistente: no debe ser eliminada al salir del riel.
+	var rb_pre := RigidBody.new()
+	rb_pre.name = "PreExistingBeam"
+	rb_pre.mode = RigidBody.MODE_KINEMATIC
+	rb_pre.translation = Vector3(10, 0.2, -6)
+	root.add_child(rb_pre)
+	rb_pre.add_collision_exception_with(player)
+	var rail_pre := _make_straight_rail(rb_pre, Vector3(0, 0.4, 5), Vector3(0, 0.4, -5))
+	rail_pre.register_player_exception(player)
+	rail_pre.unregister_player_exception(player)
+	assert_bool(player in rb_pre.get_collision_exceptions()).is_true()
+	root.queue_free()

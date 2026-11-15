@@ -570,6 +570,10 @@ func full_reset() -> void:
 	rotation = Vector3.ZERO
 	
 	if is_instance_valid(movement_logic):
+		if movement_logic.rail_node_path != "":
+			var prev_rail := get_node_or_null(movement_logic.rail_node_path)
+			if is_instance_valid(prev_rail) and prev_rail.has_method("unregister_player_exception"):
+				prev_rail.unregister_player_exception(self)
 		movement_logic.horizontal_velocity = Vector3.ZERO
 		movement_logic.wish_direction = Vector3.ZERO
 		movement_logic._roll_timer = 0.0
@@ -3332,6 +3336,8 @@ func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_
 			var move_dir: Vector3 = delta_pos.normalized() if delta_pos.length_squared() > 0.000001 else res["tangent"]
 			if col.normal.dot(move_dir) < -0.25 or col.remainder.length() > 0.02:
 				movement_logic.exit_rail()
+				if is_instance_valid(active_rail) and active_rail.has_method("unregister_player_exception"):
+					active_rail.unregister_player_exception(self)
 				velocity = res["velocity"].slide(col.normal)
 				movement_logic.horizontal_velocity = Vector3(velocity.x, 0.0, velocity.z)
 				movement_logic._ballistic_ticks = 0
@@ -3348,6 +3354,8 @@ func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_
 			jump_logic.set_internal_velocity(0.0)
 		return true
 
+	if is_instance_valid(active_rail) and active_rail.has_method("unregister_player_exception"):
+		active_rail.unregister_player_exception(self)
 	var launch_v: Vector3 = res.get("launch_velocity", Vector3.ZERO)
 	var reason: String = str(res.get("exit_reason", ""))
 	if reason == "jump":

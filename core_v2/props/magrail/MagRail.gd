@@ -28,6 +28,7 @@ var _has_prev_transform := false
 var _attached_body: Node = null
 var _platform_velocity_cache := Vector3.ZERO
 var _greybox_mesh_node: MeshInstance = null
+var _added_exception_players := {}
 
 
 func _ready() -> void:
@@ -64,12 +65,42 @@ func _resolve_attached_body() -> void:
 		_attached_body = p
 
 
+func _exit_tree() -> void:
+	for pid in _added_exception_players.keys():
+		var entry: Dictionary = _added_exception_players[pid]
+		var body: Node = entry.get("body", null)
+		var player: Node = entry.get("player", null)
+		if is_instance_valid(body) and is_instance_valid(player) and body is RigidBody:
+			(body as RigidBody).remove_collision_exception_with(player)
+	_added_exception_players.clear()
+
+
 func register_player_exception(player: Node) -> void:
 	if _attached_body == null or not is_instance_valid(_attached_body):
 		_resolve_attached_body()
 	# Contrato machine-launch.md: excepcion unilateral desde la pieza rigida al jugador.
 	if _attached_body is RigidBody and is_instance_valid(player) and player is PhysicsBody:
-		(_attached_body as RigidBody).add_collision_exception_with(player)
+		var rb := _attached_body as RigidBody
+		if player in rb.get_collision_exceptions():
+			return
+		rb.add_collision_exception_with(player)
+		_added_exception_players[player.get_instance_id()] = {
+			"body": rb,
+			"player": player
+		}
+
+
+func unregister_player_exception(player: Node) -> void:
+	if not is_instance_valid(player):
+		return
+	var pid: int = player.get_instance_id()
+	if not _added_exception_players.has(pid):
+		return
+	var entry: Dictionary = _added_exception_players[pid]
+	_added_exception_players.erase(pid)
+	var body: Node = entry.get("body", null)
+	if is_instance_valid(body) and body is RigidBody:
+		(body as RigidBody).remove_collision_exception_with(player)
 
 
 func get_platform_velocity_at(world_pos: Vector3, dt: float) -> Vector3:
