@@ -274,6 +274,40 @@ static func step_ballistic(origin: Vector3, velocity: Vector3, gravity: float, d
 		ray_end += motion.normalized() * radius
 	return {"velocity": v, "motion": motion, "ray_end": ray_end}
 
+
+# Equivalente al barrido de esfera de move_and_collide para quien predice el disparo
+# (MultiToolCrosshair): cast_motion para el barrido y get_rest_info para el PUNTO DE
+# CONTACTO en la superficie (no el centro de la esfera). Compartido con el retículo para
+# no reimplementar la consulta. Devuelve {} si el paso no impacta.
+static func sweep_sphere(space_state, origin: Vector3, motion: Vector3, radius: float, collision_mask: int, exclude_rids: Array = []) -> Dictionary:
+	if motion.length_squared() < 0.000001:
+		return {}
+	var sphere := SphereShape.new()
+	sphere.radius = radius
+	var q := PhysicsShapeQueryParameters.new()
+	q.set_shape(sphere)
+	q.set_collision_mask(collision_mask)
+	q.set_collide_with_areas(false)
+	q.set_collide_with_bodies(true)
+	if not exclude_rids.empty():
+		q.set_exclude(exclude_rids)
+	q.set_transform(Transform(Basis(), origin))
+	var frac: Array = space_state.cast_motion(q, motion)
+	if frac.size() < 2 or float(frac[1]) >= 1.0:
+		return {}
+	var unsafe: float = float(frac[1])
+	var center: Vector3 = origin + motion * unsafe
+	# get_rest_info necesita la forma tocando el obstáculo: se avanza un epsilon.
+	q.set_transform(Transform(Basis(), center + motion.normalized() * 0.001))
+	var rest: Dictionary = space_state.get_rest_info(q)
+	if rest.empty():
+		return {"point": center, "normal": Vector3.UP, "collider": null}
+	return {
+		"point": rest.get("point", center),
+		"normal": rest.get("normal", Vector3.UP),
+		"collider": rest.get("collider", null),
+	}
+
 func get_snapshot() -> Dictionary:
 	return {
 		"p": [global_transform.origin.x, global_transform.origin.y, global_transform.origin.z],
