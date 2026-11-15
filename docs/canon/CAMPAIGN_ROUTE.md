@@ -20,10 +20,10 @@ el mecanismo de transición, el buffer físico de cada tramo y los flags de conf
    - **Transición:** `wait_for_fade_out: true` (deuda documentada en `seamless-transitions.md` §4 hasta contar con buffer de llegada equivalente).
 
 3. **`Dome_Intro_Hangar.tscn` → `RingHub_Level.tscn`** *(punto de inserción MagRail)*
-   - **Productor actual:** `Exit/Airlock_Exit/AirlockZoneV2` en `Dome_Intro_Hangar.tscn` (`target_scene = "res://core_v2/levels/RingHub_Level.tscn"`, `target_spawn_id = "from_dome_intro_hangar"`).
-   - **Buffer físico:** cámara de esclusa `AirlockChamber` (puerta doble) + `AirlockManager.notify_transition`.
+   - **Productor actual:** `Exit/Airlock_Exit/AirlockZoneV2` en `Dome_Intro_Hangar.tscn` (`target_scene = "res://core_v2/levels/RingHub_Level.tscn"`, `target_spawn_id = "from_dome_intro_hangar"`, `target_airlock_path = NodePath("Hub/Airlock_FromHangar")`).
+   - **Buffer físico:** cámara de esclusa `AirlockChamber` (puerta doble en origen y destino `Hub/Airlock_FromHangar`) + `AirlockManager.notify_transition` + `_pre_position_at_destination` desde el frame 0.
    - **Transición:** `"transition": "seamless"` (sin fade ni corte de BGM).
-   - **Llegada:** `Hub/Spawn_FromHangar` (`spawn_id = "from_dome_intro_hangar"`). `RingHubWakeup` detecta la llegada por spawn y omite el encierro en `Criopod_Vert`.
+   - **Llegada:** `Hub/Airlock_FromHangar` (y respaldo `Hub/Spawn_FromHangar`, `spawn_id = "from_dome_intro_hangar"`). `RingHubWakeup` detecta la llegada por spawn y omite el encierro en `Criopod_Vert`.
    - **Punto de inserción futuro (pista D / MagRail):** `Exit/Airlock_Exit` de `Dome_Intro_Hangar.tscn` se reemplazará/enlazará con el tramo MagRail por el brazo centrífugo antes de desembocar en `RingHub_Level.tscn`.
 
 4. **`RingHub_Level.tscn` → `MachineBay.tscn`**

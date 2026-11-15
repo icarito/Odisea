@@ -328,7 +328,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 21.9 )
 [node name="AirlockZoneV2" parent="Exit/Airlock_Exit" index="14"]
 target_scene = "res://core_v2/levels/RingHub_Level.tscn"
 target_spawn_id = "from_dome_intro_hangar"
-target_airlock_path = NodePath("")
+target_airlock_path = NodePath("Hub/Airlock_FromHangar")
 zone_dir = Vector3( 0, 0, 1 )
 
 [node name="ExitBeacon" parent="Exit" instance=ExtResource( 11 )]

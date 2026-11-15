@@ -152,6 +152,7 @@ func _discover_edges_for_scene(scene_path: String) -> Array:
 		if "target_scene" in n:
 			var t_scene := _as_scene_path(n.get("target_scene"))
 			var t_spawn := _as_str(n.get("target_spawn_id")) if "target_spawn_id" in n else ""
+			var t_airlock := _as_str(n.get("target_airlock_path")) if "target_airlock_path" in n else ""
 			if scr == AirlockZoneScript or n is AirlockZoneScript:
 				var dome_id := _as_str(n.get("dome_id")) if "dome_id" in n else ""
 				var dome_registry := get_node_or_null("/root/DomeRegistry")
@@ -164,6 +165,7 @@ func _discover_edges_for_scene(scene_path: String) -> Array:
 							"from": scene_path,
 							"to": interior,
 							"spawn_id": ext_spawn,
+							"airlock_path": "",
 							"via": "%s(DomeRegistry:%s)" % [str(n.name), dome_id],
 						})
 			if t_scene != "":
@@ -171,6 +173,7 @@ func _discover_edges_for_scene(scene_path: String) -> Array:
 					"from": scene_path,
 					"to": t_scene,
 					"spawn_id": t_spawn,
+					"airlock_path": t_airlock,
 					"via": str(n.name),
 				})
 			continue
@@ -238,24 +241,33 @@ func test_campaign_route_reachability_and_valid_targets() -> void:
 			all_edges.append(edge)
 			var target := String(edge["to"])
 			var spawn_id := String(edge["spawn_id"])
+			var airlock_path := String(edge.get("airlock_path", ""))
 
 			# Cada target_scene descubierto en la ruta debe existir en disco.
 			assert_bool(ResourceLoader.exists(target)).override_failure_message(
 				"target_scene inexistente '%s' desde '%s' via '%s'" % [target, current, edge["via"]]
 			).is_true()
 
-			# Si declara target_spawn_id, debe existir un SpawnPointV2 en el destino.
-			if spawn_id != "":
+			# Si declara target_spawn_id o target_airlock_path, deben existir en la escena destino.
+			if spawn_id != "" or airlock_path != "":
 				var target_packed := load(target) as PackedScene
 				assert_object(target_packed).is_not_null()
 				var target_root := target_packed.instance()
-				var spawns := _collect_spawn_ids(target_root)
+				if spawn_id != "":
+					var spawns := _collect_spawn_ids(target_root)
+					assert_array(spawns).override_failure_message(
+						"spawn_id '%s' no encontrado en '%s' (desde '%s' via '%s'). Spawns: %s" % [
+							spawn_id, target, current, edge["via"], str(spawns)
+						]
+					).contains([spawn_id])
+				if airlock_path != "":
+					var target_airlock := target_root.get_node_or_null(NodePath(airlock_path))
+					assert_object(target_airlock).override_failure_message(
+						"target_airlock_path '%s' no encontrado en '%s' (desde '%s' via '%s')" % [
+							airlock_path, target, current, edge["via"]
+						]
+					).is_not_null()
 				target_root.free()
-				assert_array(spawns).override_failure_message(
-					"spawn_id '%s' no encontrado en '%s' (desde '%s' via '%s'). Spawns: %s" % [
-						spawn_id, target, current, edge["via"], str(spawns)
-					]
-				).contains([spawn_id])
 
 			if not visited.has(target):
 				queue.append(target)
@@ -271,3 +283,41 @@ func test_campaign_route_reachability_and_valid_targets() -> void:
 	# Verificar que todas las escenas del slice completo existen (incluyendo las cableadas por pistas paralelas).
 	for slice_scene in SLICE_FULL_LINE_SCENES:
 		assert_bool(ResourceLoader.exists(slice_scene)).is_true()
+
+
+func test_hangar_to_ringhub_seamless_preposition_uses_matching_airlock() -> void:
+	var hangar_packed := load(DOME_HANGAR) as PackedScene
+	var hub_packed := load(RING_HUB) as PackedScene
+	assert_object(hangar_packed).is_not_null()
+	assert_object(hub_packed).is_not_null()
+
+	var hangar: Node = auto_free(hangar_packed.instance())
+	var hub: Node = auto_free(hub_packed.instance())
+	if "open_pod_terminal_on_start" in hub:
+		hub.set("open_pod_terminal_on_start", false)
+	add_child(hangar)
+	add_child(hub)
+	yield(get_tree(), "idle_frame")
+
+	var exit_zone := hangar.get_node_or_null("Exit/Airlock_Exit/AirlockZoneV2") as Spatial
+	var dest_airlock := hub.get_node_or_null("Hub/Airlock_FromHangar") as Spatial
+	assert_object(exit_zone).is_not_null()
+	assert_object(dest_airlock).is_not_null()
+	assert_str(String(exit_zone.get("target_airlock_path"))).is_equal("Hub/Airlock_FromHangar")
+
+	var airlock_mgr := get_node_or_null("/root/AirlockManager")
+	assert_object(airlock_mgr).is_not_null()
+	var dummy_player: Spatial = auto_free(Spatial.new())
+	add_child(dummy_player)
+	dummy_player.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, 1.15, 21.9))
+
+	var params := {
+		"transition": "seamless",
+		"state_data": {
+			"airlock_relative_transform": Transform(Basis.IDENTITY, Vector3(0.0, 0.0, 0.5)),
+			"target_airlock_path": String(exit_zone.get("target_airlock_path")),
+		}
+	}
+	airlock_mgr._pre_position_at_destination(dummy_player, hub, params)
+	var expected_pos: Vector3 = dest_airlock.global_transform.xform(Vector3(0.0, 0.0, 0.5))
+	assert_vector3(dummy_player.global_transform.origin).is_equal_approx(expected_pos, Vector3(0.01, 0.01, 0.01))
