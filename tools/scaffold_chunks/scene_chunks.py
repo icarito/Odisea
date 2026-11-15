@@ -102,17 +102,6 @@ def ends(n):
     return (x, y - half, z0), (x, y + half, z1)
 
 
-def neighbour_on_side(n, nodes, sign):
-    z0, z1 = z_range(n)
-    for o in nodes:
-        if o is n or abs(o["position"][0] - (n["position"][0] + sign * W)) > 0.1:
-            continue
-        oz0, oz1 = z_range(o)
-        if min(z1, oz1) - max(z0, oz0) > 0.2:
-            return True
-    return False
-
-
 def continues(n, nodes, z_end):
     """Hay otra plataforma a la misma altura pegada a este extremo (no hace falta franja)."""
     for o in nodes:
@@ -134,7 +123,7 @@ def deck(n, nodes):
     for sign in (-1, 1):
         off = sign * (sx / 2.0 - FRAME / 2.0)
         prism(f"Frame_{nid}_{sign}", p0, p1, FRAME, 0.24, "dark", dx=off, dy=-0.12)
-        if neighbour_on_side(n, nodes, sign):
+        if sign not in n.get("rails", [-1, 1]):
             continue
         rail_dx = sign * (sx / 2.0 - POST / 2.0)
         prism(f"Rail_{nid}_{sign}", p0, p1, POST, POST, "dark", dx=rail_dx, dy=RAIL)
@@ -212,13 +201,10 @@ def blockers(c):
         x, y, z = b["position"]
         sx, sy, sz = b["size"]
         if b["cuttable"]:
-            box("Dyn_Bulkhead", (x, y, z), (sx - 0.2, sy - 0.2, sz), "light")
+            # El panel lo pone el prop LaserGate en el juego; aqui solo va el marco.
             for s in (-1, 1):
                 box(f"BulkheadJamb_{s}", (x + s * (sx / 2.0 - 0.06), y, z), (0.12, sy, sz + 0.1), "yellow")
             box("BulkheadLintel", (x, y + sy / 2.0 - 0.06, z), (sx, 0.12, sz + 0.1), "yellow")
-            for s in (-1, 1):
-                prism(f"Dyn_Brace_{s}", (x - s * sx / 2.2, y - sy / 2.2, z - sz), (x + s * sx / 2.2, y + sy / 2.2, z - sz),
-                      0.1, 0.1, "yellow")
         else:
             box("GlooWall", (x, y, z), (sx, sy, sz), "light")
             for i in range(1, int(sy)):
@@ -306,7 +292,7 @@ def build():
         x, y, z = n["position"]
         seg = n["size"][2] / len(profile)
         parts = [{"id": f"{n['id']}{i}", "position": [x, y, z - n["size"][2] / 2.0 + seg * (i + 0.5)],
-                  "size": [n["size"][0], n["size"][1], seg]} for i in range(len(profile))]
+                  "size": [n["size"][0], n["size"][1], seg], "rails": n["rails"]} for i in range(len(profile))]
         for part, deg in zip(parts, profile):
             ROLL = (math.radians(deg), x, y)
             deck(part, parts)

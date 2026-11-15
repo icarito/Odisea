@@ -14,6 +14,9 @@ export(float) var cut_time := 2.5
 export(float) var cool_rate := 0.4
 # Incremento por `laser_hit()` (el rayo llama una vez por frame de física a 60 Hz).
 const HIT_STEP := 1.0 / 60.0
+# Tamano del panel (x = espesor). El default es el de la bahia vertical; los chunks de
+# andamio lo ajustan al ancho de la pasarela y a una altura que no se pueda saltar.
+export(Vector3) var panel_size := Vector3(0.25, 3.0, 2.6)
 export(Color) var panel_color := Color(0.35, 0.4, 0.5, 1.0)
 export(Color) var heat_color := Color(1.0, 0.35, 0.12, 1.0)
 
@@ -40,14 +43,14 @@ func _build_panel() -> void:
 
 	_panel = MeshInstance.new()
 	var box := CubeMesh.new()
-	box.size = Vector3(0.25, 3.0, 2.6)
+	box.size = panel_size
 	_panel.mesh = box
 	_panel.material_override = _panel_mat
 	add_child(_panel)
 
 	_collision = CollisionShape.new()
 	var colbox := BoxShape.new()
-	colbox.extents = Vector3(0.18, 1.5, 1.3)
+	colbox.extents = Vector3(panel_size.x * 0.5 + 0.055, panel_size.y * 0.5, panel_size.z * 0.5)
 	_collision.shape = colbox
 	add_child(_collision)
 

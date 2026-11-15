@@ -16,6 +16,8 @@ extends SceneTree
 #
 # Run: tools/scaffold_chunks/build.sh   (o directo: godot --path . --no-window -s tools/bake_scaffold_chunks.gd)
 
+const LaserGateScript := preload("res://core_v2/levels/bay_vertical/LaserGate.gd")
+const GlooSpanScript := preload("res://core_v2/levels/bay_vertical/GlooSpan.gd")
 const Registry := preload("res://core_v2/systems/scaffold/ScaffoldChunkRegistry.gd")
 const Exporter := preload("res://tools/scaffold_chunks/export_registry.gd")
 const SRC_DIR := "res://tools/scaffold_chunks/glb/"
@@ -90,6 +92,9 @@ func _bake(id: String, chunk: Dictionary) -> bool:
 		var profile: Array = n.get("roll_profile", [])
 		if profile.empty():
 			_add_box(root, body, "Col_" + str(n["id"]), n["position"], n["size"], float(n.get("rise", 0.0)), true)
+			for side in n["rails"]:
+				_add_rail(root, body, "Rail_%s_%s" % [str(n["id"]), "R" if side > 0 else "L"],
+					n["position"], n["size"], float(n.get("rise", 0.0)), 0.0, int(side))
 			continue
 		# Pasarela peraltada: un segmento por entrada del perfil, girado sobre la linea central.
 		var seg_len: float = n["size"].z / float(profile.size())
@@ -97,11 +102,34 @@ func _bake(id: String, chunk: Dictionary) -> bool:
 			var z: float = n["position"].z - n["size"].z * 0.5 + seg_len * (float(i) + 0.5)
 			_add_box(root, body, "Col_%s_%d" % [str(n["id"]), i], Vector3(n["position"].x, n["position"].y, z),
 				Vector3(n["size"].x, n["size"].y, seg_len), 0.0, true, float(profile[i]))
+			for side in n["rails"]:
+				_add_rail(root, body, "Rail_%s_%d_%s" % [str(n["id"]), i, "R" if side > 0 else "L"],
+					Vector3(n["position"].x, n["position"].y, z), Vector3(n["size"].x, n["size"].y, seg_len),
+					0.0, float(profile[i]), int(side))
 	for b in chunk["blockers"]:
+		if bool(b["cuttable"]):
+			# Mamparo cortable = LaserGate real: dibuja su panel, lo calienta con el laser
+			# y al cortarse libera el paso. Su eje fino es X: se gira para que cierre +Z.
+			var gate = LaserGateScript.new()
+			gate.name = "Blocker_" + str(b["id"])
+			gate.panel_size = Vector3(b["size"].z, b["size"].y, b["size"].x)
+			gate.transform = Transform(Basis(Vector3.UP, PI * 0.5), b["position"])
+			_adopt(root, gate)
+			continue
 		var blocker := StaticBody.new()
 		blocker.name = "Blocker_" + str(b["id"])
 		_adopt(root, blocker)
 		_add_box(root, blocker, "Col", b["position"], b["size"], 0.0, false)
+	for sp in chunk["spans"]:
+		var span = GlooSpanScript.new()
+		span.name = "Span_" + str(sp["id"])
+		span.span_is_local = true
+		span.span_from = sp["from"]
+		span.span_to = sp["to"]
+		span.span_height = 0.0
+		span.bridge_width = Registry.WALKWAY_WIDTH - 0.3
+		span.required_blobs = int(sp["required_blobs"])
+		_adopt(root, span)
 
 	var sockets := {"In_A": {"type": "A", "position": Vector3.ZERO}}
 	sockets["Out_" + str(chunk["out_socket"])] = {"type": chunk["out_socket"],
@@ -140,6 +168,22 @@ func _add_box(root: Node, body: Node, shape_name: String, position: Vector3, siz
 	col.shape = box
 	var origin: Vector3 = position - basis.y * (thickness * 0.5) if is_deck else position
 	col.transform = Transform(basis, origin)
+	body.add_child(col)
+	col.owner = root
+
+
+# Baranda: caja fina sobre el costado `side` de la plataforma, de RAIL_HEIGHT de alto. Sigue
+# la pendiente de una rampa y el peralte de un segmento.
+func _add_rail(root: Node, body: Node, shape_name: String, position: Vector3, size: Vector3, rise: float,
+		roll_deg: float, side: int) -> void:
+	var col := CollisionShape.new()
+	col.name = shape_name
+	var box := BoxShape.new()
+	var basis := Basis(Vector3(0.0, 0.0, 1.0), deg2rad(roll_deg)) * Basis(Vector3.RIGHT, -atan2(rise, size.z))
+	box.extents = Vector3(Registry.RAIL_THICKNESS, Registry.RAIL_HEIGHT, Vector2(size.z, rise).length()) * 0.5
+	col.shape = box
+	var offset := Vector3(float(side) * (size.x - Registry.RAIL_THICKNESS) * 0.5, Registry.RAIL_HEIGHT * 0.5, 0.0)
+	col.transform = Transform(basis, position + basis.xform(offset))
 	body.add_child(col)
 	col.owner = root
 

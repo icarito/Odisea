@@ -18,6 +18,7 @@ const Validator := preload("res://core_v2/systems/flow/FlowRouteValidator.gd")
 const CHUNK_LENGTH := 12.0
 const WALKWAY_WIDTH := 2.5
 const RAIL_HEIGHT := 0.6
+const RAIL_THICKNESS := 0.1
 const D_NOM_RATIO := 0.70        # hueco de la linea principal
 const H_NOM_RATIO := 0.75        # desnivel de la linea principal
 const TOOL_RATIO := 1.20         # por encima: imposible a pie
@@ -68,11 +69,12 @@ static func _edge(from: String, to: String, gap: float, dh: float = 0.0, extra: 
 
 # Grafo local de un chunk: {nodes, edges, in, out, dy, bank_deg, side_outs, out_socket, blockers}.
 # blockers: cajas que cierran un atajo de herramienta (pared de gloo, mamparo cortable).
+# spans: huecos horizontales que se puentean con gloo.
 static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 	var l := CHUNK_LENGTH
 	var d: float = d_max(m)
 	var c := {"id": id, "nodes": [], "edges": [], "in": "a", "out": "a", "dy": 0.0, "bank_deg": 0.0, "side_outs": {},
-		"out_socket": "A", "blockers": []}
+		"out_socket": "A", "blockers": [], "spans": []}
 	var side := WALKWAY_WIDTH  # pasarela auxiliar pegada a la principal
 	match id:
 		"scaffold_sprint_chute":
@@ -107,6 +109,7 @@ static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 			var wall_z: float = l - LANDING
 			var ramp: Dictionary = _deck("ramp", 1.0, 8.0, rise * 0.5, side)
 			ramp["rise"] = rise  # inclinada: sube `rise` de z0 a z1 (position.y es el punto medio)
+			ramp["open_sides"] = [-1]  # el costado interior da a la pasarela, no al vacio
 			# ramp_foot: se entra a la rampa por su pie, no de costado (de costado es una pared).
 			c["nodes"] = [_deck("a", 0.0, wall_z), _deck("ramp_foot", 0.0, 1.0, 0.0, side), ramp,
 				_deck("ramp_top", 8.0, l, rise, side), _deck("b", wall_z, l, rise)]
@@ -123,6 +126,9 @@ static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 				_deck("s2", 7.0, 10.5, 0.0, side), _deck("b", l - 1.0, l)]
 			c["edges"] = [_edge("a", "s1", 0.0), _edge("s1", "s2", 2.0), _edge("s2", "b", 0.0),
 				_edge("a", "b", l - 2.0, 0.0, {"requires_tool": true, "tags": ["Catenary"]})]
+			# El hueco se puede puentear con gloo (GlooSpan); el cable queda como decorado.
+			c["spans"] = [{"id": "gloo_bridge", "from": Vector3(0.0, 0.0, 1.0),
+				"to": Vector3(0.0, 0.0, l - 1.0), "required_blobs": 3}]
 			c["out"] = "b"
 		"scaffold_laser_choke":
 			c["nodes"] = [_deck("a", 0.0, 6.0), _deck("s", 3.0, 9.0, 0.0, side), _deck("b", 6.0, l)]
@@ -144,7 +150,29 @@ static func build_chunk(id: String, m: Dictionary) -> Dictionary:
 			c["side_outs"] = {"S": "station"}
 		_:
 			return {}
+	_assign_rails(c)
 	return c
+
+
+# Barandas: cada plataforma lleva baranda en sus dos costados (-1 = -X, +1 = +X) salvo hacia
+# donde la ruta cruza de costado (una arista la une con una plataforma de ese lado). Es dato
+# del registro porque la baranda tiene colision: malla y fisica salen de aqui.
+static func _assign_rails(c: Dictionary) -> void:
+	var by_id := {}
+	for n in c["nodes"]:
+		by_id[n["id"]] = n
+		n["rails"] = [-1, 1]
+		for open_side in n.get("open_sides", []):
+			n["rails"].erase(open_side)
+	for e in c["edges"]:
+		var a: Dictionary = by_id[e["from"]]
+		var b: Dictionary = by_id[e["to"]]
+		var dx: float = b["position"].x - a["position"].x
+		if abs(dx) < 0.1:
+			continue
+		var side: int = 1 if dx > 0.0 else -1
+		a["rails"].erase(side)
+		b["rails"].erase(-side)
 
 
 # Secuencia determinista de ids. LCG propio: nada de randf/randomize (AGENTS §1.2).

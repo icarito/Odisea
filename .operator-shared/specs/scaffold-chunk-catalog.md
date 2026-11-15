@@ -29,6 +29,10 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 - En la ruta principal ningún hueco supera `0.70·D(Δh)` ni ningún desnivel `0.75·H_max`,
   a 60 Hz y a 30 Hz.
 - Los sockets laterales `S` (estación) y `R` (riel) nunca están en la ruta principal.
+- **Las barandas son dato del registro** (`rails` por nodo) porque tienen colisión: malla y
+  caja salen de ahí. Toda plataforma lleva baranda en sus dos costados salvo hacia donde la
+  ruta cruza de costado (una arista la une con una plataforma de ese lado) o donde el nodo
+  declara `open_sides`.
 - Un diorama siempre lleva pasarela peatonal `A → A` de paso.
 - Un atajo de herramienta es **físicamente imposible a pie**: toda caja que lo cierra
   (`blockers`) mide `1.20·H_max` de alto. Un mamparo que se puede saltar no exige láser.
@@ -63,6 +67,10 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
   `SteelGratePlatform` (rejilla con alpha scissor, triplanar local porque las cajas no traen
   UV a escala). Ningún metal por encima de ~0.6 de `metallic`: sin cielo ni ReflectionProbe
   sale negro.
+- **Props reales:** un `blocker` con `cuttable` se hornea como `LaserGate` (dueño de su
+  panel: el chunk solo trae el marco); un `span` del registro se hornea como `GlooSpan` con
+  `span_is_local`. La pared de `gloo_rise` no lleva prop: los blobs de gloo curados ya
+  hacen de escalera sobre una pared estática. `GlooSpan` solo tiende puentes horizontales.
 - El pórtico de junta va solo en la entrada (`z = 0`) de cada chunk y es solo visual.
 - Cada escena: `Mesh`, `Dyn` (si hay), `Collision/Col_<nodo>`, `Blocker_<id>/Col`,
   `Socket_In_A`, `Socket_Out_<tipo>` y metadata `sockets`.
@@ -73,8 +81,8 @@ Contrato del catálogo maestro de 10 chunks y de su ensamblado por semilla
 
 ## Pendiente
 
-- Los `Dyn_*` y los `Blocker_*` cortables son malla y caja estáticas: falta cablearlos a los
-  props reales (`LaserGate`, `GlooSpan`, cuerda, carro).
+- Cable, carro y grúa (`Dyn_*`) siguen siendo malla estática: falta cablear la cuerda y el
+  carro reales.
 - Consumidor en runtime (streaming de un tramo por semilla dentro de un nivel).
 
 ## Proyección orbital

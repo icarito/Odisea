@@ -42,7 +42,13 @@ func test_every_chunk_scene_matches_the_registry() -> void:
 					assert_float(abs(seg_top.y - n["position"].y)).is_less(TOL)
 					assert_float(abs(seg_top.x - n["position"].x)).is_less(TOL)
 					assert_float(abs(rad2deg(seg.transform.basis.get_euler().z) - float(profile[i]))).is_less(0.1)
+					for side in n["rails"]:
+						assert_object(scene.get_node_or_null("Collision/Rail_%s_%d_%s" % [n["id"], i, "R" if side > 0 else "L"])).is_not_null()
 				continue
+			# Toda baranda del registro tiene su caja de colision.
+			for side in n["rails"]:
+				var rail_name := "Collision/Rail_%s_%s" % [n["id"], "R" if side > 0 else "L"]
+				assert_object(scene.get_node_or_null(rail_name)).override_failure_message("%s: falta %s" % [id, rail_name]).is_not_null()
 			var col: CollisionShape = scene.get_node_or_null("Collision/Col_" + str(n["id"]))
 			assert_object(col).override_failure_message("%s: falta Col_%s" % [id, n["id"]]).is_not_null()
 			if col == null:
@@ -58,7 +64,16 @@ func test_every_chunk_scene_matches_the_registry() -> void:
 			var run: Vector3 = col.transform.basis.z * box.extents.z * 2.0
 			assert_float(abs(run.y - rise)).is_less(TOL)
 		for b in chunk["blockers"]:
-			assert_object(scene.get_node_or_null("Blocker_%s/Col" % b["id"])).is_not_null()
+			var blocker: Node = scene.get_node_or_null("Blocker_%s" % b["id"])
+			assert_object(blocker).override_failure_message("%s: falta Blocker_%s" % [id, b["id"]]).is_not_null()
+			# Un mamparo cortable es un LaserGate real; el resto, una caja estatica.
+			if blocker != null and bool(b["cuttable"]):
+				assert_bool(blocker.has_method("laser_hit")).is_true()
+			elif blocker != null:
+				assert_object(blocker.get_node_or_null("Col")).is_not_null()
+		for sp in chunk["spans"]:
+			var span: Node = scene.get_node_or_null("Span_%s" % sp["id"])
+			assert_object(span).override_failure_message("%s: falta Span_%s" % [id, sp["id"]]).is_not_null()
 
 		# Sockets: marcador + metadata, con la salida principal desplazada (dy) a 12 m.
 		var sockets: Dictionary = scene.get_meta("sockets")
