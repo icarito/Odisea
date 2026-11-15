@@ -34,8 +34,10 @@ const REQUIRED_REACHABLE_SCENES := [
 	MACHINE_BAY,
 ]
 
-# TODO(src-61, src-57): mover BayVertical y la salida por la cima a REQUIRED_REACHABLE_SCENES
-# cuando las pistas paralelas cableen MachineBay -> BayVertical -> cima.
+# TODO(src-61): mover BayVertical a REQUIRED_REACHABLE_SCENES cuando su pista
+# cablee MachineBay -> BayVertical. La salida por la CIMA (BayVertical -> RingHub,
+# seamless, con spawn real y marcador de slice completado) ya está cableada por
+# src-57 y cubierta por `test_bay_vertical_summit_exit_closes_slice`.
 const SLICE_FULL_LINE_SCENES := [
 	DOME_INTRO,
 	DOME_HANGAR,
@@ -221,6 +223,42 @@ func test_ringhub_debug_pedestals_disabled_by_default() -> void:
 	assert_object(ped_vert).is_not_null()
 	assert_bool(ped_bay.visible).is_false()
 	assert_bool(ped_vert.visible).is_false()
+
+
+# Salida por la CIMA (fin del slice): buffer físico seamless BayVertical -> RingHub
+# con spawn REAL y marcador de slice completado. Cableado por src-57 (pista E).
+func test_bay_vertical_summit_exit_closes_slice() -> void:
+	var packed := load(BAY_VERTICAL) as PackedScene
+	assert_object(packed).is_not_null()
+	var bay: Node = auto_free(packed.instance())
+	add_child(bay)
+	yield(get_tree(), "idle_frame")
+
+	# El buffer de la cima es el que cierra el slice.
+	var exit_buf: Node = bay.get_node_or_null("ExitBuffer")
+	assert_object(exit_buf).is_not_null()
+	assert_bool(bool(exit_buf.get("completes_slice"))).is_true()
+
+	# Destino real: RingHub, con un spawn que EXISTE allí.
+	var target := _as_scene_path(exit_buf.get("target_scene"))
+	assert_str(target).is_equal(RING_HUB)
+	assert_bool(ResourceLoader.exists(target)).is_true()
+	var spawn_id := _as_str(exit_buf.get("target_spawn_id"))
+	assert_str(spawn_id).is_equal("bay_vertical_return")
+	var hub_packed := load(target) as PackedScene
+	assert_object(hub_packed).is_not_null()
+	var hub_root := hub_packed.instance()
+	assert_array(_collect_spawn_ids(hub_root)).override_failure_message(
+		"spawn_id '%s' no encontrado en '%s'" % [spawn_id, target]
+	).contains([spawn_id])
+	hub_root.free()
+
+	# Marcador de "slice completado" (sin texto en el juego).
+	var level: Node = bay.get_node_or_null("BayVerticalLevel")
+	assert_object(level).is_not_null()
+	assert_bool(bool(level.call("is_slice_completed"))).is_false()
+	assert_bool(bool(level.call("complete_slice"))).is_true()
+	assert_bool(bool(level.call("is_slice_completed"))).is_true()
 
 
 func test_campaign_route_reachability_and_valid_targets() -> void:
