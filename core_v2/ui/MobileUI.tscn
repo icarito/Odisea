@@ -359,9 +359,9 @@ custom_styles/pressed = SubResource( 3 )
 custom_styles/normal = SubResource( 2 )
 toggle_mode = true
 action_mode = 0
-text = "< TOOL"
+text = "LASER"
 script = ExtResource( 4 )
-action_name = "tool_prev_mode"
+action_name = "slot_2"
 
 [node name="ToolNextButton" type="Button" parent="Container/ToolButtons"]
 margin_left = 125.0
@@ -374,9 +374,9 @@ custom_styles/pressed = SubResource( 3 )
 custom_styles/normal = SubResource( 2 )
 toggle_mode = true
 action_mode = 0
-text = "TOOL >"
+text = "GLOO"
 script = ExtResource( 4 )
-action_name = "tool_next_mode"
+action_name = "slot_3"
 
 [node name="ZeroGButtons" type="HBoxContainer" parent="Container"]
 anchor_top = 1.0
