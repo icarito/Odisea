@@ -30,6 +30,12 @@
   - Description: Contrato del catálogo de 10 chunks de andamio y su ensamblado 1D por semilla: registro de datos como fuente única, sockets como desplazamientos, invariantes de la ruta principal, desviaciones abiertas frente al brief y lo pendiente (escenas, cilindro, runtime).
   - Read If: Tocando `ScaffoldChunkRegistry`, creando escenas de chunks de andamio, o cableando la generación de tramos Transit-Run.
 
+### `product/` - Intención de producto
+
+- `entrecasco.md`
+  - Description: Visión de diseño del entrecasco (corona entre el tubo de terrazas y el casco): qué es el lugar, secciones con rotación distinta, gravedad variable, peligros, y la navegación asistida como herramienta diegética con TAB sostenido. Incluye lo que falta decidir.
+  - Read If: Diseñando o construyendo niveles del entrecasco, el modo asistido/autonavegador, o cualquier cosa con gravedad por sección.
+
 ### `guides/` - Guías de trabajo
 
 - `tests-de-travesia.md`

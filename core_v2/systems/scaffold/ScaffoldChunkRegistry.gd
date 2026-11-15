@@ -224,7 +224,10 @@ static func generate(seed_val: int, count: int, m: Dictionary) -> Dictionary:
 		else:
 			graph["edges"].append(_edge(prev_out, in_id, 0.0))
 		prev_out = prefix + str(c["out"])
-		graph["placements"].append({"index": i, "id": ids[i], "origin": base, "bank_deg": c["bank_deg"], "side_outs": c["side_outs"]})
+		var low := 0.0
+		for n in c["nodes"]:
+			low = min(low, n["position"].y - float(n.get("rise", 0.0)) * 0.5)
+		graph["placements"].append({"index": i, "id": ids[i], "origin": base, "low": low, "bank_deg": c["bank_deg"], "side_outs": c["side_outs"]})
 		base += Vector3(0.0, float(c["dy"]), CHUNK_LENGTH)
 	graph["exit"] = prev_out
 	return graph

@@ -101,6 +101,14 @@ cilindro (marco del nodo: eje = X, arco = Z, subir = hacia el eje).
 - No ajusta la gravedad al radio: los tamaños del registro siguen calculados con el `g` del
   piloto, no con `g_eff = ω²·r`.
 
+## Kit de fondo del entrecasco
+
+`tools/scaffold_chunks/scene_hull.py` → `core_v2/props/hull_underdeck/*.mesh` (vano de casco,
+envés de terraza, pilón). Son solo malla: no llevan medidas de juego. El nivel
+`core_v2/levels/hull_underdeck/HullUnderdeck.tscn` cuelga un vano de cada chunk, estirado al
+arco que ocupa a **su** radio (`radio_del_vano / radio_del_chunk`) para que los vanos calcen,
+y le da colisión solo al forro del casco. Visión del lugar: `product/entrecasco.md`.
+
 ## Escena de prueba
 
 `core_v2/levels/scaffold_run/ScaffoldRunLab.tscn` arma un tramo por semilla (`seed_value`,

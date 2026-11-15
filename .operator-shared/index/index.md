@@ -33,8 +33,10 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `components/` — Bases de interactuables, zonas, plataformas, `PushableBoxV2`
 - `props/` — Props interactivos y decorativos
 - `props/scaffold/chunks/` — Chunks de andamio Transit-Run horneados (`.mesh` + `.tscn`); producto de `tools/scaffold_chunks/build.sh`, no editar a mano
+- `props/hull_underdeck/` — Kit de fondo del entrecasco horneado (vano de casco, envés de terraza, pilón); producto de `tools/scaffold_chunks/build.sh`
 - `props/machines/` — Kit de máquinas (FD-320): `MachinePart`, `MachineHinge`, `MachineTrigger` y `MachineLevel` (niveles por layout JSON)
 - `levels/scaffold_run/` — `ScaffoldRunLab`: escena de prueba de un tramo Transit-Run generado por semilla, con modo asistido
+- `levels/hull_underdeck/` — `HullUnderdeck`: primer nivel del entrecasco (tramo Transit-Run sobre el casco, proyectado al cilindro); extiende `ScaffoldRunLab`
 - `levels/machines/` — Bahía de máquinas: `MachineBay.tscn` + `machine_bay.json`
 - `levels/` — Escenas de nivel; `levels/interiors/` domos y fuentes de bake
 - `input/` — `InputProviderV2` (árbitro LIVE/REPLAY), `InputDataV2` (frame serializable), `AutopilotInputV2` (modo asistido Transit-Run)

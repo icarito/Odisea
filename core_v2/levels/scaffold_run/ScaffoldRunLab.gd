@@ -96,6 +96,7 @@ func _build_stretch() -> void:
 		else:
 			chunk.translation = p["origin"]
 			add_child(chunk)
+		_decorate_chunk(chunk, p)
 	var by_id := {}
 	for n in graph["nodes"]:
 		by_id[n["id"]] = n
@@ -103,6 +104,11 @@ func _build_stretch() -> void:
 	_route = []
 	for wp in Validator.extract_main_waypoints(graph, m):
 		_route.append(by_id[wp["id"]])
+
+
+# Gancho para niveles que visten el tramo (fondo, luces) colgando nodos de cada chunk.
+func _decorate_chunk(_chunk: Spatial, _placement: Dictionary) -> void:
+	pass
 
 
 func _arm_autopilot() -> void:

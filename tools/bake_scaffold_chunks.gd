@@ -23,6 +23,8 @@ const Exporter := preload("res://tools/scaffold_chunks/export_registry.gd")
 const SRC_DIR := "res://tools/scaffold_chunks/glb/"
 const OUT_DIR := "res://core_v2/props/scaffold/chunks/"
 const MAT_DIR := OUT_DIR + "materials/"
+const DECOR_DIR := "res://core_v2/props/hull_underdeck/"
+const DECOR := ["hull_bay", "terrace_underside", "hull_pylon"]
 const DECK_THICKNESS := 0.3
 const GRATE_MATERIAL := "res://textures/trenchbroom/steel_grate_platform.tres"
 const GRATE_REPEAT_PER_METER := 1.35  # igual que SteelGratePlatform
@@ -41,7 +43,44 @@ func _run() -> void:
 		if not _bake(id, Registry.build_chunk(id, m)):
 			quit(1)
 			return
+	Directory.new().make_dir_recursive(DECOR_DIR)
+	for id in DECOR:
+		if not _bake_decor(id):
+			quit(1)
+			return
 	quit(0)
+
+
+# Pieza de fondo (kit del entrecasco): solo malla, sin medidas de juego. El nivel que la usa
+# decide donde va y si lleva colision.
+func _bake_decor(id: String) -> bool:
+	var src: Node = ClassDB.instance("PackedSceneGLTF").import_gltf_scene(
+		ProjectSettings.globalize_path(SRC_DIR + id + ".glb"))
+	if src == null:
+		push_error("[bake_chunks] no se pudo leer %s.glb" % id)
+		return false
+	var surfaces := {}
+	for mi in _all_meshes(src):
+		for s in range(mi.mesh.get_surface_count()):
+			var mat: Material = _shared_material(mi.mesh.surface_get_material(s))
+			if not surfaces.has(mat.resource_path):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				st.set_material(mat)
+				surfaces[mat.resource_path] = st
+			surfaces[mat.resource_path].append_from(mi.mesh, s, _relative_transform(mi, src))
+	src.free()
+	var keys: Array = surfaces.keys()
+	keys.sort()
+	var mesh := ArrayMesh.new()
+	for key in keys:
+		surfaces[key].index()
+		surfaces[key].commit(mesh)
+	var path: String = DECOR_DIR + id + ".mesh"
+	mesh.take_over_path(path)
+	var ok: bool = ResourceSaver.save(path, mesh) == OK
+	print("[bake_chunks] decor %s: %d superficies" % [id, mesh.get_surface_count()])
+	return ok
 
 
 func _bake(id: String, chunk: Dictionary) -> bool:
@@ -238,6 +277,19 @@ func _game_material(mat_name: String, source: Material) -> Material:
 			f.rim = 0.4
 			f.rim_tint = 0.3
 			return f
+		"M_Hull":
+			var h := SpatialMaterial.new()
+			h.albedo_color = Color(0.20, 0.22, 0.25)
+			h.metallic = 0.3
+			h.roughness = 0.8
+			return h
+		"M_Lamp":
+			var lamp := SpatialMaterial.new()
+			lamp.albedo_color = Color(1.0, 0.9, 0.72)
+			lamp.emission_enabled = true
+			lamp.emission = Color(1.0, 0.82, 0.55)
+			lamp.emission_energy = 2.5
+			return lamp
 		"M_Panel":
 			var p := SpatialMaterial.new()
 			p.albedo_color = Color(0.42, 0.46, 0.50)

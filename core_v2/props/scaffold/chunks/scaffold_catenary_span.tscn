@@ -1,8 +1,8 @@
 [gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://core_v2/levels/bay_vertical/GlooSpan.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/scaffold/chunks/scaffold_catenary_span.mesh" type="ArrayMesh" id=2]
-[ext_resource path="res://core_v2/props/scaffold/chunks/scaffold_catenary_span_dyn.mesh" type="ArrayMesh" id=3]
+[ext_resource path="res://core_v2/props/scaffold/chunks/scaffold_catenary_span_dyn.mesh" type="ArrayMesh" id=2]
+[ext_resource path="res://core_v2/props/scaffold/chunks/scaffold_catenary_span.mesh" type="ArrayMesh" id=3]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.25, 0.15, 0.5 )
@@ -45,10 +45,10 @@ __meta__ = {
 }
 
 [node name="Mesh" type="MeshInstance" parent="."]
-mesh = ExtResource( 2 )
+mesh = ExtResource( 3 )
 
 [node name="Dyn" type="MeshInstance" parent="."]
-mesh = ExtResource( 3 )
+mesh = ExtResource( 2 )
 
 [node name="Collision" type="StaticBody" parent="."]
 
