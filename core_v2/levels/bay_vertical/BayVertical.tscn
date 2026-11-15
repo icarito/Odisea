@@ -150,15 +150,18 @@ rotator_path = NodePath("../CylinderRotator")
 cycle_path = NodePath("../BayProtocolCycle")
 stream_path = NodePath("../CylinderRotator/ScaffoldStreamController")
 lights_path = NodePath("../BayLights")
-flow_contract_path = ""
-spine_segments = 0
-sprint_gap_every = 5
+configure_ring_gravity = true
+walkway_width = 3.2
+platform_length = 3.0
+summit_clearance = 6.0
+sprint_every = 4
 
 [node name="EntryBuffer" type="Spatial" parent="."]
 script = ExtResource( 8 )
 kind = 0
 target_scene = "res://core_v2/levels/RingHub_Level.tscn"
 buffer_id = "bay_vertical_entry"
+target_spawn_id = "bay_vertical_return"
 level_path = NodePath("../BayVerticalLevel")
 chamber_size = Vector3( 3, 3, 3 )
 
@@ -167,6 +170,8 @@ script = ExtResource( 8 )
 kind = 1
 target_scene = "res://core_v2/levels/RingHub_Level.tscn"
 buffer_id = "bay_vertical_summit"
+target_spawn_id = "bay_vertical_return"
+completes_slice = true
 level_path = NodePath("../BayVerticalLevel")
 chamber_size = Vector3( 3, 3, 3 )
 

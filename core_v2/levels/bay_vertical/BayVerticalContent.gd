@@ -1,26 +1,22 @@
 extends Spatial
 
-# Capa de CONTENIDO CURADO de la bahía radial (FD-322), montada SOBRE la
-# proyección del `ScaffoldStreamController` + `CylinderRotator`, y calibrada con
-# el presupuesto de FLOW del Transit-Run (`BayTransitFlow`, contrato
-# `docs/canon/WFC_FLOW_METRICS.md`).
+# Capa de CONTENIDO CURADO de la bahía radial (FD-322 / pista E "Transit-Run"),
+# montada SOBRE la proyección del `ScaffoldStreamController` + `CylinderRotator`.
 #
-# Reglas del contrato (Sebastián, 2026-11-15):
-#   - la RUTA PRINCIPAL se calibra a `v_run` y NUNCA se bloquea con un puzle: es
-#     una espiral continua cuya altura por tramo (`step_rise`) y cuyos huecos
-#     (`SprintGap`) salen del presupuesto (huecos ≤ 70-80 % del alcance);
-#   - los ATAJOS CURADOS son Side Sockets OPCIONALES (90-100 % del alcance) con
-#     su técnica (gloo, láser, mag-rail) y etiqueta de chunk;
-#   - el roll-jump es técnica de habilidad, no requisito (ningún hueco lo exige).
+# La RUTA PRINCIPAL es parkour real (no una rampa): una secuencia de plataformas
+# separadas por saltos, dimensionados con el contrato `docs/canon/WFC_FLOW_METRICS.md`
+# vía `BayTransitFlow` (que lee la física de `FlowMetrics` y el `g_eff(r) = ω²·r`
+# del anillo):
+#   - `RhythmSteps`: saltos de cadencia con subida radial (`rise ≤ 0.70·H_max`).
+#   - `SprintGap`: cruce horizontal al mismo nivel (`gap ≤ 0.75·D_max`).
+# Los dos quedan dentro de la banda 70-80 % del alcance: INV-1 del contrato.
 #
-# Los huecos y alturas NO están hardcodeados: se derivan de `BayTransitFlow`, que
-# lee `g` del anillo (g(r) = ω²·r, `GravityWorld.ship_angular_velocity_rad_s`) y
-# los alcances del contrato cuando aterriza; si no, usa sus fallbacks.
+# Los DESVÍOS CURADOS (cinta, láser, gloo, rotor) son Side Sockets OPCIONALES con
+# recompensa cinética: nunca bloquean la ruta principal (INV-3). La cornisa/mantle
+# y el GlooClimb viven SOLO en esos desvíos.
 #
-# El contenido se ancla en el plano del stream (flat: x = arco, y = radial hacia
-# el eje, z = axial) y se proyecta cada frame con
-# `BayCylinderRotator.project_flat_point()`, así queda SOBRE los chunks y sigue
-# tanto la rotación del cilindro como el cambio de modo.
+# Lenguaje visual fijo: la ruta principal va en LUZ CÁLIDA ESTABLE; los atajos
+# llevan FRANJAS y LUZ FRÍA.
 #
 # Determinismo: todo deriva del presupuesto + `generation_seed` (sin `randf`).
 
@@ -31,35 +27,40 @@ const ValidatorScript := preload("res://core_v2/systems/flow/FlowRouteValidator.
 
 const COLLISION_LAYER_ENV := 1
 
+# Lenguaje visual.
+const COLOR_MAIN_LIGHT := Color(1.0, 0.82, 0.52)
+const COLOR_SHORTCUT_LIGHT := Color(0.32, 0.78, 1.0)
+const COLOR_SHORTCUT_STRIPE := Color(0.9, 0.75, 0.2)
+
+signal slice_completed()
+
 export(int) var generation_seed := 20261114
 export(NodePath) var rotator_path := NodePath("")
 export(NodePath) var cycle_path := NodePath("")
 export(NodePath) var stream_path := NodePath("")
 export(NodePath) var lights_path := NodePath("")
-# Contrato de flow (opcional): vacío = ruta por defecto del presupuesto.
-export(String) var flow_contract_path := ""
-# Overrides del presupuesto (0 / -1 = derivar del contrato).
-export(int) var spine_segments := 0
-export(float) var walkway_width := 4.2
-export(float) var walkway_thickness := 0.3
-export(float, 2.0, 20.0) var summit_clearance := 8.0
-# Cada cuántos tramos de la ruta principal hay un SprintGap (ritmo).
-export(int, 2, 12) var sprint_gap_every := 5
+export(bool) var configure_ring_gravity := true
+export(float) var walkway_width := 3.2
+export(float) var platform_length := 3.0
+export(float) var platform_thickness := 0.3
+export(float, 4.0, 30.0) var summit_clearance := 6.0
+# Cada cuántos saltos de ritmo se cruza un SprintGap horizontal.
+export(int, 2, 8) var sprint_every := 4
 export(float) var socket_radial_offset := 6.0
-
-signal content_ready()
 
 var _flow = null
 var _rotator: Node = null
 var _cycle: Node = null
-var _anchors: Array = []        # [{node: Spatial, flat: Vector3}]
-var _segment_bodies: Array = [] # [{node: Spatial, ia: int, ib: int, label: String}]
-var _spine_flat: Array = []     # puntos flat de la espiral (ruta principal)
-var _main_gaps: Array = []      # longitudes (flat) de los SprintGap de la ruta principal
-var _sockets: Array = []        # [{name, label, nodes: Array}]
-var _mode_bridge: StaticBody = null
+var _anchors: Array = []          # [{node: Spatial, flat: Vector3}]
+var _plates: Array = []           # [{node: Spatial, ia: int, kind: String}]
+var _route: Array = []            # [{flat: Vector3, kind: String}]
+var _hops: Array = []             # [{kind: String, gap: float, dh: float}]
+var _main_gaps: Array = []
+var _sockets: Array = []
 var _mag_rail_nodes: Array = []
+var _mode_bridge: StaticBody = null
 var _rotor: Spatial = null
+var _beacon: MeshInstance = null
 var _shortcuts: Array = []
 var _glooSpan: Node = null
 var _laserGate: Node = null
@@ -68,6 +69,7 @@ var _summit_flat := Vector3.ZERO
 var _last_player_local_x := NAN
 var _last_blend := -1.0
 var _built := false
+var _slice_done := false
 
 func _init() -> void:
 	add_to_group("replay_sync")
@@ -115,12 +117,26 @@ func _resolve_lights() -> void:
 
 # ── Presupuesto de flow ──────────────────────────────────────────────────────
 
+func _base_radius() -> float:
+	if _rotator != null and "base_radius" in _rotator:
+		return float(_rotator.base_radius)
+	return 48.0
+
 func _build_flow() -> void:
 	_flow = FlowScript.new()
-	if not flow_contract_path.empty():
-		_flow.load_contract(flow_contract_path)
-	# g del anillo: g(r) = ω²·r con el giro real del barco.
-	_flow.configure_gravity_from_world(get_node_or_null("/root/GravityWorld"), _base_radius())
+	var gw = get_node_or_null("/root/GravityWorld")
+	var radius: float = _base_radius()
+	var omega := 0.0
+	if gw != null and "ship_angular_velocity_rad_s" in gw:
+		if configure_ring_gravity:
+			# Anillo a la gravedad del PILOTO (Jump.gravity): así g_eff(r) = ω²·r
+			# queda calibrada con los valores medidos del contrato en la superficie.
+			omega = sqrt(_flow.fm.gravity / max(radius, 0.001))
+			gw.set_centrifugal_reference_radius(radius)
+			gw.set_ship_angular_velocity(omega)
+		else:
+			omega = float(gw.ship_angular_velocity_rad_s)
+	_flow.configure_ring(omega, radius)
 
 func get_flow():
 	return _flow
@@ -132,8 +148,8 @@ func get_flow_describe() -> Dictionary:
 
 func _build() -> void:
 	_build_flow()
-	_compute_spine_flat()
-	_build_spine()
+	_compute_route()
+	_build_route()
 	_build_summit()
 	_build_sockets()
 	_build_rotor()
@@ -143,287 +159,334 @@ func _build() -> void:
 			_apply_phase_lights(int(_cycle.get_phase()))
 	emit_signal("content_ready")
 
-func _base_radius() -> float:
-	if _rotator != null and "base_radius" in _rotator:
-		return float(_rotator.base_radius)
-	return 48.0
-
-# Ruta principal derivada del presupuesto: un tramo por `main_route_gap()` de
-# arco. En cada SprintGap el arco avanza pero la altura NO sube, así el hueco
-# queda AL MISMO NIVEL (delta_h = 0) y el salto entra en el umbral main, tal como
-# mide el contrato (hueco al mismo nivel ≤ 80 % del alcance).
-func _compute_spine_flat() -> void:
-	_spine_flat.clear()
+# Ruta parkour en el plano del stream (flat: x = arco, y = radial hacia el eje).
+# Cada salto se dimensiona con el `g_eff` del radio local; el hueco horizontal se
+# recorta además contra el límite de la superficie, así cerca del eje no crece.
+func _compute_route() -> void:
+	_route.clear()
+	_hops.clear()
 	_main_gaps.clear()
 	var base_radius: float = _base_radius()
 	var total_rise: float = max(4.0, base_radius - summit_clearance)
-	var step: float = max(0.5, _flow.step_rise())
-	var seg_arc: float = max(2.0, _flow.main_route_gap())
-	var max_steps: int = spine_segments if spine_segments > 0 else 256
-	var pts: Array = [Vector3.ZERO]
+	var surface_gap_limit: float = _flow.main_gap(base_radius, 0.0)
 	var x := 0.0
 	var y := 0.0
-	var k := 0
-	while y < total_rise - 0.001 and k < max_steps:
-		var gap: bool = _is_sprint_gap(k)
-		x += seg_arc
-		if not gap:
-			y += step
-		pts.append(Vector3(x, min(y, total_rise), 0.0))
-		k += 1
-	_spine_flat = pts
-
-func _seg_index_of(node: Spatial) -> Dictionary:
-	for e in _segment_bodies:
-		if e["node"] == node:
-			return e
-	return {}
-
-func _segment_len() -> float:
-	if _spine_flat.size() > 1:
-		return _spine_flat[1].distance_to(_spine_flat[0])
-	return 4.0
-
-# SprintGap de la ruta principal: se omite la placa cada `sprint_gap_every`
-# tramos. NO es un puzle: el hueco queda al 70-80 % del alcance (salto a v_run).
-func _is_sprint_gap(i: int) -> bool:
-	return sprint_gap_every > 0 and (i % sprint_gap_every) == (sprint_gap_every - 1)
-
-func _build_spine() -> void:
-	var mat := _make_material(Color(0.34, 0.38, 0.43), 0.35, 0.7)
-	var rail_mat := _make_material(Color(0.22, 0.25, 0.29), 0.4, 0.6)
-	var gap := 0.0
-	var n: int = _spine_flat.size() - 1
-	var seg_len: float = _segment_len()
-	for i in range(n):
-		if _is_sprint_gap(i):
-			# Distancia real del tramo omitido (el hueco queda al mismo nivel).
-			gap += _spine_flat[i + 1].distance_to(_spine_flat[i])
-			continue
-		if gap > 0.0:
+	_route.append({"flat": Vector3(0.0, 0.0, 0.0), "kind": "RhythmSteps"})
+	var step := 0
+	while y < total_rise - 0.01 and _route.size() < 400:
+		var r: float = _flow.radius_at(y)
+		var is_sprint: bool = sprint_every > 1 and (step % sprint_every) == (sprint_every - 1)
+		var gap: float
+		var dh: float
+		var kind: String
+		if is_sprint:
+			gap = min(_flow.main_gap(r, 0.0), surface_gap_limit)
+			dh = 0.0
+			kind = "SprintGap"
+		else:
+			dh = min(_flow.rhythm_rise(r), total_rise - y)
+			gap = min(_flow.rhythm_gap(r, dh), surface_gap_limit)
+			kind = "RhythmSteps"
+		x += gap + platform_length
+		if not is_sprint:
+			y += dh
+		_route.append({"flat": Vector3(x, y, 0.0), "kind": kind})
+		_hops.append({"kind": kind, "gap": gap, "dh": dh})
+		if is_sprint:
 			_main_gaps.append(gap)
-			gap = 0.0
+		step += 1
+
+func _platform_kind_at(i: int) -> String:
+	if i <= 0:
+		return "RhythmSteps"
+	if i - 1 < _hops.size():
+		return String(_hops[i - 1]["kind"])
+	return "RhythmSteps"
+
+func _build_route() -> void:
+	var walk_mat := _make_material(Color(0.36, 0.39, 0.43), 0.35, 0.7)
+	var rail_mat := _make_material(Color(0.24, 0.27, 0.31), 0.4, 0.6)
+	for i in range(_route.size()):
+		var flat: Vector3 = _route[i]["flat"]
+		var kind := _platform_kind_at(i)
 		var body := StaticBody.new()
-		body.name = "Spine_%02d" % i
+		body.name = "Platform_%02d" % i
 		body.collision_layer = COLLISION_LAYER_ENV
 		body.collision_mask = 255
 		var plate := MeshInstance.new()
 		var box := CubeMesh.new()
-		box.size = Vector3(walkway_width, walkway_thickness, seg_len * 1.12)
+		box.size = Vector3(platform_length, platform_thickness, walkway_width)
 		plate.mesh = box
-		plate.material_override = mat
+		plate.material_override = walk_mat
 		body.add_child(plate)
 		var col := CollisionShape.new()
 		var colbox := BoxShape.new()
-		colbox.extents = Vector3(walkway_width * 0.5, walkway_thickness * 0.5, seg_len * 0.56)
+		colbox.extents = Vector3(platform_length * 0.5, platform_thickness * 0.5, walkway_width * 0.5)
 		col.shape = colbox
 		body.add_child(col)
 		for side in [-1.0, 1.0]:
 			var rail := MeshInstance.new()
 			var rbox := CubeMesh.new()
-			rbox.size = Vector3(0.1, 0.7, seg_len * 1.12)
+			rbox.size = Vector3(platform_length, 0.35, 0.08)
 			rail.mesh = rbox
 			rail.material_override = rail_mat
-			rail.translation = Vector3(side * walkway_width * 0.5, 0.45, 0.0)
+			rail.translation = Vector3(0.0, 0.28, side * walkway_width * 0.5)
 			body.add_child(rail)
-		body.set_meta("flow_label", "RhythmSteps" if (i % sprint_gap_every) != 0 else "SprintGap")
+		body.set_meta("flow_kind", kind)
+		# La ruta principal va en LUZ CÁLIDA ESTABLE: un bulbo tenue por plataforma.
+		var lamp := OmniLight.new()
+		lamp.light_color = COLOR_MAIN_LIGHT
+		lamp.light_energy = 1.1
+		lamp.omni_range = 7.0
+		lamp.shadow_enabled = false
+		lamp.translation = Vector3(0.0, 1.6, 0.0)
+		body.add_child(lamp)
 		add_child(body)
-		_segment_bodies.append({"node": body, "ia": i, "ib": i + 1, "label": String(body.get_meta("flow_label"))})
+		_plates.append({"node": body, "ia": i, "kind": kind})
+	_register_projected_plates()
+
+# Las placas no se proyectan con un único pivote: cada una va a su punto flat.
+func _register_projected_plates() -> void:
+	for entry in _plates:
+		var ia: int = entry["ia"]
+		_anchors.append({"node": entry["node"], "flat": _route[ia]["flat"]})
 
 func _build_summit() -> void:
-	var top: int = _spine_flat.size() - 1
-	# La cima se ancla al ÚLTIMO punto de la espiral (mismo nivel y arco) para que
-	# el tramo final sea alcanzable y la cima quede junto al eje.
-	_summit_flat = Vector3(_spine_flat[top].x, _spine_flat[top].y, 0.0)
+	var top: int = _route.size() - 1
+	_summit_flat = Vector3(_route[top]["flat"].x, _route[top]["flat"].y, 0.0)
 	var anchor := _add_anchor("Summit", _summit_flat)
-	anchor.set_meta("flow_label", "CuratedSocket")
+	anchor.set_meta("flow_kind", "CuratedSocket")
 	var platform := StaticBody.new()
 	platform.collision_layer = COLLISION_LAYER_ENV
 	platform.collision_mask = 255
 	var disc := CylinderMesh.new()
-	disc.top_radius = 5.5
-	disc.bottom_radius = 5.5
+	disc.top_radius = 5.0
+	disc.bottom_radius = 5.0
 	disc.height = 0.4
 	var pmesh := MeshInstance.new()
 	pmesh.mesh = disc
-	pmesh.material_override = _make_material(Color(0.24, 0.28, 0.33), 0.4, 0.6)
+	pmesh.material_override = _make_material(Color(0.26, 0.29, 0.33), 0.4, 0.6)
 	platform.add_child(pmesh)
 	var col := CollisionShape.new()
 	var cyl := CylinderShape.new()
-	cyl.radius = 5.5
+	cyl.radius = 5.0
 	cyl.height = 0.4
 	col.shape = cyl
 	platform.add_child(col)
 	anchor.add_child(platform)
 	var room := MeshInstance.new()
 	var rbox := CubeMesh.new()
-	rbox.size = Vector3(4.0, 2.4, 4.0)
+	rbox.size = Vector3(3.6, 2.2, 3.6)
 	room.mesh = rbox
 	room.material_override = _make_material(Color(0.2, 0.23, 0.28), 0.5, 0.5, Color(0.25, 0.55, 0.8), 0.4)
-	room.translation = Vector3(0.0, 1.4, -1.4)
+	room.translation = Vector3(0.0, 1.3, -1.3)
 	anchor.add_child(room)
+	# Baliza (visible desde todo el anillo): cálida en ruta, cambia al completar.
 	var pillar := CylinderMesh.new()
 	pillar.top_radius = 0.16
 	pillar.bottom_radius = 0.24
 	pillar.height = 5.0
-	var beacon := MeshInstance.new()
-	beacon.mesh = pillar
-	beacon.material_override = _make_material(Color(1.0, 0.82, 0.5), 0.0, 1.0, Color(1.0, 0.78, 0.4), 2.6)
-	beacon.translation = Vector3(0.0, 2.7, 1.6)
-	beacon.add_to_group("no_occlusion")
-	anchor.add_child(beacon)
+	_beacon = MeshInstance.new()
+	_beacon.mesh = pillar
+	_beacon.material_override = _make_material(COLOR_MAIN_LIGHT, 0.0, 1.0, COLOR_MAIN_LIGHT, 2.6)
+	_beacon.translation = Vector3(0.0, 2.7, 1.5)
+	_beacon.add_to_group("no_occlusion")
+	anchor.add_child(_beacon)
 	var blight := OmniLight.new()
-	blight.omni_range = 9.0
-	blight.light_color = Color(1.0, 0.82, 0.5)
+	blight.omni_range = 10.0
+	blight.light_color = COLOR_MAIN_LIGHT
 	blight.light_energy = 1.8
 	blight.shadow_enabled = false
-	beacon.add_child(blight)
+	_beacon.add_child(blight)
+	# El faro de la cima también es luz cálida estable de la ruta principal.
+	var warm := OmniLight.new()
+	warm.omni_range = 14.0
+	warm.light_color = COLOR_MAIN_LIGHT
+	warm.light_energy = 2.0
+	warm.shadow_enabled = false
+	anchor.add_child(warm)
 
-# ── Side Sockets (atajos OPCIONALES) ─────────────────────────────────────────
+# ── Desvíos curados (Side Sockets OPCIONALES) ────────────────────────────────
 
-# Índice de la espiral para un socket, desplazado por semilla (variación por
-# partida sin tocar la ruta principal).
 func _socket_index(fraction: float) -> int:
-	var n: int = _spine_flat.size() - 1
+	var n: int = _route.size() - 1
 	var base := int(round(fraction * float(n)))
 	var jitter: int = (generation_seed / 7) % 3
 	return int(clamp(float(base + jitter), 1.0, float(max(1, n - 1))))
 
-# Tres sockets curados con su técnica y etiqueta. Todos son OPCIONALES: la ruta
-# principal sigue siendo transitable por sí sola.
-func _build_sockets() -> void:
-	var n: int = _spine_flat.size() - 1
-	if n < 12:
-		return
-	_build_gloo_climb()
-	_build_laser_socket(_socket_index(0.30), _socket_index(0.30) + 3)
-	_build_mag_rail_socket(_socket_index(0.62), _socket_index(0.62) + 4)
-	_build_crate_socket(_socket_index(0.16))
+func _add_socket(name: String, label: String, nodes: Array, reward: String) -> void:
+	_sockets.append({"name": name, "label": label, "nodes": nodes, "reward": reward})
 
-func _add_socket(name: String, label: String, nodes: Array) -> void:
-	_sockets.append({"name": name, "label": label, "nodes": nodes})
+func _build_sockets() -> void:
+	if _route.size() < 10:
+		return
+	_build_conveyor_socket(_socket_index(0.14))
+	_build_laser_socket(_socket_index(0.34))
+	_build_gloo_climb()
+	_build_ledge_socket(_socket_index(0.60))
+	_build_mag_rail_socket(_socket_index(0.80))
+
+# Franjas + luz fría: el lenguaje visual de los atajos.
+func _decorate_shortcut(body: Spatial) -> void:
+	var stripe_mat := _make_material(COLOR_SHORTCUT_STRIPE, 0.2, 0.6, COLOR_SHORTCUT_STRIPE, 1.2)
+	for i in range(3):
+		var stripe := MeshInstance.new()
+		var sbox := CubeMesh.new()
+		sbox.size = Vector3(platform_length * 0.9, 0.04, 0.22)
+		stripe.mesh = sbox
+		stripe.material_override = stripe_mat
+		stripe.translation = Vector3(0.0, platform_thickness * 0.5 + 0.02, (float(i) - 1.0) * walkway_width * 0.3)
+		body.add_child(stripe)
+	var cold := OmniLight.new()
+	cold.light_color = COLOR_SHORTCUT_LIGHT
+	cold.light_energy = 1.3
+	cold.omni_range = 6.0
+	cold.shadow_enabled = false
+	cold.translation = Vector3(0.0, 1.3, 0.0)
+	body.add_child(cold)
+
+func _make_plate(name: String) -> StaticBody:
+	var body := StaticBody.new()
+	body.name = name
+	body.collision_layer = COLLISION_LAYER_ENV
+	body.collision_mask = 255
+	var mesh := MeshInstance.new()
+	var box := CubeMesh.new()
+	box.size = Vector3(platform_length, platform_thickness, walkway_width * 0.8)
+	mesh.mesh = box
+	mesh.material_override = _make_material(Color(0.3, 0.33, 0.38), 0.4, 0.6)
+	body.add_child(mesh)
+	var col := CollisionShape.new()
+	var colbox := BoxShape.new()
+	colbox.extents = Vector3(platform_length * 0.5, platform_thickness * 0.5, walkway_width * 0.4)
+	col.shape = colbox
+	body.add_child(col)
+	_decorate_shortcut(body)
+	return body
+
+func _build_conveyor_socket(i: int) -> void:
+	var flat: Vector3 = _route[i]["flat"] + Vector3(0.0, socket_radial_offset * 0.5, walkway_width)
+	var anchor := _add_anchor("ConveyorSocket", flat)
+	anchor.set_meta("flow_kind", "CuratedSocket")
+	var body := _make_plate("ConveyorPlate")
+	anchor.add_child(body)
+	# Recompensa cinética: una caja-cinta que impulsa al jugador que la cruza.
+	var crate := MeshInstance.new()
+	var cbox := CubeMesh.new()
+	cbox.size = Vector3(1.2, 1.2, 1.2)
+	crate.mesh = cbox
+	crate.material_override = _make_material(Color(0.5, 0.44, 0.3), 0.3, 0.8)
+	crate.translation = Vector3(0.0, 0.6, 0.0)
+	body.add_child(crate)
+	_shortcuts.append(body)
+	_add_socket("ConveyorSocket", "CuratedSocket", [body], "boost")
+
+func _build_laser_socket(i: int) -> void:
+	var flat: Vector3 = _route[i]["flat"] + Vector3(0.0, socket_radial_offset, -walkway_width)
+	var anchor := _add_anchor("LaserSocket", flat)
+	anchor.set_meta("flow_kind", "CuratedSocket")
+	var body := _make_plate("LaserPlate")
+	anchor.add_child(body)
+	_laserGate = LaserGateScript.new()
+	_laserGate.name = "ShortcutLaserGate"
+	_laserGate.cut_time = 2.0
+	var gate_anchor := _add_anchor("LaserGateAnchor", flat + Vector3(platform_length * 0.5, 0.0, 0.0))
+	gate_anchor.set_meta("flow_kind", "CuratedSocket")
+	gate_anchor.add_child(_laserGate)
+	_shortcuts.append(_laserGate)
+	_add_socket("LaserSocket", "CuratedSocket", [body, _laserGate], "shortcut")
 
 func _build_gloo_climb() -> void:
-	var n: int = _spine_flat.size() - 1
-	var gap_i: int = -1
-	for i in range(n):
-		if _is_sprint_gap(i):
-			gap_i = i
-			break
-	if gap_i < 0:
-		return
+	# GlooClimb: ascenso que supera el salto; SOLO opcional (INV-3).
+	var n: int = _route.size() - 1
+	var i: int = _socket_index(0.46)
+	var j: int = int(clamp(float(i + 2), 0.0, float(n)))
 	_glooSpan = GlooSpanScript.new()
-	_glooSpan.name = "ShortcutGlooSpan"
+	_glooSpan.name = "ShortcutGlooClimb"
 	_glooSpan.required_blobs = 2
 	_glooSpan.span_height = 0.2
 	_glooSpan.bridge_width = walkway_width * 0.5
-	_glooSpan.set_meta("flat_a", _spine_flat[gap_i])
-	_glooSpan.set_meta("flat_b", _spine_flat[gap_i + 1])
-	_glooSpan.set_meta("flow_label", "GlooClimb")
+	_glooSpan.set_meta("flow_kind", "GlooClimb")
+	_glooSpan.set_meta("flat_a", _route[i]["flat"] + Vector3(0.0, socket_radial_offset, 0.0))
+	_glooSpan.set_meta("flat_b", _route[j]["flat"] + Vector3(0.0, socket_radial_offset, 0.0))
 	add_child(_glooSpan)
 	_shortcuts.append(_glooSpan)
-	_add_socket("GlooClimb", "GlooClimb", [_glooSpan])
+	_add_socket("GlooClimb", "GlooClimb", [_glooSpan], "climb")
 
-# Raíl paralelo elevado entre dos índices de la espiral, con su técnica.
-func _build_socket_rail(name: String, i0: int, i1: int, label: String, mat: SpatialMaterial) -> Array:
-	i0 = int(clamp(float(i0), 0.0, float(_spine_flat.size() - 2)))
-	i1 = int(clamp(float(i1), float(i0 + 1), float(_spine_flat.size() - 1)))
+func _build_ledge_socket(i: int) -> void:
+	# Cornisa con mantle: borde por encima de la ruta, alcanzable solo con cornisa
+	# (≤ alcance de mantle). Recompensa cinética (atajo alto).
+	var flat: Vector3 = _route[i]["flat"]
+	var r: float = _flow.radius_at(flat.y)
+	var lift: float = min(_flow.ledge_mantle_max_height(r) * 0.72, 4.6)
+	var anchor := _add_anchor("LedgeSocket", flat + Vector3(0.0, lift, walkway_width * 1.2))
+	anchor.set_meta("flow_kind", "CuratedSocket")
+	var body := _make_plate("LedgePlate")
+	anchor.add_child(body)
+	# Labio de cornisa (borde agarrable visualmente).
+	var lip := MeshInstance.new()
+	var lbox := CubeMesh.new()
+	lbox.size = Vector3(platform_length, 0.5, 0.25)
+	lip.mesh = lbox
+	lip.material_override = _make_material(COLOR_SHORTCUT_STRIPE, 0.3, 0.5, COLOR_SHORTCUT_STRIPE, 1.0)
+	lip.translation = Vector3(0.0, -0.35, -walkway_width * 0.45)
+	body.add_child(lip)
+	_shortcuts.append(body)
+	_add_socket("LedgeSocket", "CuratedSocket", [body], "ledge")
+
+func _build_mag_rail_socket(i: int) -> void:
+	var n: int = _route.size() - 1
+	var i0: int = int(clamp(float(i), 2.0, float(max(2, n - 2))))
+	var i1: int = int(clamp(float(i0 + 2), float(i0 + 1), float(n)))
+	var mat := _make_material(Color(0.55, 0.5, 0.25), 0.3, 0.7, Color(0.9, 0.78, 0.3), 0.7)
 	var nodes: Array = []
-	var seg_len: float = _segment_len()
 	for k in range(i0, i1):
-		var a: Vector3 = _spine_flat[k] + Vector3(0.0, socket_radial_offset, 0.0)
-		var b: Vector3 = _spine_flat[k + 1] + Vector3(0.0, socket_radial_offset, 0.0)
+		var flat: Vector3 = (_route[k]["flat"] + _route[k + 1]["flat"]) * 0.5 + Vector3(0.0, socket_radial_offset * 0.8, -walkway_width * 0.6)
 		var body := StaticBody.new()
-		body.name = "%s_%02d" % [name, k]
+		body.name = "MagRail_%02d" % k
 		body.collision_layer = COLLISION_LAYER_ENV
 		body.collision_mask = 255
 		var mesh := MeshInstance.new()
 		var box := CubeMesh.new()
-		box.size = Vector3(walkway_width * 0.75, walkway_thickness, seg_len * 1.05)
+		box.size = Vector3(platform_length * 1.4, platform_thickness, walkway_width * 0.55)
 		mesh.mesh = box
 		mesh.material_override = mat
 		body.add_child(mesh)
 		var col := CollisionShape.new()
 		var colbox := BoxShape.new()
-		colbox.extents = Vector3(walkway_width * 0.375, walkway_thickness * 0.5, seg_len * 0.525)
+		colbox.extents = Vector3(platform_length * 0.7, platform_thickness * 0.5, walkway_width * 0.275)
 		col.shape = colbox
 		body.add_child(col)
-		body.set_meta("flow_label", label)
+		body.set_meta("flow_kind", "MagRail")
+		_decorate_shortcut(body)
 		add_child(body)
-		var mid: Vector3 = (a + b) * 0.5
-		_register_projected(body, mid)
-		_segment_bodies.append({"node": body, "flat_a": a, "flat_b": b, "label": label})
+		_register_projected(body, flat)
 		nodes.append(body)
-	return nodes
-
-func _build_laser_socket(i0: int, i1: int) -> void:
-	var mat := _make_material(Color(0.4, 0.34, 0.2), 0.4, 0.6)
-	var nodes := _build_socket_rail("LaserSocket", i0, i1, "CuratedSocket", mat)
-	if nodes.empty():
-		return
-	var gate_flat: Vector3 = _spine_flat[i0] + Vector3(0.0, socket_radial_offset, 0.0)
-	var anchor := _add_anchor("LaserSocketGate", gate_flat)
-	anchor.set_meta("flow_label", "CuratedSocket")
-	_laserGate = LaserGateScript.new()
-	_laserGate.name = "ShortcutLaserGate"
-	_laserGate.cut_time = 2.0
-	anchor.add_child(_laserGate)
-	_shortcuts.append(_laserGate)
-	nodes.append(_laserGate)
-	_add_socket("CuratedSocket", "CuratedSocket", nodes)
-
-func _build_mag_rail_socket(i0: int, i1: int) -> void:
-	var mat := _make_material(Color(0.6, 0.52, 0.22), 0.3, 0.7, Color(0.9, 0.75, 0.3), 0.6)
-	var nodes := _build_socket_rail("MagRail", i0, i1, "MagRail", mat)
 	if nodes.empty():
 		return
 	_mag_rail_nodes = nodes
 	_mode_bridge = nodes[0] if nodes[0] is StaticBody else null
-	_add_socket("MagRail", "MagRail", nodes)
-
-func _build_crate_socket(i: int) -> void:
-	i = int(clamp(float(i), 0.0, float(_spine_flat.size() - 2)))
-	var anchor := _add_anchor("CrateSocket", _spine_flat[i])
-	anchor.set_meta("flow_label", "CuratedSocket")
-	var body := StaticBody.new()
-	body.name = "CrateAnchor"
-	body.collision_layer = COLLISION_LAYER_ENV
-	body.collision_mask = 255
-	var mesh := MeshInstance.new()
-	var box := CubeMesh.new()
-	box.size = Vector3(1.4, 1.4, 1.4)
-	mesh.mesh = box
-	mesh.material_override = _make_material(Color(0.45, 0.4, 0.28), 0.3, 0.8)
-	mesh.translation = Vector3(0.0, 0.7, 0.0)
-	body.add_child(mesh)
-	var col := CollisionShape.new()
-	var colbox := BoxShape.new()
-	colbox.extents = Vector3(0.7, 0.7, 0.7)
-	col.shape = colbox
-	col.translation = Vector3(0.0, 0.7, 0.0)
-	body.add_child(col)
-	anchor.add_child(body)
-	_shortcuts.append(body)
-	_add_socket("CuratedSocket", "CuratedSocket", [anchor])
+	_add_socket("MagRail", "MagRail", nodes, "grind")
 
 func _build_rotor() -> void:
-	var n: int = _spine_flat.size() - 1
-	var i: int = int(clamp(float(n) * 0.78, 1.0, float(n - 1)))
-	var anchor := _add_anchor("RotorAnchor", _spine_flat[i])
-	anchor.set_meta("flow_label", "CuratedSocket")
+	# Peligro de la ruta principal, sincronizado con el ciclo (consumidor real).
+	var n: int = _route.size() - 1
+	var i: int = int(clamp(float(n) * 0.78, 1.0, float(max(1, n - 1))))
+	var anchor := _add_anchor("RotorAnchor", _route[i]["flat"])
+	anchor.set_meta("flow_kind", "RhythmSteps")
 	var spin := Spatial.new()
 	spin.name = "RotorSpin"
 	anchor.add_child(spin)
 	var arm := MeshInstance.new()
 	var box := CubeMesh.new()
-	box.size = Vector3(walkway_width * 0.9, 0.18, 1.6)
+	box.size = Vector3(walkway_width * 0.9, 0.18, 1.4)
 	arm.mesh = box
 	arm.material_override = _make_material(Color(0.85, 0.2, 0.12), 0.3, 0.8, Color(0.9, 0.25, 0.15), 1.4)
-	arm.translation = Vector3(0.0, 0.95, 0.0)
+	arm.translation = Vector3(0.0, 0.9, 0.0)
 	spin.add_child(arm)
 	var col := CollisionShape.new()
 	var colbox := BoxShape.new()
-	colbox.extents = Vector3(walkway_width * 0.45, 0.09, 0.8)
+	colbox.extents = Vector3(walkway_width * 0.45, 0.09, 0.7)
 	col.shape = colbox
 	spin.add_child(col)
 	_rotor = spin
@@ -472,11 +535,14 @@ func _project_all() -> void:
 	for entry in _anchors:
 		var node: Spatial = entry["node"]
 		if is_instance_valid(node):
-			node.transform = _project_point(entry["flat"])
-	for entry in _segment_bodies:
-		_project_segment(entry)
+			node.transform = _transform_at(entry["flat"])
 	_project_gloo_span()
 	_apply_mode_to_content()
+
+# Pivote + rotación del punto flat: la plataforma hereda el "up" radial del
+# cilindro (el plano de la pasarela queda perpendicular a la gravedad local).
+func _transform_at(flat: Vector3) -> Transform:
+	return _project_point(flat)
 
 func _project_gloo_span() -> void:
 	if _glooSpan == null or not is_instance_valid(_glooSpan):
@@ -488,46 +554,10 @@ func _project_gloo_span() -> void:
 	if _glooSpan.has_method("refresh_span"):
 		_glooSpan.call("refresh_span")
 
-func _project_segment(entry: Dictionary) -> void:
-	var body: Spatial = entry["node"]
-	if not is_instance_valid(body):
-		return
-	var ta: Transform
-	var tb: Transform
-	if entry.has("flat_a"):
-		ta = _project_point(entry["flat_a"])
-		tb = _project_point(entry["flat_b"])
-	else:
-		var ia: int = entry["ia"]
-		var ib: int = entry["ib"]
-		if ib >= _spine_flat.size():
-			return
-		ta = _project_point(_spine_flat[ia])
-		tb = _project_point(_spine_flat[ib])
-	var mid: Vector3 = (ta.origin + tb.origin) * 0.5
-	var fwd: Vector3 = tb.origin - ta.origin
-	if fwd.length_squared() < 0.0001:
-		body.transform = Transform(Basis.IDENTITY, mid)
-		return
-	# La placa sigue AMBOS extremos: +Z a lo largo del tramo (incluye la subida) y
-	# +Y es la normal de la superficie, así el recorrido es una RAMPA continua y no
-	# una escalera de peldaños (que el jugador no podría subir caminando).
-	var z: Vector3 = fwd.normalized()
-	var up_ref: Vector3 = ta.basis.y.normalized()
-	if up_ref.length_squared() < 0.0001:
-		up_ref = Vector3.UP
-	var x: Vector3 = up_ref.cross(z)
-	if x.length_squared() < 0.0001:
-		x = Vector3.RIGHT
-	x = x.normalized()
-	var y: Vector3 = z.cross(x).normalized()
-	body.transform = Transform(Basis(x, y, z), mid)
-
 func _apply_mode_to_content() -> void:
 	var blend: float = 1.0
 	if _rotator != null and _rotator.has_method("get_spiral_blend"):
 		blend = float(_rotator.call("get_spiral_blend"))
-	# El MagRail (atajo Opcional) existe SOLO en propulsión (blend ~ 0).
 	var thrust: bool = blend <= 0.001
 	for node in _mag_rail_nodes:
 		if node == null or not is_instance_valid(node):
@@ -540,17 +570,17 @@ func _apply_mode_to_content() -> void:
 func _on_phase_changed(phase: int) -> void:
 	_apply_phase_lights(phase)
 
-# El ciclo pinta la sala (SAFE/WARNING/DANGER) y habilita el rotor: es su
-# consumidor real, no solo una conexión.
 func _apply_phase_lights(phase: int) -> void:
-	var color: Color = Color(0.55, 0.8, 1.0)
-	var energy := 1.7
+	if _slice_done:
+		return
+	var color: Color = COLOR_MAIN_LIGHT
+	var energy := 1.6
 	if phase == 1:
 		color = Color(1.0, 0.72, 0.25)
-		energy = 2.6
+		energy = 2.4
 	elif phase == 2:
-		color = Color(1.0, 0.22, 0.14)
-		energy = 3.4
+		color = Color(1.0, 0.4, 0.2)
+		energy = 3.2
 	for light in _lights:
 		if not is_instance_valid(light):
 			continue
@@ -564,13 +594,33 @@ func _animate_hazards() -> void:
 		return
 	_rotor.rotation.z = float(_cycle.get_elapsed()) * 2.2
 
+# ── Marcador de "slice completado" ───────────────────────────────────────────
+
+# Lo llama el buffer de salida de la cima: la baliza vira a verde estable y se
+# emite `slice_completed` (sin texto en el juego, como pide el FD).
+func mark_slice_completed() -> void:
+	if _slice_done:
+		return
+	_slice_done = true
+	if _beacon != null and is_instance_valid(_beacon):
+		var mat := _make_material(Color(0.4, 1.0, 0.55), 0.0, 1.0, Color(0.4, 1.0, 0.55), 3.0)
+		_beacon.material_override = mat
+		for child in _beacon.get_children():
+			if child is Light:
+				child.light_color = Color(0.4, 1.0, 0.55)
+				child.light_energy = 2.6
+	emit_signal("slice_completed")
+
+func is_slice_completed() -> bool:
+	return _slice_done
+
 # ── API para la escena / tests ───────────────────────────────────────────────
 
 func place_projected(node: Spatial, flat: Vector3) -> void:
 	if node == null or not is_instance_valid(node):
 		return
 	_anchors.append({"node": node, "flat": flat})
-	node.transform = _project_point(flat)
+	node.transform = _transform_at(flat)
 
 func project_flat_world(flat: Vector3) -> Vector3:
 	if _rotator == null or not _rotator.has_method("project_flat_point"):
@@ -581,33 +631,35 @@ func project_flat_world(flat: Vector3) -> Vector3:
 func is_mode_bridge_solid() -> bool:
 	return _mode_bridge != null and is_instance_valid(_mode_bridge) and _mode_bridge.collision_layer != 0
 
-func get_spine_world_points() -> Array:
-	var out: Array = []
-	for flat in _spine_flat:
-		out.append(_project_point(flat).origin)
-	return out
+func get_route_points() -> Array:
+	return _route.duplicate()
 
-func get_spine_flat_points() -> Array:
-	return _spine_flat.duplicate()
+func get_route_hops() -> Array:
+	var out: Array = []
+	for h in _hops:
+		out.append({"kind": h["kind"], "gap": h["gap"], "dh": h["dh"]})
+	return out
 
 func get_summit_flat() -> Vector3:
 	return _summit_flat
 
-# Longitudes (en el plano flat) de los huecos de la RUTA PRINCIPAL. Todas deben
-# caer dentro del umbral de flow principal.
 func get_main_route_gaps() -> Array:
 	return _main_gaps.duplicate()
 
 func get_main_route_gap_limit() -> float:
-	return _flow.main_route_gap() if _flow != null else 0.0
+	return _flow.main_gap(_base_radius(), 0.0) if _flow != null else 0.0
 
-func get_known_labels() -> Array:
-	var labels := {}
-	for entry in _segment_bodies:
-		labels[String(entry.get("label", ""))] = true
-	for s in _sockets:
-		labels[String(s["label"])] = true
-	return labels.keys()
+func has_hop_kind(kind: String) -> bool:
+	for h in _hops:
+		if String(h["kind"]) == kind:
+			return true
+	return false
+
+func get_route_kinds() -> Array:
+	var seen := {}
+	for h in _hops:
+		seen[String(h["kind"])] = true
+	return seen.keys()
 
 func get_sockets() -> Array:
 	return _sockets.duplicate()
@@ -618,79 +670,17 @@ func get_socket_labels() -> Array:
 		out.append(String(s["label"]))
 	return out
 
-# ── Validación de flow (delegada a FlowRouteValidator) ───────────────────────
-
-func _segment_flat_center(i: int) -> Vector3:
-	if i + 1 < _spine_flat.size():
-		return (_spine_flat[i] + _spine_flat[i + 1]) * 0.5
-	return _spine_flat[i]
-
-func _main_plate_entries() -> Array:
+func get_socket_rewards() -> Array:
 	var out: Array = []
-	for entry in _segment_bodies:
-		if entry.has("ia"):
-			out.append(entry)
+	for s in _sockets:
+		out.append(String(s["reward"]))
 	return out
 
-# Grafo de la ruta principal en el MARCO DEL CILINDRO (flat): ahí el "horizontal"
-# es el arco y el "up" es el radial, que es como camina el jugador en el anillo.
-func build_route_graph() -> Dictionary:
-	var entries := _main_plate_entries()
-	var nodes: Array = []
-	var edges: Array = []
-	var seg_len: float = _segment_len()
-	for entry in entries:
-		var ia: int = entry["ia"]
-		nodes.append({
-			"id": "s%d" % ia,
-			"position": _segment_flat_center(ia),
-			"size": Vector3(seg_len, 0.0, walkway_width),
-			"g": _flow.g if _flow != null else 14.0,
-		})
-	nodes.append({"id": "summit", "position": _summit_flat, "size": 5.5,
-		"g": _flow.g if _flow != null else 14.0})
-	# Aristas = salto FÍSICO de una placa a la siguiente. Contiguas se tocan
-	# (hueco 0); con un SprintGap en el medio, el hueco es el tramo omitido, que
-	# por construcción está al mismo nivel (delta_h = 0).
-	for k in range(entries.size() - 1):
-		var ia: int = entries[k]["ia"]
-		var ib: int = entries[k + 1]["ia"]
-		var gap_h := 0.0
-		var dh := 0.0
-		if ib > ia + 1:
-			for j in range(ia + 1, ib):
-				var a: Vector3 = _spine_flat[j]
-				var b: Vector3 = _spine_flat[j + 1]
-				gap_h += abs(b.x - a.x)
-				dh += b.y - a.y
-		edges.append({"from": "s%d" % ia, "to": "s%d" % ib,
-			"gap_horizontal": gap_h, "delta_h": dh})
-	if not entries.empty():
-		# La cima se ancla al último punto de la espiral: el tramo final se toca.
-		edges.append({"from": "s%d" % entries[-1]["ia"], "to": "summit",
-			"gap_horizontal": 0.0, "delta_h": 0.0})
-	return {
-		"nodes": nodes,
-		"edges": edges,
-		"entry": "s%d" % entries[0]["ia"] if not entries.empty() else "",
-		"exit": "summit",
-	}
-
-# Valida que exista una ruta principal entrada->cima SOLO con saltos dentro del
-# umbral main (sin herramientas ni sockets), con las métricas del contrato.
-func validate_main_route() -> Dictionary:
-	if _flow == null:
-		return {}
-	return ValidatorScript.validate(build_route_graph(), _flow.metrics())
-
-# ¿Algún bloqueo con puzle (gloo/láser) está en la ruta principal? La ruta
-# principal no debe tener ninguno: todos los gates viven en sockets.
+# INV-3: ningún desvío curado ni herramienta está en la ruta principal.
 func main_route_has_puzzle_blocker() -> bool:
-	for entry in _segment_bodies:
-		if not entry.has("ia"):
-			continue
-		var label := String(entry.get("label", ""))
-		if label == "GlooClimb" or label == "CuratedSocket":
+	for entry in _plates:
+		var kind := String(entry["kind"])
+		if kind == "CuratedSocket" or kind == "GlooClimb" or kind == "MagRail":
 			return true
 	return false
 
@@ -706,20 +696,8 @@ func get_shortcuts() -> Array:
 func get_rotor() -> Spatial:
 	return _rotor
 
-func get_segment_count() -> int:
-	var main := 0
-	for entry in _segment_bodies:
-		if entry.has("ia"):
-			main += 1
-	return main
-
-# Nodos de la RUTA PRINCIPAL (placas), en orden.
-func get_main_segment_nodes() -> Array:
-	var out: Array = []
-	for entry in _segment_bodies:
-		if entry.has("ia"):
-			out.append(entry["node"])
-	return out
+func get_platform_count() -> int:
+	return _plates.size()
 
 func get_light_count() -> int:
 	return _lights.size()
@@ -740,6 +718,50 @@ func _make_material(albedo: Color, metallic: float, roughness: float, emission: 
 		mat.emission_energy = emission_energy
 	return mat
 
+# ── Validación de flow ───────────────────────────────────────────────────────
+
+# Grafo de la ruta principal en el marco del cilindro (flat): el "horizontal" es
+# el arco y el "up" el radial, que es como camina el jugador en el anillo. Cada
+# nodo lleva su `g_eff(r)` local (INV-4: peor tick ya lo fija `BayTransitFlow`).
+func build_route_graph() -> Dictionary:
+	var nodes: Array = []
+	var edges: Array = []
+	for i in range(_route.size()):
+		var flat: Vector3 = _route[i]["flat"]
+		nodes.append({
+			"id": "p%d" % i,
+			"position": flat,
+			"size": Vector3(platform_length, 0.0, walkway_width),
+			"g": _flow.g_eff(_flow.radius_at(flat.y)) if _flow != null else 14.0,
+			"tags": [_platform_kind_at(i)],
+		})
+	for i in range(_hops.size()):
+		var h: Dictionary = _hops[i]
+		var g_from: float = _flow.g_eff(_flow.radius_at(_route[i]["flat"].y)) if _flow != null else 14.0
+		var g_to: float = _flow.g_eff(_flow.radius_at(_route[i + 1]["flat"].y)) if _flow != null else 14.0
+		edges.append({
+			"from": "p%d" % i,
+			"to": "p%d" % (i + 1),
+			"gap_horizontal": float(h["gap"]),
+			"delta_h": float(h["dh"]),
+			"tags": [String(h["kind"])],
+			# INV-4: el peor caso es el g_eff MÁS ALTO de los extremos (menos alcance).
+			"g": max(g_from, g_to),
+		})
+	return {
+		"nodes": nodes,
+		"edges": edges,
+		"entry": "p0" if not _route.empty() else "",
+		"exit": "p%d" % (_route.size() - 1) if not _route.empty() else "",
+	}
+
+func validate_main_route() -> Dictionary:
+	if _flow == null:
+		return {}
+	var graph := build_route_graph()
+	# El validador evalúa cada arista con el g del nodo destino (su `g_eff` local).
+	return ValidatorScript.validate(graph, _flow.metrics_for_g(_flow.g_eff(_base_radius())))
+
 # ── Estado serializable (replay + save) ──────────────────────────────────────
 
 func get_snapshot() -> Dictionary:
@@ -747,7 +769,8 @@ func get_snapshot() -> Dictionary:
 	for shortcut in _shortcuts:
 		if is_instance_valid(shortcut) and shortcut.has_method("get_state"):
 			states.append({"name": shortcut.name, "state": shortcut.get_state()})
-	return {"seed": generation_seed, "shortcuts": states, "flow": get_flow_describe()}
+	return {"seed": generation_seed, "shortcuts": states, "flow": get_flow_describe(),
+		"slice_completed": _slice_done}
 
 func restore_snapshot(data: Dictionary) -> void:
 	var states: Array = data.get("shortcuts", [])
@@ -757,3 +780,5 @@ func restore_snapshot(data: Dictionary) -> void:
 		for shortcut in _shortcuts:
 			if is_instance_valid(shortcut) and shortcut.name == n and shortcut.has_method("restore_state"):
 				shortcut.restore_state(st)
+	if bool(data.get("slice_completed", false)):
+		mark_slice_completed()
