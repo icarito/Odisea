@@ -24,6 +24,7 @@
 #   SERVICE        - systemd unit          (default odisea-central.service)
 #   DB_PATH        - central SQLite DB     (default $DEPLOY_DIR/data/ghosts.db)
 #   BACKUP_DIR     - SQLite backup dir     (default $DEPLOY_DIR/data/backups)
+#   BACKUP_RETENTION_DAYS - prune SQLite backups older than this many days (default 30)
 
 set -euo pipefail
 
@@ -133,6 +134,17 @@ except Exception as exc:
     print("SQLite backup/backfill FAILED:", exc, file=sys.stderr)
     sys.exit(1)
 PY
+
+# Prune old SQLite backups so the backup dir doesn't grow without bound.
+# Each deploy writes a full snapshot of ghosts.db (~600 MB and growing);
+# without rotation this directory fills the disk. Deletes only files older
+# than BACKUP_RETENTION_DAYS. `|| true` keeps a permission error on a stray
+# root-owned file from aborting the whole deploy (set -e is on).
+BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+log "pruning SQLite backups older than ${BACKUP_RETENTION_DAYS} days in $BACKUP_DIR"
+find "$BACKUP_DIR" -maxdepth 1 -type f \
+  \( -name 'ghosts_*.db' -o -name 'geo_tags_*.db' \) \
+  -mtime "+${BACKUP_RETENTION_DAYS}" -delete 2>/dev/null || true
 
 log "deploying to $DEPLOY_DIR"
 mkdir -p "$DEPLOY_DIR/static"
