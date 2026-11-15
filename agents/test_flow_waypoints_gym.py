@@ -95,29 +95,99 @@ def test_bifurcation_gyms_ringhub_and_machinebay_contract_and_determinism() -> N
         assert last_info["backtrack_events"] == 0
 
 
-def test_waypoint_gym_wrapper_shapes_progress_reward() -> None:
-    class _DummyObs13Env(gym.Env):
+def test_waypoint_gym_wrapper_updates_obs_and_penalizes_socket_and_backtrack() -> None:
+    class _DummyGodotLikeEnv(gym.Env):
+        """Emulates AnnaGymEnv emitting raw target obs[8..9] that must be overridden."""
+
         def __init__(self) -> None:
             self.observation_space = spaces.Box(-1.0, 1.0, shape=(13,), dtype=np.float32)
             self.action_space = spaces.Discrete(8)
-            self._d = 20.0
+            self.scene_path = "core_v2/tests/TestScene_RL_MachineBayCorridor.tscn"
+            self._pos = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+            self._fwd = np.array([0.0, 1.0], dtype=np.float64)  # +Z
+
+        def _raw_obs(self) -> np.ndarray:
+            obs = np.zeros(13, dtype=np.float32)
+            # Raw env points at a stale distant target (dist=49m, angle=-0.9)
+            obs[8] = 49.0 / 50.0
+            obs[9] = -0.9
+            return obs
 
         def reset(self, *, seed=None, options=None):
-            self._d = 20.0
-            obs = np.zeros(13, dtype=np.float32)
-            obs[8] = self._d / 50.0
-            return obs, {}
+            self._pos = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+            return self._raw_obs(), {
+                "player_pos": self._pos.copy(),
+                "player_forward": self._fwd.copy(),
+            }
 
         def step(self, action):
-            self._d += -2.0 if action == 1 else +2.0
-            obs = np.zeros(13, dtype=np.float32)
-            obs[8] = self._d / 50.0
-            obs[9] = 0.0
-            return obs, 0.0, False, False, {}
+            # 1: forward to wp1, 2: backtrack toward wp0, 3: divert to Side Socket,
+            # 4: reach wp1, 5: reach wp2 (exhaust route), 6: visit Side Socket after route
+            moves = {
+                1: (0.0, 5.0),
+                2: (0.0, 2.0),
+                3: (6.0, 10.0),
+                4: (0.0, 10.0),
+                5: (0.0, 20.0),
+                6: (6.0, 10.0),
+            }
+            x, z = moves[int(action)]
+            self._pos = np.array([x, 0.0, z], dtype=np.float64)
+            return self._raw_obs(), 0.0, False, False, {
+                "player_pos": self._pos.copy(),
+                "player_forward": self._fwd.copy(),
+            }
 
-    wrapped = FlowWaypointGymWrapper(_DummyObs13Env(), progress_scale=1.0, align_scale=0.1)
-    wrapped.reset()
-    _, r_approach, _, _, _ = wrapped.step(1)
-    _, r_retreat, _, _, _ = wrapped.step(0)
-    assert r_approach > 0.0
-    assert r_retreat < 0.0
+    flow_data = {
+        "main_waypoints": [
+            {"id": "entry", "position": {"x": 0.0, "y": 0.0, "z": 0.0}},
+            {"id": "mid", "position": {"x": 0.0, "y": 0.0, "z": 10.0}},
+            {"id": "exit", "position": {"x": 0.0, "y": 0.0, "z": 20.0}},
+        ],
+        "side_socket_waypoints": [
+            {"id": "socket_1", "position": {"x": 6.0, "y": 0.0, "z": 10.0}},
+        ],
+    }
+
+    wrapped = FlowWaypointGymWrapper(
+        _DummyGodotLikeEnv(),
+        waypoints_source=flow_data,
+        reach_radius=1.5,
+        socket_radius=2.0,
+    )
+    obs0, info0 = wrapped.reset()
+    # obs[8] must reflect dist to wp1 (10m / 50m = 0.2), NOT raw env's 49/50 = 0.98
+    assert abs(float(obs0[8]) - 0.2) < 1e-5
+    assert abs(float(obs0[9])) < 1e-5
+    assert info0["wp_idx"] == 1
+
+    # Approach wp1 -> positive reward, obs[8] = 5m / 50m = 0.1
+    obs1, r_fwd, _, _, info1 = wrapped.step(1)
+    assert abs(float(obs1[8]) - 0.1) < 1e-5
+    assert r_fwd > 0.0
+
+    # Backtrack -> negative reward & backtrack_events increments
+    _, r_back, _, _, info2 = wrapped.step(2)
+    assert r_back < 0.0
+    assert info2["backtrack_events"] == 1
+
+    # Early Side Socket diversion -> negative reward & side_socket_diversions increments
+    _, r_sock_early, _, _, info3 = wrapped.step(3)
+    assert r_sock_early < 0.0
+    assert info3["side_socket_diversions"] == 1
+
+    # Reach wp1 -> advances to wp2 (20m), dist = 10m -> obs[8] = 0.2
+    obs4, r_wp1, _, _, info4 = wrapped.step(4)
+    assert info4["wp_idx"] == 2
+    assert abs(float(obs4[8]) - 0.2) < 1e-5
+    assert r_wp1 > 0.0
+
+    # Reach wp2 -> main route exhausted
+    _, r_wp2, _, _, info5 = wrapped.step(5)
+    assert info5["main_route_exhausted"] is True
+    assert r_wp2 > 0.0
+
+    # Visit Side Socket after main route exhausted -> allowed with positive reward
+    _, r_sock_after, _, _, info6 = wrapped.step(6)
+    assert info6["side_socket_diversions"] == 1
+    assert r_sock_after > 0.0

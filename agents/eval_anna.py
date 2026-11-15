@@ -41,6 +41,8 @@ def main() -> int:
                     default="godot", help="Environment backend: live Godot bridge or waypoint bifurcation gym.")
     ap.add_argument("--waypoint-shaping", action="store_true",
                     help="Wrap Godot AnnaGymEnv with FlowWaypointGymWrapper.")
+    ap.add_argument("--waypoints-json", default="",
+                    help="Optional FlowRouteValidator JSON path with main_waypoints/side_socket_waypoints.")
     args = ap.parse_args()
 
     repo = Path(__file__).resolve().parents[1]
@@ -65,7 +67,8 @@ def main() -> int:
     if args.env_preset == "godot":
         env = AnnaGymEnv(scene_path=args.scene, port=args.port, launch_godot=True, headless=True)
         if args.waypoint_shaping:
-            env = FlowWaypointGymWrapper(env)
+            wp_src = args.waypoints_json.strip() or None
+            env = FlowWaypointGymWrapper(env, waypoints_source=wp_src)
     else:
         env = FlowWaypointBifurcationEnv(preset=args.env_preset)
     rng = np.random.default_rng(args.seed)

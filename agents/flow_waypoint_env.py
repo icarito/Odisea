@@ -14,9 +14,11 @@ Supports:
 """
 from __future__ import annotations
 
+import json
 import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -433,34 +435,176 @@ class FlowWaypointBifurcationEnv(gym.Env):
         return obs, float(reward), terminated, truncated, info
 
 
+def infer_preset_from_scene(scene_path: Optional[str]) -> str:
+    s = str(scene_path or "").lower()
+    if "ringhub" in s or "ring_hub" in s:
+        return "ringhub_bifurcation"
+    if "machinebay" in s or "machine_bay" in s:
+        return "machinebay_bifurcation"
+    return "ringhub_bifurcation"
+
+
+def load_waypoints_from_flow_data(
+    source: Union[str, Path, Dict[str, Any]],
+) -> Tuple[List[Tuple[float, float, float]], List[Tuple[float, float, float]]]:
+    """Load (main_waypoints, side_sockets) from a FlowRouteValidator JSON/dict."""
+    if isinstance(source, (str, Path)):
+        data = json.loads(Path(source).read_text(encoding="utf-8"))
+    else:
+        data = dict(source)
+
+    def _parse_points(items: Any) -> List[Tuple[float, float, float]]:
+        pts: List[Tuple[float, float, float]] = []
+        if not isinstance(items, (list, tuple)):
+            return pts
+        for item in items:
+            if isinstance(item, dict) and "position" in item:
+                pos = item["position"]
+            else:
+                pos = item
+            if isinstance(pos, dict):
+                pts.append((float(pos.get("x", 0.0)), float(pos.get("y", 0.0)), float(pos.get("z", 0.0))))
+            elif isinstance(pos, (list, tuple, np.ndarray)) and len(pos) >= 3:
+                pts.append((float(pos[0]), float(pos[1]), float(pos[2])))
+            elif isinstance(pos, (list, tuple, np.ndarray)) and len(pos) == 2:
+                pts.append((float(pos[0]), 0.0, float(pos[1])))
+        return pts
+
+    main_wps = _parse_points(data.get("main_waypoints", []))
+    side_socks = _parse_points(data.get("side_socket_waypoints", data.get("side_sockets", [])))
+    if not main_wps:
+        raise ValueError("Flow waypoint data contains no valid main_waypoints.")
+    return main_wps, side_socks
+
+
 class FlowWaypointGymWrapper(gym.Wrapper):
-    """Gymnasium wrapper that adds forward waypoint-progress shaping to AnnaGymEnv."""
+    """Gymnasium wrapper connecting FlowRouteValidator waypoints & player pose to AnnaGymEnv.
+
+    Tracks the player's position against ordered main-route waypoints and Side Sockets,
+    overwrites obs[8] (dist_to_wp / 50) and obs[9] (angle_to_wp / PI) so the policy
+    steers along the main route at bifurcations, and adds waypoint progress, backtrack,
+    and early Side Socket diversion shaping rewards.
+    """
 
     def __init__(
         self,
         env: gym.Env,
-        progress_scale: float = 0.8,
+        main_waypoints: Optional[Sequence[Sequence[float]]] = None,
+        side_sockets: Optional[Sequence[Sequence[float]]] = None,
+        waypoints_source: Optional[Union[str, Path, Dict[str, Any]]] = None,
+        preset: Optional[str] = None,
+        state_provider: Optional[Callable[[np.ndarray, Dict[str, Any]], Tuple[Sequence[float], Sequence[float]]]] = None,
+        dt: float = 1.0 / 60.0,
+        start_yaw: Optional[float] = None,
         align_scale: float = 0.05,
+        reach_radius: float = 2.0,
+        socket_radius: float = 2.5,
     ) -> None:
         super().__init__(env)
-        self.progress_scale = float(progress_scale)
+        if waypoints_source is not None:
+            resolved_main, resolved_sockets = load_waypoints_from_flow_data(waypoints_source)
+            resolved_yaw = 0.0
+        elif main_waypoints is not None:
+            resolved_main = [tuple(_to_vec3(p)) for p in main_waypoints]
+            resolved_sockets = [tuple(_to_vec3(p)) for p in (side_sockets or ())]
+            resolved_yaw = 0.0
+        else:
+            chosen_preset = preset or infer_preset_from_scene(getattr(env, "scene_path", None))
+            cfg = _preset_config(chosen_preset)
+            resolved_main = cfg["main_waypoints"]
+            resolved_sockets = cfg.get("side_sockets", ())
+            resolved_yaw = float(cfg.get("start_yaw", 0.0))
+
+        self.tracker = FlowWaypointTracker(
+            main_waypoints=resolved_main,
+            side_sockets=resolved_sockets,
+            reach_radius=reach_radius,
+            socket_radius=socket_radius,
+        )
+        self.state_provider = state_provider
+        self.dt = float(dt)
+        self.start_yaw = float(start_yaw) if start_yaw is not None else resolved_yaw
         self.align_scale = float(align_scale)
-        self._prev_dist_m: Optional[float] = None
+
+        self._est_pos = _to_vec3(self.tracker.main_waypoints[0])
+        self._est_yaw = self.start_yaw
+        self.side_socket_diversions = 0
+        self.backtrack_events = 0
+
+    def _resolve_pose(
+        self, obs_arr: np.ndarray, info: Dict[str, Any], is_reset: bool = False
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        if "player_pos" in info and "player_forward" in info:
+            return _to_vec3(info["player_pos"]), np.asarray(info["player_forward"], dtype=np.float64)
+        if self.state_provider is not None:
+            p, f = self.state_provider(obs_arr, info)
+            return _to_vec3(p), np.asarray(f, dtype=np.float64)
+
+        # Dead-reckoning fallback from obs[10..12] when live bridge does not emit world pose.
+        if is_reset:
+            self._est_pos = _to_vec3(self.tracker.main_waypoints[0])
+            self._est_pos[1] = float(obs_arr[12]) if obs_arr.shape[0] > 12 else self._est_pos[1]
+            self._est_yaw = self.start_yaw
+        else:
+            vx_local = float(obs_arr[10]) * RL_MAX_VELOCITY
+            vz_local = float(obs_arr[11]) * RL_MAX_VELOCITY
+            fwd = np.array([-math.sin(self._est_yaw), -math.cos(self._est_yaw)], dtype=np.float64)
+            right = np.array([math.cos(self._est_yaw), -math.sin(self._est_yaw)], dtype=np.float64)
+            # vz_local is along +Z (backward), so forward speed is -vz_local
+            world_vx = right[0] * vx_local + fwd[0] * (-vz_local)
+            world_vz = right[1] * vx_local + fwd[1] * (-vz_local)
+            self._est_pos[0] += world_vx * self.dt
+            self._est_pos[2] += world_vz * self.dt
+            if obs_arr.shape[0] > 12:
+                self._est_pos[1] = float(obs_arr[12])
+        fwd_xz = np.array([-math.sin(self._est_yaw), -math.cos(self._est_yaw)], dtype=np.float64)
+        return self._est_pos.copy(), fwd_xz
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
-        obs_arr = np.asarray(obs, dtype=np.float32)
-        self._prev_dist_m = float(obs_arr[8]) * RL_DIST_NORM
-        return obs_arr, info
+        obs_arr = np.asarray(obs, dtype=np.float32).copy()
+        info_dict = dict(info or {})
+        self.side_socket_diversions = 0
+        self.backtrack_events = 0
+
+        pos, fwd_xz = self._resolve_pose(obs_arr, info_dict, is_reset=True)
+        dist, _ = self.tracker.reset(pos)
+        wp = self.tracker.current_waypoint()
+        angle = signed_angle_to_target(
+            fwd_xz, np.array([wp[0] - pos[0], wp[2] - pos[2]], dtype=np.float64)
+        )
+        obs_arr[8] = np.float32(np.clip(dist / RL_DIST_NORM, 0.0, 1.0))
+        obs_arr[9] = np.float32(np.clip(angle, -1.0, 1.0))
+        info_dict.update({
+            "wp_idx": self.tracker.wp_idx,
+            "main_route_exhausted": self.tracker.main_route_exhausted,
+            "dist_to_wp": dist,
+            "angle_to_wp": angle,
+        })
+        return obs_arr, info_dict
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
-        obs_arr = np.asarray(obs, dtype=np.float32)
-        dist_m = float(obs_arr[8]) * RL_DIST_NORM
-        angle_norm = float(obs_arr[9])
-        shaping = 0.0
-        if self._prev_dist_m is not None:
-            shaping += self.progress_scale * (self._prev_dist_m - dist_m)
-        shaping += self.align_scale * math.cos(angle_norm * math.pi)
-        self._prev_dist_m = dist_m
-        return obs_arr, float(reward) + shaping, terminated, truncated, info
+        obs_arr = np.asarray(obs, dtype=np.float32).copy()
+        info_dict = dict(info or {})
+
+        pos, fwd_xz = self._resolve_pose(obs_arr, info_dict, is_reset=False)
+        res = self.tracker.step(pos, fwd_xz)
+        if res.side_socket_diversion:
+            self.side_socket_diversions += 1
+        if res.backtracking:
+            self.backtrack_events += 1
+
+        obs_arr[8] = np.float32(np.clip(res.dist_to_wp / RL_DIST_NORM, 0.0, 1.0))
+        obs_arr[9] = np.float32(np.clip(res.angle_to_wp, -1.0, 1.0))
+
+        shaping = res.reward + self.align_scale * math.cos(res.angle_to_wp * math.pi)
+        info_dict.update({
+            "wp_idx": res.wp_idx,
+            "main_route_exhausted": res.main_route_exhausted,
+            "side_socket_diversions": self.side_socket_diversions,
+            "backtrack_events": self.backtrack_events,
+            "dist_to_wp": res.dist_to_wp,
+            "angle_to_wp": res.angle_to_wp,
+        })
+        return obs_arr, float(reward) + shaping, terminated, truncated, info_dict
