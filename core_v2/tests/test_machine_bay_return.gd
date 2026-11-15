@@ -94,6 +94,30 @@ func _restore_scene_manager(saved: Dictionary) -> void:
 	manager._transition_params = saved["transition_params"].duplicate(true)
 
 
+# AirlockManager: return_to_ring_hub/enter_machine_bay arman el lift seamless. El
+# goto_scene encolado no dispara los callbacks que lo consumen, asi que el test debe
+# devolver el estado para no dejar la transicion siguiente con el lift armado.
+func _snapshot_airlock() -> Dictionary:
+	var manager := get_node_or_null("/root/AirlockManager")
+	if manager == null:
+		return {}
+	return {
+		"node": manager,
+		"pending_transition": manager._pending_transition,
+		"seamless_swap": manager._seamless_swap,
+		"exterior_scene": manager._exterior_scene,
+	}
+
+
+func _restore_airlock(saved: Dictionary) -> void:
+	if saved.empty():
+		return
+	var manager = saved["node"]
+	manager._pending_transition = saved["pending_transition"]
+	manager._seamless_swap = saved["seamless_swap"]
+	manager._exterior_scene = saved["exterior_scene"]
+
+
 # GLES3VendorGate: MachineLevel._ready() -> _apply_flat_lighting() mueve estas palancas.
 func _snapshot_gate() -> Dictionary:
 	var gate := get_node_or_null("/root/GLES3VendorGate")
@@ -128,6 +152,7 @@ func test_machine_bay_return() -> void:
 
 	var manager_saved := _snapshot_scene_manager()
 	var gate_saved := _snapshot_gate()
+	var airlock_saved := _snapshot_airlock()
 
 	var return_payload := _return_payload()
 
@@ -156,9 +181,10 @@ func test_machine_bay_return() -> void:
 	var params: Dictionary = manager._pending_transition_params
 	assert_int(params.size()).is_equal(4)
 	assert_dict(params).contains_keys(
-		["preserve_player_state", "wait_for_fade_out", "ringhub_return_state", "state_data"])
+		["preserve_player_state", "ringhub_return_state", "state_data", "transition"])
 	assert_bool(bool(params.get("preserve_player_state", true))).is_false()
-	assert_bool(bool(params.get("wait_for_fade_out", false))).is_true()
+	# El retorno viaja por el camino seamless del airlock (misma marca que hub->bahia).
+	assert_str(params.get("transition", "")).is_equal("seamless")
 
 	# Payload anidado exacto.
 	assert_dict(params.get("ringhub_return_state", {})).is_equal(return_payload)
@@ -180,6 +206,7 @@ func test_machine_bay_return() -> void:
 
 	_restore_scene_manager(manager_saved)
 	_restore_gate(gate_saved)
+	_restore_airlock(airlock_saved)
 	assert_str(manager._pending_scene_path).is_equal(saved_pending_path)
 	level.free()
 
@@ -195,6 +222,7 @@ func test_machine_bay_return_ringhub_light_state_producer() -> void:
 	var tree := get_tree()
 	var manager_saved := _snapshot_scene_manager()
 	var gate_saved := _snapshot_gate()
+	var airlock_saved := _snapshot_airlock()
 	var previous_scene: Node = tree.current_scene
 
 	var hub := StubHub.new()
@@ -237,3 +265,4 @@ func test_machine_bay_return_ringhub_light_state_producer() -> void:
 	hub.free()
 	_restore_scene_manager(manager_saved)
 	_restore_gate(gate_saved)
+	_restore_airlock(airlock_saved)
