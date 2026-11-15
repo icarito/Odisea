@@ -26,8 +26,7 @@ de implementación; lo construido hasta ahora está en `specs/scaffold-chunk-cat
 - La navegación es una **herramienta diegética** del traje, no un modo que se activa solo.
 - El autonavegador funciona **solo mientras se mantiene TAB**; al soltar, el control vuelve
   al jugador.
-- Pendiente de resolver: hoy mantener TAB abre el radial del modo HUD (FD-296). Hay que
-  decidir cómo conviven ambos gestos.
+- TAB quedó exclusivo del autonavegador (2026-11-15); el modo HUD se mudó a otra tecla.
 
 ## Sin decidir
 

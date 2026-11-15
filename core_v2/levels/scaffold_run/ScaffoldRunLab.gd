@@ -2,8 +2,8 @@ extends Spatial
 
 # Escena de prueba de Transit-Run: arma un tramo de chunks de andamio por semilla
 # (ScaffoldChunkRegistry) con las escenas horneadas y suelta al piloto al inicio. Con
-# `autopilot_enabled`, tras 0.5 s sin tocar los controles el modo asistido recorre la ruta
-# principal; cualquier input lo interrumpe.
+# `autopilot_enabled`, mantener TAB (nav_assist) hace que el autonavegador recorra la ruta
+# principal; soltarlo o tocar los controles devuelve el mando.
 #
 #   tools/launch_game.sh --scene res://core_v2/levels/scaffold_run/ScaffoldRunLab.tscn
 #
@@ -117,6 +117,9 @@ func _arm_autopilot() -> void:
 	_autopilot.set_route(_route)
 	_autopilot.frame = _orbit
 	_autopilot.enabled = autopilot_enabled
+	# Corrida de capturas sin nadie al mando: se sostiene nav_assist por el jugador.
+	if _capturing:
+		Input.action_press("nav_assist")
 	_pilot.input_provider.autopilot = _autopilot
 
 

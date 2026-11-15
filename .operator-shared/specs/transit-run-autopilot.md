@@ -1,4 +1,4 @@
-# Transit-Run: modo asistido (piloto automático)
+# Transit-Run: autonavegador (piloto automático)
 
 Contrato del relevo humano ↔ máquina. Métricas y umbrales de la ruta: `docs/canon/WFC_FLOW_METRICS.md`.
 
@@ -17,13 +17,18 @@ Contrato del relevo humano ↔ máquina. Métricas y umbrales de la ruta: `docs/
 
 - El piloto automático **solo escribe intents** (`move_vec`, `sprint`, `jump`). Nunca toca
   velocidad, transform ni cámara: el relevo no puede alterar el momentum.
-- Cualquier intent humano de gameplay lo apaga **en el mismo tick**. Mirar (`mouse_delta`) no
-  lo apaga.
-- El tiempo de inactividad se cuenta en **ticks de simulación**, no en reloj.
+- **Conduce solo mientras el jugador mantiene `nav_assist` (TAB).** Soltarlo devuelve el
+  control en el mismo tick. No hay activación por inactividad.
+- Con TAB sostenido, cualquier intent humano de gameplay manda **en ese mismo tick**. Mirar
+  (`mouse_delta`) no lo interrumpe.
+- `nav_assist` no viaja en `InputDataV2`: lo que se graba es lo que el autonavegador escribe
+  en el frame. El formato de los replays no cambió.
 - Su salida queda en el stream grabado; el replay no ejecuta el piloto automático. Un replay
   de una sesión asistida es indistinguible de uno manual.
-- No corre con `hardware_input_enabled = false` ni con el puntero liberado por el juego: ahí
-  el silencio del jugador no es inactividad.
+- No corre con `hardware_input_enabled = false` ni con el puntero liberado por el juego.
+- TAB es exclusivo del autonavegador. El modo HUD (`hud_mode`: toque = dial, sostener =
+  cajón) vive en otra tecla (X en teclado; Enter no sirve porque ya es «aceptar» dentro del
+  HUD) y conserva Y en el mando.
 - `autopilot == null` (por defecto) deja al proveedor exactamente como antes.
 
 ## Límites conocidos
@@ -46,5 +51,6 @@ Contrato del relevo humano ↔ máquina. Métricas y umbrales de la ruta: `docs/
   a ese espacio cada tick; sin `frame`, los waypoints son coordenadas de mundo alineadas a los
   ejes. Asume avance hacia +Z de ese espacio.
 - No gira la cámara: el personaje puede correr de lado respecto a la vista.
-- Ningún nivel lo activa todavía; falta quién arme la ruta en runtime y la señal diegética
-  en el visor.
+- `nav_assist` solo tiene tecla: falta botón de mando y táctil.
+- Falta la herramienta diegética (pantalla o widget del traje) y la señal en el visor; hoy
+  solo lo arman `ScaffoldRunLab` y `HullUnderdeck`.

@@ -19,7 +19,7 @@ var _root: Spatial = null
 
 
 func after_test() -> void:
-	for a in ["move_forward", "move_backward", "move_left", "move_right", "jump", "run"]:
+	for a in ["move_forward", "move_backward", "move_left", "move_right", "jump", "run", "nav_assist"]:
 		Input.action_release(a)
 	if is_instance_valid(_root):
 		_root.queue_free()
@@ -106,6 +106,7 @@ func _run_stretch(orbit_radius: float):
 	auto.enabled = true
 	pilot.input_provider.autopilot = auto
 
+	Input.action_press("nav_assist")  # el autonavegador conduce solo con TAB sostenido
 	var ticks := 0
 	var limit: int = count * 12 * 60  # 12 s por chunk: el piloto corre 12 m en ~2 s
 	while ticks < limit and not auto.is_finished():

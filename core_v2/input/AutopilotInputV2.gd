@@ -1,16 +1,16 @@
 extends Reference
 # Sin class_name (mismo criterio que FlowMetrics / HoloPolicyController): se consume con preload().
 #
-# AutopilotInputV2 — modo asistido ("lazy") de Transit-Run. Fuente SINTETICA de input que
-# InputProviderV2 aplica sobre el InputDataV2 del frame cuando el humano lleva idle_seconds
-# sin tocar los controles. Recorre la ruta principal (waypoints de FlowRouteValidator).
+# AutopilotInputV2 — autonavegador de Transit-Run. Fuente SINTETICA de input que
+# InputProviderV2 aplica sobre el InputDataV2 del frame MIENTRAS el jugador mantiene
+# nav_assist (TAB). Recorre la ruta principal (waypoints de FlowRouteValidator).
 #
 # Contrato:
 # - Solo escribe intents (move_vec / sprint / jump). No toca velocidad, transform ni camara:
 #   el relevo humano <-> maquina no puede producir saltos de momentum por construccion.
 # - Cualquier intent humano de gameplay lo apaga en el MISMO tick; mirar (mouse_delta) no.
 # - Corre dentro de get_input() en modo LIVE: su salida queda en el stream grabado y el
-#   replay la reproduce sin ejecutar el autopilot. El idle se cuenta en ticks, no en reloj.
+#   replay la reproduce sin ejecutar el autopilot.
 
 const FlowMetricsScript := preload("res://core_v2/systems/flow/FlowMetrics.gd")
 
@@ -28,7 +28,6 @@ const FULL_JUMP_DIST := 4.0
 const MIN_PACE := 0.3             # fraccion minima de v_run al regular la cadencia
 
 var enabled := false
-var idle_seconds := 0.5
 var arrive_radius := 1.0
 
 # Opcional: marco curvo (ScaffoldChunkOrbit). Si se asigna, los waypoints estan en el espacio
@@ -40,7 +39,6 @@ var _body_ref: WeakRef = null
 var _fm = null
 var _waypoints := []              # [{position: Vector3, size: Vector3 (opcional)}]
 var _index := 0
-var _idle_ticks := 0
 var _active := false
 var _jump_held := false
 var _stuck_ticks := 0
@@ -84,15 +82,13 @@ static func human_is_active(d: InputDataV2) -> bool:
 		or d.tool_fire_primary or d.tool_fire_secondary or d.cargol_ability
 
 
-func apply(d: InputDataV2) -> void:
+# `held`: el jugador mantiene la accion nav_assist (TAB). El autonavegador conduce solo
+# mientras esta sostenida; soltarla devuelve el control en el mismo tick.
+func apply(d: InputDataV2, held: bool) -> void:
 	var body: KinematicBody = _body_ref.get_ref() if _body_ref != null else null
-	if not enabled or d == null or body == null or is_finished() or human_is_active(d):
-		_idle_ticks = 0
+	if not enabled or not held or d == null or body == null or is_finished() or human_is_active(d):
 		_active = false
 		_jump_held = false
-		return
-	_idle_ticks += 1
-	if _idle_ticks < int(idle_seconds * float(Engine.iterations_per_second)):
 		return
 	_active = true
 

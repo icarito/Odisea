@@ -14,7 +14,7 @@ const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 
 const ORIGIN := Vector3(6000.0, 6000.0, 6000.0)
 const TICKS_PER_FRAME := 8
-const ACTIONS := ["move_forward", "move_backward", "move_left", "move_right", "jump", "run", "crouch"]
+const ACTIONS := ["move_forward", "move_backward", "move_left", "move_right", "jump", "run", "crouch", "nav_assist"]
 const DECK := Vector3(6.0, 1.0, 10.0)
 
 var _root: Spatial = null
@@ -85,23 +85,27 @@ func _release_all() -> void:
 			Input.action_release(a)
 
 
+# Todo tick corre DENTRO de un frame de fisica: fuera de el, move_and_slide usa el delta de
+# proceso y el piloto avanza a otra velocidad (el test pasaba o fallaba segun el desfase).
 func _tick(n: int = 1):
 	for _i in range(n):
-		_pilot._physics_process(0.0)
-		_ticks += 1
 		if _ticks % TICKS_PER_FRAME == 0:
 			yield(get_tree(), "physics_frame")
-	yield(get_tree(), "idle_frame")
+		_pilot._physics_process(0.0)
+		_ticks += 1
+	yield(get_tree(), "physics_frame")
 
 
 func _h_speed() -> float:
 	return Vector2(_pilot.velocity.x, _pilot.velocity.z).length()
 
 
-func test_engages_after_idle_and_traverses_gap_and_step() -> void:
-	var engage: int = int(_auto.idle_seconds * float(Engine.iterations_per_second))
-	yield(_tick(engage - 1), "completed")
+func test_drives_only_while_nav_assist_is_held() -> void:
+	# Sin TAB no hace nada, por mucho que el jugador se quede quieto.
+	yield(_tick(60), "completed")
 	assert_bool(_auto.is_active()).is_false()
+	assert_float(_h_speed()).is_less(0.1)
+	Input.action_press("nav_assist")
 	for _i in range(150):
 		if _auto.is_finished():
 			break
@@ -115,12 +119,26 @@ func test_engages_after_idle_and_traverses_gap_and_step() -> void:
 	assert_float((_pilot.global_transform.origin - ORIGIN).y).is_between(2.3, 2.9)
 
 
+func test_releasing_nav_assist_returns_control_in_the_same_tick() -> void:
+	Input.action_press("nav_assist")
+	yield(_tick(40), "completed")
+	assert_bool(_auto.is_active()).is_true()
+	Input.action_release("nav_assist")
+	yield(_tick(1), "completed")
+	assert_bool(_auto.is_active()).is_false()
+	var d = _pilot.input_provider.last_input
+	assert_float(d.move_vec.length()).is_less(0.01)
+	assert_bool(d.jump).is_false()
+
+
 func test_human_input_takes_over_same_tick_without_momentum_jump() -> void:
+	Input.action_press("nav_assist")
 	yield(_tick(60), "completed")
 	assert_bool(_auto.is_active()).is_true()
 	var before: float = _h_speed()
 	assert_float(before).is_greater(3.0)
 
+	# Con TAB todavia sostenido, el humano manda.
 	Input.action_press("move_left")
 	yield(_tick(1), "completed")
 	assert_bool(_auto.is_active()).is_false()
@@ -132,5 +150,5 @@ func test_human_input_takes_over_same_tick_without_momentum_jump() -> void:
 	assert_float(abs(_h_speed() - before)).is_less(1.5)
 
 	Input.action_release("move_left")
-	yield(_tick(int(_auto.idle_seconds * float(Engine.iterations_per_second)) + 1), "completed")
+	yield(_tick(1), "completed")
 	assert_bool(_auto.is_active()).is_true()

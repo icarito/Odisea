@@ -163,9 +163,11 @@ func get_input() -> InputDataV2:
 		last_input = _read_live_input()
 		# Modo asistido: va DESPUES de leer el hardware (el humano gana en el mismo tick) y
 		# antes de que nadie grabe el frame. No corre con el input bloqueado ni con el puntero
-		# liberado: ahi el silencio del jugador no es "idle".
+		# liberado.
 		if autopilot != null and hardware_input_enabled and not _gameplay_pointer_release_suppressed():
-			autopilot.apply(last_input)
+			# nav_assist (TAB) no viaja en el stream: lo que se graba es lo que el
+			# autonavegador escribe en el frame, y eso basta para reproducirlo.
+			autopilot.apply(last_input, _action_pressed("nav_assist"))
 		return last_input
 
 
