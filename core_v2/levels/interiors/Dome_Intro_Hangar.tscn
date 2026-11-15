@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=2]
+[gd_scene load_steps=21 format=2]
 
 ; Dome_Intro_Hangar.tscn — Blockout del hangar/sotano del domo Intro (FD-289 Sec 7.7, T4).
 ;
@@ -38,6 +38,7 @@
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=17]
 [ext_resource path="res://core_v2/props/duct/DuctFloorGrate.tres" type="Material" id=18]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=19]
+[ext_resource path="res://core_v2/props/magrail/HangarMagRailConnector.gd" type="Script" id=20]
 
 [node name="Dome_Intro_Hangar" type="Spatial" groups=["hangar_interior"]]
 
@@ -318,17 +319,18 @@ light_energy = 1.3
 omni_range = 30.0
 
 [node name="Exit" type="Spatial" parent="."]
+script = ExtResource( 20 )
 
 ; Punto de insercion para el tramo MagRail por el brazo centrifugo (pista D).
-; Por ahora conecta directo de forma seamless con RingHub_Level usando la camara
-; de la esclusa como buffer fisico.
+; Conecta de forma seamless con MagRailHangarToRingHub usando la camara
+; de la esclusa como buffer fisico (fallback directo a RingHub detras de flag).
 [node name="Airlock_Exit" parent="Exit" instance=ExtResource( 7 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 21.9 )
 
 [node name="AirlockZoneV2" parent="Exit/Airlock_Exit" index="14"]
-target_scene = "res://core_v2/levels/RingHub_Level.tscn"
-target_spawn_id = "from_dome_intro_hangar"
-target_airlock_path = NodePath("Hub/Airlock_FromHangar")
+target_scene = "res://core_v2/levels/MagRailHangarToRingHub.tscn"
+target_spawn_id = "from_hangar"
+target_airlock_path = NodePath("Airlock_FromHangar")
 zone_dir = Vector3( 0, 0, 1 )
 
 [node name="ExitBeacon" parent="Exit" instance=ExtResource( 11 )]

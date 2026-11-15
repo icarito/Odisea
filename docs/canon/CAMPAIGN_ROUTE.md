@@ -19,12 +19,12 @@ el mecanismo de transición, el buffer físico de cada tramo y los flags de conf
    - **Buffer:** pozo del blast door y descenso por plataforma/rampa (`HangarPlatform`, precarga en `descend_started`).
    - **Transición:** `wait_for_fade_out: true` (deuda documentada en `seamless-transitions.md` §4 hasta contar con buffer de llegada equivalente).
 
-3. **`Dome_Intro_Hangar.tscn` → `RingHub_Level.tscn`** *(punto de inserción MagRail)*
-   - **Productor actual:** `Exit/Airlock_Exit/AirlockZoneV2` en `Dome_Intro_Hangar.tscn` (`target_scene = "res://core_v2/levels/RingHub_Level.tscn"`, `target_spawn_id = "from_dome_intro_hangar"`, `target_airlock_path = NodePath("Hub/Airlock_FromHangar")`).
-   - **Buffer físico:** cámara de esclusa `AirlockChamber` (puerta doble en origen y destino `Hub/Airlock_FromHangar`) + `AirlockManager.notify_transition` + `_pre_position_at_destination` desde el frame 0.
-   - **Transición:** `"transition": "seamless"` (sin fade ni corte de BGM).
+3. **`Dome_Intro_Hangar.tscn` → `MagRailHangarToRingHub.tscn` → `RingHub_Level.tscn`**
+   - **Productor en hangar:** `Exit/Airlock_Exit/AirlockZoneV2` en `Dome_Intro_Hangar.tscn` (enrutado por `Exit` / `HangarMagRailConnector.gd`: `target_scene = "res://core_v2/levels/MagRailHangarToRingHub.tscn"`, `target_spawn_id = "from_hangar"`, `target_airlock_path = NodePath("Airlock_FromHangar")`).
+   - **Tramo MagRail (brazo centrífugo):** `MagRail_CentrifugalArm` con pasarela de respaldo continua (`Catwalk_Backup`) para no bloquear la línea principal, entrada seamless por `Airlock_FromHangar` y salida seamless por `Airlock_ToRingHub` (`target_scene = "res://core_v2/levels/RingHub_Level.tscn"`, `target_spawn_id = "from_dome_intro_hangar"`, `target_airlock_path = NodePath("Hub/Airlock_FromHangar")`).
+   - **Fallback detrás de flag:** `HangarMagRailConnector.magrail_hangar_connector_enabled = false` restaura automáticamente el enlace directo `Airlock_Exit` → `RingHub_Level.tscn` (`Hub/Airlock_FromHangar`).
+   - **Transición:** `"transition": "seamless"` en ambas fronteras (cámara de esclusa `AirlockChamber` + `AirlockManager.notify_transition` + `_pre_position_at_destination`).
    - **Llegada:** `Hub/Airlock_FromHangar` (y respaldo `Hub/Spawn_FromHangar`, `spawn_id = "from_dome_intro_hangar"`). `RingHubWakeup` detecta la llegada por spawn y omite el encierro en `Criopod_Vert`.
-   - **Punto de inserción futuro (pista D / MagRail):** `Exit/Airlock_Exit` de `Dome_Intro_Hangar.tscn` se reemplazará/enlazará con el tramo MagRail por el brazo centrífugo antes de desembocar en `RingHub_Level.tscn`.
 
 4. **`RingHub_Level.tscn` → `MachineBay.tscn`**
    - **Guía:** al activar `Hub/PedestalLight` (encender las luces del domo), `RingHubLightState._notify_suit_lights_restored()` invoca al `ProgrammerHoloNPC` y lo dirige a la boca del conector real (`Hub/BayConnector`).
@@ -42,6 +42,7 @@ el mecanismo de transición, el buffer físico de cada tramo y los flags de conf
 | Flag | Ubicación | Valor en línea principal | Propósito |
 |---|---|---|---|
 | `maintenance_override_enabled` | `DomeSystemDirector.gd` | `true` | Permite abrir el descenso de mantenimiento sin completar los 4/4 puzles de redes (rollback a `false`). |
+| `magrail_hangar_connector_enabled` | `HangarMagRailConnector.gd` (`Dome_Intro_Hangar/Exit`) | `true` | Enruta la salida del hangar por el tramo MagRail (`MagRailHangarToRingHub.tscn`); `false` restaura el airlock directo a `RingHub_Level.tscn`. |
 | `debug_pedestals_enabled` | `RingHubLightState.gd` | `false` | Oculta y desactiva `PedestalMachineBay` y `PedestalBayVertical` en la línea principal; `true` los habilita para debug. |
 
 ## 3. Verificación automatizada

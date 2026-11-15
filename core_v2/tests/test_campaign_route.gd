@@ -20,6 +20,7 @@ const AirlockZoneScript = preload("res://core_v2/components/AirlockZoneV2.gd")
 
 const DOME_INTRO := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const DOME_HANGAR := "res://core_v2/levels/interiors/Dome_Intro_Hangar.tscn"
+const MAGRAIL_HANGAR_TO_RINGHUB := "res://core_v2/levels/MagRailHangarToRingHub.tscn"
 const RING_HUB := "res://core_v2/levels/RingHub_Level.tscn"
 const MACHINE_BAY := "res://core_v2/levels/machines/MachineBay.tscn"
 const BAY_VERTICAL := "res://core_v2/levels/bay_vertical/BayVertical.tscn"
@@ -28,16 +29,17 @@ const BAY_VERTICAL := "res://core_v2/levels/bay_vertical/BayVertical.tscn"
 const REQUIRED_REACHABLE_SCENES := [
 	DOME_INTRO,
 	DOME_HANGAR,
+	MAGRAIL_HANGAR_TO_RINGHUB,
 	RING_HUB,
 	MACHINE_BAY,
 ]
 
 # TODO(src-61, src-57): mover BayVertical y la salida por la cima a REQUIRED_REACHABLE_SCENES
-# cuando las pistas paralelas cableen MachineBay -> BayVertical -> cima;
-# TODO(src-63): insertar el tramo MagRail entre Dome_Intro_Hangar y RingHub_Level.
+# cuando las pistas paralelas cableen MachineBay -> BayVertical -> cima.
 const SLICE_FULL_LINE_SCENES := [
 	DOME_INTRO,
 	DOME_HANGAR,
+	MAGRAIL_HANGAR_TO_RINGHUB,
 	RING_HUB,
 	MACHINE_BAY,
 	BAY_VERTICAL,
@@ -287,37 +289,75 @@ func test_campaign_route_reachability_and_valid_targets() -> void:
 
 func test_hangar_to_ringhub_seamless_preposition_uses_matching_airlock() -> void:
 	var hangar_packed := load(DOME_HANGAR) as PackedScene
+	var magrail_packed := load(MAGRAIL_HANGAR_TO_RINGHUB) as PackedScene
 	var hub_packed := load(RING_HUB) as PackedScene
 	assert_object(hangar_packed).is_not_null()
+	assert_object(magrail_packed).is_not_null()
 	assert_object(hub_packed).is_not_null()
 
 	var hangar: Node = auto_free(hangar_packed.instance())
+	var magrail: Node = auto_free(magrail_packed.instance())
 	var hub: Node = auto_free(hub_packed.instance())
 	if "open_pod_terminal_on_start" in hub:
 		hub.set("open_pod_terminal_on_start", false)
 	add_child(hangar)
+	add_child(magrail)
 	add_child(hub)
 	yield(get_tree(), "idle_frame")
 
-	var exit_zone := hangar.get_node_or_null("Exit/Airlock_Exit/AirlockZoneV2") as Spatial
+	var hangar_exit_zone := hangar.get_node_or_null("Exit/Airlock_Exit/AirlockZoneV2") as Spatial
+	var magrail_entry_airlock := magrail.get_node_or_null("Airlock_FromHangar") as Spatial
+	var magrail_exit_zone := magrail.get_node_or_null("Airlock_ToRingHub/AirlockZoneV2") as Spatial
 	var dest_airlock := hub.get_node_or_null("Hub/Airlock_FromHangar") as Spatial
-	assert_object(exit_zone).is_not_null()
+	assert_object(hangar_exit_zone).is_not_null()
+	assert_object(magrail_entry_airlock).is_not_null()
+	assert_object(magrail_exit_zone).is_not_null()
 	assert_object(dest_airlock).is_not_null()
-	assert_str(String(exit_zone.get("target_airlock_path"))).is_equal("Hub/Airlock_FromHangar")
+	assert_str(String(hangar_exit_zone.get("target_airlock_path"))).is_equal("Airlock_FromHangar")
+	assert_str(String(magrail_exit_zone.get("target_airlock_path"))).is_equal("Hub/Airlock_FromHangar")
 
 	var airlock_mgr := get_node_or_null("/root/AirlockManager")
 	assert_object(airlock_mgr).is_not_null()
 	var dummy_player: Spatial = auto_free(Spatial.new())
 	add_child(dummy_player)
-	dummy_player.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, 1.15, 21.9))
 
-	var params := {
+	# 1. Hangar -> MagRail (entrada seamless)
+	var params_in := {
 		"transition": "seamless",
 		"state_data": {
 			"airlock_relative_transform": Transform(Basis.IDENTITY, Vector3(0.0, 0.0, 0.5)),
-			"target_airlock_path": String(exit_zone.get("target_airlock_path")),
+			"target_airlock_path": String(hangar_exit_zone.get("target_airlock_path")),
 		}
 	}
-	airlock_mgr._pre_position_at_destination(dummy_player, hub, params)
-	var expected_pos: Vector3 = dest_airlock.global_transform.xform(Vector3(0.0, 0.0, 0.5))
-	assert_vector3(dummy_player.global_transform.origin).is_equal_approx(expected_pos, Vector3(0.01, 0.01, 0.01))
+	airlock_mgr._pre_position_at_destination(dummy_player, magrail, params_in)
+	var expected_in: Vector3 = magrail_entry_airlock.global_transform.xform(Vector3(0.0, 0.0, 0.5))
+	assert_vector3(dummy_player.global_transform.origin).is_equal_approx(expected_in, Vector3(0.01, 0.01, 0.01))
+
+	# 2. MagRail -> RingHub (salida seamless)
+	var params_out := {
+		"transition": "seamless",
+		"state_data": {
+			"airlock_relative_transform": Transform(Basis.IDENTITY, Vector3(0.0, 0.0, 0.5)),
+			"target_airlock_path": String(magrail_exit_zone.get("target_airlock_path")),
+		}
+	}
+	airlock_mgr._pre_position_at_destination(dummy_player, hub, params_out)
+	var expected_out: Vector3 = dest_airlock.global_transform.xform(Vector3(0.0, 0.0, 0.5))
+	assert_vector3(dummy_player.global_transform.origin).is_equal_approx(expected_out, Vector3(0.01, 0.01, 0.01))
+
+
+func test_hangar_magrail_connector_fallback_flag() -> void:
+	var hangar_packed := load(DOME_HANGAR) as PackedScene
+	assert_object(hangar_packed).is_not_null()
+	var hangar: Node = auto_free(hangar_packed.instance())
+	var exit_node := hangar.get_node_or_null("Exit")
+	assert_object(exit_node).is_not_null()
+	exit_node.set("magrail_hangar_connector_enabled", false)
+	add_child(hangar)
+	yield(get_tree(), "idle_frame")
+
+	var zone := hangar.get_node_or_null("Exit/Airlock_Exit/AirlockZoneV2")
+	assert_object(zone).is_not_null()
+	assert_str(String(zone.get("target_scene"))).is_equal(RING_HUB)
+	assert_str(String(zone.get("target_spawn_id"))).is_equal("from_dome_intro_hangar")
+	assert_str(String(zone.get("target_airlock_path"))).is_equal("Hub/Airlock_FromHangar")
