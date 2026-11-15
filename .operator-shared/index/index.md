@@ -33,7 +33,11 @@ read_if: Antes de explorar el repo o buscar dónde vive un sistema.
 - `props/machines/` — Kit de máquinas (FD-320): `MachinePart`, `MachineHinge`, `MachineTrigger` y `MachineLevel` (niveles por layout JSON)
 - `levels/machines/` — Bahía de máquinas: `MachineBay.tscn` + `machine_bay.json`
 - `levels/` — Escenas de nivel; `levels/interiors/` domos y fuentes de bake
+- `input/` — `InputProviderV2` (árbitro LIVE/REPLAY), `InputDataV2` (frame serializable), `AutopilotInputV2` (modo asistido Transit-Run)
 - `systems/` — Sistemas de nave (cryo, room)
+- `systems/flow/` — `FlowMetrics` (alcance del jugador leído de `Pilot_v2`) y `FlowRouteValidator` (ruta principal y waypoints por semilla)
+- `systems/scaffold/`, `systems/ScaffoldStreamController.gd` — Andamio WFC por chunks en streaming; `ScaffoldOrbit` lo proyecta al cilindro
+- `agents/` — Inferencia MLP de la política de ANNA en GDScript (`MLPPolicyInference`, `HoloPolicyController`)
 - `ui/` — HUD, OdiseaOS, menús, mouse virtual
 - `telemetry/` — ANNAV2 y servidor MCP
 - `tests/` — GdUnit y OYS

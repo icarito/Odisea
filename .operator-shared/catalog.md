@@ -23,6 +23,9 @@
 - `machine-layout.md`
   - Description: Convenciones y recetas del formato JSON de `MachineLevel` (ejes, orden de rotación, retención de piezas, pestillos, paralelogramo).
   - Read If: Armando o editando un nivel de máquinas, o extendiendo `MachineLevel` / el futuro editor.
+- `transit-run-autopilot.md`
+  - Description: Contrato del modo asistido de Transit-Run: el piloto automático como fuente dentro de `InputProviderV2`, invariantes del relevo humano ↔ máquina y del replay, decisiones de nombres frente al plan WFC, límites conocidos.
+  - Read If: Tocando `AutopilotInputV2`, el arbitraje de input del jugador, o planificando el generador WFC de ScaffoldOrbit y sus documentos de métricas.
 
 ### `guides/` - Guías de trabajo
 
