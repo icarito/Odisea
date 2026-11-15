@@ -180,8 +180,6 @@ func _on_pre_scene_swap(old_scene: Node, _new_scene: Node, _params: Dictionary) 
 func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) -> void:
 	if not is_instance_valid(scene_root):
 		return
-	if OS.get_environment("ODISEA_DEBUG_SEAMLESS") == "1":
-		print("[AirlockManager] pre_spawn_state path=", path, " held_valid=", is_instance_valid(_player_held), " params=", _params)
 
 	# Update exterior reference after a reload
 	if _is_exterior_scene(path):
@@ -212,8 +210,6 @@ func _on_pre_spawn_state(path: String, scene_root: Node, _params: Dictionary) ->
 		_pre_position_at_destination(player, scene_root, _params)
 		remove_child(player)
 		scene_root.add_child(player)
-		if OS.get_environment("ODISEA_DEBUG_SEAMLESS") == "1":
-			print("[AirlockManager] after re-add player_origin=", (player as Spatial).global_transform.origin, " scene=", scene_root.name)
 		# NOTE: tracking is NOT resumed here. The WorldRotator stays paused until the
 		# player physically exits the destination airlock chamber — OdiseaExterior
 		# drives resume_tracking() from the chamber zone exit. Resuming at scene swap
@@ -357,8 +353,6 @@ func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictio
 # manda (pose/momentum exactos); la entrada a la bahia usa su SpawnPointV2 y
 # conserva yaw/pitch/velocidad del hub para no rotar la vista 180 grados.
 func _pre_position_without_airlock(player: Node, scene_root: Node, params: Dictionary, state_data: Dictionary) -> void:
-	if OS.get_environment("ODISEA_DEBUG_SEAMLESS") == "1":
-		print("[AirlockManager] _pre_position_without_airlock params=", params, " state_data=", state_data)
 	var snapshot = state_data.get("player_snapshot", {})
 	if typeof(snapshot) == TYPE_DICTIONARY and snapshot.has("position"):
 		if player.has_method("restore_snapshot"):
@@ -435,8 +429,6 @@ func _apply_snapshot_velocity(player: Node, velocity_data) -> void:
 func _place_without_airlock(player: Node, origin: Vector3, yaw: float, pitch: float) -> void:
 	if not is_instance_valid(player) or not (player is Spatial):
 		return
-	if OS.get_environment("ODISEA_DEBUG_SEAMLESS") == "1":
-		print("[AirlockManager] _place_without_airlock origin=", origin)
 	var target := (player as Spatial).global_transform
 	target.origin = origin
 	(player as Spatial).global_transform = target

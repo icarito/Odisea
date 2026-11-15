@@ -71,10 +71,10 @@ func _run_travel_sequence(destination_id: String, destination_name: String) -> v
 		}
 
 		var scene_path = _get_scene_path_for_destination(destination_id)
-	var airlock_manager = get_node_or_null("/root/AirlockManager")
-	var seamless := airlock_manager != null and airlock_manager.has_method("notify_transition")
-	if seamless and scene_manager and scene_manager.has_method("request_scene_preload"):
-		scene_manager.request_scene_preload(scene_path)
+		var airlock_manager = get_node_or_null("/root/AirlockManager")
+		var seamless := airlock_manager != null and airlock_manager.has_method("notify_transition")
+		if seamless and scene_manager.has_method("request_scene_preload"):
+			scene_manager.request_scene_preload(scene_path)
 
 		# Start scene transition but wait for travel duration first
 		# In Godot 3, goto_scene usually handles the fade itself.

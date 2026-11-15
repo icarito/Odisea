@@ -2,6 +2,14 @@ extends Area
 
 # TubeAirlock.gd - Automatic airlock for pedestrian tubes
 # Detects player and triggers scene transition to another dome/spawn point.
+#
+# Transición seamless: al entrar, las puertas se cierran y se precarga la escena destino
+# en background (SceneManager.request_scene_preload). El swap ocurre detrás de las
+# puertas cerradas, sin fade ni cartel, con el jugador sostenido por el AirlockManager
+# (la cámara sigue viva durante la carga). El disparo es inmediato al entrar: esperar a
+# la precarga asíncrona rompería el determinismo del replay (drift ~1-2cm, sobre el
+# umbral). La espera diegética ("las puertas no abren hasta cargar") queda a cargo de
+# los productores con umbral de tránsito (AirlockZoneV2), que sí pueden esperar.
 
 export(String) var target_dome := ""
 export(String) var target_spawn := ""
@@ -24,13 +32,7 @@ var _has_triggered := false
 const _POST_TRANSITION_GRACE_FRAMES := 20
 var _scene_ready_frame := -1
 
-# Espera diegetica de precarga: al entrar, las puertas se cierran y se pide al SceneManager
-# precargar la escena destino en background. La transicion (swap seamless) recién se dispara
-# cuando la precarga termino, o al vencer el tope para no quedar trabado si el loader falla.
-const MAX_PRELOAD_WAIT_FRAMES := 120
 var _preload_requested := false
-var _wait_frames := 0
-var _dump_until_frame := -1
 
 func _ready() -> void:
 	if not is_connected("body_entered", self, "_on_body_entered"):
@@ -39,7 +41,7 @@ func _ready() -> void:
 	if sm and sm.has_signal("scene_ready"):
 		if not sm.is_connected("scene_ready", self, "_on_scene_ready"):
 			sm.connect("scene_ready", self, "_on_scene_ready")
-	set_process(false)
+	set_physics_process(false)
 
 func _on_scene_ready(_path, scene_root, _params) -> void:
 	if is_instance_valid(scene_root) and (scene_root == get_tree().current_scene or _is_ancestor(scene_root)):
@@ -55,8 +57,6 @@ func _is_ancestor(node: Node) -> bool:
 	return false
 
 func _on_body_entered(body: Node) -> void:
-	if OS.get_environment("ODISEA_DEBUG_SEAMLESS") == "1":
-		print("[TubeAirlock] body_entered on ", name, " triggered=", _has_triggered, " ready_frame=", _scene_ready_frame, " phys_frame=", Engine.get_physics_frames(), " body_pos=", (body as Spatial).global_transform.origin if body is Spatial else Vector3.ZERO)
 	if _has_triggered:
 		return
 	if not body.is_in_group("player"):
@@ -83,41 +83,17 @@ func _on_body_entered(body: Node) -> void:
 
 func _begin_seamless_preload() -> void:
 	_preload_requested = true
-	_wait_frames = 0
 	var sm = get_node_or_null("/root/SceneManager")
 	if sm and sm.has_method("request_scene_preload") and not sm.has_preloaded_scene(target_dome):
-		print("[TubeAirlock] preload requested for ", target_dome, " sm=", sm != null)
 		sm.request_scene_preload(target_dome)
-	set_process(true)
-	print("[TubeAirlock] _begin_seamless_preload done, process enabled")
+	# El disparo va en _physics_process para quedar alineado al tick de física que
+	# cuantiza el grabador OYS (determinismo del replay).
+	set_physics_process(true)
 
-func _process(_delta: float) -> void:
-	if _dump_until_frame > 0 and OS.get_environment("ODISEA_DEBUG_SEAMLESS") == "1":
-		if Engine.get_process_frames() >= _dump_until_frame:
-			_dump_until_frame = -1
-			set_process(false)
-		else:
-			var dump_player = _find_player()
-			if is_instance_valid(dump_player) and dump_player is Spatial:
-				print("[TubeAirlock] dump origin=", (dump_player as Spatial).global_transform.origin)
-			return
+func _physics_process(_delta: float) -> void:
 	if not _preload_requested or not _has_triggered:
 		return
-	_wait_frames += 1
-	if OS.get_environment("ODISEA_DEBUG_SEAMLESS") == "1" and _wait_frames == 70:
-		for node in get_tree().get_nodes_in_group("player"):
-			if is_instance_valid(node) and node is Spatial:
-				print("[TubeAirlock] DUMP pilot ", node.name, " path=", node.get_path(), " origin=", (node as Spatial).global_transform.origin)
-	var sm = get_node_or_null("/root/SceneManager")
-	if sm and sm.has_method("has_preloaded_scene") and not sm.has_preloaded_scene(target_dome):
-		# Espera diegetica: las puertas quedan cerradas hasta que la carga termina
-		# (o vence el tope). Nunca se muestra un fondo negro.
-		if _wait_frames % 30 == 0:
-			print("[TubeAirlock] waiting preload frame=", _wait_frames)
-		if _wait_frames < MAX_PRELOAD_WAIT_FRAMES:
-			return
-	print("[TubeAirlock] transition fired at frame=", _wait_frames)
-	set_process(false)
+	set_physics_process(false)
 	_transition_to_target()
 
 func _build_seamless_params() -> Dictionary:
@@ -131,8 +107,6 @@ func _build_seamless_params() -> Dictionary:
 	}
 
 func _transition_to_target() -> void:
-	_dump_until_frame = Engine.get_process_frames() + 120
-	set_process(true)
 	var sm = get_node_or_null("/root/SceneManager")
 	if sm:
 		var airlock_manager = get_node_or_null("/root/AirlockManager")
@@ -141,15 +115,6 @@ func _transition_to_target() -> void:
 		sm.goto_scene(target_dome, _build_seamless_params())
 	else:
 		printerr("[TubeAirlock] SceneManager not found")
-
-func _find_player() -> Node:
-	var session = get_node_or_null("/root/SessionManager")
-	if session and is_instance_valid(session.player):
-		return session.player
-	for p in get_tree().get_nodes_in_group("player"):
-		if is_instance_valid(p):
-			return p
-	return null
 
 func open_doors() -> void:
 	var door = get_node_or_null("IrisDoorV2")
