@@ -258,6 +258,27 @@ func _apply_cut_state(cut_state: bool) -> void:
 		_update_heat_visual()
 
 
+# Activación por cercanía (ProximityNodeActivatorV2): un chunk fuera de área deja la
+# pieza sin dibujo, sin colisión y fuera del solver. Al reactivar se respeta el estado
+# de corte y de retención, así una estación que se apaga y enciende conserva su partida.
+func set_stream_active(active: bool) -> void:
+	if active:
+		_apply_cut_state(_is_cut)
+		if not _is_cut:
+			mode = MODE_STATIC if held else MODE_RIGID
+			sleeping = false
+		set_physics_process(_laser_hit_this_tick or _heat > 0.0)
+	else:
+		visible = false
+		if _shape != null:
+			_shape.disabled = true
+		collision_layer = 0
+		collision_mask = 0
+		mode = MODE_STATIC
+		sleeping = true
+		set_physics_process(false)
+
+
 func reset_to_layout(item: Dictionary, initial_transform: Transform) -> void:
 	held = bool(item.get("held", false))
 	_heat = 0.0
