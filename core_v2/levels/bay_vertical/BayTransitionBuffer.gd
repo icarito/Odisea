@@ -147,13 +147,26 @@ func _build_state_data(player: Node) -> Dictionary:
 					clean[key] = Vector3.ZERO
 			state_data["player_snapshot"] = clean
 	if player is Spatial:
-		var relative: Transform = global_transform.affine_inverse() * (player as Spatial).global_transform
+		# Marco del buffer: mismas claves que AirlockZoneV2 para que SceneManager
+		# restaure posición/velocidad relativas y el jugador NO pierda el movimiento.
+		var frame: Transform = global_transform
+		var player_xf: Transform = (player as Spatial).global_transform
+		var relative: Transform = frame.affine_inverse() * player_xf
 		state_data["airlock_relative_position"] = relative.origin
 		state_data["airlock_relative_transform"] = relative
 		if "yaw" in player:
 			state_data["camera_yaw"] = float(player.yaw)
+			state_data["camera_body_yaw_offset"] = float(player.yaw) - player_xf.basis.get_euler().y
 		if "pitch" in player:
 			state_data["camera_pitch"] = float(player.pitch)
+		# Velocidad RELATIVA preservada (el snapshot base la cero para que el spawn
+		# la aplique; el momentum viaja por acá, como en AirlockZoneV2).
+		if "velocity" in player:
+			var velocity: Vector3 = player.velocity
+			var relative_velocity: Vector3 = frame.basis.xform_inv(velocity)
+			if float(velocity.y) < -1.0:
+				relative_velocity.y = 0.0
+			state_data["airlock_relative_velocity"] = relative_velocity
 	return state_data
 
 func is_buffer() -> bool:
