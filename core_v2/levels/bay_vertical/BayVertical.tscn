@@ -1,0 +1,95 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/levels/bay_vertical/BayProtocolCycle.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/levels/bay_vertical/BayVerticalWell.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=4]
+
+[sub_resource type="ProceduralSky" id=1]
+sky_top_color = Color( 0.07, 0.1, 0.14, 1 )
+sky_horizon_color = Color( 0.09, 0.12, 0.17, 1 )
+ground_bottom_color = Color( 0.04, 0.06, 0.09, 1 )
+ground_horizon_color = Color( 0.06, 0.09, 0.13, 1 )
+sun_energy = 0.0
+
+[sub_resource type="Environment" id=2]
+background_mode = 2
+background_sky = SubResource( 1 )
+ambient_light_color = Color( 0.36, 0.46, 0.6, 1 )
+ambient_light_energy = 0.5
+ambient_light_sky_contribution = 0.3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.65
+glow_bloom = 0.0
+glow_hdr_threshold = 1.05
+glow_blend_mode = 1
+fog_enabled = true
+fog_color = Color( 0.1, 0.14, 0.19, 1 )
+fog_depth_enabled = true
+fog_depth_begin = 10.0
+fog_depth_end = 45.0
+fog_depth_curve = 1.0
+fog_height_enabled = true
+fog_height_min = -2.0
+fog_height_max = -10.0
+fog_height_curve = 1.0
+adjustment_enabled = true
+adjustment_contrast = 1.1
+adjustment_brightness = 1.0
+adjustment_saturation = 0.85
+
+[node name="BayVertical" type="Spatial"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource( 2 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( -0.906308, -0.346189, 0.242404, 0, 0.573576, 0.819152, -0.422618, 0.742404, -0.519837, 0, 20, 0 )
+light_color = Color( 0.94, 0.96, 1, 1 )
+light_energy = 2.0
+shadow_enabled = true
+
+[node name="FillLight" type="DirectionalLight" parent="."]
+transform = Transform( 0.866025, 0.353553, -0.353553, 0, 0.707107, 0.707107, 0.5, -0.612372, 0.612372, 0, 20, 0 )
+light_color = Color( 0.6, 0.74, 0.9, 1 )
+light_energy = 1.4
+
+[node name="BayProtocolCycle" type="Node" parent="."]
+script = ExtResource( 1 )
+safe_duration = 6.0
+warning_duration = 2.5
+danger_duration = 5.0
+
+[node name="SpawnPointV2" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+script = ExtResource( 3 )
+
+[node name="BayVerticalWell" type="Spatial" parent="."]
+script = ExtResource( 2 )
+generation_seed = 20261114
+sectors = 16
+rings = 3
+cell_size = 4.5
+inner_radius = 6.0
+ring_step = 3.0
+max_height_steps = 6
+extra_cycles = 2
+room_count = 6
+enable_streaming = true
+load_radius = 12.0
+unload_radius = 22.0
+collision_radius = 9.0
+max_cells_per_frame = 8
+enable_conveyor_shortcut = true
+enable_laser_gate = true
+enable_gloo_span = true
+enable_hazard_rotor = true
+conveyor_speed = 4.0
+laser_gate_cut_time = 2.5
+gloo_span_required_blobs = 2
+rotor_angular_speed = 1.8
+debug_verbose = false
+
+[node name="Pilot" parent="." instance=ExtResource( 4 )]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.6, -2 )
