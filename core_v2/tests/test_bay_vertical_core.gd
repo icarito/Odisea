@@ -23,6 +23,23 @@ const RETURN_SPAWN_ID := "bay_vertical_return"
 const RINGHUB_SCENE := "res://core_v2/levels/RingHub_Level.tscn"
 const BAY_SCENE := "res://core_v2/levels/bay_vertical/BayVertical.tscn"
 
+var _content_ready_emitted := false
+
+func _on_content_ready() -> void:
+	_content_ready_emitted = true
+
+func test_content_ready_is_emitted_after_building_route() -> void:
+	_content_ready_emitted = false
+	var level = auto_free(ScenePacked.instance())
+	var content = level.get_node("BayContent")
+	assert_bool(content.has_signal("content_ready")).is_true()
+	if not content.has_signal("content_ready"):
+		return
+	content.connect("content_ready", self, "_on_content_ready")
+	add_child(level)
+	assert_bool(_content_ready_emitted).is_true()
+	assert_int(content.get_route_points().size()).is_greater(0)
+
 # ── Presupuesto de flow (FlowMetrics + g_eff del anillo) ─────────────────────
 
 func test_flow_budget_uses_measured_player_physics() -> void:
