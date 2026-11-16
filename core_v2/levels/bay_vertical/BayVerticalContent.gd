@@ -33,6 +33,7 @@ const COLOR_SHORTCUT_LIGHT := Color(0.32, 0.78, 1.0)
 const COLOR_SHORTCUT_STRIPE := Color(0.9, 0.75, 0.2)
 
 signal slice_completed()
+signal content_ready()
 
 export(int) var generation_seed := 20261114
 export(NodePath) var rotator_path := NodePath("")
