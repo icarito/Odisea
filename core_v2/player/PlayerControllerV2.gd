@@ -5,6 +5,8 @@ const InputDataV2 = preload("../input/InputDataV2.gd")
 const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
+const SpinRealPhysicsV2 = preload("SpinRealPhysicsV2.gd")
+const GravityModesScript = preload("res://core_v2/systems/GravityModes.gd")
 const ZeroGravitySettingsV2 = preload("ZeroGravitySettings.gd")
 const TraversalLogicV2 = preload("traversal/TraversalLogicV2.gd")
 # FD-316 (tarea K2): guard central del dueno unico de la camara. El player lo consulta
@@ -29,6 +31,10 @@ const PLATFORM_LAUNCH_MIN_UP_SPEED := 1.5 # m/s; por debajo es jitter de reposo,
 # comportamiento actual. Los usos en espacio LOCAL del rig de camara siguen usando
 # Vector3.UP (el prefijo del rig ya rota ese eje).
 var _up: Vector3 = Vector3.UP
+# FD-323 Fase 2A: componente de física rotante real. Solo se usa en SPIN_REAL,
+# activado por GravityWorld o por el override explícito de tests/SpinLab.
+var spin_real_physics = null
+var spin_real_override := false
 
 func get_sim_up() -> Vector3:
 	if _up.length_squared() > 0.000001:
@@ -39,6 +45,50 @@ func set_sim_up(up_vec: Vector3) -> void:
 	# Vector invalido: se conserva el up anterior en vez de apagar la fisica.
 	if up_vec.length_squared() > 0.000001:
 		_up = up_vec.normalized()
+
+func set_spin_real_enabled(enabled: bool) -> void:
+	spin_real_override = enabled
+
+func is_spin_real_enabled() -> bool:
+	return spin_real_override
+
+func get_spin_physics():
+	return spin_real_physics
+
+# Activo por override explícito (tests/SpinLab) o por GravityWorld. En los modos
+# 0..3 nunca se activa: SPIN_REAL es opt-in.
+func is_spin_real_active() -> bool:
+	if spin_real_override:
+		return true
+	var gravity_world = get_node_or_null("/root/GravityWorld")
+	if gravity_world != null and gravity_world.has_method("get_current_gravity_mode"):
+		return int(gravity_world.get_current_gravity_mode()) == GravityModesScript.Mode.SPIN_REAL
+	var cm = _cm_cache
+	if cm == null or not is_instance_valid(cm):
+		cm = get_node_or_null("ControllerManager")
+	return cm != null and int(cm.current_gravity_mode) == GravityModesScript.Mode.SPIN_REAL
+
+func _step_spin_real(dt: float, input: InputDataV2) -> void:
+	if spin_real_physics == null:
+		spin_real_physics = SpinRealPhysicsV2.new()
+		spin_real_physics.name = "SpinRealPhysics"
+		add_child(spin_real_physics)
+	if not _rl_skip_camera_updates:
+		_update_camera_orbit_state(dt, input)
+	spin_real_physics._up = _up
+	_up = spin_real_physics.update_up(global_transform.origin)
+	spin_real_physics.step(self, dt, input)
+	_up = spin_real_physics._up
+	if not _rl_skip_camera_updates:
+		_update_camera_view(dt)
+	# SPIN_REAL ignora airlock_tracking_suspended: la camara no queda bloqueada por ese meta.
+	if _cached_spring_arm != null:
+		_cached_spring_arm.collision_mask = base_collision_mask
+	if not _rl_fast_controller:
+		_process_interaction(_interaction_input_without_crouch(input))
+	if not _rl_skip_animator and not is_ragdoll and animator and animator.has_method("step_animator"):
+		animator.step_animator(dt, _get_animator_velocity())
+	_update_input_edge_state(input)
 
 var is_replay_mode := false
 
@@ -574,6 +624,11 @@ func restore_snapshot(data: Dictionary) -> void:
 		_camera_rig_airborne_rise_time = 0.0
 		_camera_rig_was_grounded = true
 
+	# FD-323: no se serializa _up; se re-deriva del modo y la posición restaurada.
+	if spin_real_physics != null and is_spin_real_active():
+		spin_real_physics._up = _up
+		_up = spin_real_physics.update_up(global_transform.origin)
+
 func full_reset() -> void:
 	end_ragdoll()
 	velocity = Vector3.ZERO
@@ -810,6 +865,12 @@ func _ready():
 		var cm = load("res://core_v2/player/ControllerManager.gd").new()
 		cm.name = "ControllerManager"
 		add_child(cm)
+	if has_node("SpinRealPhysics"):
+		spin_real_physics = get_node("SpinRealPhysics")
+	else:
+		spin_real_physics = SpinRealPhysicsV2.new()
+		spin_real_physics.name = "SpinRealPhysics"
+		add_child(spin_real_physics)
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
 		base_fov = _cached_cam.fov
@@ -2778,6 +2839,9 @@ func _apply_push_constraint(dt: float) -> void:
 
 func step(dt: float, input: InputDataV2) -> void:
 	if is_ragdoll:
+		# FD-323: el tumble de SPIN_REAL no mata; recupera solo tras el tiempo fijo.
+		if spin_real_physics != null:
+			spin_real_physics.tick_tumble_recovery(dt, self)
 		return
 	if input_locked:
 		input = InputDataV2.new()
@@ -2810,6 +2874,9 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	if input == null:
 		_update_input_edge_state(null)
+		return
+	if is_spin_real_active():
+		_step_spin_real(dt, input)
 		return
 	_update_post_traversal_strafe_latch(dt, input)
 	_update_post_traversal_exit_alignment(dt)
