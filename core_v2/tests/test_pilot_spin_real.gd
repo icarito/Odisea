@@ -147,7 +147,7 @@ func test_external_accel_and_thruster_budget() -> void:
 	assert_float(dv2).is_equal_approx(16.2, 0.0001)
 	assert_float(spin.spin_thruster_dv_remaining).is_equal_approx(0.0, 0.0001)
 	assert_float(spin.apply_spin_thruster(Vector3.RIGHT, 0.1)).is_equal_approx(0.0, 0.0001)
-	spin.recharge_thrusters()
+	spin.spin_thruster_dv_remaining = spin.spin_thruster_dv_max
 	assert_float(spin.spin_thruster_dv_remaining).is_equal_approx(18.0, 0.0001)
 
 func test_landing_classification_and_slide_response() -> void:
@@ -170,14 +170,14 @@ func test_tumble_enters_ragdoll_and_recovers_without_death() -> void:
 	assert_int(spin.handle_landing(dummy, spin.spin_v_slide + 4.0)).is_equal(SpinRealPhysicsV2.Landing.TUMBLE)
 	assert_bool(dummy.is_ragdoll).is_true()
 	assert_bool(dummy.began).is_true()
-	assert_bool(spin.is_tumbling()).is_true()
+	assert_bool(spin._tumble_timer > 0.0).is_true()
 
 	assert_bool(spin.tick_tumble_recovery(0.9, dummy)).is_false()
 	assert_bool(dummy.is_ragdoll).is_true()
 	assert_bool(spin.tick_tumble_recovery(0.9, dummy)).is_true()
 	assert_bool(dummy.is_ragdoll).is_false()
 	assert_bool(dummy.ended).is_true()
-	assert_bool(spin.is_tumbling()).is_false()
+	assert_bool(spin._tumble_timer <= 0.0).is_true()
 
 func test_pilot_spin_real_up_capsule_and_snapshot() -> void:
 	var gravity_world = get_node_or_null("/root/GravityWorld")

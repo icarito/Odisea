@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://core_v2/levels/spin_lab/SpinLab.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/DomeSpiralField.gd" type="Script" id=2]
@@ -6,6 +6,9 @@
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/camera/SpinRealCameraController.gd" type="Script" id=5]
 [ext_resource path="res://core_v2/camera/SpinLandingPredictor.gd" type="Script" id=6]
+[ext_resource path="res://core_v2/components/SpinSpokeV2.gd" type="Script" id=7]
+[ext_resource path="res://core_v2/components/SpinAxialHubV2.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/player/traversal/SpinRopeSwingV2.gd" type="Script" id=9]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 3 )
@@ -63,4 +66,19 @@ script = ExtResource( 6 )
 
 [node name="Spokes" type="Spatial" parent="."]
 
+[node name="SpinSpoke_0" type="Spatial" parent="Spokes"]
+script = ExtResource( 7 )
+
+[node name="SpinSpoke_2" type="Spatial" parent="Spokes"]
+script = ExtResource( 7 )
+
 [node name="AxialHub" type="Spatial" parent="."]
+
+[node name="SpinAxialHub" type="Spatial" parent="AxialHub"]
+script = ExtResource( 8 )
+hub_radius = 8.0
+z_min = -4020.0
+z_max = -3900.0
+
+[node name="SpinRopeSwing" type="Spatial" parent="."]
+script = ExtResource( 9 )

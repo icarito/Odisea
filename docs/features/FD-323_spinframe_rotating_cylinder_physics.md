@@ -1,6 +1,6 @@
 # FD-323: SpinFrame — espirales de domos con física rotante real
 
-**Status:** Aprobado para prototipo SpinLab (v1). Fase 0 (Partes A y B) implementada.
+**Status:** Fases 0–3C implementadas y validadas en local. **Compuerta de diseño pendiente de prueba en vivo de Sebastián** en `SpinLab.tscn`.
 **Priority:** Alta (habilita el prototipo de física rotante real)
 **Effort:** Medio (clase pura + geometría + controlador + cámara + escena de validación)
 **Created:** 2026-11-21
@@ -208,45 +208,70 @@ atrapado en la zona del eje.
 
 **Aceptación:** tests de §9 verdes; `SPIN_REAL == 4`; modos 0..3 sin cambios.
 
-### Fase 1 — Refactor `_up` en Pilot
+### Fase 1 — Refactor `_up` en Pilot (implementada)
 
 - Introducir un `_up` dinámico en el Pilot del prototipo, alimentado por
   `SpinFrame.up`.
 - Mantener el `_up` fijo en `PlayerControllerV2` para los modos 0..3.
 - Los replays de los modos existentes no deben cambiar.
+- Implementado en `PlayerControllerV2.gd`, `PlayerMovementV2.gd` y `PlayerJumpV2.gd`;
+  cubierto por `test_pilot_dynamic_up.gd`.
 
 **Aceptación:** el Pilot camina la espiral; la cámara no salta al cambiar de
 capa; `test_determinism_v2` sigue verde para los niveles existentes.
 
-### Fase 2 — Física `SPIN_REAL` + cámara 2.5D
+### Fase 2 — Física `SPIN_REAL` + cámara 2.5D (implementada)
 
 - Integrar `step_free_flight` en el controlador del prototipo para vuelo libre.
 - Aplicar `coriolis_ground_factor = 0.3` en suelo.
 - Anclaje asistido por mirada y `Delta-v` limitado en propulsores.
 - Cámara co-rotante, plano 3/4 con componente axial, corte con histéresis.
+- Implementado en `SpinRealPhysicsV2.gd`, `SpinRealCameraController.gd` y
+  `SpinLandingPredictor.gd`; cubierto por `test_pilot_spin_real.gd` y
+  `test_spin_real_camera.gd`.
 
 **Aceptación:** Jacobi estable, caída radial, Coriolis visible pero controlable,
 cámara sin flicker.
 
-### Fase 3 — Cuerda, spokes y hub
+### Fase 3 — Cuerda, spokes y hub (implementada)
 
 - Cuerda tensa transitable.
 - Spokes radiales con `LadderV2`.
 - Columna axial `ZERO_G` y hub de conexión.
 - `SpinLab.tscn` completo + tests de recorrido y compuerta de diseño.
+- Implementado `SpinRopeSwingV2.gd`, `SpinSpokeV2.gd`, `SpinAxialHubV2.gd`,
+  `SpinLab.gd/.tscn`, `test_spin_traversal.gd`, `test_spin_lab_base.gd`,
+  `test_spin_lab_hub_drop.gd` y `test_spin_lab_determinism.gd/.oys`.
 
 **Aceptación:** recorrido de tres capas completo, sin atascos, con capturas de
 validación visual.
 
+**Compuerta de diseño:** los tests automáticos están verdes; la aprobación final
+queda **pendiente de la prueba en vivo de Sebastián** sobre `SpinLab.tscn`
+(recorrido completo, cuerda, spokes, hub ZERO_G y cámara 2.5D sin glitches).
+
+### Estado de fases y matriz de tests
+
+| Fase | Estado | Evidencia |
+|------|--------|-----------|
+| 0 — SpinFrame + DomeSpiralField | Implementada | `test_spin_frame.gd`, `test_gravity_modes.gd`, `test_dome_spiral_field.gd`, `test_dome_registry.gd` |
+| 1 — `_up` dinámico | Implementada | `test_pilot_dynamic_up.gd`, `test_determinism_v2.gd` |
+| 2A — Física SPIN_REAL | Implementada | `test_pilot_spin_real.gd` |
+| 2B — Cámara 2.5D + predictor | Implementada | `test_spin_real_camera.gd`, `test_pilot_orbit_head_look.gd` |
+| 3A — Cuerda, spokes, hub | Implementada | `test_spin_traversal.gd` |
+| 3B — Base SpinLab | Implementada | `test_spin_lab_base.gd` |
+| 3C — Ensamble final | Implementada | `test_spin_lab_hub_drop.gd`, `test_spin_lab_determinism.gd/.oys` |
+| Compuerta de diseño | **Pendiente prueba en vivo de Sebastián** | `SpinLab.tscn` |
+| Regresiones | Verdes | `test_pilot_ragdoll.gd`, `test_step_up_clearance_cache.gd`, `test_pilot_dynamic_up.gd` |
+
 ## 9. Verificación
 
 ```bash
-# Tests puntuales de la Parte A
-./.venv/bin/pytest tests/test_odisea_runner.py -k "test_gravity_modes or test_spin_frame"
+# Suite FD-323 + regresiones
+python3 -m pytest tests/test_odisea_runner.py -k "test_spin_frame or test_gravity_modes or test_dome_spiral_field or test_terrace_spiral_orientation or test_dome_registry or test_pilot_dynamic_up or test_pilot_spin_real or test_spin_real_camera or test_spin_traversal or test_spin_lab_base or test_spin_lab_hub_drop or test_spin_lab_determinism or test_pilot_ragdoll or test_pilot_orbit_head_look or test_step_up_clearance_cache"
 
-# Alternativa directa
-./runtest.sh -a ./core_v2/tests/test_gravity_modes.gd
-./runtest.sh -a ./core_v2/tests/test_spin_frame.gd
+# Determinismo global (requiere fixtures de replay)
+ODISEA_RUN_DETERMINISM=1 ./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
 ```
 
 Criterios:
@@ -257,6 +282,14 @@ Criterios:
 - Jacobi con error relativo `< 1e-3` en 30 s para varias condiciones iniciales.
 - Caída libre desde `r0 = 0.5 m` con `v0 = 10 m/s` radial: el punto de impacto
   en el marco inercial coincide con la recta inercial con error `< 0.5 m`.
+- `test_spin_lab_hub_drop`: caída real en `SpinLab.tscn` contra la recta
+  inercial (`< 0.5 m`), régimen slide/tumble sin muerte, spokes, hub ZERO_G y
+  cuerda desde anclajes de `DomeRegistry`.
+- `test_spin_lab_determinism`: el mismo `.oys` sobre dos instancias frescas
+  produce hash idéntico de posición, velocidad, `_up` y `gravity_mode`
+  (`drift == 0`).
+- `test_spin_lab_base`: 1 espiral, 200 `BoxShape`, Pilot estable sobre la placa 0
+  y presentación 2.5D/predictor sin mutar la simulación.
 
 ## 10. Riesgos y mitigaciones
 

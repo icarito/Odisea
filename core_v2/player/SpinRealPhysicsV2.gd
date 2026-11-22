@@ -1,8 +1,7 @@
 extends Node
 const SpinFrameScript = preload("res://core_v2/systems/SpinFrame.gd")
 enum Landing { NORMAL, SLIDE, TUMBLE }
-const GROUND_PROBE_DISTANCE := 0.8
-const GROUND_MIN_NORMAL_DOT := 0.5
+const GROUND_PROBE_DISTANCE := 0.1
 const EPS := 0.000001
 export(float) var spin_omega := 0.0
 export(float) var coriolis_ground_factor := 0.3
@@ -20,6 +19,7 @@ var _thruster_delta_v: Vector3 = Vector3.ZERO
 var _tumble_timer := 0.0
 var _slide_active := false
 var _was_grounded := false
+var _air_landed := false
 func _init() -> void:
 	if spin_omega <= 0.0:
 		spin_omega = SpinFrameScript.omega_for()
@@ -28,10 +28,6 @@ func update_up(position: Vector3) -> Vector3:
 	# SpinFrame conserva el último _up si |r_perp| < r_eps (zona del eje).
 	_up = SpinFrameScript.up(position, _up)
 	return _up
-func is_tumbling() -> bool:
-	return _tumble_timer > 0.0
-func recharge_thrusters() -> void:
-	spin_thruster_dv_remaining = spin_thruster_dv_max
 func add_spin_external_accel(accel: Vector3) -> void:
 	_external_accel += accel
 # Delta-v limitado por presupuesto finito.
@@ -100,15 +96,15 @@ func tick_tumble_recovery(dt: float, controller) -> bool:
 	_was_grounded = true
 	return true
 func step(controller, dt: float, input) -> void:
-	if controller == null or dt <= 0.0 or is_tumbling():
+	if controller == null or dt <= 0.0 or _tumble_timer > 0.0:
 		return
 	var position: Vector3 = controller.global_transform.origin
 	var up: Vector3 = update_up(position)
 	var incoming_velocity: Vector3 = controller.velocity
 	controller.global_transform.basis = align_capsule_basis(controller.global_transform.basis, up, dt)
 	var move_input: Vector2 = input.move_vec if input != null else Vector2.ZERO
-	_apply_planar_input(controller, dt, input, move_input, up)
 	var grounded: bool = _probe_ground(controller)
+	if grounded: _apply_planar_input(controller, dt, input, move_input, up)
 	var jump_logic = controller.get("jump_logic")
 	if jump_logic != null and input != null and input.jump and not bool(controller.get("_jump_was_pressed")):
 		jump_logic.buffer_jump()
@@ -125,8 +121,9 @@ func step(controller, dt: float, input) -> void:
 		_step_airborne(controller, dt, external, thruster, up)
 	var grounded_now: bool = _probe_ground(controller) or bool(controller.is_on_floor())
 	if grounded_now:
-		recharge_thrusters()
-	_was_grounded = grounded_now
+		spin_thruster_dv_remaining = spin_thruster_dv_max
+	_was_grounded = grounded_now or _air_landed
+	_air_landed = false
 func _apply_planar_input(controller, dt: float, input, move_input: Vector2, up: Vector3) -> void:
 	var movement_logic = controller.get("movement_logic")
 	if movement_logic == null or not is_instance_valid(movement_logic):
@@ -143,7 +140,7 @@ func _apply_planar_input(controller, dt: float, input, move_input: Vector2, up: 
 		logic_move = Vector2(0.0, -world_dir.length())
 	var sprint: bool = input.sprint if input != null else false
 	var crouch: bool = input.crouch if input != null else false
-	movement_logic.process_movement(dt, logic_move, basis, sprint, _probe_ground(controller), crouch, up)
+	movement_logic.process_movement(dt, logic_move, basis, sprint, true, crouch, up)
 	var h_vel: Vector3 = movement_logic.get_horizontal_velocity()
 	controller.velocity = (h_vel - up * h_vel.dot(up)) + up * controller.velocity.dot(up)
 func _step_grounded(controller, dt: float, incoming_velocity: Vector3, external: Vector3, thruster: Vector3, up: Vector3) -> void:
@@ -174,7 +171,8 @@ func _step_airborne(controller, dt: float, external: Vector3, thruster: Vector3,
 	if collision == null:
 		controller.velocity = target_vel
 		return
-	if collision.normal.dot(up) > GROUND_MIN_NORMAL_DOT:
+	if collision.normal.dot(up) > 0.5:
+		_air_landed = true
 		var kind: int = handle_landing(controller, impact_speed)
 		if kind == Landing.TUMBLE:
 			controller.velocity = Vector3.ZERO
@@ -186,7 +184,7 @@ func _step_airborne(controller, dt: float, external: Vector3, thruster: Vector3,
 		return
 	controller.velocity = target_vel.slide(collision.normal)
 func _probe_ground(controller) -> bool:
-	if controller.is_on_floor():
+	if _was_grounded and controller.is_on_floor():
 		return true
 	if not controller.is_inside_tree() or not controller.has_method("get_world"):
 		return false
@@ -194,6 +192,7 @@ func _probe_ground(controller) -> bool:
 	if world == null or world.direct_space_state == null:
 		return false
 	var from: Vector3 = controller.global_transform.origin + _up * 0.05
+	var distance: float = 0.8 if _was_grounded else GROUND_PROBE_DISTANCE
 	var hit: Dictionary = world.direct_space_state.intersect_ray(
-		from, from - _up * GROUND_PROBE_DISTANCE, [controller], controller.collision_mask)
-	return not hit.empty() and hit.normal.dot(_up) > GROUND_MIN_NORMAL_DOT
+		from, from - _up * distance, [controller], controller.collision_mask)
+	return not hit.empty() and hit.normal.dot(_up) > 0.5
