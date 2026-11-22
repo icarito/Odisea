@@ -2195,6 +2195,16 @@ _global_script_classes=[ {
 "path": "res://core_v2/systems/SpinFrame.gd"
 }, {
 "base": "Spatial",
+"class": "SpinLandingPredictor",
+"language": "GDScript",
+"path": "res://core_v2/camera/SpinLandingPredictor.gd"
+}, {
+"base": "Node",
+"class": "SpinRealCameraController",
+"language": "GDScript",
+"path": "res://core_v2/camera/SpinRealCameraController.gd"
+}, {
+"base": "Spatial",
 "class": "SpiralPlateAttachment",
 "language": "GDScript",
 "path": "res://core_v2/components/SpiralPlateAttachment.gd"
@@ -2927,6 +2937,8 @@ _global_script_class_icons={
 "SnapToPath": "",
 "SpawnPointV2": "",
 "SpinFrame": "",
+"SpinLandingPredictor": "",
+"SpinRealCameraController": "",
 "SpiralPlateAttachment": "",
 "SteelGratePlatform": "",
 "SteelPlate": "",
