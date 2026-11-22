@@ -21,11 +21,13 @@ var _trail: MultiMeshInstance = null
 var _material: SpatialMaterial = null
 
 # Integra vuelo libre hasta cruzar r_surface. El cruce final se interpola
-# linealmente. Devuelve {hit, point, velocity, impact_speed, flight_time,
-# steps, trajectory}.
+# linealmente. a_axial (FD-324) entra por la misma vía extra_accel que la
+# simulación; con 0.0 el comportamiento es idéntico al predictor original.
+# Devuelve {hit, point, velocity, impact_speed, flight_time, steps, trajectory}.
 static func predict_landing(
 	pos: Vector3, vel: Vector3, omega: float, r_surface: float,
-	dt: float = DEFAULT_DT, max_steps: int = DEFAULT_MAX_STEPS
+	dt: float = DEFAULT_DT, max_steps: int = DEFAULT_MAX_STEPS,
+	a_axial: float = 0.0
 ) -> Dictionary:
 	var trajectory: Array = [pos]
 	if dt <= 0.0 or max_steps <= 0 or r_surface <= 0.0:
@@ -44,7 +46,7 @@ static func predict_landing(
 		}
 
 	for step_index in range(1, max_steps + 1):
-		var next: Dictionary = SpinFrame.step_free_flight(p, v, omega, dt)
+		var next: Dictionary = SpinFrame.step_free_flight_axial(p, v, omega, dt, a_axial)
 		var p_next: Vector3 = next["position"]
 		var v_next: Vector3 = next["velocity"]
 		var r_next: float = SpinFrame.r_perp(p_next).length()
@@ -82,9 +84,12 @@ func _ready() -> void:
 # Llamar cada frame con el estado del jugador. flying = vuelo libre real.
 func update_preview(
 	pos: Vector3, vel: Vector3, omega: float, r_surface: float, flying: bool,
-	dt: float = DEFAULT_DT, max_steps: int = DEFAULT_MAX_STEPS
+	dt: float = DEFAULT_DT, max_steps: int = DEFAULT_MAX_STEPS,
+	a_axial: float = 0.0
 ) -> Dictionary:
-	var prediction: Dictionary = predict_landing(pos, vel, omega, r_surface, dt, max_steps)
+	var prediction: Dictionary = predict_landing(
+		pos, vel, omega, r_surface, dt, max_steps, a_axial
+	)
 	_ensure_visuals()
 	var trajectory: Array = prediction["trajectory"]
 
@@ -95,7 +100,9 @@ func update_preview(
 	if _ring.visible:
 		var point: Vector3 = prediction["point"]
 		var local_up: Vector3 = (
-			global_transform.basis.inverse().xform(SpinFrame.up(point, Vector3.UP))
+			global_transform.basis.inverse().xform(
+				SpinFrame.up_eff(point, omega, a_axial, Vector3.UP)
+			)
 		).normalized()
 		_ring.transform = Transform(_basis_for_up(local_up), to_local(point))
 

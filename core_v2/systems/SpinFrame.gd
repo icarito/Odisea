@@ -48,6 +48,30 @@ static func up(p: Vector3, fallback_up: Vector3 = Vector3.UP, r_eps: float = DEF
 static func a_centrif(p: Vector3, omega: float) -> Vector3:
 	return (omega * omega) * r_perp(p)
 
+# FD-324: aceleración axial de la nave. Empuja hacia popa (-Z), así que subir
+# (up_eff) apunta hacia proa (+Z). a_axial > 0 = empuje de motores.
+static func a_axial_vec(a_axial: float) -> Vector3:
+	return Vector3(0.0, 0.0, -a_axial)
+
+# Gravedad efectiva en SPIN_REAL con empuje axial: centrífuga + axial. Con
+# a_axial = 0 coincide exactamente con a_centrif.
+static func g_eff(p: Vector3, omega: float, a_axial: float = 0.0) -> Vector3:
+	return a_centrif(p, omega) + a_axial_vec(a_axial)
+
+# "Arriba" efectivo: opuesto a la gravedad efectiva. Cerca del eje (o con
+# centrífuga nula) la dirección puede seguir definida por el axial; sólo si
+# |g_eff| < r_eps se conserva fallback_up normalizado.
+static func up_eff(
+	p: Vector3, omega: float, a_axial: float = 0.0,
+	fallback_up: Vector3 = Vector3.UP, r_eps: float = DEFAULT_R_EPS
+) -> Vector3:
+	var g: Vector3 = g_eff(p, omega, a_axial)
+	if g.length() >= r_eps:
+		return -g.normalized()
+	if fallback_up.length_squared() < 1e-12:
+		return Vector3.UP
+	return fallback_up.normalized()
+
 # Aceleración de Coriolis: -2 * omega_hat_z x v.
 static func a_coriolis(v: Vector3, omega: float) -> Vector3:
 	return -2.0 * Vector3(0.0, 0.0, omega).cross(v)
@@ -72,6 +96,15 @@ static func step_free_flight(p: Vector3, v: Vector3, omega: float, dt: float, ex
 	var v_next: Vector3 = state["velocity"]
 	v_next = v_next + (0.5 * dt) * extra_accel
 	return {"position": p_next, "velocity": v_next}
+
+# FD-324: paso de vuelo libre con empuje axial. Reutiliza exactamente la misma
+# vía extra_accel (Strang) en vez de una segunda integración; el axial sólo
+# afecta Z y deja el plano XY idéntico a step_free_flight.
+static func step_free_flight_axial(
+	p: Vector3, v: Vector3, omega: float, dt: float,
+	a_axial: float = 0.0, extra_accel: Vector3 = Vector3.ZERO
+) -> Dictionary:
+	return step_free_flight(p, v, omega, dt, a_axial_vec(a_axial) + extra_accel)
 
 # Integral de Jacobi del marco rotante: 0.5|v|^2 - 0.5*omega^2*|r_perp|^2.
 static func jacobi(p: Vector3, v: Vector3, omega: float) -> float:
