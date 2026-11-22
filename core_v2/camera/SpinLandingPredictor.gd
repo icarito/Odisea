@@ -9,6 +9,13 @@ class_name SpinLandingPredictor
 const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 const DEFAULT_DT := 1.0 / 60.0
 const DEFAULT_MAX_STEPS := 1800
+# FD-324 F6: muestreo de preview acotado. Presentation pura: el paso grueso usa
+# la misma integracion cerrada (Strang) y el cruce se interpola contra r_surface.
+# 1/10 s mantiene el horizonte de 30 s de predict_landing (1800 pasos a 1/60) con
+# 300 pasos, cubriendo tambien la ventana de explosion de 15-25 s.
+const PREVIEW_DT := 1.0 / 10.0
+const PREVIEW_MAX_STEPS := 300
+const MAX_TRAJECTORY_POINTS := 48
 const EPSILON := 1e-9
 
 export(float) var ring_radius := 1.4
@@ -82,13 +89,23 @@ func _ready() -> void:
 	_set_preview_visible(false)
 
 # Llamar cada frame con el estado del jugador. flying = vuelo libre real.
+# Presentacion: con el horizonte por defecto usa el muestreo grueso de preview
+# (<=300 pasos, <=48 puntos) para no dominar el frame; un max_steps explicito
+# menor conserva el comportamiento pedido por el llamador. predict_landing no
+# cambia sus defaults.
 func update_preview(
 	pos: Vector3, vel: Vector3, omega: float, r_surface: float, flying: bool,
 	dt: float = DEFAULT_DT, max_steps: int = DEFAULT_MAX_STEPS,
 	a_axial: float = 0.0
 ) -> Dictionary:
+	var use_preview: bool = max_steps >= DEFAULT_MAX_STEPS
+	var sample_dt: float = PREVIEW_DT if use_preview else dt
+	var sample_steps: int = PREVIEW_MAX_STEPS if use_preview else max_steps
 	var prediction: Dictionary = predict_landing(
-		pos, vel, omega, r_surface, dt, max_steps, a_axial
+		pos, vel, omega, r_surface, sample_dt, sample_steps, a_axial
+	)
+	prediction["trajectory"] = _subsample_trajectory(
+		prediction["trajectory"], MAX_TRAJECTORY_POINTS
 	)
 	_ensure_visuals()
 	var trajectory: Array = prediction["trajectory"]
@@ -158,6 +175,8 @@ func _update_trajectory(points: Array) -> void:
 	if multimesh == null or points.size() < 2:
 		return
 	var stride: int = int(max(1, trajectory_stride))
+	var cap_stride: int = int(ceil(float(points.size()) / float(MAX_TRAJECTORY_POINTS)))
+	stride = int(max(stride, cap_stride))
 	var indices: Array = []
 	for index in range(0, points.size(), stride):
 		indices.append(index)
@@ -171,6 +190,19 @@ func _update_trajectory(points: Array) -> void:
 		multimesh.set_instance_transform(
 			slot_index, Transform(Basis.IDENTITY, to_local(world_point))
 		)
+
+# Reduce una trayectoria ya muestreada a <= max_points, conservando primero y
+# punto de impacto. Determinista y sin aleatoriedad.
+static func _subsample_trajectory(points: Array, max_points: int) -> Array:
+	if max_points < 2 or points.size() <= max_points:
+		return points
+	var last: int = points.size() - 1
+	var result: Array = []
+	for slot in range(max_points):
+		var index: int = int(round(float(slot) * float(last) / float(max_points - 1)))
+		result.append(points[int(clamp(index, 0, last))])
+	result[max_points - 1] = points[last]
+	return result
 
 static func _basis_for_up(up: Vector3) -> Basis:
 	var y_axis: Vector3 = up.normalized()
