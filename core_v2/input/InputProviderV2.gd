@@ -138,6 +138,9 @@ static func touch_action_is_explicit(action_name: String) -> bool:
 var last_input: InputDataV2 = null
 # AutopilotInputV2 opcional (Transit-Run, modo asistido). null = comportamiento de siempre.
 var autopilot = null
+# FD-324 F4: el slot del Autonavegador (o TAB) conduce mientras se mantiene. Sólo se
+# avisa a SuitOS cuando cambia, y nunca en replay ni con el input bloqueado.
+var _last_nav_assist_held := false
 
 
 func peek_input() -> InputDataV2:
@@ -165,9 +168,11 @@ func get_input() -> InputDataV2:
 		# antes de que nadie grabe el frame. No corre con el input bloqueado ni con el puntero
 		# liberado.
 		if autopilot != null and hardware_input_enabled and not _gameplay_pointer_release_suppressed():
-			# nav_assist (TAB) no viaja en el stream: lo que se graba es lo que el
-			# autonavegador escribe en el frame, y eso basta para reproducirlo.
-			autopilot.apply(last_input, _action_pressed("nav_assist"))
+			# nav_assist (TAB o el slot R1 del Autonavegador) no viaja en el stream: lo que se
+			# graba es lo que el autonavegador escribe en el frame, suficiente para reproducirlo.
+			var nav_held: bool = _action_pressed("nav_assist") or _hud_slot_is_nav_assist(last_input)
+			autopilot.apply(last_input, nav_held)
+			_note_nav_assist(nav_held)
 		return last_input
 
 
@@ -294,6 +299,33 @@ func _action_just_pressed(action_name: String) -> bool:
 	if not InputMap.has_action(action_name):
 		return false
 	return Input.is_action_just_pressed(action_name)
+
+
+# FD-324 F4: el slot donde el jugador fijó el Autonavegador también conduce mientras se
+# mantiene, sin un frame de input nuevo. El slot sale del stream (hud_slot), así que el
+# replay re-deriva el mismo hold; SuitOS sólo aporta qué pantalla está en ese slot.
+func _hud_slot_is_nav_assist(d: InputDataV2) -> bool:
+	if d == null or int(d.hud_slot) <= 0:
+		return false
+	var suit = _suit_os()
+	return suit != null and suit.has_method("is_nav_assist_slot") \
+		and bool(suit.is_nav_assist_slot(int(d.hud_slot) - 1))
+
+
+func _note_nav_assist(held: bool) -> void:
+	if held == _last_nav_assist_held:
+		return
+	_last_nav_assist_held = held
+	var suit = _suit_os()
+	if suit != null and suit.has_method("note_nav_assist"):
+		suit.note_nav_assist(held)
+
+
+func _suit_os():
+	var loop = Engine.get_main_loop()
+	if loop == null or not (loop is SceneTree):
+		return null
+	return (loop as SceneTree).root.get_node_or_null("SuitOS")
 
 
 func _read_live_input() -> InputDataV2:
