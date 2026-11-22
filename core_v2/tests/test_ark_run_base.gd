@@ -87,6 +87,51 @@ func test_scene_loads_headless_without_rotators() -> void:
 	]:
 		assert_object(slice.get_node_or_null(String(node_name))).is_not_null()
 
+func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
+	var slice = _instantiate_slice()
+	# F1: pasamanos del núcleo, explosión armada al Puente y propulsores LT.
+	var explosion_root = slice.get_node_or_null("ExplosionController")
+	assert_object(explosion_root).is_not_null()
+	assert_object(explosion_root.get_node_or_null("ArkRunHubHandrails")).is_not_null()
+	assert_object(explosion_root.get_node_or_null("ArkRunThrusterInput")).is_not_null()
+	var explosion = explosion_root.get_node_or_null("ArkRunExplosion")
+	assert_object(explosion).is_not_null()
+	assert_vector3(explosion.bridge_target).is_equal_approx(slice.get_bridge_target(), Vector3(1e-5, 1e-5, 1e-5))
+
+	# F2: domos + andamios, ≥2 spokes con ascensor radial, cuerda y ruta de 50.
+	var traversal_root = slice.get_node_or_null("TraversalRoot")
+	var props = traversal_root.get_node_or_null("ArkRunTerraceProps")
+	assert_object(props).is_not_null()
+	assert_int(props.get_dome_count()).is_equal(100)
+	assert_int(props.get_scaffold_count()).is_greater(50)
+	var elevators = traversal_root.get_node_or_null("Elevators")
+	assert_object(elevators).is_not_null()
+	assert_int(elevators.get_child_count()).is_greater_equal(2)
+	for spoke in elevators.get_children():
+		assert_object(spoke.get_elevator()).is_not_null()
+		assert_bool(spoke.is_elevator_operational()).is_true()
+	var rope = traversal_root.get_node_or_null("Rope")
+	assert_object(rope).is_not_null()
+	assert_object(rope.get_rope()).is_not_null()
+	assert_int(slice.get_waypoint_count()).is_equal(50)
+	assert_str(String(slice.get_canonical_route().get_start_name())).is_equal("Puente")
+	assert_str(String(slice.get_canonical_route().get_end_name())).is_equal("Motor")
+
+	# F3: colisión gruesa de los 96 racimos siempre presente.
+	var streamer = slice.get_node_or_null("IndustryRoot/ArkRunIndustryStreamer")
+	assert_object(streamer).is_not_null()
+	assert_int(streamer.get_coarse_body_count()).is_equal(96)
+
+	# Idle ZERO_G dentro del hub: predictor oculto y preview salteado (sin costo).
+	var pilot = slice.get_node_or_null("Pilot")
+	assert_float(SpinFrame.r_perp(pilot.global_transform.origin).length()).is_less(8.0)
+	var predictor = slice.get_node_or_null("SpinLandingPredictor")
+	slice.update_spin_presentation(1.0 / 60.0)
+	assert_bool(predictor.visible).is_false()
+	var trail = predictor.get_node_or_null("LandingTrajectory")
+	assert_object(trail).is_not_null()
+	assert_int(trail.multimesh.instance_count).is_equal(0)
+
 func test_hull_contains_body_thrown_radially() -> void:
 	var slice = _instantiate_slice()
 	var body := RigidBody.new()

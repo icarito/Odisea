@@ -143,6 +143,19 @@ func detonate(target_pilot = null) -> Dictionary:
 func get_flight_elapsed() -> float:
 	return t_sim
 
+# Gate de presentacion con el estado vivo del nodo: mismo criterio estatico que
+# `_physics_process`, para que el slice no reconstruya grounded/launched.
+func should_show_predictor_at(pilot_position: Vector3) -> bool:
+	var velocity := Vector3.ZERO
+	var physics = null
+	if pilot != null and is_instance_valid(pilot):
+		if "velocity" in pilot:
+			velocity = pilot.velocity
+		if pilot.has_method("get_spin_physics"):
+			physics = pilot.get_spin_physics()
+	var grounded: bool = bool(physics.get("_was_grounded")) if physics != null else false
+	return should_show_predictor(pilot_position, velocity, hub_radius, launched, grounded)
+
 func is_free_flight_active() -> bool:
 	if not launched or pilot == null or not is_instance_valid(pilot):
 		return false
