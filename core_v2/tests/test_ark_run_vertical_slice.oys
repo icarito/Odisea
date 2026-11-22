@@ -1,0 +1,8 @@
+# FD-324 F7 — recorrido integrado determinista del vertical slice.
+# Ejecuta el escenario fijo (hub + explosión + cuerda + ascensor + autonav +
+# encendido + meta/reinicio/fantasma) sobre una instancia fresca de ArkRunSlice.
+# El test GdUnit corre este script dos veces y compara el hash de estado final
+# contra core_v2/tests/ark_run_vertical_slice.hash.
+SECTION "ArkRun vertical slice determinism"
+CALL run_determinism_scenario
+END

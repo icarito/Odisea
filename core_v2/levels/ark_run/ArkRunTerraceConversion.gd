@@ -103,6 +103,11 @@ func start_conversion() -> void:
 	_active = true
 	_elapsed = 0.0
 
+# Reinicio instantaneo: vuelve a empezar sin recargar la escena.
+func reset() -> void:
+	_active = false
+	_elapsed = 0.0
+
 func is_active() -> bool: return _active
 func is_complete() -> bool: return not _active and _elapsed >= duration_sec
 func get_elapsed() -> float: return _elapsed

@@ -375,6 +375,35 @@ Comandos del harness (one-off, no versionado):
 <godot-v0.5.7-editor>   --path . --script /tmp/kilo/ark_perf.gd --resolution 1280x720 --audio-driver Dummy
 ```
 
+
+### 7.1 Re-medición F7 (slice integrada, post-LOD/Tron/predictor acotado)
+
+**Fecha:** 2026-11-22. **Binario:** fork Box3D `v0.5.7` (headless `platform=server`
+y editor X11), Godot `3.6.4-rc custom_build 22957f59`. **Escena:**
+`res://core_v2/levels/ark_run/ArkRunSlice.tscn` con F1–F6 cableados (domos,
+andamios, industria 96 racimos, ascensores, cuerda, Suit OS, LOD+Tron, sombra,
+cámara cilíndrica, carrera). **Método:** harness `SceneTree` one-off (no
+versionado) 120 frames de warmup + 300 muestreados con `target_fps=60`, vsync
+off; monitores de `Performance` + FPS de reloj de pared.
+
+| Configuración | Entorno | wall FPS | process ms | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
+| F0 completo (idle hub) | headless | 57.0 | 1.77 | 25.5 / 30.7 | 0 | 0 | 0 | 329 | 61.1 MB | ❌ |
+| **F7 integrado (idle hub)** | headless | **60.0** | 2.23 | **6.68 / 7.97** | 0 | 0 | 0 | 3 231 | 75.3 MB | ✅ |
+| F0 completo (idle hub) | GUI 1280×720 | 52.2 | 11.4 | 25.7 / 35.4 | 10 | 8 | 160 548 | 329 | 63.9 MB | ❌ |
+| **F7 integrado (idle hub)** | GUI 1280×720 | **59.6** | 19.1 | **5.13 / 6.47** | 2 135 | 1 071 | 176 524 | 3 231 | 78.6 MB | ✅ |
+
+**Lectura:** el predictor acotado + LOD/Tron baja physics de `25.7 → 5.13 ms`
+GUI (≈5.0×, consistente con el 5.3× del preview) y pasa de `52.2 → 59.6` wall
+FPS a 1280×720. El coste nuevo es de presentación: los props de terrazas/domos
+suben draws `10 → 2 135`, nodos `329 → 3 231` y memoria `+14.7 MB`; aun así el
+presupuesto PC 60 queda verde. Android/web siguen **pendientes de medición en
+device** (30 fps) y el draw-call count es el próximo objetivo de optimización.
+
+**Hash dorado F7:** `887057977c0b3e28d0cfcae75098b449195489a8133d2659c642fea1271507c6`
+(`core_v2/tests/test_ark_run_vertical_slice.oys` + `ark_run_vertical_slice.hash`,
+verificado por `test_ark_run_vertical_slice.gd` en CI sobre dos instancias frescas).
+
 ## 8. Riesgos
 
 | Riesgo | Mitigación |
@@ -399,3 +428,28 @@ python3 -m pytest tests/test_odisea_runner.py -k "test_spin_frame or test_spin_r
 Criterios de cierre: todos los tests focalizados verdes, `test_determinism_v2`
 sin drift en el slice, `.oys` de F7 con hash estable en CI, y capturas/playtest
 de los 5 actos aprobados por Sebastián.
+
+## 10. Checklist de playtest (F7, PC)
+
+- [ ] **Hub ZERO_G:** Elías aparece en el núcleo, se desplaza por la pared a
+      ~1.6 m/s y agarra pasamanos sin tirón ni pérdida de cámara.
+- [ ] **Explosión al Puente:** la eyección sale hacia `+Z`; propulsores LT con
+      Δv limitado; aterrizaje grande con slide, sin teletransporte ni giro de 180°.
+- [ ] **Cuerda:** RT engancha el anclaje de domo más cercano dentro del cono y el
+      rango; soltar conserva el momentum.
+- [ ] **Ascensores radiales:** recorrido a 6 m/s con parada de 3 s en extremos;
+      si el ascensor falla, la escalera de respaldo deja subir.
+- [ ] **Autonavegador (Suit OS):** destino activo con nombre y ruta; flecha de
+      gravedad y cuenta regresiva de encendido; margen humano ≥ 25 % vs autopiloto.
+- [ ] **Encendido:** dispara sólo al cruzar `z=0` de regreso tras pasar proa;
+      rampa 9.8 m/s² en 3 s, hold 30 s; animación cinemática corta sin `RigidBody`
+      antes del estado estático; el jugador sigue sobre la terraza que convierte.
+- [ ] **Industria/LOD/Tron:** 3 niveles con histéresis sin popping; pase Tron sin
+      glitches; sombra alineada a `-g_eff` girando durante el encendido.
+- [ ] **Meta en Motor:** cronómetro, reinicio instantáneo con `R` (< 1 s) y
+      fantasma del mejor intento visible y reproducible.
+- [ ] **Presupuesto:** PC 60 fps a 1280×720 con la escena integrada; sin spikes
+      por encima de ~2× el frame budget.
+- [ ] **Determinismo:** dos corridas frescas del `.oys` dan el mismo hash
+      (`test_ark_run_vertical_slice.gd`); sin drift de replay.
+

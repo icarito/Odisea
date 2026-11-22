@@ -17,6 +17,7 @@ const SpokeScript = preload("res://core_v2/components/SpinSpokeV2.gd")
 const RopeInputScript = preload("res://core_v2/player/traversal/SpinRopeInputV2.gd")
 const StreamerScript = preload("res://core_v2/levels/ark_run/ArkRunIndustryStreamer.gd")
 const SuitOSHostScript = preload("res://core_v2/ui/suit_os/ArkRunSuitOSHost.gd")
+const WiringScript = preload("res://core_v2/levels/ark_run/ArkRunSliceWiring.gd")
 
 const SLICE_SEED := 32401; const SLICE_LENGTH := 2000.0; const R_HULL := 340.0; const R_HUB := 8.0
 const BRIDGE_PLATE_INDICES := [47, 48, 49]; const ENGINE_Z_MAX := -940.0; const ENGINE_IGNITION_Z := 0.0
@@ -27,7 +28,7 @@ var hub = null; var hull = null; var spin_omega := 0.0
 var explosion = null; var handrails = null; var thruster_input = null
 var terrace_props = null; var canonical_route = null; var rope_input = null
 var industry_streamer = null; var spokes: Array = []
-var _spiral_config: Dictionary = {}; var _bridge_z_min := 0.0; var _previous_gravity_mode := -1
+var _spiral_config: Dictionary = {}; var _bridge_z_min := 0.0; var _previous_gravity_mode := -1; var _wiring = null
 
 func _ready() -> void:
 	process_priority = 100
@@ -37,7 +38,7 @@ func _ready() -> void:
 	_spiral_config = _resolve_spiral_config()
 	_bridge_z_min = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[0])).origin.z
 	_ensure_presentation_nodes(); _configure_zone_nodes()
-	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules()
+	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules(); _build_wiring()
 	_apply_spin_gravity_mode()
 	if pilot != null:
 		pilot.set_spin_real_enabled(true); spawn_at_hub_start()
@@ -79,9 +80,11 @@ func _resolve_spiral_config() -> Dictionary:
 
 func _ensure_presentation_nodes() -> void:
 	spin_camera = get_node_or_null("SpinRealCamera")
-	if spin_camera == null: spin_camera = CameraControllerScript.new(); spin_camera.name = "SpinRealCamera"; add_child(spin_camera)
+	if spin_camera == null:
+		spin_camera = CameraControllerScript.new(); spin_camera.name = "SpinRealCamera"; add_child(spin_camera)
 	spin_predictor = get_node_or_null("SpinLandingPredictor")
-	if spin_predictor == null: spin_predictor = PredictorScript.new(); spin_predictor.name = "SpinLandingPredictor"; add_child(spin_predictor)
+	if spin_predictor == null:
+		spin_predictor = PredictorScript.new(); spin_predictor.name = "SpinLandingPredictor"; add_child(spin_predictor)
 
 func _configure_zone_nodes() -> void:
 	var bridge = get_node_or_null("BridgeZone")
@@ -89,12 +92,14 @@ func _configure_zone_nodes() -> void:
 		bridge.set_meta("zone_name", ZONE_BRIDGE); bridge.set_meta("z_min", _bridge_z_min)
 		bridge.set_meta("plate_indices", BRIDGE_PLATE_INDICES.duplicate())
 	var engine = get_node_or_null("EngineZone")
-	if engine != null: engine.set_meta("zone_name", ZONE_ENGINE); engine.set_meta("z_max", ENGINE_Z_MAX)
+	if engine != null:
+		engine.set_meta("zone_name", ZONE_ENGINE); engine.set_meta("z_max", ENGINE_Z_MAX)
 
 # Adjunta (o reutiliza) un nodo de módulo bajo su contenedor.
 func _attach(parent: Node, node_name: String, script_resource):
 	var node = parent.get_node_or_null(node_name)
-	if node == null: node = script_resource.new(); node.name = node_name; parent.add_child(node)
+	if node == null:
+		node = script_resource.new(); node.name = node_name; parent.add_child(node)
 	return node
 
 # --- F1: hub ZERO_G, explosión al Puente y propulsores LT ---
@@ -179,21 +184,12 @@ func r_local_for_position(position: Vector3) -> float:
 	var index: int = int(clamp(round((position.z + total_height * 0.5) / step), 0.0, float(count - 1)))
 	return SpinFrame.r_perp(SpiralGeometry.plate_transform(_spiral_config, index).origin).length()
 
-func _is_airborne() -> bool:
-	var physics = pilot.get_spin_physics() if pilot.has_method("get_spin_physics") else null
-	return not bool(physics._was_grounded) if physics != null else not pilot.is_on_floor()
+# --- F5/F6: cableado, presentación y determinismo en ArkRunSliceWiring ---
+func _build_wiring() -> void:
+	_wiring = WiringScript.new(); _wiring.name = "ArkRunWiring"; add_child(_wiring); _wiring.setup(self)
 
 func update_spin_presentation(dt: float) -> void:
-	if pilot == null or not is_instance_valid(pilot) or not pilot.is_spin_real_active():
-		if spin_predictor != null and is_instance_valid(spin_predictor): spin_predictor.visible = false
-		return
-	var position: Vector3 = pilot.global_transform.origin
-	var r_local: float = r_local_for_position(position)
-	if spin_camera != null and is_instance_valid(spin_camera): spin_camera.apply_to_pilot(pilot, r_local, dt)
-	if spin_predictor == null or not is_instance_valid(spin_predictor): return
-	# Performance F0: en el idle ZERO_G del hub el predictor recorre ~1800 pasos por frame
-	# sin aportar información; se oculta y se saltea update_preview.
-	if explosion != null and is_instance_valid(explosion) and not explosion.should_show_predictor_at(position):
-		spin_predictor.visible = false
-		return
-	spin_predictor.update_preview(position, pilot.velocity, spin_omega, r_local, _is_airborne(), dt)
+	if _wiring != null and is_instance_valid(_wiring): _wiring.present(dt)
+
+func run_determinism_scenario() -> Dictionary:
+	return _wiring.run_determinism_scenario() if _wiring != null else {}

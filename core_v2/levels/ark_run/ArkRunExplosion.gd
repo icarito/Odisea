@@ -143,6 +143,14 @@ func detonate(target_pilot = null) -> Dictionary:
 func get_flight_elapsed() -> float:
 	return t_sim
 
+# Reinicio instantaneo: rearma el disparo sin recargar la escena.
+func reset() -> void:
+	launched = false
+	t_sim = 0.0
+	launch_state = {}
+	if predictor != null and is_instance_valid(predictor):
+		predictor.visible = false
+
 # Gate de presentacion con el estado vivo del nodo: mismo criterio estatico que
 # `_physics_process`, para que el slice no reconstruya grounded/launched.
 func should_show_predictor_at(pilot_position: Vector3) -> bool:
