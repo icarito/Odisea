@@ -1,7 +1,7 @@
 extends Reference
 class_name SpinFrame
 
-# FD-321 — SpinFrame (v1)
+# FD-323 — SpinFrame (v1)
 #
 # Marco rotante canónico de Odisea: eje Z, origen en el centro de la nave,
 # geometría estática, |z| <= 4000 m. Clase pura (funciones estáticas, sin

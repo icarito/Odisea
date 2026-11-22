@@ -1,7 +1,7 @@
 extends Resource
 class_name DomeSpiralFieldResource
 
-# Configuración declarativa del campo de espirales del cilindro (FD-321, Fase 0 B).
+# Configuración declarativa del campo de espirales del cilindro (FD-323, Fase 0 B).
 # Cada espiral comparte los defaults de TerraceSpiral.gd pero con el eje del
 # cilindro en Z y el origen en el centro de la nave (ver DomeSpiralField.gd).
 

@@ -2,7 +2,7 @@ extends Reference
 class_name DomeSpiralFieldBuilder
 
 # Construcción estática de colisión, visual y marcadores de LOD para
-# DomeSpiralField (FD-321, Fase 0 B). Todo deriva de plate_transform.
+# DomeSpiralField (FD-323, Fase 0 B). Todo deriva de plate_transform.
 
 const GEOMETRY_SCRIPT := preload(
 	"res://core_v2/components/DomeSpiralFieldGeometry.gd"

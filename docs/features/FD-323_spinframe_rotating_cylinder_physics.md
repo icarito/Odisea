@@ -1,15 +1,10 @@
-# FD-321: SpinFrame — espirales de domos con física rotante real
+# FD-323: SpinFrame — espirales de domos con física rotante real
 
-**Status:** Aprobado para prototipo SpinLab (v1). Parte A implementada; Parte B pendiente.
+**Status:** Aprobado para prototipo SpinLab (v1). Fase 0 (Partes A y B) implementada.
 **Priority:** Alta (habilita el prototipo de física rotante real)
 **Effort:** Medio (clase pura + geometría + controlador + cámara + escena de validación)
 **Created:** 2026-11-21
-**Revised:** 2026-11-21
-
-> **Nota de numeración.** `FD-321` ya está asignado a
-> `FD-321_camaras_cinematicas_momentos_clave.md`. Este spec conserva el
-> identificador pedido por la tarea; si se publica en el índice de features debe
-> renumerarse para no colisionar.
+**Revised:** 2026-11-22
 
 ## 1. Problema
 
@@ -188,7 +183,7 @@ atrapado en la zona del eje.
 
 ### Fase 0 — SpinFrame + DomeSpiralField
 
-**Parte A (implementada en este cambio):**
+**Parte A (implementada):**
 
 - `core_v2/systems/SpinFrame.gd` con la API de §5.
 - `GravityModes.SPIN_REAL == 4` y helpers asociados, sin renumerar 0..3.
@@ -196,11 +191,20 @@ atrapado en la zona del eje.
 - Registro de `SpinFrame` en `_global_script_classes` de `project.godot`.
 - Documentación de `SPIN_REAL` en `Gravity_Physics_Contracts.md`.
 
-**Parte B (pendiente):**
+**Parte B (implementada e integrada):**
 
-- `DomeSpiralField` como geometría nueva; `TerraceSpiral` intacto.
-- Esqueleto de `SpinLab.tscn` con el cilindro, la espiral y la columna.
-- Sin `PlayerControllerV2` ni escenas existentes modificadas.
+- `DomeSpiralField.gd`, `DomeSpiralFieldGeometry.gd`,
+  `DomeSpiralFieldBuilder.gd`, `DomeSpiralFieldResource.gd` y
+  `DomeSpiralDetailPool.gd` como geometría nueva y determinista.
+- `DomeSpiralFieldGeometry._radial_up` delega en `SpinFrame.up`, que pasa a ser
+  la fuente única de verdad del vector "arriba".
+- Los K slots de detalle quedan ordenados por `(spiral_index, plate_index)`
+  después de elegir los K más cercanos.
+- `DomeRegistry` expone anclajes locales (`get_anchors`) para los domos.
+- `test_dome_spiral_field.gd` cubre geometría, colisión horneada, pool
+  determinista y anclajes.
+- `TerraceSpiral` intacto; sin `PlayerControllerV2` ni escenas existentes
+  modificadas. El esqueleto de `SpinLab.tscn` queda para Fase 3.
 
 **Aceptación:** tests de §9 verdes; `SPIN_REAL == 4`; modos 0..3 sin cambios.
 

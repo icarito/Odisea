@@ -1,7 +1,7 @@
 extends Spatial
 class_name DomeSpiralField
 
-# Campo estático de placas en espiral dentro del cilindro (FD-321, Fase 0 B).
+# Campo estático de placas en espiral dentro del cilindro (FD-323, Fase 0 B).
 # Marco canónico: eje del cilindro = Z y origen en el centro de la nave.
 # La geometría se hornea una sola vez en rebuild_field(); las placas nunca se
 # mueven por frame. Sólo el pool de detalle se reasigna cada N ticks.

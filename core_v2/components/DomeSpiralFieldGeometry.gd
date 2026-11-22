@@ -1,11 +1,12 @@
 extends Reference
 class_name DomeSpiralFieldGeometry
 
-# Helpers puros y deterministas del campo de espirales (FD-321, Fase 0 B).
+# Helpers puros y deterministas del campo de espirales (FD-323, Fase 0 B).
 # Marco canónico: eje del cilindro = Z, origen en el centro de la nave.
 
 const AXIS_Z := Vector3(0.0, 0.0, 1.0)
 const EPSILON := 0.000001
+const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 
 static func plate_count_for(spiral: Dictionary) -> int:
 	var total_height: float = float(spiral.get("total_height", 8000.0))
@@ -33,14 +34,13 @@ static func plate_transform(spiral: Dictionary, i: int) -> Transform:
 	var x_axis: Vector3 = up.cross(AXIS_Z).normalized()
 	return Transform(Basis(x_axis, up, AXIS_Z), origin)
 
+# Fuente única de verdad del "arriba" radial: SpinFrame.
 static func _radial_up(point: Vector3) -> Vector3:
-	var planar := Vector3(point.x, point.y, 0.0)
-	if planar.length_squared() < EPSILON:
-		return Vector3(-1.0, 0.0, 0.0)
-	return -planar.normalized()
+	return SpinFrame.up(point, Vector3(-1.0, 0.0, 0.0))
 
-# Hasta k placas ordenadas por distancia canónica ascendente.
-# Desempate determinista: (spiral_index, plate_index) ascendente.
+# Elige hasta k placas por distancia canónica ascendente. El conjunto es el de
+# las K más cercanas; la salida queda ordenada por (spiral_index, plate_index)
+# para que los slots del pool sean deterministas e independientes del recorrido.
 static func select_closest_plates(configs: Array, ref_pos: Vector3, k: int) -> Array:
 	var limit: int = int(max(0, k))
 	if limit == 0:
@@ -55,7 +55,7 @@ static func select_closest_plates(configs: Array, ref_pos: Vector3, k: int) -> A
 				"plate_index": plate_index,
 				"distance": origin.distance_to(ref_pos)
 			}, limit)
-	return best
+	return _sort_by_plate_order(best)
 
 static func compose_anchors(
 	configs: Array, spiral_index: int, plate_index: int, local_anchors: Array
@@ -88,11 +88,25 @@ static func _insert_sorted_entry(target: Array, entry: Dictionary, limit: int) -
 	if target.size() > limit:
 		target.resize(limit)
 
+static func _sort_by_plate_order(entries: Array) -> Array:
+	var sorted: Array = []
+	for entry in entries:
+		var insert_at: int = sorted.size()
+		for index in range(sorted.size()):
+			if _entry_plate_less(entry, sorted[index]):
+				insert_at = index
+				break
+		sorted.insert(insert_at, entry)
+	return sorted
+
 static func _entry_less(a: Dictionary, b: Dictionary) -> bool:
 	var distance_a: float = float(a["distance"])
 	var distance_b: float = float(b["distance"])
 	if abs(distance_a - distance_b) > EPSILON:
 		return distance_a < distance_b
+	return _entry_plate_less(a, b)
+
+static func _entry_plate_less(a: Dictionary, b: Dictionary) -> bool:
 	var spiral_a: int = int(a["spiral_index"])
 	var spiral_b: int = int(b["spiral_index"])
 	if spiral_a != spiral_b:

@@ -34,7 +34,7 @@ func test_gravity_mode_values_are_stable() -> void:
 	assert_bool(GravityModes.is_spin(GravityModes.Mode.SPIN_DYNAMIC)).is_true()
 
 func test_spin_real_mode_is_additive_and_opt_in() -> void:
-	# FD-321: SPIN_REAL no renumera los modos existentes ni cambia sus
+	# FD-323: SPIN_REAL no renumera los modos existentes ni cambia sus
 	# contratos; solo agrega un régimen al final del enum.
 	assert_int(GravityModes.GRAVITY_MODE_SPIN_REAL).is_equal(4)
 	assert_str(GravityModes.mode_name(GravityModes.Mode.SPIN_REAL)).is_equal("SPIN_REAL")

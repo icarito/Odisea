@@ -9,7 +9,7 @@ enum Mode {
 	SPIN_WALKABLE,
 	ZERO_G,
 	SPIN_DYNAMIC,
-	# FD-321: régimen opt-in con física rotante real (eje Z, Coriolis y
+	# FD-323: régimen opt-in con física rotante real (eje Z, Coriolis y
 	# centrífugo integrados). Se agrega al final para no renumerar 0..3.
 	SPIN_REAL
 }

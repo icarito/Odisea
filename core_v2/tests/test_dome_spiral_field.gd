@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-# FD-321 Fase 0 B — campo de espirales del cilindro.
+# FD-323 Fase 0 B — campo de espirales del cilindro.
 # Geometría estática en marco canónico Z, colisión horneada, pool de detalle
 # determinista y anclajes declarativos en DomeRegistry.
 
@@ -20,6 +20,19 @@ func _make_field(configs: Array = []) -> Spatial:
 		field.spirals = configs
 	add_child(field)
 	return field
+
+func _is_plate_ordered(entries: Array) -> bool:
+	for index in range(1, entries.size()):
+		var previous: Dictionary = entries[index - 1]
+		var current: Dictionary = entries[index]
+		var previous_spiral: int = int(previous["spiral_index"])
+		var current_spiral: int = int(current["spiral_index"])
+		if previous_spiral > current_spiral:
+			return false
+		if previous_spiral == current_spiral:
+			if int(previous["plate_index"]) >= int(current["plate_index"]):
+				return false
+	return true
 
 func test_plate_transform_is_pure_and_canonical() -> void:
 	var spiral := _default_config()
@@ -81,12 +94,25 @@ func test_detail_pool_selects_closest_plates_deterministically() -> void:
 	var field := _make_field()
 	var selection: Array = field.select_closest_plates(Vector3.ZERO, 4)
 	assert_int(selection.size()).is_equal(4)
-	assert_int(int(selection[0]["spiral_index"])).is_equal(0)
-	assert_int(int(selection[0]["plate_index"])).is_equal(100)
-	for i in range(1, selection.size()):
-		assert_bool(
-			float(selection[i]["distance"]) >= float(selection[i - 1]["distance"])
-		).is_true()
+	assert_bool(_is_plate_ordered(selection)).is_true()
+	for entry in selection:
+		assert_int(int(entry["spiral_index"])).is_equal(0)
+
+	# El conjunto sigue siendo el de las K placas más cercanas; sólo cambió el
+	# orden de los slots a (spiral_index, plate_index).
+	var spiral: Dictionary = field.get_spiral_configs()[0]
+	var selected := {}
+	var max_selected_distance: float = 0.0
+	for entry in selection:
+		selected[int(entry["plate_index"])] = true
+		max_selected_distance = max(max_selected_distance, float(entry["distance"]))
+	for plate_index in range(DomeSpiralFieldScript.plate_count_for(spiral)):
+		if selected.has(plate_index):
+			continue
+		var origin: Vector3 = DomeSpiralFieldScript.plate_transform(spiral, plate_index).origin
+		assert_float(origin.distance_to(Vector3.ZERO)).is_greater_equal(
+			max_selected_distance - 0.0001
+		)
 
 	var repeated: Array = field.select_closest_plates(Vector3.ZERO, 4)
 	for i in range(selection.size()):
@@ -101,27 +127,44 @@ func test_detail_pool_selects_closest_plates_deterministically() -> void:
 	var slots: Array = field.get_detail_slots()
 	assert_int(pool_selection.size()).is_equal(8)
 	assert_int(slots.size()).is_equal(8)
-	var spiral: Dictionary = field.get_spiral_configs()[0]
+	assert_bool(_is_plate_ordered(pool_selection)).is_true()
 	for slot_index in range(pool_selection.size()):
-		var selected: Dictionary = pool_selection[slot_index]
+		var selected_slot: Dictionary = pool_selection[slot_index]
 		var expected: Transform = DomeSpiralFieldScript.plate_transform(
-			spiral, int(selected["plate_index"])
+			spiral, int(selected_slot["plate_index"])
 		)
-		var actual: Transform = (slots[slot_index] as Spatial).transform
-		assert_bool(actual.is_equal_approx(expected)).is_true()
+		var slot: Spatial = slots[slot_index]
+		assert_bool(slot.transform.is_equal_approx(expected)).is_true()
+		assert_int(int(slot.get_meta("spiral_index"))).is_equal(
+			int(selected_slot["spiral_index"])
+		)
+		assert_int(int(slot.get_meta("plate_index"))).is_equal(
+			int(selected_slot["plate_index"])
+		)
 
-func test_detail_pool_tie_breaks_by_spiral_index() -> void:
+func test_detail_selection_orders_slots_by_spiral_and_plate() -> void:
 	var config := _default_config()
 	var field := _make_field([config, config])
 	var reference: Vector3 = DomeSpiralFieldScript.plate_transform(config, 100).origin
-	var selection: Array = field.select_closest_plates(reference, 4)
-	assert_int(selection.size()).is_equal(4)
-	assert_int(int(selection[0]["spiral_index"])).is_equal(0)
-	assert_int(int(selection[0]["plate_index"])).is_equal(100)
-	assert_int(int(selection[1]["spiral_index"])).is_equal(1)
-	assert_int(int(selection[1]["plate_index"])).is_equal(100)
-	assert_float(float(selection[0]["distance"])).is_equal_approx(0.0, 0.0001)
-	assert_float(float(selection[1]["distance"])).is_equal_approx(0.0, 0.0001)
+	var selection: Array = field.select_closest_plates(reference, 8)
+	assert_int(selection.size()).is_equal(8)
+	assert_bool(_is_plate_ordered(selection)).is_true()
+
+	# El empate exacto en distancia no debe perder la placa de ninguna espiral.
+	var zero_distance_entries: int = 0
+	for entry in selection:
+		if float(entry["distance"]) < 0.0001:
+			zero_distance_entries += 1
+	assert_int(zero_distance_entries).is_equal(2)
+
+	var repeated: Array = field.select_closest_plates(reference, 8)
+	for i in range(selection.size()):
+		assert_int(int(repeated[i]["spiral_index"])).is_equal(
+			int(selection[i]["spiral_index"])
+		)
+		assert_int(int(repeated[i]["plate_index"])).is_equal(
+			int(selection[i]["plate_index"])
+		)
 
 func test_detail_pool_recalculates_only_every_n_ticks() -> void:
 	var field := _make_field()

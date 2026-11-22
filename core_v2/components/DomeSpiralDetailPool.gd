@@ -1,7 +1,7 @@
 extends Spatial
 class_name DomeSpiralDetailPool
 
-# Pool determinista de K slots de detalle (FD-321, Fase 0 B).
+# Pool determinista de K slots de detalle (FD-323, Fase 0 B).
 # Los slots se reasignan a las K placas más cercanas sólo cada N ticks.
 # No toca la geometría estática de las placas: sólo mueve estos nodos.
 

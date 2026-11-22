@@ -21,7 +21,7 @@ Related feature docs:
 - `docs/features/FD-038_zero_gravity_controller.md`
 - `docs/features/FD-039_gravity_physics_strategy.md`
 - `docs/features/FD-040_plate_content_stream_stability.md`
-- `docs/features/FD-321_spinframe_rotating_cylinder_physics.md` (SPIN_REAL, opt-in)
+- `docs/features/FD-323_spinframe_rotating_cylinder_physics.md` (SPIN_REAL, opt-in)
 
 ## Current State By FD
 
@@ -75,9 +75,9 @@ Mode integer values are serialized. Keep `GravityModes.gd` values stable.
 | `SPIN_WALKABLE` | `PlayerControllerV2` + `WorldRotator` + optional `PlateContentStream` | Radial outward from the ship axis, blended with `Vector3.DOWN` by `gravity_blend` | Player still uses standard controller; world/camera frame changes. |
 | `ZERO_G` | `ControllerManager` + `ZeroGravityController` | `Vector3.ZERO` | Separate inertial controller. No walking, snap, jump, or crouch semantics. |
 | `SPIN_DYNAMIC` | `DynamicGravityProxy` opt-in | Radial outward from the ship axis | For selected dynamic props, not global static level geometry. |
-| `SPIN_REAL` | `SpinFrame` opt-in (FD-321, prototype) | Radial outward from the Z axis, with exact Coriolis + centrifugal integration in the rotating frame | Opt-in regime for SpinLab. Does not reuse `WorldRotator`; modes 0..3 keep their existing contracts unchanged. |
+| `SPIN_REAL` | `SpinFrame` opt-in (FD-323, prototype) | Radial outward from the Z axis, with exact Coriolis + centrifugal integration in the rotating frame | Opt-in regime for SpinLab. Does not reuse `WorldRotator`; modes 0..3 keep their existing contracts unchanged. |
 
-### SPIN_REAL (FD-321, opt-in)
+### SPIN_REAL (FD-323, opt-in)
 
 `SPIN_REAL` (`GravityModes.Mode.SPIN_REAL == 4`) is an additive regime, not a
 replacement for `SPIN_WALKABLE` or `SPIN_DYNAMIC`:
@@ -90,7 +90,7 @@ replacement for `SPIN_WALKABLE` or `SPIN_DYNAMIC`:
   integrated exactly by `core_v2/systems/SpinFrame.gd`; free flight conserves
   the Jacobi integral.
 - Only `SpinLab` scenes opt in. `PlayerControllerV2`, `OdiseaExterior`,
-  `ScaffoldOrbit` and existing scenes are out of scope until FD-321 Phase 1+.
+  `ScaffoldOrbit` and existing scenes are out of scope until FD-323 Phase 1+.
 
 Do not map `SPIN_REAL` onto `WorldRotator` or the standard walkable controller:
 that would silently change modes 0..3. The mode is a new physics owner, not a

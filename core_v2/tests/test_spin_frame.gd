@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-# FD-321 — contrato matemático de SpinFrame (marco rotante, eje Z).
+# FD-323 — contrato matemático de SpinFrame (marco rotante, eje Z).
 
 const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 
