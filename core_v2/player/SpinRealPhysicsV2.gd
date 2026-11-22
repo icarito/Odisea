@@ -163,6 +163,11 @@ func _step_grounded(controller, dt: float, incoming_velocity: Vector3, external:
 		controller.velocity, -up * spin_snap, up, true, 4, deg2rad(45), false)
 	if controller.has_method("_update_floor_info"):
 		controller._update_floor_info()
+	# AGENTS §5.2: en SPIN_REAL también se arrastra al Pilot sobre plataformas
+	# móviles (p. ej. las placas kinemáticas de la conversión de terrazas F5).
+	# El controller hace el tracking por delta de transform tras el move_and_slide.
+	if controller.has_method("_update_platform_tracking"):
+		controller._update_platform_tracking(dt)
 func _step_airborne(controller, dt: float, external: Vector3, thruster: Vector3, up: Vector3) -> void:
 	var position: Vector3 = controller.global_transform.origin
 	var state: Dictionary = SpinFrameScript.step_free_flight(
