@@ -28,7 +28,7 @@ func test_scene_loads_headless_without_rotators() -> void:
 	# Constantes publicadas del slice.
 	assert_int(int(SliceScript.SLICE_SEED)).is_equal(32401)
 	assert_float(float(SliceScript.SLICE_LENGTH)).is_equal_approx(2000.0, 1e-9)
-	assert_float(float(SliceScript.R_HULL)).is_equal_approx(300.0, 1e-9)
+	assert_float(float(SliceScript.R_HULL)).is_equal_approx(340.0, 1e-9)
 	assert_float(float(SliceScript.R_HUB)).is_equal_approx(8.0, 1e-9)
 
 	# Espiral: 1 campo, 50 placas, z de -1000 a +960.
@@ -50,7 +50,7 @@ func test_scene_loads_headless_without_rotators() -> void:
 	# Casco grueso: 24 paredes + 2 tapas, inmutable y con malla visual.
 	var hull = slice.get_node_or_null("ArkRunHull")
 	assert_object(hull).is_not_null()
-	assert_float(hull.get_hull_radius()).is_equal_approx(300.0, EPS)
+	assert_float(hull.get_hull_radius()).is_equal_approx(340.0, EPS)
 	assert_float(hull.get_slice_length()).is_equal_approx(2000.0, EPS)
 	assert_int(hull.get_wall_segment_count()).is_equal(24)
 	assert_int(hull.get_collision_shape_count()).is_equal(26)
@@ -122,6 +122,25 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	assert_object(streamer).is_not_null()
 	assert_int(streamer.get_coarse_body_count()).is_equal(96)
 
+	# F4: host del Suit OS en RaceHudRoot, con destinos y ruta canónica.
+	var host = slice.get_node_or_null("RaceHudRoot/ArkRunSuitOSHost")
+	assert_object(host).is_not_null()
+	assert_bool(host.slice == slice).is_true()
+	SuitOS.ensure_ark_run_apps()
+	var nav = SuitOS.get_screen("ship:ark_nav")
+	assert_object(nav).is_not_null()
+	host._sync_route(nav, slice)
+	assert_float(nav.hull_radius).is_equal_approx(340.0, EPS)
+	assert_float(nav.slice_length).is_equal_approx(2000.0, EPS)
+	var labels: Array = []
+	for destination in nav.get_destinations():
+		labels.append(String(destination["label"]))
+	assert_array(labels).is_equal(["Puente", "Núcleo", "Motor", "Ascensores"])
+	assert_int(nav.get_route().size()).is_equal(50)
+	nav.set_destination("bridge")
+	host._sync_route(nav, slice)
+	assert_int(nav.get_route().size()).is_equal(1)
+
 	# Idle ZERO_G dentro del hub: predictor oculto y preview salteado (sin costo).
 	var pilot = slice.get_node_or_null("Pilot")
 	assert_float(SpinFrame.r_perp(pilot.global_transform.origin).length()).is_less(8.0)
@@ -144,8 +163,8 @@ func test_hull_contains_body_thrown_radially() -> void:
 	var collision := CollisionShape.new()
 	collision.shape = shape
 	body.add_child(collision)
-	# Arranca pasado r=260, por fuera de la espiral, y va hacia la pared.
-	body.translation = Vector3(270.0, 0.0, 0.0)
+	# Arranca dentro de la banda industrial, por fuera de la espiral, hacia la pared.
+	body.translation = Vector3(320.0, 0.0, 0.0)
 	body.linear_velocity = Vector3(25.0, 0.0, 0.0)
 	slice.add_child(body)
 
@@ -158,9 +177,9 @@ func test_hull_contains_body_thrown_radially() -> void:
 		final_radial = SpinFrame.r_perp(body.global_transform.origin).length()
 		max_radial = max(max_radial, final_radial)
 
-	# Impacta el casco (pared interior r=300) y no escapa del mundo.
-	assert_float(max_radial).is_greater(290.0)
-	assert_float(max_radial).is_less(310.0)
-	assert_float(final_radial).is_greater(294.0)
-	assert_float(final_radial).is_less(310.0)
+	# Impacta el casco (pared interior r=340) y no escapa del mundo.
+	assert_float(max_radial).is_greater(330.0)
+	assert_float(max_radial).is_less(350.0)
+	assert_float(final_radial).is_greater(334.0)
+	assert_float(final_radial).is_less(350.0)
 	assert_float(abs(body.global_transform.origin.z)).is_less(1050.0)

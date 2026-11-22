@@ -28,7 +28,7 @@ sin tocar `WorldRotator`, `CylinderRotator` ni los modos de gravedad 0..3.
 | **1. Inicio ZERO_G en el núcleo** | 10–20 s | El jugador aparece en un núcleo co-rotante con pasamanos: se desplaza por la pared a ~1.6 m/s y agarra con un tirón suave. Sin gravedad centrífuga significativa. |
 | **2. Explosión hacia el Puente (+Z)** | 15–25 s de vuelo | Una explosión lo expulsa y lo lanza hacia proa `+Z`. Vuelo libre real (Coriolis incluido), propulsores en LT con Δv limitado, y un aterrizaje grande con slide al llegar al Puente. |
 | **3. Recorrido proa → popa** | 60–90 s | Domos variados sobre terrazas, andamios rudimentarios, ascensores radiales deterministas y una zona industrial con cuerda (RT + teclado), spokes y atajos. La cámara 2.5D lee el giro. |
-| **4. Encendido de motores** | 4 s de conversión | Al cruzar `z = 0` de regreso (después de haber pasado proa), los motores encienden: `a_axial(t)` sube a 9.8 m/s² en 3 s y se sostiene 30 s. Las terrazas convierten su marco en 4 s con placas kinemáticas y tracking; conexiones y ascensores se reacoplan o fallan de forma estática determinista. |
+| **4. Encendido de motores** | 3 s de conversión | Al cruzar `z = 0` de regreso (después de haber pasado proa), los motores encienden: `a_axial(t)` sube a 9.8 m/s² en 3 s y se sostiene 30 s. Una animación cinemática corta (sin `RigidBody`) presenta la conversión; las terrazas convierten su marco en 3 s con placas kinemáticas y tracking, y luego conexiones y ascensores se reacoplan o fallan de forma estática determinista. |
 | **5. Meta en el Motor** | 10–20 s | El jugador llega al extremo de popa `-Z`. Cronómetro, reinicio instantáneo y fantasma de la mejor corrida. El Suit OS (app Autonavegador) muestra el progreso y los puntos con nombre. |
 
 El cronómetro corre desde la explosión (fin del Acto 1) hasta entrar en la zona
@@ -69,7 +69,7 @@ de meta. Reiniciar rearma la escena completa en menos de 1 s.
     reacoplan al encender fallan de forma reproducible (misma semilla/estado ⇒
     mismas fallas). No hay aleatoriedad en gameplay.
 11. **Conversión con placas kinemáticas + tracking.** La conversión de terrazas
-    (4 s) mueve placas kinemáticas; en `SPIN_REAL` el jugador las sigue con el
+    (3 s) mueve placas kinemáticas; en `SPIN_REAL` el jugador las sigue con el
     tracking de plataformas de `AGENTS.md` §5.2, sin teletransporte ni reseteo de
     velocidad.
 12. **Cámara, sombra y LOD.** Vistas cilíndricas en `CameraRig`/`SpringArm`,
@@ -84,14 +84,14 @@ de meta. Reiniciar rearma la escena completa en menos de 1 s.
 | # | Decisión | Valor v2 |
 |---|----------|----------|
 | 1 | Largo del slice `L` | `2000 m` (`z ∈ [-1000, +1000]`; proa `+Z`, popa `-Z`). |
-| 2 | Radio del casco `R_hull` | `300 m`. |
+| 2 | Radio del casco `R_hull` | `340 m` (banda industrial monumental de 80 m entre `r=260` y `r=340`). |
 | 3 | Perfil de empuje | Rampa lineal a `9.8 m/s²` en `3 s`, sostenida `30 s`. |
 | 4 | Disparo del encendido | Cruce de `z = 0` de regreso (hacia `-Z`), tras haber pisado/pasado proa. |
-| 5 | Duración de conversión de terrazas | `4 s`. |
+| 5 | Duración de conversión de terrazas | `3 s`. |
 | 6 | Controles de vuelo/travesía | LT = propulsores (Δv limitado); RT = cuerda (teclado equivalente). |
 | 7 | Margen humano vs autopiloto | `≥ 25 %`. |
 | 8 | Presupuesto de performance | PC `60 fps`; Android `30 fps`; web `30 fps`. |
-| 9 | Falla al encender | Falla estática determinista de conexiones y ascensores. |
+| 9 | Transición al estado estático | Animación cinemática corta sin `RigidBody` antes de pasar al estado estático. |
 | 10 | Ascensores radiales | `6 m/s`, parada de `3 s` en extremos; posición = `f(t_sim)`. |
 
 ## 5. Geometría base del slice
@@ -104,7 +104,8 @@ de meta. Reiniciar rearma la escena completa en menos de 1 s.
   `z_min = -1000`, `z_max = 1000`. Punto de inicio en `z ≈ 0`.
 - Núcleo co-rotante con pasamanos (F1) alrededor del hub: pared a ~1.6 m/s y
   agarre con tirón suave.
-- Casco: `ArkRunHull` en `R_hull = 300`, largo `2000`, tapas en `+1020` y `-1020`.
+- Casco: `ArkRunHull` en `R_hull = 340`, largo `2000`, tapas en `+1020` y `-1020`;
+  banda industrial de 80 m entre `r=260` y `r=340`.
 - Ascensores radiales (F2): 6 m/s, 3 s en extremos, posición pura de `t_sim`.
 - Zonas declaradas y consultables por posición:
   - **Puente** (`+Z`): últimas placas de proa, índices `47..49` (`z ≥ 880`).
@@ -144,9 +145,9 @@ prohibidos del slice.
   formato `.oys`.
 - **Test mínimo:** `test_spin_frame` (axial + predictor) y `test_ark_run_base`
   (carga, zonas, contención Box3D).
-- **Aceptación:** escena carga headless sin rotadores; `L=2000`, `R_hull=300`,
+- **Aceptación:** escena carga headless sin rotadores; `L=2000`, `R_hull=340`,
   hub en `z≈0`; cuerpo lanzado radialmente más allá de `r=260` impacta el casco
-  en `r≈300`; medición base registrada (§7).
+  en `r≈340`; medición base registrada (§7).
 
 ### F1 — Inicio y explosión (rama `ao/ark-run/f1-launch`)
 
@@ -237,14 +238,15 @@ prohibidos del slice.
 ### F5 — Encendido de motores (rama `ao/ark-run/f5-ignition`)
 
 - **Depende de:** F2 y F3.
-- **Objetivo:** encendido al cruzar `z=0` de regreso, conversión de terrazas y
-  reacople/falla estática.
+- **Objetivo:** encendido al cruzar `z=0` de regreso, conversión de terrazas con
+  animación cinemática corta sin `RigidBody`, y reacople/falla estática.
 - **Alcance:**
   - Rampa `a_axial(t)` a `9.8 m/s²` en `3 s`, sostenida `30 s`, al cruzar `z=0`
     de regreso después de haber pasado proa.
   - Aviso Suit OS + audio + predictor analítico axial.
-  - Conversión de terrazas en `4 s` con placas kinemáticas y tracking de
-    plataformas (`AGENTS.md` §5.2) en `SPIN_REAL`.
+  - Conversión de terrazas en `3 s` con placas kinemáticas y tracking de
+    plataformas (`AGENTS.md` §5.2) en `SPIN_REAL`, precedida por una animación
+    cinemática corta sin `RigidBody`.
   - Reacople y **falla estática determinista** de conexiones y ascensores.
 - **Archivos permitidos:** `core_v2/levels/ark_run/EngineIgnition*`,
   `EngineIgnitionRoot`, `ArkRunSlice.gd`/`.tscn`, tests de F5.

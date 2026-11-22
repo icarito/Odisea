@@ -9,7 +9,7 @@ extends Reference
 
 const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 
-const DEFAULT_HULL_RADIUS := 300.0
+const DEFAULT_HULL_RADIUS := 340.0
 const DEFAULT_SLICE_LENGTH := 2000.0
 const G_REF := 9.8
 

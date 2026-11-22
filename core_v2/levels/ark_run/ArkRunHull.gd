@@ -11,7 +11,7 @@ class_name ArkRunHull
 #
 # Marco canónico: eje Z, origen en el centro de la nave. Proa = +Z, popa = -Z.
 
-export(float) var hull_radius := 300.0
+export(float) var hull_radius := 340.0
 export(float) var slice_length := 2000.0
 export(int) var wall_segments := 24
 export(float) var wall_thickness := 20.0

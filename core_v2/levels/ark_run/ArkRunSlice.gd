@@ -1,8 +1,6 @@
 extends Spatial
 
-# FD-324 — vertical slice "Del hub al motor" (F0 base + F1/F2/F3 cableados).
-# Marco canónico SpinFrame (eje Z, proa +Z, popa -Z), sin WorldRotator ni CylinderRotator.
-# ExplosionController (F1), TraversalRoot (F2) e IndustryRoot (F3) reciben sus módulos acá.
+# FD-324 — vertical slice "Del hub al motor" (F0 base + F1..F4), marco SpinFrame axial sin rotadores.
 
 const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
@@ -18,8 +16,9 @@ const RouteScript = preload("res://core_v2/levels/ark_run/ArkRunCanonicalRoute.g
 const SpokeScript = preload("res://core_v2/components/SpinSpokeV2.gd")
 const RopeInputScript = preload("res://core_v2/player/traversal/SpinRopeInputV2.gd")
 const StreamerScript = preload("res://core_v2/levels/ark_run/ArkRunIndustryStreamer.gd")
+const SuitOSHostScript = preload("res://core_v2/ui/suit_os/ArkRunSuitOSHost.gd")
 
-const SLICE_SEED := 32401; const SLICE_LENGTH := 2000.0; const R_HULL := 300.0; const R_HUB := 8.0
+const SLICE_SEED := 32401; const SLICE_LENGTH := 2000.0; const R_HULL := 340.0; const R_HUB := 8.0
 const BRIDGE_PLATE_INDICES := [47, 48, 49]; const ENGINE_Z_MAX := -940.0; const ENGINE_IGNITION_Z := 0.0
 const ZONE_BRIDGE := "Puente"; const ZONE_ENGINE := "Motor"; const ELEVATOR_PLATE_INDICES := [45, 35, 15, 5]
 
@@ -38,7 +37,7 @@ func _ready() -> void:
 	_spiral_config = _resolve_spiral_config()
 	_bridge_z_min = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[0])).origin.z
 	_ensure_presentation_nodes(); _configure_zone_nodes()
-	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules()
+	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules()
 	_apply_spin_gravity_mode()
 	if pilot != null:
 		pilot.set_spin_real_enabled(true); spawn_at_hub_start()
@@ -80,11 +79,9 @@ func _resolve_spiral_config() -> Dictionary:
 
 func _ensure_presentation_nodes() -> void:
 	spin_camera = get_node_or_null("SpinRealCamera")
-	if spin_camera == null:
-		spin_camera = CameraControllerScript.new(); spin_camera.name = "SpinRealCamera"; add_child(spin_camera)
+	if spin_camera == null: spin_camera = CameraControllerScript.new(); spin_camera.name = "SpinRealCamera"; add_child(spin_camera)
 	spin_predictor = get_node_or_null("SpinLandingPredictor")
-	if spin_predictor == null:
-		spin_predictor = PredictorScript.new(); spin_predictor.name = "SpinLandingPredictor"; add_child(spin_predictor)
+	if spin_predictor == null: spin_predictor = PredictorScript.new(); spin_predictor.name = "SpinLandingPredictor"; add_child(spin_predictor)
 
 func _configure_zone_nodes() -> void:
 	var bridge = get_node_or_null("BridgeZone")
@@ -147,11 +144,15 @@ func _build_industry_modules() -> void:
 		industry_streamer.seed_value = SLICE_SEED; root.add_child(industry_streamer)
 	industry_streamer.set_stream_target(pilot)
 
+# --- F4: Suit OS (host en RaceHudRoot; destinos/ruta desde ArkRunCanonicalRoute) ---
+func _build_suit_os_modules() -> void:
+	var host = _attach(get_node("RaceHudRoot"), "ArkRunSuitOSHost", SuitOSHostScript)
+	host.set_slice(self)
+
 func _apply_spin_gravity_mode() -> void:
 	var world = get_node_or_null("/root/GravityWorld")
 	if world == null: return
-	_previous_gravity_mode = int(world.get_current_gravity_mode())
-	world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
+	_previous_gravity_mode = int(world.get_current_gravity_mode()); world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
 
 # --- Pilot ---
 func spawn_at_hub_start(r0: float = 4.0, z0: float = ENGINE_IGNITION_Z) -> void:

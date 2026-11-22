@@ -48,7 +48,7 @@ func test_coarse_collision_exists_without_streaming() -> void:
 		var center: Vector3 = streamer.to_global(body.transform.origin)
 		var radius := sqrt(center.x * center.x + center.y * center.y)
 		assert_float(radius).is_greater_equal(260.0 - 0.01)
-		assert_float(radius).is_less_equal(300.0 + 0.01)
+		assert_float(radius).is_less_equal(340.0 + 0.01)
 		assert_float(abs(center.z)).is_less_equal(1000.0 + 0.01)
 	var cost := _measure_cost(streamer)
 	print("ARK_INDUSTRY_COST clusters=%d coarse=%d nodes=%d shapes=%d vertices=%d" % [

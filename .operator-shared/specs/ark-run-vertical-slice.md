@@ -12,7 +12,7 @@ código. Diseño de la experiencia, decisiones y grafo completo:
 | `SLICE_SEED` | `32401` | Semilla fija publicada. Nada de `randf()`/`randomize()`. |
 | `SLICE_LENGTH` | `2000.0` | Largo del casco; `z ∈ [-1000, +1000]`. |
 | `SLICE_HALF` | `1000.0` | `SLICE_LENGTH * 0.5`. |
-| `R_HULL` | `300.0` | Radio interior del casco (pared de colisión). |
+| `R_HULL` | `340.0` | Radio interior del casco; banda industrial de 80 m entre `r=260` y `r=340`. |
 | `R_HUB` | `8.0` | Radio de la columna axial ZERO_G. |
 | `SPIRAL_TURNS` | `2.0` | |
 | `SPIRAL_HEIGHT` | `2000.0` | `plate_step = 40.0` ⇒ 50 placas. |
@@ -25,7 +25,7 @@ código. Diseño de la experiencia, decisiones y grafo completo:
 | `THRUST_ACCEL` | `9.8` m/s² | `a_axial` de ignición. |
 | `THRUST_RAMP_SECONDS` | `3.0` | |
 | `THRUST_HOLD_SECONDS` | `30.0` | |
-| `CONVERSION_SECONDS` | `4.0` | Conversión de terrazas. |
+| `CONVERSION_SECONDS` | `3.0` | Conversión de terrazas. |
 | `CORE_HANDRAIL_SPEED` | `1.6` m/s | Desplazamiento por pared en el núcleo. |
 | `ELEVATOR_SPEED` | `6.0` m/s | Ascensor radial por defecto. |
 | `ELEVATOR_STOP_SECONDS` | `3.0` | Parada en cada extremo. |
@@ -189,8 +189,9 @@ static func elevator_position(z0: float, t_sim: float,
 
 - Disparo: `prev_z > 0 ∧ z ≤ 0` de regreso, tras haber pasado proa.
 - `a_axial(t)`: rampa lineal a `9.8 m/s²` en `3 s`, sostenida `30 s`.
-- Conversión de terrazas: `4 s`, placas kinemáticas, tracking de plataformas
-  (`AGENTS.md` §5.2) en `SPIN_REAL`.
+- Conversión de terrazas: `3 s`, placas kinemáticas, tracking de plataformas
+  (`AGENTS.md` §5.2) en `SPIN_REAL`, precedida por una animación cinemática corta
+  sin `RigidBody`.
 - Reacople y falla estática determinista de conexiones y ascensores.
 - Aviso Suit OS + audio + predictor axial; el predictor debe coincidir con la
   simulación.

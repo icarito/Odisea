@@ -14,6 +14,7 @@ signal ignition_alert(state, countdown)
 signal destination_changed(destination)
 
 var position := Vector3.ZERO
+var velocity := Vector3.ZERO
 var omega := 0.0
 var a_axial := 0.0
 var hull_radius := Model.DEFAULT_HULL_RADIUS
@@ -22,6 +23,8 @@ var ignition_state := "IDLE"
 var ignition_countdown := 0.0
 
 var _destination_id := Model.DEFAULT_DESTINATION_ID
+var _destinations: Array = []
+var _route: Array = []
 
 
 func _init() -> void:
@@ -36,16 +39,68 @@ func _init() -> void:
 
 # Llamado por el host del slice (10 Hz como máximo, no por frame) o por tests.
 func update_navigation(position_value: Vector3, omega_value: float = -1.0,
-		axial_accel: float = 0.0) -> void:
+		axial_accel: float = 0.0, velocity_value: Vector3 = Vector3.ZERO) -> void:
 	var next_omega: float = omega_value if omega_value >= 0.0 else SpinFrame.omega_for()
 	var changed: bool = position != position_value \
+		or velocity != velocity_value \
 		or abs(next_omega - omega) > 0.000001 \
 		or abs(axial_accel - a_axial) > 0.000001
 	position = position_value
+	velocity = velocity_value
 	omega = next_omega
 	a_axial = axial_accel
 	if changed:
 		notify_state_changed()
+
+
+# Destinos que propone el slice (rutas proa→popa); vacío = defaults del modelo.
+func set_destinations(list: Array) -> void:
+	var clean: Array = []
+	for destination in list:
+		if typeof(destination) != TYPE_DICTIONARY: continue
+		if typeof(destination.get("position", null)) != TYPE_VECTOR3: continue
+		clean.append({
+			"id": String(destination.get("id", "")),
+			"label": String(destination.get("label", "")),
+			"position": destination["position"],
+		})
+	if clean.empty(): return
+	_destinations = clean
+	if _find_destination(_destination_id).empty():
+		_destination_id = String(clean[0].get("id", ""))
+	notify_state_changed()
+
+
+# Ruta activa al destino seleccionado (waypoints de ArkRunCanonicalRoute).
+func set_route(points: Array) -> void:
+	var clean: Array = []
+	for point in points:
+		if typeof(point) != TYPE_DICTIONARY: continue
+		if typeof(point.get("position", null)) == TYPE_VECTOR3: clean.append(point["position"])
+	var changed: bool = clean.size() != _route.size() \
+		or (not clean.empty() and not _route.empty() \
+			and clean[clean.size() - 1] != _route[_route.size() - 1])
+	_route = clean
+	if changed:
+		notify_state_changed()
+
+
+func get_route() -> Array:
+	return _route.duplicate()
+
+
+func get_destinations() -> Array:
+	return _destination_list().duplicate(true)
+
+
+func _destination_list() -> Array:
+	return _destinations if not _destinations.empty() else Model.destinations()
+
+
+func _find_destination(id: String) -> Dictionary:
+	for destination in _destination_list():
+		if String(destination.get("id", "")) == id: return destination
+	return {}
 
 
 func set_ignition_state(state: String, countdown: float = 0.0) -> void:
@@ -63,7 +118,7 @@ func set_ignition_state(state: String, countdown: float = 0.0) -> void:
 
 
 func set_destination(id: String) -> bool:
-	var destination := Model.destination_by_id(id)
+	var destination := _find_destination(id)
 	if destination.empty():
 		return false
 	if String(destination.get("id", "")) == _destination_id:
@@ -75,9 +130,16 @@ func set_destination(id: String) -> bool:
 
 
 func cycle_destination(step: int = 1) -> Dictionary:
-	var next_id: String = Model.next_destination_id(_destination_id, step)
-	set_destination(next_id)
-	return Model.destination_by_id(_destination_id)
+	var list := _destination_list()
+	if list.empty():
+		return {}
+	var index := 0
+	for i in range(list.size()):
+		if String(list[i].get("id", "")) == _destination_id: index = i
+	index = int((index + step) % list.size())
+	if index < 0: index += list.size()
+	set_destination(String(list[index].get("id", "")))
+	return get_destination()
 
 
 func get_destination_id() -> String:
@@ -85,7 +147,7 @@ func get_destination_id() -> String:
 
 
 func get_destination() -> Dictionary:
-	return Model.destination_by_id(_destination_id)
+	return _find_destination(_destination_id)
 
 
 func widget_snapshot() -> Dictionary:
@@ -95,17 +157,22 @@ func widget_snapshot() -> Dictionary:
 	var ignition := Model.ignition_snapshot(ignition_state, ignition_countdown)
 	var destination_position: Vector3 = destination.get("position", Vector3.ZERO)
 	var destination_map := Model.minimap(destination_position, hull_radius, slice_length)
+	var destination_snapshots: Array = []
+	for entry in _destination_list():
+		destination_snapshots.append(Model.destination_snapshot(entry))
 	return {
 		"proto": 1,
 		"id": screen_id(),
 		"title": screen_title(),
 		"source": "online",
 		"position": [position.x, position.y, position.z],
+		"velocity": [velocity.x, velocity.y, velocity.z],
 		"map": map,
 		"destination_map": destination_map,
 		"gravity": gravity,
 		"destination": Model.destination_snapshot(destination),
-		"destinations": Model.destinations_snapshot(),
+		"destinations": destination_snapshots,
+		"route_size": _route.size(),
 		"ignition": ignition,
 		"urgency": Model.urgency_for_ignition(ignition_state),
 	}

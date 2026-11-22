@@ -151,13 +151,14 @@ func test_hold_from_slot_and_tab_returns_manual_in_the_same_tick() -> void:
 
 
 func test_minimap_and_local_gravity_from_spin_frame() -> void:
-	var map: Dictionary = Model.minimap(Vector3(120.0, -160.0, 250.0), 300.0, 2000.0)
+	assert_float(Model.DEFAULT_HULL_RADIUS).is_equal_approx(340.0, EPS)
+	var map: Dictionary = Model.minimap(Vector3(120.0, -160.0, 250.0), Model.DEFAULT_HULL_RADIUS, 2000.0)
 	assert_float(float(map["angle"])).is_equal_approx(atan2(-160.0, 120.0), EPS)
-	assert_float(float(map["radius_ratio"])).is_equal_approx(200.0 / 300.0, EPS)
+	assert_float(float(map["radius_ratio"])).is_equal_approx(200.0 / 340.0, EPS)
 	assert_float(float(map["axial_ratio"])).is_equal_approx(0.25, EPS)
-	assert_float(float(map["point"][0])).is_equal_approx(0.4, EPS)
-	assert_float(float(map["point"][1])).is_equal_approx(-0.5333333333, 0.000001)
-	var edge: Dictionary = Model.minimap(Vector3(0.0, 0.0, 4000.0), 300.0, 2000.0)
+	assert_float(float(map["point"][0])).is_equal_approx(120.0 / 340.0, 0.000001)
+	assert_float(float(map["point"][1])).is_equal_approx(-160.0 / 340.0, 0.000001)
+	var edge: Dictionary = Model.minimap(Vector3(0.0, 0.0, 4000.0), Model.DEFAULT_HULL_RADIUS, 2000.0)
 	assert_float(float(edge["axial_ratio"])).is_equal(1.0)
 	assert_float(float(edge["axial"])).is_equal(1000.0)
 

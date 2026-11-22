@@ -56,7 +56,7 @@ detail_update_interval_ticks = 10
 
 [node name="ArkRunHull" type="StaticBody" parent="."]
 script = ExtResource( 8 )
-hull_radius = 300.0
+hull_radius = 340.0
 slice_length = 2000.0
 wall_segments = 24
 wall_thickness = 20.0
