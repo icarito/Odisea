@@ -128,6 +128,11 @@ func test_apply_to_pilot_reuses_existing_rig() -> void:
 	rig.name = "CameraRig"
 	pilot.add_child(rig)
 	pilot.translation = Vector3(220.0, 0.0, 0.0)
+	# Como en placa 0: el Pilot ya tiene +Y alineado a _up (= -X).
+	var up: Vector3 = SpinFrame.up(pilot.translation)
+	var t: Transform = pilot.transform
+	t.basis = Basis(Vector3(0.0, 0.0, 1.0), PI * 0.5)
+	pilot.transform = t
 	add_child(pilot)
 
 	var controller = auto_free(ControllerScript.new())
@@ -135,15 +140,18 @@ func test_apply_to_pilot_reuses_existing_rig() -> void:
 	var state: Dictionary = controller.apply_to_pilot(pilot, 240.0, 0.1)
 	assert_float(state["blend_25d"]).is_equal_approx(1.0, EPS)
 
-	var expected: Basis = ControllerScript.compute_25d_basis(
-		SpinFrame.up(pilot.translation), controller.view_25d_axial_angle_deg
+	# El rig es hijo del Pilot: el 2.5D (mundo) debe llegar convertido a local.
+	var world_target: Basis = ControllerScript.compute_25d_basis(
+		up, controller.view_25d_axial_angle_deg
 	)
+	var expected: Basis = pilot.global_transform.basis.inverse() * world_target
 	var tolerance := Vector3(1e-4, 1e-4, 1e-4)
 	assert_vector3(rig.transform.basis.x).is_equal_approx(expected.x, tolerance)
 	assert_vector3(rig.transform.basis.y).is_equal_approx(expected.y, tolerance)
 	assert_vector3(rig.transform.basis.z).is_equal_approx(expected.z, tolerance)
-	var prefix: Basis = state["prefix"]
-	assert_bool(pilot.camera_basis_prefix.is_equal_approx(prefix)).is_true()
+	# En 3ra persona el prefijo debe seguir siendo local (identidad), sin duplicar
+	# la rotación que el Pilot ya aplica a +Y.
+	assert_bool(pilot.camera_basis_prefix.is_equal_approx(Basis.IDENTITY)).is_true()
 
 func test_predict_landing_from_hub_matches_inertial_impact() -> void:
 	var omega: float = SpinFrame.omega_for()

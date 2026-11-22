@@ -110,17 +110,23 @@ func apply_to_pilot(pilot: Node, r_local: float, dt: float) -> Dictionary:
 	if not is_instance_valid(pilot):
 		return {}
 	var pos: Vector3 = Vector3.ZERO
+	var pilot_basis := Basis.IDENTITY
 	if pilot is Spatial:
 		pos = (pilot as Spatial).global_transform.origin
+		pilot_basis = (pilot as Spatial).global_transform.basis
 	var state: Dictionary = step_camera(pos, SpinFrame.up(pos, Vector3.UP), r_local, dt)
 
 	var rig: Spatial = pilot.get_node_or_null("CameraRig") as Spatial
 	if rig != null:
-		var target_basis: Basis = state["basis_25d"]
 		var blend: float = float(state["blend_25d"])
 		if blend > 0.0:
-			rig.transform.basis = rig.transform.basis.slerp(target_basis, blend).orthonormalized()
+			# CameraRig es hijo del Pilot (que ya alinea +Y a _up): el objetivo 2.5D
+			# (mundo) se convierte a local antes del slerp para no rotar _up dos veces.
+			var basis_25d: Basis = state["basis_25d"]
+			var target_local: Basis = pilot_basis.inverse() * basis_25d
+			rig.transform.basis = rig.transform.basis.slerp(target_local, blend).orthonormalized()
+	# El Pilot ya lleva _up en su basis: en 3ra persona el prefijo local natural
+	# es la identidad. Cargar aquí el prefijo de mundo duplicaría la rotación.
 	if "camera_basis_prefix" in pilot:
-		var prefix: Basis = state["prefix"]
-		pilot.camera_basis_prefix = prefix
+		pilot.camera_basis_prefix = Basis.IDENTITY
 	return state

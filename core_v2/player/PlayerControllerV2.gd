@@ -1427,29 +1427,36 @@ func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) 
 				camera_basis = camera_rig.global_transform.basis
 
 	var res = Vector3.ZERO
+	var sim_up: Vector3 = get_sim_up()
 	match mode:
 		CinematicManager.ControlMode.FREE:
-			# Relative to camera (Standard Third Person)
+			# Relative to camera (Standard Third Person). Proyecta sobre el plano
+			# perpendicular al up de simulación: en SPIN_REAL el up es radial y
+			# anular Y sacaría el movimiento del horizonte del jugador.
 			var fwd = - camera_basis.z
-			fwd.y = 0.0
-			fwd = fwd.normalized()
+			fwd -= sim_up * fwd.dot(sim_up)
+			if fwd.length_squared() > 0.0001:
+				fwd = fwd.normalized()
 			
 			var rt = camera_basis.x
-			rt.y = 0.0
-			rt = rt.normalized()
+			rt -= sim_up * rt.dot(sim_up)
+			if rt.length_squared() > 0.0001:
+				rt = rt.normalized()
 			
 			# mapping: Right (+X), Forward (-Y)
-			res = (rt.normalized() * input_vector.x + fwd.normalized() * (-input_vector.y))
+			res = (rt * input_vector.x + fwd * (-input_vector.y))
 
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# Relative to camera depth (Up = Into screen)
 			var forward = - camera_basis.z
-			forward.y = 0
-			forward = forward.normalized()
+			forward -= sim_up * forward.dot(sim_up)
+			if forward.length_squared() > 0.0001:
+				forward = forward.normalized()
 			var right = camera_basis.x
-			right.y = 0
-			right = right.normalized()
+			right -= sim_up * right.dot(sim_up)
+			if right.length_squared() > 0.0001:
+				right = right.normalized()
 			
 			# mapping: Right (+X), Forward (-Y)
 			res = (right * input_vector.x + forward * (-input_vector.y))
@@ -1576,6 +1583,12 @@ func _update_camera_view(dt: float) -> void:
 
 func _update_camera_rig_vertical(dt: float) -> void:
 	if not camera_rig or _rl_skip_camera_updates:
+		return
+	if is_spin_real_active():
+		# En SPIN_REAL el +Y del pilot es `_up` (radial en placa 0), no el Y de
+		# mundo. El rig es hijo del pilot: su offset debe ser local.
+		camera_rig.transform.origin = Vector3(0.0, base_rig_y - _crouch_camera_drop(), 0.0)
+		_camera_rig_y_initialized = false
 		return
 	if not _camera_rig_y_initialized:
 		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
@@ -4009,14 +4022,16 @@ func get_camera_basis() -> Basis:
 
 func _get_move_direction_rl_fast(input_vector: Vector2) -> Vector3:
 	var basis_fast = camera_rig.global_transform.basis if camera_rig else global_transform.basis
+	var sim_up: Vector3 = get_sim_up()
 	var forward = - basis_fast.z
-	forward.y = 0.0
+	# SPIN_REAL: el horizonte es perpendicular al up radial, no al Y de mundo.
+	forward -= sim_up * forward.dot(sim_up)
 	if forward.length_squared() > 0.0001:
 		forward = forward.normalized()
 	else:
 		forward = Vector3.FORWARD
 	var right = basis_fast.x
-	right.y = 0.0
+	right -= sim_up * right.dot(sim_up)
 	if right.length_squared() > 0.0001:
 		right = right.normalized()
 	else:
