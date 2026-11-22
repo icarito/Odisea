@@ -271,6 +271,15 @@ func _validate_manifest(p, channel, platform) -> bool:
 		_on_error("platform_mismatch", false)
 		return false
 
+	# Una instalación nueva aún no tiene secuencias aceptadas: no ofrecer un
+	# build anterior (o igual) al que ya viene empaquetado o confirmado.
+	var current_build := _get_current_build_id()
+	var offered_build := str(p.get("build_id", ""))
+	if current_build.is_valid_integer() and offered_build.is_valid_integer() \
+			and int(offered_build) <= int(current_build):
+		_set_state(State.IDLE)
+		return false
+
 	var seq = p.get("release_sequence", 0)
 	var last_seq = 0
 	if _local_state["accepted_sequences"].size() > 0:
