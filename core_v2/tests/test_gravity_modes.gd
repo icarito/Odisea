@@ -28,9 +28,21 @@ func test_gravity_mode_values_are_stable() -> void:
 	assert_int(GravityModes.Mode.SPIN_WALKABLE).is_equal(1)
 	assert_int(GravityModes.Mode.ZERO_G).is_equal(2)
 	assert_int(GravityModes.Mode.SPIN_DYNAMIC).is_equal(3)
+	assert_int(GravityModes.Mode.SPIN_REAL).is_equal(4)
 	assert_str(GravityModes.mode_name(GravityModes.Mode.ZERO_G)).is_equal("ZERO_G")
 	assert_bool(GravityModes.is_walkable(GravityModes.Mode.SPIN_WALKABLE)).is_true()
 	assert_bool(GravityModes.is_spin(GravityModes.Mode.SPIN_DYNAMIC)).is_true()
+
+func test_spin_real_mode_is_additive_and_opt_in() -> void:
+	# FD-323: SPIN_REAL no renumera los modos existentes ni cambia sus
+	# contratos; solo agrega un régimen al final del enum.
+	assert_int(GravityModes.GRAVITY_MODE_SPIN_REAL).is_equal(4)
+	assert_str(GravityModes.mode_name(GravityModes.Mode.SPIN_REAL)).is_equal("SPIN_REAL")
+	assert_bool(GravityModes.is_valid_mode(GravityModes.Mode.SPIN_REAL)).is_true()
+	assert_bool(GravityModes.is_valid_mode(5)).is_false()
+	assert_bool(GravityModes.is_walkable(GravityModes.Mode.SPIN_REAL)).is_true()
+	assert_bool(GravityModes.is_spin(GravityModes.Mode.SPIN_REAL)).is_true()
+	assert_bool(GravityModes.is_zero_g(GravityModes.Mode.SPIN_REAL)).is_false()
 
 func test_gravity_world_resolves_zone_mode_over_default() -> void:
 	var manager = auto_free(GravityWorldScript.new())
