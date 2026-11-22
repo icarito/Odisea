@@ -1,8 +1,9 @@
-# Ark-Run vertical slice — contrato técnico compartido (FD-324)
+# Ark-Run vertical slice — contrato técnico compartido (FD-324 v2)
 
-Este archivo es la fuente única para los workers F1–F6. Si una tarea necesita
+Este archivo es la fuente única para los workers F1–F7. Si una tarea necesita
 algo distinto, se cambia aquí primero (en la rama de integración) y luego en el
-código. Diseño de la experiencia y grafo de tareas: `docs/features/FD-324_del_hub_al_motor.md`.
+código. Diseño de la experiencia, decisiones y grafo completo:
+`docs/features/FD-324_del_hub_al_motor.md`.
 
 ## Constantes canónicas
 
@@ -25,12 +26,19 @@ código. Diseño de la experiencia y grafo de tareas: `docs/features/FD-324_del_
 | `THRUST_RAMP_SECONDS` | `3.0` | |
 | `THRUST_HOLD_SECONDS` | `30.0` | |
 | `CONVERSION_SECONDS` | `4.0` | Conversión de terrazas. |
+| `CORE_HANDRAIL_SPEED` | `1.6` m/s | Desplazamiento por pared en el núcleo. |
+| `ELEVATOR_SPEED` | `6.0` m/s | Ascensor radial por defecto. |
+| `ELEVATOR_STOP_SECONDS` | `3.0` | Parada en cada extremo. |
 | `HUMAN_AUTOPILOT_MARGIN` | `0.25` | ≥ 25 %. |
+| `FPS_BUDGET_PC` | `60` | |
+| `FPS_BUDGET_ANDROID` / `WEB` | `30` / `30` | |
 
 Proa = `+Z`, popa = `-Z`. El eje de giro es Z y el origen está en el centro de
 la nave. El marco es `SpinFrame` (FD-323): `omega = sqrt(9.8 / 240)`.
 
 ## Nombres de nodos de `ArkRunSlice.tscn`
+
+Base F0 (ya existe):
 
 ```
 ArkRunSlice (Spatial, ArkRunSlice.gd)
@@ -45,19 +53,27 @@ ArkRunSlice (Spatial, ArkRunSlice.gd)
 ├── SpinLandingPredictor       (SpinLandingPredictor.gd)
 ├── BridgeZone                 (Spatial, zona Puente +Z)
 ├── EngineZone                 (Spatial, zona Motor -Z)
-├── ExplosionController        (Spatial vacío, F1)
-├── TraversalRoot              (Spatial vacío, F2)
-├── IndustryRoot               (Spatial vacío, F3)
-├── EngineIgnitionRoot         (Spatial vacío, F5)
-└── RaceHudRoot                (Spatial vacío, F4)
+├── ExplosionController        (Spatial, F1)
+├── TraversalRoot              (Spatial, F2)
+├── IndustryRoot               (Spatial, F3)
+├── EngineIgnitionRoot         (Spatial, F5)
+└── RaceHudRoot                (Spatial, F4/F6)
 ```
 
-No se agregan `WorldRotator` ni `CylinderRotator`. Los contenedores vacíos se
-llenan en su tarea sin renombrarlos ni moverlos.
+Nodos previstos (los crea su tarea, sin renombrar los contenedores):
 
-## Contratos de `ArkRunSlice.gd`
+| Tarea | Nodos |
+|-------|-------|
+| F1 | `CoreRoot/CoreHandrail_*` bajo `ExplosionController` (o `CoreRoot` si se acuerda en integración). |
+| F2 | `TraversalRoot/Domes`, `TraversalRoot/Scaffolds`, `TraversalRoot/Elevators/Elevator_*`, `TraversalRoot/Rope`. |
+| F3 | `IndustryRoot/Cluster_*` (arte y colisión gruesa). |
+| F4 | `RaceHudRoot/SuitOSHost`, app registrada en `SuitOS.gd`. |
+| F5 | `EngineIgnitionRoot/IgnitionDriver`, `KinematicPlatesRoot`. |
+| F6 | `RaceHudRoot/Chrono`, `RaceHudRoot/Ghost`, `PresentationRoot` (LOD/sombra). |
 
-Métodos puros/consultables (estables para F1–F6):
+No se agregan `WorldRotator` ni `CylinderRotator`.
+
+## Contratos de `ArkRunSlice.gd` (base F0, estables)
 
 | Método | Semántica |
 |--------|-----------|
@@ -66,13 +82,14 @@ Métodos puros/consultables (estables para F1–F6):
 | `get_hull_radius() -> float` | `R_HULL`. |
 | `get_hub_radius() -> float` | `R_HUB`. |
 | `get_bridge_plate_indices() -> Array` | `[47, 48, 49]`. |
-| `get_bridge_z_min() -> float` | `z` de la primera placa de Puente (880). |
+| `get_bridge_z_min() -> float` | `880.0`. |
 | `get_engine_z_max() -> float` | `-940.0`. |
+| `get_engine_ignition_z() -> float` | `0.0`. |
 | `zone_at(pos: Vector3) -> String` | `"Motor"` si `z ≤ -940`; `"Puente"` si `z ≥ 880`; `""` si no. |
-| `is_in_bridge(pos) -> bool` / `is_in_engine(pos) -> bool` | Azúcar sobre `zone_at`. |
+| `is_in_bridge(pos)` / `is_in_engine(pos)` | Azúcar sobre `zone_at`. |
 | `spawn_at_hub_start(r0 := 4.0, z0 := 0.0)` | Coloca el Pilot en el hub con `up` de `SpinFrame`. |
 | `update_spin_presentation(dt)` | Orienta el rig existente y muestra el predictor. Nunca muta la física. |
-| `r_local_for_position(pos) -> float` | Radio de la placa más cercana en `z` (para el predictor). |
+| `r_local_for_position(pos) -> float` | Radio de la placa más cercana en `z`. |
 
 ## Contratos de `ArkRunHull.gd`
 
@@ -83,7 +100,7 @@ construida una sola vez en `_ready()`:
   `R_HULL`, solapadas para no dejar rendijas.
 - Tapas: `CylinderShape` en `z = ±(SLICE_HALF + cap_extension)` solapadas con la
   pared. Toda caída termina dentro del casco.
-- Visual: un `CylinderMesh` sin tapas, `CULL_DISABLED`, alineado al eje Z.
+- Visual: un `CylinderMesh` alineado al eje Z, `CULL_DISABLED`.
 
 Getters estables: `get_hull_radius()`, `get_slice_length()`,
 `get_wall_segment_count()`, `get_collision_shape_count()`.
@@ -117,34 +134,106 @@ final). No hay una segunda integración. Error axial en 30 s `< 1e-4` contra
 final de la firma (retrocompatible). Internamente usan
 `SpinFrame.step_free_flight_axial`. Siguen siendo puros para la simulación.
 
-## Contratos de gameplay entre módulos
+**Presupuesto:** el predictor es presentación pura. F6 debe acotar su horizonte
+y/o cadencia (coste dominante de la medición F0, ver FD §7) sin tocar la
+simulación.
 
-- **Intents, no estado.** Cualquier asistencia (autopiloto TAB) sólo escribe
-  `move_vec`, `sprint`, `jump` en `InputDataV2`. Nunca velocidad, transform ni
-  cámara.
-- **Señales sólo para efectos no físicos.** Sonido, animación, HUD. El estado
-  físico se actualiza en `_physics_process`.
-- **Reinicio instantáneo.** Rearmar = recargar `ArkRunSlice` o resetear estado
-  determinista; nada de esperar animaciones.
-- **Fantasma = replay de posiciones.** Se reproduce desde el stream grabado; no
-  re-ejecuta el autopiloto ni la física asistida.
-- **Compatibilidad.** `SPIN_REAL` sigue opt-in; los modos 0..3 y
-  `test_determinism_v2` no cambian.
+## Contratos por módulo nuevo
+
+### Explosión / núcleo (F1)
+
+- `CoreHandrailV2` mueve al jugador por la pared a `CORE_HANDRAIL_SPEED`; el
+  agarre es un tirón suave, sin teletransporte ni reseteo de momentum.
+- `ExplosionLaunchV2.impulse(state) -> Dictionary` devuelve velocidad/posición de
+  eyección; la ventana de llegada al Puente es 15–25 s.
+- Propulsores en LT: sólo intents `move_vec`/`sprint`/`jump`; Δv total acotado.
+- Aterrizaje en el Puente con slide.
+
+### Ascensores radiales (F2)
+
+```gdscript
+# Posición pura del ascensor en función del tiempo de simulación.
+static func elevator_position(z0: float, t_sim: float,
+                              speed := ELEVATOR_SPEED,
+                              stop_seconds := ELEVATOR_STOP_SECONDS) -> float
+```
+
+- `6 m/s`, parada `3 s` en `z_min`/`z_max`.
+- Sin estado mutable ni aleatoriedad: misma `t_sim` ⇒ misma posición.
+- La escalera (`SPIN_REAL`) es sólo respaldo funcional, no la vía por defecto.
+
+### Cuerda (F2)
+
+- RT + teclado; adjuntar/soltar conserva momento.
+- La cuerda no altera el estado físico fuera de su restricción de longitud.
+
+### Industria procedural (F3)
+
+- Racimos `hash(SLICE_SEED, coord)` deterministas, con conectores y modos de
+  gravedad.
+- Streaming sólo de arte/detalle; colisión gruesa siempre presente.
+- Mismo resultado con cualquier orden de carga/streaming.
+
+### Suit OS (F4)
+
+- App Autonavegador en `core_v2/autoloads/SuitOS.gd`.
+- Defaults HUD: **R1 = slot 2**, **L1 = `player:flashlight`**, reubicable,
+  mantener para usar, **TAB** atajo teclado.
+- Mini mapa: corte radial + barra proa↔popa `z`.
+- Gravedad local: magnitud `g` + flecha de `g_eff`.
+- Destino propuesto y puntos con nombre: Puente, Núcleo, Motor, ascensores.
+- Aviso de encendido de motores.
+- La app no escribe estado físico.
+
+### Encendido (F5)
+
+- Disparo: `prev_z > 0 ∧ z ≤ 0` de regreso, tras haber pasado proa.
+- `a_axial(t)`: rampa lineal a `9.8 m/s²` en `3 s`, sostenida `30 s`.
+- Conversión de terrazas: `4 s`, placas kinemáticas, tracking de plataformas
+  (`AGENTS.md` §5.2) en `SPIN_REAL`.
+- Reacople y falla estática determinista de conexiones y ascensores.
+- Aviso Suit OS + audio + predictor axial; el predictor debe coincidir con la
+  simulación.
+
+### Carrera y presentación (F6)
+
+- Cronómetro, reinicio `< 1 s`, fantasma desde replay (no re-ejecuta autopiloto).
+- Vistas cilíndricas en `CameraRig`/`SpringArm`; continuidad de cámara.
+- Sombra falsa a lo largo de `-g_eff`.
+- LOD de 3 niveles: sector horneado / MultiMesh / pool cercano, con histéresis.
+- Pase visual Tron; assets provisionales reemplazables por kit Blender.
+- Presupuesto de presentación: acotar predictor para PC 60 / Android 30 / web 30.
+
+## Invariantes de determinismo
+
+- Intents, no estado: la asistencia (TAB) sólo escribe `move_vec`, `sprint`,
+  `jump`. Nunca velocidad, transform ni cámara.
+- Señales sólo para efectos no físicos (sonido, animación, HUD).
+- Todo el estado físico se actualiza en `_physics_process`.
+- Reinicio = recargar/resetear estado determinista; sin esperar animaciones.
+- Fantasma = replay de posiciones; no ejecuta autopiloto ni física asistida.
+- El orden de carga/streaming no cambia geometría, física ni resultados.
 
 ## Grafo de dependencias
 
-```
-F0 (base: SpinFrame axial + ArkRunSlice + ArkRunHull + zonas)
- ├── F1 (explosión/lanzamiento)      ─┐
- ├── F2 (carrera espiral/cuerda)      │
- │    └── F3 (zona industrial)        ├── F6 (meta + validación)
- └── F4 (autopiloto/HUD/fantasma)     │
-      └── F5 (ignición a_axial)       ─┘
+```text
+F0 (base: SpinFrame axial + ArkRunSlice + ArkRunHull + zonas + medición)
+ ├── F1 (inicio/explosión)                  ─┐
+ ├── F2 (recorrido/ascensores/cuerda)        │
+ │    └── F5 (encendido)                     ├── F6 (carrera/presentación) ── F7 (validación)
+ ├── F3 (industria procedural) ── F5         │
+ └── F4 (Suit OS) ───────────────────────────┘
 ```
 
-F2 y F3 no tocan `ArkRunHull.gd`, `SpinFrame.gd` ni el predictor. F5 consume
-`a_axial` ya expuesto por F0 y no lo reimplementa. F6 integra todo y no reescribe
-los módulos de F1–F5.
+F1–F4 corren en paralelo tras F0. F5 espera F2 y F3. F6 espera F1, F2 y F4. F7
+cierra con `.oys` + hash en CI y performance PC/Android/web.
+
+## Performance base
+
+La tabla y los hallazgos de F0 están en `docs/features/FD-324_del_hub_al_motor.md`
+§7. Resumen: geometría + física base ≈ 6 ms y ~60 fps en PC; el caso idle con el
+predictor en horizonte completo es el coste dominante y F6 debe acotarlo antes de
+declarar Android/web 30 fps.
 
 ## Verificación focalizada
 
@@ -152,4 +241,4 @@ los módulos de F1–F5.
 python3 -m pytest tests/test_odisea_runner.py -k "test_spin_frame or test_spin_real_camera or test_ark_run_base or test_spin_lab_base"
 ```
 
-Cada tarea F1–F6 agrega su propio test y lo corre antes de pedir integración.
+Cada tarea F1–F7 agrega su propio test y lo corre antes de pedir integración.
