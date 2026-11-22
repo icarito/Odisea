@@ -2164,6 +2164,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/SpawnPointV2.gd"
 }, {
+"base": "Reference",
+"class": "SpinFrame",
+"language": "GDScript",
+"path": "res://core_v2/systems/SpinFrame.gd"
+}, {
 "base": "Spatial",
 "class": "SpiralPlateAttachment",
 "language": "GDScript",
@@ -2891,6 +2896,7 @@ _global_script_class_icons={
 "SlimeLayer": "",
 "SnapToPath": "",
 "SpawnPointV2": "",
+"SpinFrame": "",
 "SpiralPlateAttachment": "",
 "SteelGratePlatform": "",
 "SteelPlate": "",
