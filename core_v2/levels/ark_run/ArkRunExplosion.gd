@@ -19,7 +19,6 @@ const MIN_FLIGHT_TIME := 15.0
 const MAX_FLIGHT_TIME := 25.0
 const DEFAULT_FLIGHT_TIME := 20.0
 const R_HUB := 8.0
-const CORE_Z_HALF := 12.0
 const FREE_FLIGHT_MIN_SPEED := 2.0
 const DEFAULT_SPIN_V_SLIDE := 26.0
 const EPSILON := 1e-6
@@ -79,9 +78,8 @@ static func should_show_predictor(
 		return false
 	if velocity.length() < FREE_FLIGHT_MIN_SPEED:
 		return false
-	var in_core: bool = abs(position.z) <= CORE_Z_HALF \
-		and SpinFrame.r_perp(position).length() <= max(hub_radius_value, 0.0)
-	return not in_core
+	# Dentro de la columna axial (r <= hub_radius) sigue siendo el hub.
+	return SpinFrame.r_perp(position).length() > max(hub_radius_value, 0.0)
 
 # Velocidad normal de entrada (componente contra `up`), sin tocar la fisica.
 static func landing_entry_speed(velocity: Vector3, up: Vector3) -> float:

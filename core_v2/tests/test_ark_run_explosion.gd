@@ -34,7 +34,6 @@ func _spiral_config() -> Dictionary:
 
 func _bridge_target() -> Vector3:
 	return SpiralGeometry.plate_transform(_spiral_config(), 48).origin
-
 func _steps(seconds: float) -> int:
 	return int(round(seconds / DT))
 
@@ -174,6 +173,8 @@ func test_predictor_gating_detonate_and_determinism() -> void:
 		Vector3(4.0, 0.0, 0.0), Vector3.ZERO, 8.0, false, false)).is_false()
 	assert_bool(ExplosionScript.should_show_predictor(
 		Vector3(6.0, 0.0, 0.0), Vector3(0.0, 0.0, 40.0), 8.0, true, false)).is_false()
+	assert_bool(ExplosionScript.should_show_predictor(
+		Vector3(6.0, 0.0, 400.0), Vector3(0.0, 0.0, 40.0), 8.0, true, false)).is_false()
 	assert_bool(ExplosionScript.should_show_predictor(
 		Vector3(40.0, 0.0, 50.0), Vector3(0.0, 0.0, 40.0), 8.0, true, false)).is_true()
 	assert_bool(ExplosionScript.should_show_predictor(
