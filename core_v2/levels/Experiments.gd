@@ -11,5 +11,6 @@ const LIST := [
 	{"id": "hull_underdeck", "title": "Entrecasco", "scene": "res://core_v2/levels/hull_underdeck/HullUnderdeck.tscn"},
 	{"id": "hull_sections", "title": "Secciones", "scene": "res://core_v2/levels/hull_underdeck/HullSections.tscn"},
 	{"id": "bay_vertical", "title": "Pozo radial", "scene": "res://core_v2/levels/bay_vertical/BayVertical.tscn"},
+	{"id": "spin_lab", "title": "SpinLab", "scene": "res://core_v2/levels/spin_lab/SpinLab.tscn"},
 	{"id": "machine_bay", "title": "Maquinaria", "scene": "res://core_v2/levels/machines/MachineBay.tscn"},
 ]

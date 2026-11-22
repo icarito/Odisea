@@ -63,7 +63,10 @@ func launch(vy: float) -> void:
 	_launched = true
 	_jump_time_tracker = 0.0
 
-func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> float:
+func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool, _up_dir: Vector3 = Vector3.UP) -> float:
+	# current_vy is the component of velocity along the simulation up axis; the scalar
+	# force/gravity below apply along that axis. up_dir is accepted so callers share the
+	# dynamic-up API (FD-323); step_velocity does the vector decomposition.
 	# Sync internal velocity with current_vy if we are on floor and NOT jumping
 	# This ensures we don't fight slope alignment or external vertical forces.
 	if on_floor and not _is_jumping:
@@ -95,6 +98,16 @@ func step(dt: float, input_jump: bool, current_vy: float, on_floor: bool) -> flo
 		_is_jumping = false
 		
 	return internal_velocity
+
+# FD-323: mismo modelo de salto/gravedad, aplicado sobre la componente de `velocity`
+# a lo largo de `up_dir`. Devuelve la velocidad completa; solo cambia su proyección
+# vertical, de modo que el plano (movimiento horizontal) queda intacto.
+func step_velocity(dt: float, input_jump: bool, current_velocity: Vector3, on_floor: bool, up_dir: Vector3 = Vector3.UP) -> Vector3:
+	var up := up_dir if up_dir.length_squared() > 0.000001 else Vector3.UP
+	up = up.normalized()
+	var along_up: float = current_velocity.dot(up)
+	var new_along_up: float = step(dt, input_jump, along_up, on_floor, up)
+	return current_velocity + up * (new_along_up - along_up)
 
 func get_jump_force() -> float:
 	return jump_force

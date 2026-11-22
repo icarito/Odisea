@@ -5,6 +5,8 @@ const InputDataV2 = preload("../input/InputDataV2.gd")
 const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
 const PlayerJumpV2 = preload("PlayerJumpV2.gd")
 const PlayerMovementV2 = preload("PlayerMovementV2.gd")
+const SpinRealPhysicsV2 = preload("SpinRealPhysicsV2.gd")
+const GravityModesScript = preload("res://core_v2/systems/GravityModes.gd")
 const ZeroGravitySettingsV2 = preload("ZeroGravitySettings.gd")
 const TraversalLogicV2 = preload("traversal/TraversalLogicV2.gd")
 # FD-316 (tarea K2): guard central del dueno unico de la camara. El player lo consulta
@@ -22,6 +24,71 @@ const HYPER_LOW_ANIMATOR_STEP_INTERVAL_FRAMES := 5
 const PLATFORM_TRACKING_MAX_DELTA := 120.0
 const RIGID_PLATFORM_GRACE_TICKS := 3
 const PLATFORM_LAUNCH_MIN_UP_SPEED := 1.5 # m/s; por debajo es jitter de reposo, no un lanzamiento
+
+# FD-323 Fase 1: vector "up" de simulacion por tick. En todos los modos actuales
+# (STANDARD_1G, SPIN_WALKABLE, ZERO_G, SPIN_DYNAMIC) vale Vector3.UP; SPIN_REAL sigue
+# apagado. El refactor solo prepara la fisica para un up arbitrario sin cambiar el
+# comportamiento actual. Los usos en espacio LOCAL del rig de camara siguen usando
+# Vector3.UP (el prefijo del rig ya rota ese eje).
+var _up: Vector3 = Vector3.UP
+# FD-323 Fase 2A: componente de física rotante real. Solo se usa en SPIN_REAL,
+# activado por GravityWorld o por el override explícito de tests/SpinLab.
+var spin_real_physics = null
+var spin_real_override := false
+
+func get_sim_up() -> Vector3:
+	if _up.length_squared() > 0.000001:
+		return _up.normalized()
+	return Vector3.UP
+
+func set_sim_up(up_vec: Vector3) -> void:
+	# Vector invalido: se conserva el up anterior en vez de apagar la fisica.
+	if up_vec.length_squared() > 0.000001:
+		_up = up_vec.normalized()
+
+func set_spin_real_enabled(enabled: bool) -> void:
+	spin_real_override = enabled
+
+func is_spin_real_enabled() -> bool:
+	return spin_real_override
+
+func get_spin_physics():
+	return spin_real_physics
+
+# Activo por override explícito (tests/SpinLab) o por GravityWorld. En los modos
+# 0..3 nunca se activa: SPIN_REAL es opt-in.
+func is_spin_real_active() -> bool:
+	if spin_real_override:
+		return true
+	var gravity_world = get_node_or_null("/root/GravityWorld")
+	if gravity_world != null and gravity_world.has_method("get_current_gravity_mode"):
+		return int(gravity_world.get_current_gravity_mode()) == GravityModesScript.Mode.SPIN_REAL
+	var cm = _cm_cache
+	if cm == null or not is_instance_valid(cm):
+		cm = get_node_or_null("ControllerManager")
+	return cm != null and int(cm.current_gravity_mode) == GravityModesScript.Mode.SPIN_REAL
+
+func _step_spin_real(dt: float, input: InputDataV2) -> void:
+	if spin_real_physics == null:
+		spin_real_physics = SpinRealPhysicsV2.new()
+		spin_real_physics.name = "SpinRealPhysics"
+		add_child(spin_real_physics)
+	if not _rl_skip_camera_updates:
+		_update_camera_orbit_state(dt, input)
+	spin_real_physics._up = _up
+	_up = spin_real_physics.update_up(global_transform.origin)
+	spin_real_physics.step(self, dt, input)
+	_up = spin_real_physics._up
+	if not _rl_skip_camera_updates:
+		_update_camera_view(dt)
+	# SPIN_REAL ignora airlock_tracking_suspended: la camara no queda bloqueada por ese meta.
+	if _cached_spring_arm != null:
+		_cached_spring_arm.collision_mask = base_collision_mask
+	if not _rl_fast_controller:
+		_process_interaction(_interaction_input_without_crouch(input))
+	if not _rl_skip_animator and not is_ragdoll and animator and animator.has_method("step_animator"):
+		animator.step_animator(dt, _get_animator_velocity())
+	_update_input_edge_state(input)
 
 var is_replay_mode := false
 
@@ -557,6 +624,11 @@ func restore_snapshot(data: Dictionary) -> void:
 		_camera_rig_airborne_rise_time = 0.0
 		_camera_rig_was_grounded = true
 
+	# FD-323: no se serializa _up; se re-deriva del modo y la posición restaurada.
+	if spin_real_physics != null and is_spin_real_active():
+		spin_real_physics._up = _up
+		_up = spin_real_physics.update_up(global_transform.origin)
+
 func full_reset() -> void:
 	end_ragdoll()
 	velocity = Vector3.ZERO
@@ -793,6 +865,12 @@ func _ready():
 		var cm = load("res://core_v2/player/ControllerManager.gd").new()
 		cm.name = "ControllerManager"
 		add_child(cm)
+	if has_node("SpinRealPhysics"):
+		spin_real_physics = get_node("SpinRealPhysics")
+	else:
+		spin_real_physics = SpinRealPhysicsV2.new()
+		spin_real_physics.name = "SpinRealPhysics"
+		add_child(spin_real_physics)
 	_cached_cam = _find_camera(camera_rig)
 	if _cached_cam:
 		base_fov = _cached_cam.fov
@@ -1349,29 +1427,36 @@ func _get_move_direction(input_vector: Vector2, mode = -1, camera_basis = null) 
 				camera_basis = camera_rig.global_transform.basis
 
 	var res = Vector3.ZERO
+	var sim_up: Vector3 = get_sim_up()
 	match mode:
 		CinematicManager.ControlMode.FREE:
-			# Relative to camera (Standard Third Person)
+			# Relative to camera (Standard Third Person). Proyecta sobre el plano
+			# perpendicular al up de simulación: en SPIN_REAL el up es radial y
+			# anular Y sacaría el movimiento del horizonte del jugador.
 			var fwd = - camera_basis.z
-			fwd.y = 0.0
-			fwd = fwd.normalized()
+			fwd -= sim_up * fwd.dot(sim_up)
+			if fwd.length_squared() > 0.0001:
+				fwd = fwd.normalized()
 			
 			var rt = camera_basis.x
-			rt.y = 0.0
-			rt = rt.normalized()
+			rt -= sim_up * rt.dot(sim_up)
+			if rt.length_squared() > 0.0001:
+				rt = rt.normalized()
 			
 			# mapping: Right (+X), Forward (-Y)
-			res = (rt.normalized() * input_vector.x + fwd.normalized() * (-input_vector.y))
+			res = (rt * input_vector.x + fwd * (-input_vector.y))
 
 		
 		CinematicManager.ControlMode.LOCKED_VIEW:
 			# Relative to camera depth (Up = Into screen)
 			var forward = - camera_basis.z
-			forward.y = 0
-			forward = forward.normalized()
+			forward -= sim_up * forward.dot(sim_up)
+			if forward.length_squared() > 0.0001:
+				forward = forward.normalized()
 			var right = camera_basis.x
-			right.y = 0
-			right = right.normalized()
+			right -= sim_up * right.dot(sim_up)
+			if right.length_squared() > 0.0001:
+				right = right.normalized()
 			
 			# mapping: Right (+X), Forward (-Y)
 			res = (right * input_vector.x + forward * (-input_vector.y))
@@ -1394,7 +1479,7 @@ func _get_support_normal() -> Vector3:
 		var floor_normal = movement_logic.get_floor_normal()
 		if floor_normal is Vector3 and floor_normal.length_squared() > 0.25:
 			return floor_normal.normalized()
-	return Vector3.UP
+	return _up
 
 func _project_vector_onto_support_plane(vector: Vector3) -> Vector3:
 	var support_normal := _get_support_normal()
@@ -1498,6 +1583,12 @@ func _update_camera_view(dt: float) -> void:
 
 func _update_camera_rig_vertical(dt: float) -> void:
 	if not camera_rig or _rl_skip_camera_updates:
+		return
+	if is_spin_real_active():
+		# En SPIN_REAL el +Y del pilot es `_up` (radial en placa 0), no el Y de
+		# mundo. El rig es hijo del pilot: su offset debe ser local.
+		camera_rig.transform.origin = Vector3(0.0, base_rig_y - _crouch_camera_drop(), 0.0)
+		_camera_rig_y_initialized = false
 		return
 	if not _camera_rig_y_initialized:
 		_camera_rig_y_smoothed_global = global_transform.origin.y + base_rig_y
@@ -1649,7 +1740,7 @@ func _find_nearby_ladder_for_crouch() -> Node:
 			continue
 		var anchor = ladder.get_climb_anchor() if ladder.has_method("get_climb_anchor") else ladder.global_transform.origin
 		var normal = -ladder.global_transform.basis.z
-		var right = normal.cross(Vector3.UP).normalized()
+		var right = normal.cross(_up).normalized()
 		var rel = player_pos - anchor
 		var lateral = abs(rel.dot(right))
 		var depth = abs(rel.dot(normal))
@@ -1674,7 +1765,7 @@ func _can_auto_enter_ladder(ladder: Node) -> bool:
 		return false
 	var anchor = ladder.get_climb_anchor() if ladder.has_method("get_climb_anchor") else ladder.global_transform.origin
 	var normal = -ladder.global_transform.basis.z
-	var right = normal.cross(Vector3.UP).normalized()
+	var right = normal.cross(_up).normalized()
 	var rel = global_transform.origin - anchor
 	var limits = ladder.get_climb_limits() if ladder.has_method("get_climb_limits") else Vector2(-1.5, 1.5)
 	var below_margin := traversal_logic.ladder_auto_enter_vertical_below_margin if traversal_logic else 0.35
@@ -1713,7 +1804,7 @@ func _find_nearby_ledge_for_crouch() -> Node:
 			continue
 		var anchor = ledge.global_transform.origin
 		var normal = -ledge.global_transform.basis.z
-		var tangent = normal.cross(Vector3.UP).normalized()
+		var tangent = normal.cross(_up).normalized()
 		var rel = player_pos - anchor
 		var half_width = ledge.get_hang_half_width() if ledge.has_method("get_hang_half_width") else 0.85
 		var lateral = abs(rel.dot(tangent))
@@ -1753,11 +1844,11 @@ func _should_auto_hang_ledge(best_target: Node, _input: InputDataV2) -> bool:
 	if not best_target or _ledge_regrab_cooldown > 0.0:
 		return false
 	var max_rising_velocity := traversal_logic.ledge_auto_hang_max_rising_velocity if traversal_logic else 0.05
-	if is_effectively_grounded() and velocity.y >= -max_rising_velocity:
+	if is_effectively_grounded() and velocity.dot(_up) >= -max_rising_velocity:
 		return false
 	var anchor = best_target.global_transform.origin
 	var normal = -best_target.global_transform.basis.z
-	var tangent = normal.cross(Vector3.UP).normalized()
+	var tangent = normal.cross(_up).normalized()
 	var rel = global_transform.origin - anchor
 	var half_width = best_target.get_hang_half_width() if best_target.has_method("get_hang_half_width") else 0.85
 	var lateral_margin := traversal_logic.ledge_auto_hang_lateral_margin if traversal_logic else 0.28
@@ -1782,7 +1873,7 @@ func _should_auto_hang_ledge(best_target: Node, _input: InputDataV2) -> bool:
 	# under gravity instead of getting "pulled" down into a hang from the hips/feet.
 	if ledge_height_above_feet < min_grab_height:
 		return false
-	if velocity.y > max_rising_velocity:
+	if velocity.dot(_up) > max_rising_velocity:
 		return false
 	if lateral > half_width + lateral_margin:
 		return false
@@ -1809,7 +1900,7 @@ func _can_start_mantle() -> bool:
 	var params = PhysicsShapeQueryParameters.new()
 	params.set_shape(stand_shape)
 	var shape_basis := _body_collision_shape.transform.basis if _body_collision_shape else Basis.IDENTITY
-	params.transform = Transform(global_transform.basis, target_top + Vector3.UP * 0.08) * Transform(shape_basis, _standing_collision_origin)
+	params.transform = Transform(global_transform.basis, target_top + _up * 0.08) * Transform(shape_basis, _standing_collision_origin)
 	params.exclude = [self]
 	params.collision_mask = collision_mask
 	var hits = space_state.intersect_shape(params, 1)
@@ -1820,10 +1911,10 @@ func _get_mantle_target_points() -> Dictionary:
 		return {}
 	if traversal_logic.current_state != traversal_logic.TraversalState.HANGING:
 		return {}
-	var tangent = traversal_logic.ledge_normal.cross(Vector3.UP).normalized()
+	var tangent = traversal_logic.ledge_normal.cross(_up).normalized()
 	var back_offset := traversal_logic.hang_body_back_offset
-	var nominal_vertical = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset - traversal_logic.ledge_normal * back_offset + Vector3.UP * traversal_logic.mantle_up_offset
-	var nominal_top = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset + Vector3.UP * traversal_logic.mantle_up_offset + traversal_logic.ledge_normal * traversal_logic.mantle_forward_offset
+	var nominal_vertical = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset - traversal_logic.ledge_normal * back_offset + _up * traversal_logic.mantle_up_offset
+	var nominal_top = traversal_logic.ledge_anchor_point + tangent * traversal_logic.hang_lateral_offset + _up * traversal_logic.mantle_up_offset + traversal_logic.ledge_normal * traversal_logic.mantle_forward_offset
 	var space_state = get_world().direct_space_state
 	var support_offsets = [
 		Vector3.ZERO,
@@ -1832,12 +1923,12 @@ func _get_mantle_target_points() -> Dictionary:
 	]
 	var best_hit = {}
 	for offset in support_offsets:
-		var from = nominal_top + offset + Vector3.UP * 0.3
-		var to = nominal_top + offset + Vector3.DOWN * 1.4
+		var from = nominal_top + offset + _up * 0.3
+		var to = nominal_top + offset - _up * 1.4
 		var hit = space_state.intersect_ray(from, to, [self], collision_mask)
 		if hit.empty():
 			continue
-		if hit.normal.y < 0.45:
+		if hit.normal.dot(_up) < 0.45:
 			continue
 		best_hit = hit
 		break
@@ -2633,7 +2724,7 @@ func _update_push_state(dt: float, input: InputDataV2):
 	var raw_push_correction := 0.0
 	_push_target = null
 	# Push is strictly grounded-only. Never activate or persist while airborne.
-	if not is_on_floor() or velocity.y > 0.05:
+	if not is_on_floor() or velocity.dot(_up) > 0.05:
 		_apply_visual_push_correction(raw_push_correction, dt)
 		return
 	if not _interact_area:
@@ -2761,6 +2852,9 @@ func _apply_push_constraint(dt: float) -> void:
 
 func step(dt: float, input: InputDataV2) -> void:
 	if is_ragdoll:
+		# FD-323: el tumble de SPIN_REAL no mata; recupera solo tras el tiempo fijo.
+		if spin_real_physics != null:
+			spin_real_physics.tick_tumble_recovery(dt, self)
 		return
 	if input_locked:
 		input = InputDataV2.new()
@@ -2793,6 +2887,9 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	if input == null:
 		_update_input_edge_state(null)
+		return
+	if is_spin_real_active():
+		_step_spin_real(dt, input)
 		return
 	_update_post_traversal_strafe_latch(dt, input)
 	_update_post_traversal_exit_alignment(dt)
@@ -2828,9 +2925,9 @@ func step(dt: float, input: InputDataV2) -> void:
 			var detach_normal = _get_traversal_detach_normal()
 			global_transform.origin += detach_normal * 0.08
 			traversal_drop_velocity = detach_normal * hang_drop_push_force
-			traversal_drop_velocity.y = hang_drop_vertical_velocity
+			traversal_drop_velocity += _up * (hang_drop_vertical_velocity - traversal_drop_velocity.dot(_up))
 			if jump_logic:
-				jump_logic.set_internal_velocity(traversal_drop_velocity.y)
+				jump_logic.set_internal_velocity(traversal_drop_velocity.dot(_up))
 			_sync_movement_state_after_traversal(traversal_drop_velocity)
 			_begin_post_traversal_strafe_latch(traversal_surface_normal, input.move_vec)
 		if was_mantling and not traversal_logic.is_active:
@@ -2866,11 +2963,11 @@ func step(dt: float, input: InputDataV2) -> void:
 				jump_logic.consume_jump()
 				jump_logic.set_internal_velocity(upward_force)
 			velocity = detach_normal * traversal_jump_push_force
-			velocity.y = upward_force
+			velocity += _up * (upward_force - velocity.dot(_up))
 			traversal_jump_velocity = velocity
 			_sync_movement_state_after_traversal(traversal_jump_velocity)
 			_begin_post_traversal_strafe_latch(traversal_surface_normal, input.move_vec)
-			global_transform.origin += detach_normal * traversal_jump_detach_distance + Vector3.UP * min(0.12, upward_force * dt)
+			global_transform.origin += detach_normal * traversal_jump_detach_distance + _up * min(0.12, upward_force * dt)
 			_emit_anim_event("jumped")
 
 		# Sync visual velocity for animator
@@ -2978,9 +3075,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	elif _roll_crouch_buffer_timer > 0.0:
 		_roll_crouch_buffer_timer = max(0.0, _roll_crouch_buffer_timer - dt)
 
+	var velocity_up: float = velocity.dot(_up)
 	if not physics_grounded:
-		if velocity.y < _pre_land_vy:
-			_pre_land_vy = velocity.y
+		if velocity_up < _pre_land_vy:
+			_pre_land_vy = velocity_up
 		_landed_roll_grace_timer = 0.0
 	else:
 		var min_roll_vy: float = movement_logic.landing_roll_min_fall_vy if is_instance_valid(movement_logic) else -6.0
@@ -2988,11 +3086,11 @@ func step(dt: float, input: InputDataV2) -> void:
 			_landed_impact_vy = _pre_land_vy
 			_landed_roll_grace_timer = 0.14
 			_pre_land_vy = 0.0
-		elif velocity.y <= 0.0:
+		elif velocity_up <= 0.0:
 			_pre_land_vy = 0.0
 
-	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
-		velocity.y = 0
+	if physics_grounded and velocity_up < 0 and movement_logic.get_horizontal_velocity().dot(_up) <= 0:
+		velocity -= _up * velocity_up
 		if is_instance_valid(jump_logic):
 			jump_logic.set_internal_velocity(0.0)
 
@@ -3052,7 +3150,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if world_dir.length() > 0.01:
 		var b_z = - world_dir.normalized()
 		# Construct basis looking at the movement direction
-		basis = Basis(Vector3.UP.cross(b_z), Vector3.UP, b_z)
+		basis = Basis(_up.cross(b_z), _up, b_z)
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
@@ -3063,11 +3161,12 @@ func step(dt: float, input: InputDataV2) -> void:
 			var roll_dir := world_dir
 			if roll_dir.length_squared() < 0.001:
 				var carried := movement_logic.get_horizontal_velocity()
-				roll_dir = Vector3(carried.x, 0.0, carried.z)
+				roll_dir = carried - _up * carried.dot(_up)
 			if roll_dir.length_squared() < 0.001:
 				var cam_b := get_camera_basis()
-				roll_dir = Vector3(-cam_b.z.x, 0.0, -cam_b.z.z)
-			movement_logic.start_landing_roll(roll_dir, _landed_impact_vy)
+				var cam_dir := -cam_b.z
+				roll_dir = cam_dir - _up * cam_dir.dot(_up)
+			movement_logic.start_landing_roll(roll_dir, _landed_impact_vy, _up)
 			_landed_roll_grace_timer = 0.0
 			_roll_crouch_buffer_timer = 0.0
 
@@ -3086,14 +3185,16 @@ func step(dt: float, input: InputDataV2) -> void:
 		return
 
 	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.movement")
-	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching and not is_rolling_now)
+	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching and not is_rolling_now, _up)
 	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.movement")
 
+	# Reemplaza el plano del movimiento con el de movement_logic y conserva la
+	# componente vertical actual salvo en piso (donde la dicta el slope alignment).
 	var h_vel = movement_logic.get_horizontal_velocity()
-	velocity.x = h_vel.x
-	velocity.z = h_vel.z
-	if physics_grounded:
-		velocity.y = h_vel.y
+	var h_up: float = h_vel.dot(_up)
+	var h_planar: Vector3 = h_vel - _up * h_up
+	var current_up: float = velocity.dot(_up)
+	velocity = h_planar + _up * (h_up if physics_grounded else current_up)
 
 	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.push")
 	_apply_push_constraint(dt)
@@ -3105,18 +3206,20 @@ func step(dt: float, input: InputDataV2) -> void:
 		if debug_acrobatic_probe:
 			print("[ACRO] rama=ACROBATICA force=%.1f snap_age=%d" % [jump_logic.acrobatic_jump_force, frames_since_last_snap])
 		var force = jump_logic.acrobatic_jump_force
-		velocity.y = force
+		# Fijar la componente vertical en 'force' conservando el plano actual.
+		velocity = velocity - _up * velocity.dot(_up) + _up * force
 		
-		# 1. FRENADO EN SECO: Eliminamos la inercia actual para justificar el cambio de dirección
-		velocity.x *= jump_logic.acrobatic_brake_factor
-		velocity.z *= jump_logic.acrobatic_brake_factor
+		# 1. FRENADO EN SECO: frena solo el plano, no el impulso de salto.
+		var acrobatic_planar := velocity - _up * velocity.dot(_up)
+		acrobatic_planar *= jump_logic.acrobatic_brake_factor
+		velocity = acrobatic_planar + _up * force
 		
 		# 2. IMPULSO HACIA ATRÁS: Usamos el vector de intención actual.
 		if last_input_vector.length() > 0.1:
 			var move_dir = last_input_vector.normalized()
-			# Kick: Base impulse + boost.
-			velocity.x += move_dir.x * jump_logic.acrobatic_backward_impulse
-			velocity.z += move_dir.z * jump_logic.acrobatic_backward_impulse
+			# Kick: Base impulse + boost, proyectado al plano de simulación.
+			var planar_push: Vector3 = move_dir - _up * move_dir.dot(_up)
+			velocity += planar_push * jump_logic.acrobatic_backward_impulse
 			
 			# Camera Visual Impact
 			# (Skipped: sidescroll_logic not available in V2 controller yet)
@@ -3134,9 +3237,10 @@ func step(dt: float, input: InputDataV2) -> void:
 		_emit_anim_event("acrobatic_jumped")
 	else:
 		# --- JUMP ---
-		var old_vy = velocity.y
-		velocity.y = jump_logic.step(dt, input.jump, velocity.y, physics_grounded)
-		if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
+		var old_vy: float = velocity.dot(_up)
+		velocity = jump_logic.step_velocity(dt, input.jump, velocity, physics_grounded, _up)
+		var new_vy: float = velocity.dot(_up)
+		if new_vy == jump_logic.jump_force and old_vy != jump_logic.jump_force:
 			if debug_acrobatic_probe:
 				# Por qué NO fue acrobático: aísla ventana vencida vs doble-snap vs latch cinemático.
 				var motivo := "ready=false(ventana/doble-snap)"
@@ -3169,10 +3273,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	# grounded on the same moving plate, so a one-frame lag is harmless.
 	if _standing_on_moving_terrace():
 		_effective_snap = max(_effective_snap, moving_floor_snap_length)
-	var snap_vec = Vector3.DOWN * _effective_snap if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
+	var snap_vec = -_up * _effective_snap if (velocity.dot(_up) <= 0 and not input.jump) else Vector3.ZERO
 	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.other")
 
-	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.y <= 0:
+	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.dot(_up) <= 0:
 		if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.stepup")
 		var wish_dir := movement_logic.wish_direction
 		var step_motion = wish_dir if wish_dir.length() > 0.1 else velocity
@@ -3199,7 +3303,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _pm_fino:
 		_pm_perfil.perfil_fin("PC.move.pre")
 		_pm_perfil.perfil_inicio("PC.move.slide")
-	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
+	velocity = move_and_slide_with_snap(velocity, snap_vec, _up, true, 4, deg2rad(45), false)
 	if _pm_fino:
 		_pm_perfil.perfil_fin("PC.move.slide")
 		_pm_perfil.perfil_inicio("PC.move.post")
@@ -3217,8 +3321,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	else:
 		_ground_contact_grace_timer = max(0.0, _ground_contact_grace_timer - dt)
 	
-	if is_on_ceiling() and velocity.y > 0:
-		velocity.y = 0
+	if is_on_ceiling() and velocity.dot(_up) > 0:
+		velocity -= _up * velocity.dot(_up)
 		if is_instance_valid(jump_logic):
 			jump_logic.set_internal_velocity(0.0)
 		_emit_anim_event("hit_ceiling")
@@ -3314,8 +3418,8 @@ func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_
 			var dist: float = float(info["distance"])
 			var rail_pt: Vector3 = info["world_pos"]
 			# Enganche al saltar sobre el riel o pasar por encima dentro del radio.
-			if dist <= rail.engage_radius and dist < best_dist and velocity.y <= 2.5 and global_transform.origin.y >= rail_pt.y - 0.6:
-				var engage_target: Vector3 = rail_pt + Vector3.UP * rail.player_offset_y
+			if dist <= rail.engage_radius and dist < best_dist and velocity.dot(_up) <= 2.5 and (global_transform.origin - rail_pt).dot(_up) >= -0.6:
+				var engage_target: Vector3 = rail_pt + _up * rail.player_offset_y
 				var engage_delta: Vector3 = engage_target - global_transform.origin
 				if engage_delta.length_squared() > 0.0001 and test_move(global_transform, engage_delta):
 					continue
@@ -3339,7 +3443,7 @@ func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_
 				if is_instance_valid(active_rail) and active_rail.has_method("unregister_player_exception"):
 					active_rail.unregister_player_exception(self)
 				velocity = res["velocity"].slide(col.normal)
-				movement_logic.horizontal_velocity = Vector3(velocity.x, 0.0, velocity.z)
+				movement_logic.horizontal_velocity = velocity - _up * velocity.dot(_up)
 				movement_logic._ballistic_ticks = 0
 				_platform_collider = null
 				_platform_tracking_key = ""
@@ -3360,20 +3464,21 @@ func _step_magrail(dt: float, input: InputDataV2, world_dir: Vector3, jump_just_
 	var reason: String = str(res.get("exit_reason", ""))
 	if reason == "jump":
 		var jump_v: float = jump_logic.jump_force if is_instance_valid(jump_logic) else 12.0
-		velocity = Vector3(launch_v.x, jump_v + max(0.0, launch_v.y), launch_v.z)
+		var launch_up: float = launch_v.dot(_up)
+		velocity = launch_v - _up * launch_up + _up * (jump_v + max(0.0, launch_up))
 		if is_instance_valid(jump_logic):
 			jump_logic.consume_jump()
-			jump_logic.set_internal_velocity(velocity.y)
+			jump_logic.set_internal_velocity(velocity.dot(_up))
 			jump_logic._jump_time_tracker = 0.0
-		global_transform.origin += Vector3.UP * min(0.15, velocity.y * dt)
+		global_transform.origin += _up * min(0.15, velocity.dot(_up) * dt)
 		_emit_anim_event("jumped")
-		velocity = move_and_slide(velocity, UP, true, 4, deg2rad(45), false)
+		velocity = move_and_slide(velocity, _up, true, 4, deg2rad(45), false)
 		return true
 	elif reason == "end" or reason == "lost":
 		velocity = launch_v
-		if is_instance_valid(jump_logic) and launch_v.y > 0.1:
-			jump_logic.launch(launch_v.y)
-		velocity = move_and_slide(velocity, UP, true, 4, deg2rad(45), false)
+		if is_instance_valid(jump_logic) and launch_v.dot(_up) > 0.1:
+			jump_logic.launch(launch_v.dot(_up))
+		velocity = move_and_slide(velocity, _up, true, 4, deg2rad(45), false)
 		return true
 	return false
 
@@ -3565,14 +3670,14 @@ func _update_cinematic_zone_detection(_input: InputDataV2, dt: float = 1.0 / 60.
 # Helpers
 func _update_floor_info() -> void:
 	if not is_on_floor():
-		movement_logic.set_floor_normal(Vector3.UP)
+		movement_logic.set_floor_normal(_up, _up)
 		return
 	for i in get_slide_count():
 		var collision = get_slide_collision(i)
-		if collision.normal.y > 0.7:
-			movement_logic.set_floor_normal(collision.normal)
+		if collision.normal.dot(_up) > 0.7:
+			movement_logic.set_floor_normal(collision.normal, _up)
 			return
-	movement_logic.set_floor_normal(Vector3.UP)
+	movement_logic.set_floor_normal(_up, _up)
 
 func is_effectively_grounded() -> bool:
 	# During post-teleport snap frames, force grounded to prevent animation state flicker.
@@ -3596,8 +3701,8 @@ func is_effectively_grounded() -> bool:
 	var near_ground := false
 	if not jump_in_progress:
 		var space_state = get_world().direct_space_state
-		var from = global_transform.origin + Vector3.UP * 0.05
-		var to = from + Vector3.DOWN * (step_height + stair_ground_probe_extra)
+		var from = global_transform.origin + _up * 0.05
+		var to = from - _up * (step_height + stair_ground_probe_extra)
 		var hit = space_state.intersect_ray(from, to, [ self ], _get_step_support_collision_mask())
 		near_ground = not hit.empty()
 	return is_on_floor() or _just_stepped or _step_grounded_timer > 0.0 or recent_floor_contact or near_ground
@@ -3625,14 +3730,14 @@ func _update_platform_tracking(dt: float) -> void:
 			var collision: KinematicCollision = get_slide_collision(i)
 			if collision == null:
 				continue
-			var normal_y := collision.normal.y
+			var normal_up := collision.normal.dot(_up)
 			# Mismo escaneo que _standing_on_moving_terrace(): se evita repetir el loop.
 			# Solo se lee el collider en contactos de piso (normal alta), no en paredes.
-			if normal_y > 0.5:
+			if normal_up > 0.5:
 				var collider = collision.collider
 				if collider != null and (collider.has_meta("canonical_tx") or collider.has_meta("world_rotator_collision")):
 					floor_moving_terrace = true
-				if normal_y > 0.7 and _is_trackable_platform_collider(collider):
+				if normal_up > 0.7 and _is_trackable_platform_collider(collider):
 					new_platform = collider
 					new_platform_key = _get_platform_tracking_key(collider)
 					break
@@ -3689,8 +3794,8 @@ func _track_rigid_platform(body: RigidBody, dt: float) -> void:
 	var arm: Vector3 = global_transform.origin - body.global_transform.origin
 	var point_velocity: Vector3 = body.linear_velocity + body.angular_velocity.cross(arm)
 	var gravity_y: float = jump_logic.get_gravity() if is_instance_valid(jump_logic) else -24.0
-	if dt > 0.0 and _platform_velocity.y > PLATFORM_LAUNCH_MIN_UP_SPEED \
-			and (point_velocity.y - _platform_velocity.y) / dt < gravity_y:
+	if dt > 0.0 and _platform_velocity.dot(_up) > PLATFORM_LAUNCH_MIN_UP_SPEED \
+			and (point_velocity.dot(_up) - _platform_velocity.dot(_up)) / dt < gravity_y:
 		# El jugador procesa antes que el solver: viene un tick (v*dt) detras de la pieza,
 		# incrustado en ella. Sin recuperar ese tramo, el slide siguiente choca y frena.
 		global_transform.origin += _platform_velocity * dt
@@ -3714,10 +3819,10 @@ func _track_rigid_platform(body: RigidBody, dt: float) -> void:
 func _apply_launch_momentum(v: Vector3) -> void:
 	velocity += v
 	if is_instance_valid(movement_logic):
-		movement_logic.add_launch_velocity(v)
+		movement_logic.add_launch_velocity(v, _up)
 	if is_instance_valid(jump_logic):
 		var base_vy: float = jump_logic.internal_velocity if jump_logic._is_jumping else 0.0
-		jump_logic.launch(base_vy + v.y)
+		jump_logic.launch(base_vy + v.dot(_up))
 
 # True when the player is currently grounded on a WorldRotator-driven terrace plate.
 # Those StaticBody colliders carry a "canonical_tx" meta (set by the pool/active-body
@@ -3762,7 +3867,7 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	result["stepped"] = false
 	var origin := global_transform.origin
 	result["position"] = origin
-	var horizontal_motion := Vector3(motion.x, 0, motion.z)
+	var horizontal_motion := motion - _up * motion.dot(_up)
 	if horizontal_motion.length_squared() < 0.0001:
 		return result
 	var move_dir := horizontal_motion.normalized()
@@ -3773,7 +3878,8 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	# jugador siga dentro del tramo. El margen deja que el proximo sondeo llegue antes que
 	# el obstaculo, para detectarlo al avanzar desde atras sin toparlo primero.
 	if _step_clear_dist > 0.0 and move_dir.dot(_step_clear_dir) > 0.985:
-		var traveled := Vector3(origin.x - _step_clear_origin.x, 0.0, origin.z - _step_clear_origin.z).length()
+		var clear_delta: Vector3 = origin - _step_clear_origin
+		var traveled := (clear_delta - _up * clear_delta.dot(_up)).length()
 		var margin: float = min(STEP_CLEAR_REPROBE_MARGIN, _step_clear_dist * 0.5)
 		if traveled < _step_clear_dist - margin:
 			return result
@@ -3785,7 +3891,7 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	var check_pos := origin
 
 	var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
-	if foot_collision == null or foot_collision.normal.y > 0.7:
+	if foot_collision == null or foot_collision.normal.dot(_up) > 0.7:
 		# Libre (o rampa caminable): certificar el tramo para no volver a sondearlo.
 		_step_clear_origin = origin
 		_step_clear_dir = move_dir
@@ -3796,12 +3902,12 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 		_step_clear_dist = 0.0
 
 	if can_try_step:
-		var head_collision = move_and_collide(Vector3.UP * step_height, true, true, true)
+		var head_collision = move_and_collide(_up * step_height, true, true, true)
 		if head_collision != null:
 			can_try_step = false
 
 	if can_try_step:
-		var step_up_pos = origin + Vector3.UP * step_height
+		var step_up_pos = origin + _up * step_height
 		var old_pos = global_transform.origin
 		global_transform.origin = step_up_pos
 		var forward_test = move_and_collide(move_dir * probe_distance, true, true, true)
@@ -3810,21 +3916,25 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 			# Una baranda queda a la altura del torso una vez levantados: su
 			# contacto no es piso y su travel (contaminado por la depenetracion
 			# del motor al arrancar en contacto) no sirve como avance del escalon.
-			if forward_test.normal.y <= 0.7:
+			if forward_test.normal.dot(_up) <= 0.7:
 				can_try_step = false
 			else:
 				advanced_x = forward_test.travel
 		if can_try_step:
 			check_pos = step_up_pos + advanced_x
 			global_transform.origin = check_pos
-			var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
-			if down_collision != null and down_collision.normal.y > 0.7:
-				var step_surface_y = check_pos.y - down_collision.travel.length()
-				var height_gain = step_surface_y - origin.y
+			var down_collision = move_and_collide(-_up * (step_height + 0.1), true, true, true)
+			if down_collision != null and down_collision.normal.dot(_up) > 0.7:
+				var step_surface: Vector3 = check_pos - _up * down_collision.travel.length()
+				var height_gain: float = (step_surface - origin).dot(_up)
 				# Allow a tiny tolerance for collision rounding around configured step height.
 				if height_gain > 0.01 and height_gain <= step_height + 0.02:
 					result.stepped = true
-					result.position = Vector3(origin.x + advanced_x.x, step_surface_y, origin.z + advanced_x.z)
+					# Mismo criterio que el original: solo avance planar + altura de apoyo,
+					# ignorando cualquier componente vertical residual de advanced_x.
+					var planar_delta: Vector3 = advanced_x - _up * advanced_x.dot(_up)
+					var planar_origin: Vector3 = origin - _up * origin.dot(_up)
+					result.position = planar_origin + planar_delta + _up * (origin.dot(_up) + height_gain)
 		global_transform.origin = old_pos
 		
 	collision_mask = old_mask # Restore original mask
@@ -3912,14 +4022,16 @@ func get_camera_basis() -> Basis:
 
 func _get_move_direction_rl_fast(input_vector: Vector2) -> Vector3:
 	var basis_fast = camera_rig.global_transform.basis if camera_rig else global_transform.basis
+	var sim_up: Vector3 = get_sim_up()
 	var forward = - basis_fast.z
-	forward.y = 0.0
+	# SPIN_REAL: el horizonte es perpendicular al up radial, no al Y de mundo.
+	forward -= sim_up * forward.dot(sim_up)
 	if forward.length_squared() > 0.0001:
 		forward = forward.normalized()
 	else:
 		forward = Vector3.FORWARD
 	var right = basis_fast.x
-	right.y = 0.0
+	right -= sim_up * right.dot(sim_up)
 	if right.length_squared() > 0.0001:
 		right = right.normalized()
 	else:
@@ -3937,7 +4049,7 @@ func teleport_to(target_transform: Transform) -> void:
 	velocity = Vector3.ZERO
 	# Pequeña velocidad negativa para que snap_vec se active en el primer physics frame
 	# y move_and_slide_with_snap adhiera al suelo sin el micro-salto de velocity.y=0.
-	velocity.y = -0.001
+	velocity = -_up * 0.001
 	_post_teleport_snap_frames = 8
 	if is_instance_valid(animator) and animator.has_method("freeze"):
 		animator.call("freeze", 8)

@@ -8,6 +8,8 @@ const DEFAULT_FACADE_LOD_MESH_NODE := "DomeLOD"
 const DEFAULT_FACADE_SPAWN_OFFSET := Vector3(0, 0.3, 0)
 const DEFAULT_FACADE_LOD_SPAWN_OFFSET := Vector3(0, 0.3, 0)
 const DEFAULT_FACADE_LOD_SCALE := Vector3(1.0, 1.0, 1.0)
+const DEFAULT_ANCHOR_HEIGHT := 6.0
+const DEFAULT_ANCHOR_SPACING := 8.0
 
 # Registro declarativo: dome_id -> config
 # Claves opcionales para LOD de fachadas:
@@ -16,6 +18,8 @@ const DEFAULT_FACADE_LOD_SCALE := Vector3(1.0, 1.0, 1.0)
 # - facade_lod_mesh: recurso Mesh directo si ya existe como .mesh/.tres.
 # - facade_lod_spawn_offset: ajuste posicional adicional para el LOD.
 # - facade_lod_scale: escala adicional para el LOD extraido.
+# Clave opcional de anclajes:
+# - anchors: Array de Transform locales en el espacio del domo.
 var _registry := {
 	"dome_intro": {
 		"interior_scene": "res://core_v2/levels/interiors/Dome_Intro.tscn",
@@ -129,6 +133,20 @@ func get_dome_id_for_plate(spiral_index: int, plate_index: int) -> String:
 		return explicit_id
 	return _build_synthetic_dome_id(spiral_index, plate_index)
 
+# Anclajes estructurales locales al espacio del domo. Si la entrada declara
+# "anchors", se validan y se devuelven; si no, se usan los defaults.
+func get_anchors(dome_id: String) -> Array:
+	var info: Dictionary = get_dome(dome_id)
+	var raw = info.get("anchors", [])
+	var anchors: Array = []
+	if typeof(raw) == TYPE_ARRAY:
+		for anchor in raw:
+			if typeof(anchor) == TYPE_TRANSFORM:
+				anchors.append(anchor)
+	if anchors.empty():
+		return _default_anchors()
+	return anchors
+
 func get_spawn_id_from_exterior(dome_id: String) -> String:
 	return String(get_dome(dome_id).get("spawn_id_from_exterior", ""))
 
@@ -222,10 +240,20 @@ func _build_default_dome_config(dome_id: String, spiral_index: int, plate_index:
 		"facade_spawn_offset": DEFAULT_FACADE_SPAWN_OFFSET,
 		"spiral_index": spiral_index,
 		"plate_index": plate_index,
+		"anchors": _default_anchors(),
 		"display_name": "Domo %d-%d" % [spiral_index + 1, plate_index + 1],
 		"spawn_id_from_exterior": _build_synthetic_exterior_spawn_id(spiral_index, plate_index),
 		"spawn_id_from_interior": _build_synthetic_interior_spawn_id(spiral_index, plate_index)
 	}
+
+func _default_anchors() -> Array:
+	return [
+		Transform(Basis(), Vector3(0.0, DEFAULT_ANCHOR_HEIGHT, 0.0)),
+		Transform(
+			Basis(),
+			Vector3(0.0, DEFAULT_ANCHOR_HEIGHT, -DEFAULT_ANCHOR_SPACING)
+		)
+	]
 
 func _find_explicit_dome_id_by_plate(spiral_index: int, plate_index: int) -> String:
 	for dome_id in _registry.keys():

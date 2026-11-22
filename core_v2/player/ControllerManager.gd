@@ -70,6 +70,10 @@ func sync_to_gravity_world() -> void:
 func get_controller_mode_for_gravity_mode(gravity_mode: int) -> int:
 	if gravity_mode == GravityModes.Mode.ZERO_G:
 		return Mode.ZERO_GRAVITY
+	# FD-323: SPIN_REAL usa el Pilot (física rotante integrada en su componente),
+	# no ZeroGravityController. Se conserva la velocidad al entrar/salir de ZERO_G.
+	if gravity_mode == GravityModes.Mode.SPIN_REAL:
+		return Mode.STANDARD_1G
 	return Mode.STANDARD_1G
 
 func set_gravity_mode(gravity_mode: int) -> void:
@@ -130,7 +134,7 @@ func switch_to(new_mode: int) -> void:
 			if "velocity" in standard_controller: standard_controller.velocity = transfer_velocity
 			if "yaw"      in standard_controller: standard_controller.yaw      = transfer_yaw
 			if "pitch"    in standard_controller: standard_controller.pitch    = transfer_pitch
-			if exiting_zero_to_standard:
+			if exiting_zero_to_standard and current_gravity_mode != GravityModes.Mode.SPIN_REAL:
 				if "movement_logic" in standard_controller and is_instance_valid(standard_controller.movement_logic):
 					standard_controller.movement_logic.horizontal_velocity = Vector3(transfer_velocity.x, 0.0, transfer_velocity.z)
 				if "jump_logic" in standard_controller and is_instance_valid(standard_controller.jump_logic):

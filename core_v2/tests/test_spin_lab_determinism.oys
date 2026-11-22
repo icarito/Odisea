@@ -1,0 +1,6 @@
+# FD-323 Fase 3C — sonda determinista de SpinLab.
+# Ejecuta el mismo escenario fijo (hub drop + 120 ticks) sobre una instancia fresca.
+# El test GdUnit corre este script dos veces y compara el hash de estado final.
+SECTION "SpinLab determinism"
+CALL run_determinism_probe
+END

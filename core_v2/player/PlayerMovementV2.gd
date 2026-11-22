@@ -103,20 +103,23 @@ func set_external_source_is_static(is_static: bool) -> void:
 
 # FD-320: una maquina le transfiere momentum horizontal al jugador. Mientras siga en el
 # aire no hay friccion de aire: el momentum se conserva y el input solo redirige.
-func add_launch_velocity(v: Vector3) -> void:
-	horizontal_velocity += Vector3(v.x, 0.0, v.z)
+func add_launch_velocity(v: Vector3, up_dir: Vector3 = Vector3.UP) -> void:
+	horizontal_velocity += _project_plane(v, _safe_up(up_dir))
 	_ballistic_ticks = BALLISTIC_LIFTOFF_TICKS
 
-func start_landing_roll(forward_dir: Vector3, impact_vy: float) -> void:
-	var dir := Vector3(forward_dir.x, 0.0, forward_dir.z)
+func start_landing_roll(forward_dir: Vector3, impact_vy: float, up_dir: Vector3 = Vector3.UP) -> void:
+	var up := _safe_up(up_dir)
+	var dir := _project_plane(forward_dir, up)
 	if dir.length_squared() < 0.0001:
-		dir = Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z)
+		dir = _project_plane(horizontal_velocity, up)
 	if dir.length_squared() < 0.0001:
-		dir = Vector3.BACK
+		dir = _project_plane(Vector3.BACK, up)
+	if dir.length_squared() < 0.0001:
+		return
 	dir = dir.normalized()
 	_roll_direction = dir
 	_roll_timer = landing_roll_duration
-	var h_speed := Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z).length()
+	var h_speed := _project_plane(horizontal_velocity, up).length()
 	var converted := max(0.0, -impact_vy) * landing_roll_vertical_conversion
 	var roll_speed := clamp(
 		max(h_speed + converted * 0.5, landing_roll_min_speed + converted * 0.25),
@@ -271,35 +274,51 @@ func integrate_external_velocity(delta: float) -> Vector3:
 
 # --- SLOPE HANDLING (from Terrestrial Characters) ---
 
-func set_floor_normal(normal: Vector3) -> void:
-	"""Called by PlayerControllerV2 after move_and_slide to update floor info."""
-	_floor_normal = normal
+# FD-323: el "up" de simulación puede ser arbitrario por tick. Estos helpers evitan
+# suponer el eje Y global sin cambiar el resultado cuando up_dir == Vector3.UP.
+func _safe_up(up_dir: Vector3) -> Vector3:
+	if up_dir.length_squared() > 0.000001:
+		return up_dir.normalized()
+	return Vector3.UP
+
+func _project_plane(vector: Vector3, up_dir: Vector3) -> Vector3:
+	return vector - up_dir * vector.dot(up_dir)
+
+func set_floor_normal(normal: Vector3, up_dir: Vector3 = Vector3.UP) -> void:
+	"""Called by PlayerControllerV2 after move_and_slide to update floor info.
+	up_dir is accepted for the dynamic-up API; the normal is already world space."""
+	if normal.length_squared() > 0.000001:
+		_floor_normal = normal
+	else:
+		_floor_normal = _safe_up(up_dir)
 
 func get_floor_normal() -> Vector3:
 	return _floor_normal
 
-func align_to_floor(vector: Vector3) -> Vector3:
+func align_to_floor(vector: Vector3, up_dir: Vector3 = Vector3.UP) -> Vector3:
 	"""Rotates a horizontal vector to lie along the floor plane.
 	Prevents lateral drift when moving sideways on slopes."""
-	if _floor_normal == Vector3.UP or _floor_normal.length_squared() < 0.9:
+	var up := _safe_up(up_dir)
+	if _floor_normal == up or _floor_normal.length_squared() < 0.9:
 		return vector
 
-	var cross = Vector3.UP.cross(vector)
+	var cross = up.cross(vector)
 	if cross.length_squared() < 0.001:
 		return vector
 
 	var aligned_vector = cross.cross(_floor_normal).normalized() * vector.length()
 	return aligned_vector
 
-func apply_slope_resistance(velocity: Vector3) -> Vector3:
+func apply_slope_resistance(velocity: Vector3, up_dir: Vector3 = Vector3.UP) -> Vector3:
 	"""Slows movement when going uphill past min_resistance_angle."""
 	if not enable_slope_resistance:
 		return velocity
 
-	if velocity.dot(Vector3.UP) <= 0:
+	var up := _safe_up(up_dir)
+	if velocity.dot(up) <= 0:
 		return velocity
 
-	var angle = rad2deg(acos(velocity.normalized().dot(Vector3.UP)))
+	var angle = rad2deg(acos(clamp(velocity.normalized().dot(up), -1.0, 1.0)))
 	if angle < min_resistance_angle_degrees:
 		return velocity
 
@@ -412,7 +431,8 @@ static func tank_lateral_input(x: float, zone_end: float, blend: float) -> float
 		var ramp := clamp(inverse_lerp(zone_end, 1.0, ax), 0.0, 1.0)
 		return sign(x) * ramp * (1.0 - blend)
 
-func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool, crouch: bool = false) -> void:
+func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool, crouch: bool = false, up_dir: Vector3 = Vector3.UP) -> void:
+	var up := _safe_up(up_dir)
 	var speed_multiplier = 1.0
 	if crouch:
 		speed_multiplier = crouch_speed_multiplier
@@ -421,11 +441,11 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 
 	var target_speed = move_speed * speed_multiplier * ice_movement_multiplier
 	
-	var forward = - basis.z
-	forward.y = 0.0
-	forward = forward.normalized()
+	var forward = _project_plane(-basis.z, up)
+	if forward.length_squared() > 0.000001:
+		forward = forward.normalized()
 	
-	var right = basis.x
+	var right = _project_plane(basis.x, up)
 	
 	var lateral_input = move_vec.x
 	var input_strength := 1.0
@@ -445,13 +465,13 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 			if wish_direction.length_squared() > 0.001:
 				_roll_direction = _roll_direction.linear_interpolate(wish_direction, min(1.0, 6.0 * dt)).normalized()
 			wish_direction = _roll_direction
-			var flat_speed := Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z).length()
+			var flat_speed := _project_plane(horizontal_velocity, up).length()
 			var floor_speed := move_speed * run_speed_multiplier * ice_movement_multiplier
 			var next_roll_speed := max(floor_speed, flat_speed - landing_roll_friction * dt)
 			horizontal_velocity = _roll_direction * next_roll_speed
 			if horizontal_velocity.length_squared() > 0.001:
-				horizontal_velocity = align_to_floor(horizontal_velocity)
-				horizontal_velocity = apply_slope_resistance(horizontal_velocity)
+				horizontal_velocity = align_to_floor(horizontal_velocity, up)
+				horizontal_velocity = apply_slope_resistance(horizontal_velocity, up)
 			return
 
 	# Aplicar fricción más agresiva cuando no hay input
@@ -480,8 +500,8 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	
 	# Apply floor alignment when on ground (prevents sideways drift on slopes)
 	if is_on_floor and horizontal_velocity.length_squared() > 0.001:
-		horizontal_velocity = align_to_floor(horizontal_velocity)
-		horizontal_velocity = apply_slope_resistance(horizontal_velocity)
+		horizontal_velocity = align_to_floor(horizontal_velocity, up)
+		horizontal_velocity = apply_slope_resistance(horizontal_velocity, up)
 	
 	# Forzar a cero solo si no hay input y estamos muy lentos, para evitar micro-movimientos
 	if wish_dir.length_squared() == 0.0 and horizontal_velocity.length() < stop_threshold:
