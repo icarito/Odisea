@@ -231,9 +231,11 @@ cierra con `.oys` + hash en CI y performance PC/Android/web.
 ## Performance base
 
 La tabla y los hallazgos de F0 están en `docs/features/FD-324_del_hub_al_motor.md`
-§7. Resumen: geometría + física base ≈ 6 ms y ~60 fps en PC; el caso idle con el
-predictor en horizonte completo es el coste dominante y F6 debe acotarlo antes de
-declarar Android/web 30 fps.
+§7. Números clave (PC, fork v0.5.7): geometría + física base ≈ `5.3–6.0 ms` y
+`59.5–60.2 fps`; la escena completa en el idle del hub sube a `25.5 ms` de
+physics y `52.2–57.0 fps` por el predictor en horizonte completo
+(`160 548` vértices vs `30 660` sin él). F6 debe acotar horizonte/cadencia del
+predictor antes de declarar Android/web 30 fps; F7 re-mide PC/Android/web.
 
 ## Verificación focalizada
 

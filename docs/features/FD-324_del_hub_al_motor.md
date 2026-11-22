@@ -313,8 +313,65 @@ F1, F2 y F4. F7 cierra todo.
 
 ## 7. Performance base (F0)
 
-> **[MEDICIÓN]** Pendiente de completar con la tabla y los hallazgos de la
-> corrida base de `ArkRunSlice.tscn` de esta sesión.
+**Fecha:** 2026-11-22. **Binario:** fork Box3D `v0.5.7`, Godot
+`3.6.4-rc custom_build 22957f59` (binarios dev, no un export release).
+**Escena:** `res://core_v2/levels/ark_run/ArkRunSlice.tscn` recién instanciada,
+sin input, con el Pilot en el hub ZERO_G (F0). **Método:** harness one-off
+`SceneTree` (no versionado) que carga la escena, calienta 120 frames, muestrea
+300 frames con `target_fps = 60` y vsync off, y combina monitores de
+`Performance` con FPS de reloj de pared (`samples / wall_time`). Headless =
+binario `platform=server` pinneado; gráfico = X11 `1280x720`, GLES3, Intel Iris
+Xe (Mesa). La fila "sin predictor" quita el nodo `SpinLandingPredictor` antes de
+correr (es presentación pura; la simulación no cambia) para aislar su coste.
+
+| Configuración | Entorno | wall FPS | process ms | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
+| Autoloads only (sin escena) | headless | 60.2 | 1.73 | 0.46 / — | 0 | 0 | 0 | 132 | 58.1 MB | ✅ |
+| ArkRun sin predictor | headless | 60.2 | 2.87 | 5.96 / 10.6 | 0 | 0 | 0 | 326 | 61.1 MB | ✅ |
+| ArkRun completo (idle en hub) | headless | 57.0 | 1.77 | 25.5 / 30.7 | 0 | 0 | 0 | 329 | 61.1 MB | ❌ |
+| ArkRun sin predictor | GUI 1280×720 | 59.5 | 18.9 | 5.34 / 6.45 | 8 | 7 | 30 660 | 326 | 63.8 MB | ✅ |
+| ArkRun completo (idle en hub) | GUI 1280×720 | 52.2 | 11.4 | 25.7 / 35.4 | 10 | 8 | 160 548 | 329 | 63.9 MB | ❌ |
+
+`fps_avg` del monitor en la corrida GUI completa: 53.5 (mín. 47); sin predictor:
+59.5 (mín. 57). La corrida headless completa varió 55–59 wall FPS según carga
+del host; la tabla reporta una corrida representativa.
+
+### Presupuesto por plataforma
+
+| Plataforma | Presupuesto | Base geometría (sin predictor) | Base idle completa | Estado |
+|---|---|---|---|---|
+| PC | 60 fps | 59.5 GUI / 60.2 headless | 52.2 GUI / 57.0 headless | Geometría ✅; idle ❌ → F6 |
+| Android | 30 fps | no medido en device | no medido | Pendiente F7 |
+| Web | 30 fps | no medido en device | no medido | Pendiente F7 |
+
+### Hallazgos
+
+1. **El coste dominante es el predictor de aterrizaje.** Pasar de completo a sin
+   predictor baja physics de `25.5 → 6.0 ms` (headless) y de `25.7 → 5.3 ms`
+   (GUI), y los vértices de `160 548 → 30 660`. El predictor recorre hasta 1800
+   pasos por frame de física mientras el Pilot está en vuelo en gravedad casi
+   nula (el hub ZERO_G de F0); no es un caso típico de gameplay, pero es el
+   *idle worst case* de la escena base.
+2. **La base de geometría y física es sana en PC.** ~5.3–6.0 ms de physics, 8
+   draw calls, 30.7k vértices y ~59.5 fps a 1280×720. No está limitada por draw
+   calls.
+3. **La escena completa en idle no sostiene PC 60** (52.2 wall / 53.5 fps_avg).
+   Se registra como línea base, no como presupuesto verde. Mitigación asignada a
+   **F6**: acotar horizonte y/o cadencia del predictor (presentación pura, sin
+   tocar determinismo), y **F7** re-mide.
+4. **Android y web no se midieron en device en esta sesión.** La base de
+   geometría tiene margen contra 33 ms (30 fps), pero el hotspot del predictor
+   debe acotarse antes de declarar 30 fps; F7 es dueño de la medición en device.
+5. **Los monitores no siempre coinciden con el reloj de pared** bajo catch-up de
+   física: `physics_ms` puede verse mayor que el frame time. El FPS de reloj de
+   pared es la métrica primaria de presupuesto; los monitores son diagnóstico.
+
+Comandos del harness (one-off, no versionado):
+
+```bash
+<godot-v0.5.7-headless> --path . --script /tmp/kilo/ark_perf.gd --headless --audio-driver Dummy
+<godot-v0.5.7-editor>   --path . --script /tmp/kilo/ark_perf.gd --resolution 1280x720 --audio-driver Dummy
+```
 
 ## 8. Riesgos
 
