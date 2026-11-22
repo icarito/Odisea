@@ -78,6 +78,11 @@ func _screen(slot: int):
 # La misma ruta que el boton del widget: HudWidgetAction.perform resuelve si la accion se ejecuta
 # local (SuitOS) o viaja por el canal (RemoteControlHome.perform_hud_widget_action).
 func _run_primary(slot: int) -> void:
+	# FD-324 F4: en el slot del Autonavegador un tap abre su pantalla; el hold conduce
+	# (nav_assist) y no abre el radial. El hold llega por el stream, como el resto.
+	if _is_nav_assist_slot(slot):
+		_open_screen(slot)
+		return
 	var screen = _screen(slot)
 	if screen == null or not screen.has_method("hud_gamepad_actions"):
 		# Slot vacio: abrir el radial fijado a ese slot para elegir que fijar.
@@ -96,4 +101,18 @@ func _run_primary(slot: int) -> void:
 func _open_radial(slot: int) -> void:
 	if slot < 0 or backend == null or not backend.has_method("open_hud_mode"):
 		return
+	# El hold del slot del Autonavegador es nav_assist, no el radial (FD-324 F4).
+	if _is_nav_assist_slot(slot):
+		return
 	backend.open_hud_mode(true, "", slot)
+
+
+func _is_nav_assist_slot(slot: int) -> bool:
+	return slot >= 0 and backend != null and backend.has_method("is_nav_assist_slot") \
+		and bool(backend.is_nav_assist_slot(slot))
+
+
+func _open_screen(slot: int) -> void:
+	if slot < 0 or backend == null or not backend.has_method("open_hud_mode"):
+		return
+	backend.open_hud_mode(false, String(backend.slot_screen_id(slot)), slot)
