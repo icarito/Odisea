@@ -193,6 +193,12 @@ func get_input() -> InputDataV2:
 func _q(v):
 	return round(v * 1000.0) / 1000.0
 
+# Delta de camara (mismo espacio que el mouse: +y inclina hacia ARRIBA) desde los ejes
+# crudos del stick derecho. `JOY_AXIS_3` = -1 con el stick arriba (SDL), asi que se niega;
+# la preferencia invert_y NO se aplica aqui (la aplica una sola vez `axis_inv` al final).
+static func look_delta_from_joy(joy_x: float, joy_y: float) -> Vector2:
+	return Vector2(joy_x, -joy_y)
+
 func _apply_curve(v: Vector2, curve: Curve) -> Vector2:
 	if not curve:
 		return v
@@ -511,12 +517,14 @@ func _read_live_input() -> InputDataV2:
 		d.hardware_mouse_active = mouse_d.length() > 0.1
 
 		# --- JOYSTICK CAMERA (Right Stick) ---
+		# Signo Y: JOY_AXIS_3 vale -1 con el stick hacia ARRIBA (convencion SDL/hardware), y
+		# `PlayerControllerV2` inclina con `pitch -= mouse_delta.y`. Por eso aqui se niega: el
+		# stick arriba debe dar mouse_delta.y > 0 (camara hacia arriba, igual que D-pad y mouse).
+		# NO invertir de nuevo: `_invert_joy_look_y` es solo el espejo de Opciones y la inversion
+		# real (invert_y) se aplica una sola vez al final con `axis_inv`.
 		var joy_look_x = _joy_axis(JOY_AXIS_2)
 		var joy_look_y = _joy_axis(JOY_AXIS_3)
-		var joy_look = Vector2(
-			joy_look_x,
-			- joy_look_y
-		)
+		var joy_look = look_delta_from_joy(joy_look_x, joy_look_y)
 		if joy_look.length() > JOY_DEADZONE:
 			joy_look = _apply_curve(joy_look, camera_response_curve)
 			mouse_d += joy_look * joy_look_sensitivity

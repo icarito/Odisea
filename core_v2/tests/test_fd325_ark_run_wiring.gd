@@ -8,6 +8,7 @@ extends GdUnitTestSuite
 const SliceScene = preload("res://core_v2/levels/ark_run/ArkRunSlice.tscn")
 const PresenterScript = preload("res://core_v2/levels/ark_run/ArkRunDiegeticPresenter.gd")
 const ProviderScript = preload("res://core_v2/input/InputProviderV2.gd")
+const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
 const DT := 1.0 / 60.0
 
 func _instantiate_slice():
@@ -122,3 +123,69 @@ func test_quick_slots_l1_r1_published_and_triggers_free() -> void:
 	assert_array(ProviderScript.HUD_TRIGGER_SLOTS).is_equal([2, 4])
 	assert_int(int(SuitOS.ARK_RUN_AUTONAV_SLOT)).is_equal(2)
 	assert_str(SuitOS.slot_label_for_screen("player:flashlight")).is_equal("L1")
+
+# FD-325 polish (playtest): el tick real del loop debe enganchar la cuerda con
+# `rope_grapple`. El `_physics_process` del rope input está apagado y antes del fix
+# `ArkRunControlsFeedback.tick` no llamaba a `rope_input.step`: la cuerda nunca enganchaba.
+func test_rope_grapple_attaches_and_thruster_reels_through_live_loop() -> void:
+	var slice = _instantiate_slice()
+	var wiring = slice.get_node("ArkRunWiring")
+	# Anclaje elegido a mano y en el cono del aim elevado (+20°): el loop sólo recibe el hold.
+	var aim: Vector3 = wiring.loop.rope_aim_dir(slice.pilot)
+	var anchor: Vector3 = slice.pilot.global_transform.origin + aim * 20.0
+	wiring.anchors = [anchor]
+	slice.rope_input.set_anchors(wiring.anchors)
+	assert_bool(slice.rope_input.is_attached()).is_false()
+
+	# Tick de gameplay con la cuerda sostenida: queda enganchada sin llamar a step a mano.
+	Input.action_press("rope_grapple")
+	wiring.loop.advance_play_loop(DT)
+	assert_bool(slice.rope_input.is_attached()).is_true()
+	assert_str(wiring.feedback.rope_state).is_equal("ATTACHED")
+
+	# Con la cuerda enganchada, `thruster_boost` retrae (la cuerda se acorta).
+	var length_before: float = float(slice.rope_input.get_rope().get_rope_length())
+	Input.action_press("thruster_boost")
+	wiring.loop.advance_play_loop(DT)
+	assert_bool(wiring.feedback.rope_reeling).is_true()
+	assert_float(float(slice.rope_input.get_rope().get_rope_length())).is_less(length_before)
+
+	# Soltar el gatillo suelta la cuerda (hold) sin romper el tick.
+	Input.action_release("rope_grapple")
+	Input.action_release("thruster_boost")
+	wiring.loop.advance_play_loop(DT)
+	assert_bool(slice.rope_input.is_attached()).is_false()
+
+# FD-325 polish (playtest): al aterrizar en el Puente la fase y el marcador deben cambiar
+# de inmediato a MOTOR. Antes `_hud_data` sólo miraba `pos.z < 0`, así que parado sobre la
+# placa 48 seguía pidiendo "VUELA AL PUENTE (+Z)".
+func test_bridge_arrival_switches_phase_and_target_to_engine() -> void:
+	var slice = _instantiate_slice()
+	var wiring = slice.get_node("ArkRunWiring")
+	var loop = wiring.loop
+	# Estado post-detonación sin correr la simulación completa.
+	slice.explosion.launched = true
+	loop._bridge_reached = false
+	loop._detonation_timer = 3.0
+
+	# La superficie caminable del Puente está SOBRE el centro de la placa (feet-level).
+	var target: Vector3 = slice.get_bridge_target()
+	var plate_origin: Vector3 = SpiralGeometry.plate_transform(
+		slice.get_spiral_config(), int(slice.get_bridge_plate_indices()[1])).origin
+	assert_float(target.distance_to(plate_origin)).is_equal_approx(1.5, 1e-3)
+
+	# Aterrizado en la placa, todavía en +Z: el loop reconoce la llegada.
+	slice.pilot.global_transform.origin = target
+	loop.advance_play_loop(DT)
+	assert_bool(loop._bridge_reached).is_true()
+	var data: Dictionary = loop._hud_data()
+	assert_str(String(data["phase"])).is_equal("BAJA AL MOTOR (-Z)")
+	assert_str(String(data["target_label"])).is_equal("MOTOR")
+	assert_float((data["target_pos"] as Vector3).distance_to(slice.get_engine_target())) \
+		.is_less_equal(1e-3)
+	# El destino del Motor también es superficie caminable (placa 0, -Z).
+	assert_float(slice.get_engine_target().z).is_less(float(target.z))
+
+	# `restart_run` limpia el flag y vuelve a pedir el Puente (fase de cuenta regresiva).
+	loop.restart_run()
+	assert_bool(loop._bridge_reached).is_false()

@@ -14,15 +14,20 @@ const STRIP_LIMIT := 140.0
 
 
 func _fixed_panels(hud) -> Array:
+	# Sólo cuenta paneles VISIBLES: en gameplay el mapa superior arranca oculto.
 	var panels: Array = []
 	var top_bar = hud.get_top_bar()
-	if top_bar != null:
+	if top_bar != null and top_bar.visible:
 		panels.append(top_bar)
 		panels = panels + top_bar.get_fixed_panels()
-	panels.append(hud._phase_label)
-	panels.append(hud._stats_label)
+	if hud._phase_label.visible:
+		panels.append(hud._phase_label)
+	if hud._stats_label.visible:
+		panels.append(hud._stats_label)
+	if hud._timer_label.visible:
+		panels.append(hud._timer_label)
 	var minimap = hud.get_node_or_null("HudRoot/Minimap")
-	if minimap != null:
+	if minimap != null and minimap.visible:
 		panels.append(minimap)
 	return panels
 
@@ -31,7 +36,8 @@ func _assert_zone(hud, viewport: Vector2) -> void:
 	var w: float = viewport.x
 	var h: float = viewport.y
 	var panels := _fixed_panels(hud)
-	assert_int(panels.size()).is_greater_equal(5)
+	# En gameplay sólo la fase compacta está visible arriba-centro.
+	assert_int(panels.size()).is_greater_equal(1)
 	for panel in panels:
 		if panel == null:
 			continue
@@ -105,3 +111,39 @@ func test_gravity_arrow_rotates_45_degrees_on_ignition() -> void:
 	assert_float(burning.y).is_equal_approx(0.7071, EPS)
 	assert_float(TopBar.gravity_rotation_deg(9.8, burning_mag)).is_equal_approx(45.0, 0.01)
 	assert_float(TopBar.gravity_rotation_deg(0.0, 9.8)).is_equal_approx(0.0, EPS)
+
+# FD-325 polish (playtest): en gameplay el mapa superior arranca OCULTO (navegación
+# diegética, cero solape con los widgets de slots de SuitOSWidgetHost). El mapa completo
+# sigue disponible para Suit OS `ship:ark_nav` y encendiendo `set_top_map_visible(true)`.
+func test_top_map_hidden_by_default_and_toggleable() -> void:
+	var hud = auto_free(HudScript.new())
+	add_child(hud)
+	yield(get_tree(), "idle_frame")
+	assert_bool(hud.show_top_map).is_false()
+	assert_bool(hud.get_top_bar().visible).is_false()
+	assert_bool(hud._stats_label.visible).is_false()
+	var minimap = hud.get_node_or_null("HudRoot/Minimap")
+	assert_object(minimap).is_not_null()
+	assert_bool(minimap.visible).is_false()
+	# La fase compacta sigue visible y arriba-centro (no invade esquinas ni slots).
+	assert_bool(hud._phase_label.visible).is_true()
+	var view: Vector2 = Vector2(1280.0, 720.0)
+	var phase_rect: Rect2 = hud._phase_label.get_global_rect()
+	assert_float(phase_rect.position.y).is_less_equal(24.0)
+	assert_float(phase_rect.position.x).is_greater_equal(TOUCH)
+	assert_float(phase_rect.end.x).is_less_equal(view.x - TOUCH)
+
+	# Encender el mapa devuelve los paneles fijos al layout superior original.
+	hud.set_top_map_visible(true)
+	yield(get_tree(), "idle_frame")
+	get_viewport().set_size_override(true, view)
+	hud.refresh({"phase": "TEST", "timer": 0.0, "best": -1.0})
+	yield(get_tree(), "idle_frame")
+	assert_bool(hud.get_top_bar().visible).is_true()
+	assert_bool(hud._stats_label.visible).is_true()
+	hud.refresh({"phase": "RUN", "z": 0.25, "ghost_z": 0.0})
+	assert_float(hud.get_top_bar().center_bar.z_norm).is_equal_approx(0.25, EPS)
+	get_viewport().set_size_override(false)
+
+	hud.set_top_map_visible(false)
+	assert_bool(hud.get_top_bar().visible).is_false()

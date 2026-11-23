@@ -18,6 +18,8 @@ var rope_state := "IDLE"
 var rope_distance := 0.0
 var rope_reeling := false
 var _t := 0.0
+# Flanco del gatillo de cuerda para el toggle del touch (tap engancha / tap suelta).
+var _prev_rope_pressed := false
 
 func setup(loop_node, wiring_node) -> void:
 	loop = loop_node
@@ -27,11 +29,20 @@ func setup(loop_node, wiring_node) -> void:
 # Devuelve el tick de gameplay para que el loop aplique jet/tether con el mismo estado.
 func tick(dt: float, pilot, physics, pos: Vector3) -> Dictionary:
 	_t += dt
-	var attached: bool = slice.rope_input != null and slice.rope_input.is_attached()
 	var lt_pressed: bool = slice.thruster_input != null \
 		and (slice.thruster_input.read_left_trigger() >= float(slice.thruster_input.deadzone) \
 			or slice.thruster_input.read_keyboard_pressed())
 	var rope_pressed: bool = slice.rope_input != null and slice.rope_input.is_trigger_pressed()
+	# FD-325 polish: el `_physics_process` del rope input está apagado y el step real vive
+	# aquí (si no se llamaba, `rope_grapple` no enganchaba nunca). El aim llega con el
+	# override de +20° y los anclajes se filtran por comodidad antes del cono.
+	if slice.rope_input != null and pilot != null and is_instance_valid(pilot):
+		var aim: Vector3 = loop.rope_aim_dir(pilot) if loop != null else _camera_forward(pilot)
+		var candidates: Array = _comfort_anchors(pilot)
+		slice.rope_input.step(pilot, candidates, aim, rope_pressed, dt, lt_pressed,
+			_prev_rope_pressed, false, slice.rope_input.touch_toggle_mode)
+	_prev_rope_pressed = rope_pressed
+	var attached: bool = slice.rope_input != null and slice.rope_input.is_attached()
 	rope_reeling = attached and rope_pressed and lt_pressed
 	thrusting = lt_pressed and not attached and physics != null \
 		and not bool(physics._was_grounded) and slice.explosion.launched
@@ -82,12 +93,16 @@ func _refresh_rope_state(pilot, pos: Vector3) -> void:
 	rope_distance = float(best.get("distance", 0.0)) if bool(best.get("hit", false)) else 0.0
 
 # Prefiere anclajes que no obliguen a mirar muy arriba (<=30 m sobre el pilot).
+# La altura se mide sobre el `sim_up` del pilot (el eje Y global es tangencial en las
+# paredes del cilindro y dejaba pasar anclajes "bajos" que están 30 m arriba).
 func _comfort_anchors(pilot) -> Array:
 	var origin: Vector3 = pilot.global_transform.origin
+	var sim_up: Vector3 = pilot.get_sim_up() if pilot.has_method("get_sim_up") else Vector3.UP
+	sim_up = sim_up.normalized() if sim_up.length_squared() > 0.000001 else Vector3.UP
 	var filtered: Array = []
 	for anchor in wiring.anchors:
 		var point: Vector3 = anchor.origin if typeof(anchor) == TYPE_TRANSFORM else anchor
-		if point.y - origin.y <= 30.0:
+		if (point - origin).dot(sim_up) <= 30.0:
 			filtered.append(anchor)
 	return filtered if not filtered.empty() else wiring.anchors
 

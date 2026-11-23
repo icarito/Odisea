@@ -23,6 +23,8 @@ const TronMaterials = preload("res://core_v2/levels/ark_run/ArkRunTronMaterials.
 const SLICE_SEED := 32401; const SLICE_LENGTH := 2000.0; const R_HULL := 340.0; const R_HUB := 8.0
 const BRIDGE_PLATE_INDICES := [47, 48, 49]; const ENGINE_Z_MAX := -940.0; const ENGINE_IGNITION_Z := 0.0
 const ZONE_BRIDGE := "Puente"; const ZONE_ENGINE := "Motor"; const ELEVATOR_PLATE_INDICES := [45, 35, 15, 5]
+# Altura de la superficie caminable sobre el centro de la placa (el Pilot apoya ahí).
+const BRIDGE_SURFACE_OFFSET_M := 1.5
 
 var pilot = null; var spiral_field = null; var spin_camera = null; var spin_predictor = null
 var hub = null; var hull = null; var spin_omega := 0.0
@@ -87,8 +89,17 @@ func get_engine_z_max() -> float: return ENGINE_Z_MAX
 func get_engine_ignition_z() -> float: return ENGINE_IGNITION_Z
 func get_canonical_route(): return canonical_route
 func get_waypoint_count() -> int: return canonical_route.get_waypoints().size() if canonical_route != null else 0
-# Objetivo de eyección: la placa 48, en pleno Puente (+Z).
-func get_bridge_target() -> Vector3: return SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[1])).origin
+# Objetivo de eyección: la superficie caminable de la placa 48, en pleno Puente (+Z).
+# `plate.origin` es el centro de la placa, ~1.5 m bajo los pies: el marcador debe caer
+# sobre el piso donde aterriza el pilot, no dentro de la losa.
+func get_bridge_target() -> Vector3:
+	var plate: Transform = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[1]))
+	return plate.origin + plate.basis.y * BRIDGE_SURFACE_OFFSET_M
+
+# Destino tras el Puente: la superficie caminable de la placa 0, al fondo del Motor (-Z).
+func get_engine_target() -> Vector3:
+	var plate: Transform = SpiralGeometry.plate_transform(_spiral_config, 0)
+	return plate.origin + plate.basis.y * BRIDGE_SURFACE_OFFSET_M
 
 func zone_at(position: Vector3) -> String:
 	if position.z <= ENGINE_Z_MAX: return ZONE_ENGINE

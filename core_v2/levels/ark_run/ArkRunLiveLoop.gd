@@ -17,6 +17,8 @@ const AIM_PITCH_DEG := 20.0
 const EPSILON := 1e-6
 # FD-325: split de la barra longitudinal del top bar: lanzamiento (-z_max) → meta (+SLICE).
 const LAUNCH_Z := -940.0; const FINISH_Z := 1000.0
+# Radio de llegada al Puente (sobre la superficie de la placa 48) tras detonar.
+const BRIDGE_ARRIVAL_RADIUS := 45.0
 const PresenterScript = preload("res://core_v2/levels/ark_run/ArkRunDiegeticPresenter.gd")
 
 var wiring = null
@@ -31,6 +33,10 @@ var _base_spring_length := 4.0
 var _device := "keyboard"
 var _tick_state: Dictionary = {}
 var _presenter = null
+# FD-325 polish: llegada real al Puente. `zone_at()` sólo cubre el tramo +Z completo, así
+# que aterrizar en la placa 48 seguía pidiendo "vuela al puente"; este flag por corrida
+# conmuta fase y marcador a MOTOR en cuanto el pilot toca el Puente.
+var _bridge_reached := false
 
 func setup(owner_wiring) -> void:
 	wiring = owner_wiring
@@ -54,9 +60,11 @@ func advance_play_loop(delta: float) -> void:
 		if _detonation_timer >= DETONATION_SEC:
 			slice.activate_spin_gravity()
 			slice.explosion.trigger_explosion()
+			_bridge_reached = false
 			if wiring.race != null:
 				wiring.race.start_run()
 	_tick_modules(dt)
+	_update_bridge_progress()
 	present(dt)
 	_hud_accum += dt
 	if _hud_accum >= HUD_INTERVAL:
@@ -86,6 +94,18 @@ func _tick_modules(dt: float) -> void:
 		wiring.ignition.tick(dt, pos.z)
 	if wiring.conversion != null:
 		wiring.conversion.advance(dt)
+
+# Tras detonar, tocar el Puente (zona +Z, radio exacto de la placa 48 o contacto con la
+# placa) marca la llegada: desde ese frame la fase y el marcador apuntan al Motor.
+func _update_bridge_progress() -> void:
+	if _bridge_reached or not slice.explosion.launched:
+		return
+	var pilot = slice.pilot
+	if pilot == null or not is_instance_valid(pilot):
+		return
+	var pos: Vector3 = pilot.global_transform.origin
+	if slice.is_in_bridge(pos) or pos.distance_to(slice.get_bridge_target()) <= BRIDGE_ARRIVAL_RADIUS:
+		_bridge_reached = true
 
 func present(dt: float) -> void:
 	var pilot = slice.pilot
@@ -222,6 +242,7 @@ func restart_run() -> void:
 	_tick_time = 0.0
 	_detonation_timer = 0.0
 	_hud_accum = HUD_INTERVAL
+	_bridge_reached = false
 	if _presenter != null:
 		_presenter.reset_fov()
 	if wiring.hud != null:
@@ -238,15 +259,16 @@ func _hud_data() -> Dictionary:
 	var dv_ratio: float = 0.0
 	if physics != null and float(physics.spin_thruster_dv_max) > 0.0:
 		dv_ratio = float(physics.spin_thruster_dv_remaining) / float(physics.spin_thruster_dv_max)
-	var target_label := "MOTOR" if slice.explosion.launched and pos.z < 0.0 else "PUENTE"
-	var target_pos: Vector3 = Vector3(0.0, 0.0, slice.get_engine_z_max()) if target_label == "MOTOR" else slice.get_bridge_target()
+	var motor_target: bool = slice.explosion.launched and (_bridge_reached or pos.z < 0.0)
+	var target_label := "MOTOR" if motor_target else "PUENTE"
+	var target_pos: Vector3 = slice.get_engine_target() if motor_target else slice.get_bridge_target()
 	var phase := "NÚCLEO ZERO-G · Explosión en %.1fs" % max(0.0, DETONATION_SEC - _detonation_timer)
 	if wiring.race != null and wiring.race.finished:
 		phase = "¡META EN MOTOR!"
 	elif wiring.ignition != null and wiring.ignition.is_ignited():
 		phase = "¡ENCENDIDO DE MOTORES!"
 	elif slice.explosion.launched:
-		phase = "VUELA AL PUENTE (+Z)" if pos.z >= 0.0 else "BAJA AL MOTOR (-Z)"
+		phase = "BAJA AL MOTOR (-Z)" if motor_target else "VUELA AL PUENTE (+Z)"
 	var data := {
 		"phase": phase, "timer": wiring.race.t_run if wiring.race != null else 0.0,
 		"best": wiring.race.best_time_sec if wiring.race != null else -1.0,
