@@ -34,7 +34,11 @@ func test_scene_loads_headless_without_rotators() -> void:
 	# Espiral: 1 campo, 50 placas, z de -1000 a +960.
 	var field = slice.get_node_or_null("DomeSpiralField")
 	assert_object(field).is_not_null()
-	assert_int(field.get_spiral_count()).is_equal(1)
+	assert_int(field.get_spiral_count()).is_equal(6)
+	var configs: Array = field.get_spiral_configs()
+	assert_int(configs.size()).is_equal(6)
+	for k in range(6):
+		assert_float(float(configs[k]["phase"])).is_equal_approx(TAU * float(k) / 6.0, 1e-5)
 	var config: Dictionary = slice.get_spiral_config()
 	assert_int(SpiralGeometry.plate_count_for(config)).is_equal(50)
 	assert_float(float(config["turns"])).is_equal_approx(2.0, EPS)
@@ -103,8 +107,11 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	var traversal_root = slice.get_node_or_null("TraversalRoot")
 	var props = traversal_root.get_node_or_null("ArkRunTerraceProps")
 	assert_object(props).is_not_null()
-	assert_int(props.get_dome_count()).is_equal(100)
+	assert_int(props.get_dome_count()).is_equal(600)
 	assert_int(props.get_scaffold_count()).is_greater(50)
+	assert_int(slice.get_node("DomeSpiralField").get_spiral_count()).is_equal(6)
+	for entry in props.get_dome_entries():
+		assert_float(float(entry["variant"]["radius"])).is_greater_equal(30.0)
 	var elevators = traversal_root.get_node_or_null("Elevators")
 	assert_object(elevators).is_not_null()
 	assert_int(elevators.get_child_count()).is_greater_equal(2)

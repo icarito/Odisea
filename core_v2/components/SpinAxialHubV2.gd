@@ -1,6 +1,9 @@
 extends Spatial
 class_name SpinAxialHubV2
 
+# Declarada para ControllerManager (antes generaba warning al conectar).
+signal gravity_zone_changed(body, mode)
+
 # FD-323 Fase 3A — tubo axial co-rotante del hub con gravedad ZERO_G.
 # La zona implementa la interfaz que consume GravityWorld/ControllerManager.
 # El hub se autora en el marco rotante; el volumen es radialmente simétrico.

@@ -409,12 +409,14 @@ HUD, industria) durante la medición:
 
 | Configuración | Entorno | wall FPS | process ms (avg/max) | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
-| F7 pulido (loop real) | GUI 1280×720 | **60.0** | 17.8 / 26.4 | 7.37 / 9.37 | **45** | 26 | 232 612 | 1 039 | 71.5 MB | ✅ |
-| F7 pulido (loop real) | headless | **60.0** | 2.0 | 6.63 / 7.39 | 0 | 0 | 0 | 1 039 | 68.1 MB | ✅ |
+| F7 pulido (loop real) | GUI 1280×720 | **60.0** | 19.6 / 38.0 | 10.61 / 12.74 | **55** | 31 | 1 261 492 | 1 300 | 73.7 MB | ✅ |
+| F7 pulido (loop real) | headless | **60.0** | 2.2 / 2.9 | 10.50 / 11.64 | 0 | 0 | 0 | 1 300 | 69.7 MB | ✅ |
 
-Draws `2 135 → 45`, nodos `3 231 → 1 039`, vértices `176k → 233k` (anillos y
-balizas Tron nuevos), sin picos de 40–247 ms: el frame máximo medido es 26.4 ms
-de process / 9.4 ms de physics.
+Con **6 espirales intercaladas (300 placas, 600 domos monumentales de 42–68 m**
+sobre `DomeExteriorLowPoly_baked`), draws `2 135 → 55` (multi-mesh por tipo),
+nodos `3 231 → 1 300` y vértices `176k → 1.26M`, a 60 fps sostenidos en PC con
+frame máximo 38 ms de process / 12.7 ms de physics. El siguiente límite es el
+vertex count de los domos, no los draw calls.
 
 **Hash dorado F7:** `4d38c6cb9f5ec2ba8132062bc365e6ec4808e1f6de2b527e135f52d9330eed0a`
 (`core_v2/tests/test_ark_run_vertical_slice.oys` + `ark_run_vertical_slice.hash`,

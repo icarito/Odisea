@@ -116,7 +116,7 @@ func _build_explosion_modules() -> void:
 func _build_traversal_modules() -> void:
 	var root: Node = get_node("TraversalRoot")
 	terrace_props = _attach(root, "ArkRunTerraceProps", TerracePropsScript)
-	terrace_props.build_from_config(_spiral_config, SLICE_SEED)
+	terrace_props.build_from_configs(spiral_field.get_spiral_configs() if spiral_field != null else [_spiral_config], SLICE_SEED)
 	var elevators: Node = _attach(root, "Elevators", Spatial)
 	spokes = []
 	for plate_index in ELEVATOR_PLATE_INDICES:

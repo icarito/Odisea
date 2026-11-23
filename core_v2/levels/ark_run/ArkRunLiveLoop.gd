@@ -12,6 +12,8 @@ const DETONATION_SEC := 3.0
 const HUD_INTERVAL := 0.1
 const RESTART_KEYS := [KEY_BACKSPACE, KEY_F5]
 const SLICE_HALF := 1000.0
+const FLIGHT_SPRING_LENGTH := 18.0
+const SPRING_LERP_SPEED := 3.0
 
 var wiring = null
 var slice = null
@@ -19,13 +21,19 @@ var _tick_time := 0.0
 var _detonation_timer := 0.0
 var _hud_accum := 0.0
 var _restart_held := false
-var _flight_camera := false
+var _spring_arm = null
+var _base_spring_length := 4.0
 
 func setup(owner_wiring) -> void:
 	wiring = owner_wiring
 	slice = wiring.slice
 	process_priority = 130
 	_hud_accum = HUD_INTERVAL
+	var rig = slice.pilot.get_node_or_null("CameraRig") if slice.pilot != null else null
+	if rig != null:
+		_spring_arm = rig.find_node("SpringArm", true, false)
+	if _spring_arm != null:
+		_base_spring_length = float(_spring_arm.spring_length)
 
 func advance_play_loop(delta: float) -> void:
 	var dt: float = max(delta, 0.0)
@@ -92,21 +100,21 @@ func present(dt: float) -> void:
 	_update_race(dt, pilot)
 	_poll_restart()
 
-# Un solo escritor: SpinReal en suelo 3ra persona (SpinLab), cilíndrica en vuelo.
-# Al aterrizar, el SpringArm vuelve a identidad una vez.
+# Un solo escritor: la 3ra persona natural de SpinLab manda. El SpringArm queda
+# SIEMPRE con basis identidad (sin basis_extra de mundo) y en vuelo libre sólo se
+# aleja suavemente su spring_length; al aterrizar vuelve solo. Sin jalones.
 func _apply_camera(dt: float, pilot, pos: Vector3, r_local: float, physics) -> void:
-	var rig: Spatial = pilot.get_node_or_null("CameraRig") as Spatial
 	var airborne: bool = not bool(physics._was_grounded) if physics != null else not pilot.is_on_floor()
-	if slice.explosion.launched and airborne and rig != null and wiring.cylindrical != null:
-		var progress: float = clamp(pos.z / max(slice.get_bridge_target().z, 1.0), 0.0, 1.0)
-		var state: Dictionary = wiring.cylindrical.step_camera(
-			pos, _up_of(pilot, pos), r_local, dt, progress)
-		wiring.cylindrical.apply_to_rig(rig, state)
-		_flight_camera = true
-		return
-	if _flight_camera and rig != null and wiring.cylindrical != null:
-		wiring.cylindrical.apply_to_rig(rig, {"basis_extra": Basis.IDENTITY})
-		_flight_camera = false
+	if _spring_arm == null:
+		var rig: Spatial = pilot.get_node_or_null("CameraRig") as Spatial
+		if rig != null:
+			_spring_arm = rig.find_node("SpringArm", true, false)
+	if _spring_arm != null:
+		_spring_arm.transform.basis = Basis.IDENTITY
+		var flying: bool = slice.explosion.launched and airborne
+		var target_length: float = FLIGHT_SPRING_LENGTH if flying else _base_spring_length
+		var current: float = float(_spring_arm.spring_length)
+		_spring_arm.spring_length = lerp(current, target_length, clamp(dt * SPRING_LERP_SPEED, 0.0, 1.0))
 	if slice.spin_camera != null:
 		slice.spin_camera.apply_to_pilot(pilot, r_local, dt)
 
@@ -161,7 +169,6 @@ func restart_run() -> void:
 	_tick_time = 0.0
 	_detonation_timer = 0.0
 	_hud_accum = HUD_INTERVAL
-	_flight_camera = false
 	if wiring.hud != null:
 		wiring.hud.refresh(_hud_data())
 

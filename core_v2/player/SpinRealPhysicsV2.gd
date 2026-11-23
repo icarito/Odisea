@@ -39,13 +39,16 @@ func apply_spin_thruster(dir: Vector3, dt: float) -> float:
 	return dv
 # Rotación mínima para alinear el eje Y del basis a `up`, con tasa angular máxima
 # fija. El caso antiparalelo elige un eje perpendicular determinista.
-func align_capsule_basis(current: Basis, up: Vector3, dt: float) -> Basis:
+func align_capsule_basis(current: Basis, up: Vector3, dt: float, radius: float = INF) -> Basis:
 	var target_up: Vector3 = up.normalized() if up.length_squared() > EPS else Vector3.UP
 	var local_y: Vector3 = current.y.normalized()
 	if local_y.length_squared() <= EPS: return current
 	var angle: float = acos(clamp(local_y.dot(target_up), -1.0, 1.0))
 	if angle <= 0.000001: return current
-	angle = min(angle, max(0.0, spin_capsule_align_rate_rad_s * dt))
+	var attenuation: float = 1.0
+	if radius != INF:
+		attenuation = clamp((radius - 12.0) / 80.0, 0.12, 1.0)
+	angle = min(angle, max(0.0, spin_capsule_align_rate_rad_s * attenuation * dt))
 	var axis: Vector3 = local_y.cross(target_up)
 	if axis.length_squared() <= EPS:
 		axis = current.z if current.z.length_squared() > EPS else current.x
@@ -93,7 +96,8 @@ func step(controller, dt: float, input) -> void:
 	var position: Vector3 = controller.global_transform.origin
 	var up: Vector3 = update_up(position)
 	var incoming_velocity: Vector3 = controller.velocity
-	controller.global_transform.basis = align_capsule_basis(controller.global_transform.basis, up, dt)
+	controller.global_transform.basis = align_capsule_basis(
+		controller.global_transform.basis, up, dt, SpinFrameScript.r_perp(position).length())
 	var move_input: Vector2 = input.move_vec if input != null else Vector2.ZERO
 	var jump_pressed: bool = input != null and input.jump
 	var jump_logic = controller.get("jump_logic")

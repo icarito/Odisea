@@ -197,3 +197,9 @@ func test_canonical_route_is_bow_to_stern_and_queryable() -> void:
 	autopilot.set_route(waypoints)
 	assert_bool(autopilot.is_finished()).is_false()
 	assert_vector3(autopilot.next_waypoint()).is_equal(waypoints[0]["position"])
+
+func test_footstep_distance_projects_onto_sim_up_plane() -> void:
+	var up := Vector3(-1.0, 0.0, 0.0)
+	assert_float(FootstepDetector.planar_distance(Vector3(0.0, 1.0, 0.0), up)).is_equal_approx(1.0, 1e-6)
+	assert_float(FootstepDetector.planar_distance(Vector3(0.0, 0.0, 2.0), up)).is_equal_approx(2.0, 1e-6)
+	assert_float(FootstepDetector.planar_distance(Vector3(3.0, 0.0, 0.0), up)).is_equal_approx(0.0, 1e-6)

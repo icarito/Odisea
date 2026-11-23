@@ -88,6 +88,25 @@ func test_countdown_auto_detonates_and_restart_returns_to_zero_g() -> void:
 	remove_child(slice)
 	slice.free()
 
+func test_camera_keeps_spring_basis_identity_and_zooms_in_flight() -> void:
+	var slice = SliceScene.instance()
+	add_child(slice)
+	slice.set_physics_process(false)
+	slice.pilot.set_physics_process(false)
+	var wiring = slice.get_node_or_null("ArkRunWiring")
+	assert_object(wiring).is_not_null()
+	var spring = slice.pilot.find_node("SpringArm", true, false)
+	assert_object(spring).is_not_null()
+	var base_length: float = float(spring.spring_length)
+	slice.activate_spin_gravity()
+	slice.explosion.detonate()
+	for _i in range(90):
+		wiring.loop.present(1.0 / 60.0)
+	assert_bool(spring.transform.basis.is_equal_approx(Basis.IDENTITY)).is_true()
+	assert_float(float(spring.spring_length)).is_greater(base_length + 1.0)
+	remove_child(slice)
+	slice.free()
+
 static func _normalize(value) -> String:
 	if typeof(value) == TYPE_VECTOR3:
 		return "%0.9f,%0.9f,%0.9f" % [value.x, value.y, value.z]

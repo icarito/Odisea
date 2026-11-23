@@ -66,6 +66,8 @@ func _build_f6() -> void:
 	race = slice._attach(hud_root, "ArkRunRaceController", RaceScript)
 	race.engine_z_max = slice.get_engine_z_max()
 	cylindrical = slice._attach(hud_root, "ArkRunCylindricalCamera", CylinderScript)
+	if slice.spin_camera != null:
+		slice.spin_camera.camera_basis_prefix = Basis.IDENTITY
 	shadow = slice._attach(slice.get_node("TraversalRoot"), "ArkRunGravityShadow", ShadowScript)
 	lod = slice._attach(slice.get_node("TraversalRoot"), "ArkRunLodTronPass", LodScript)
 	lod.build_static()

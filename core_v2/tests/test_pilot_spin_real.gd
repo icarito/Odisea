@@ -199,7 +199,13 @@ func test_pilot_spin_real_up_capsule_and_snapshot() -> void:
 
 	pilot.step(DT, InputDataV2.new())
 	assert_float(pilot.get_sim_up().dot(Vector3.LEFT)).is_greater(0.99)
-	assert_float(pilot.global_transform.basis.y.normalized().dot(pilot.get_sim_up())).is_greater(0.05)
+	# Cerca del eje la alineación se atenúa (evita tirones al CameraRig), pero avanza.
+	assert_float(pilot.global_transform.basis.y.normalized().dot(pilot.get_sim_up())).is_greater(0.005)
+	var spin = pilot.get_spin_physics()
+	var tilted := Basis(Vector3.RIGHT, 1.0)
+	var near: Basis = spin.align_capsule_basis(tilted, Vector3.UP, 1.0, 10.0)
+	var far: Basis = spin.align_capsule_basis(tilted, Vector3.UP, 1.0, 200.0)
+	assert_float(far.y.normalized().dot(Vector3.UP)).is_greater(near.y.normalized().dot(Vector3.UP))
 
 	pilot._up = Vector3.UP
 	pilot.restore_snapshot(snapshot)

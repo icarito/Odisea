@@ -7,6 +7,9 @@ class_name ArkRunTerraceProps
 const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
 const DomeResource = preload("res://core_v2/components/DomeSpiralFieldResource.gd")
 const SLICE_SEED := 32401
+const DOME_MESH = preload("res://core_v2/levels/exteriors/DomeExteriorLowPoly_baked.mesh")
+const DOME_MESH_RADIUS := 35.0
+const DOME_MESH_HEIGHT := 35.0
 const DOME_SLOTS_PER_PLATE := 2
 const PLATE_SIZE := Vector3(200.0, 2.0, 200.0)
 const DOME_KINDS := ["dome", "cap", "vat", "tower"]
@@ -30,6 +33,12 @@ func build(field, seed_value: int = SLICE_SEED) -> void:
 		seed_value
 	)
 func build_from_config(spiral: Dictionary, seed_value: int = SLICE_SEED) -> void:
+	build_from_configs([spiral], seed_value)
+
+# Puebla todas las espirales declaradas (6 en ArkRun: 300 placas) con domos
+# monumentales 200x200 en MultiMesh. `spiral_index` entra en el hash para que
+# el layout sea determinista y distinto entre espirales.
+func build_from_configs(spirals: Array, seed_value: int = SLICE_SEED) -> void:
 	_seed = int(seed_value)
 	_ensure_roots()
 	_clear_children(_domes_root)
@@ -40,20 +49,24 @@ func build_from_config(spiral: Dictionary, seed_value: int = SLICE_SEED) -> void
 	var buckets := {}
 	for kind in DOME_KINDS:
 		buckets[kind] = []
-	for plate_index in range(SpiralGeometry.plate_count_for(spiral)):
-		var plate_xform: Transform = SpiralGeometry.plate_transform(spiral, plate_index)
-		for slot in range(DOME_SLOTS_PER_PLATE):
-			var variant: Dictionary = dome_variant(_seed, plate_index, slot)
-			var local: Transform = dome_local_transform(PLATE_SIZE, variant)
-			var kind: String = String(variant["kind"])
-			buckets[kind].append(plate_xform * local)
-			_variant_counts[kind] = int(_variant_counts.get(kind, 0)) + 1
-			_dome_entries.append({
-				"plate_index": plate_index, "slot": slot, "kind": kind,
-				"variant": variant, "transform": plate_xform * local
-			})
-			for scaffold in scaffold_local_transforms(PLATE_SIZE, variant, local, _seed, plate_index, slot):
-				_scaffold_transforms.append(plate_xform * scaffold)
+	for spiral_index in range(spirals.size()):
+		var spiral: Dictionary = spirals[spiral_index]
+		for plate_index in range(SpiralGeometry.plate_count_for(spiral)):
+			var plate_xform: Transform = SpiralGeometry.plate_transform(spiral, plate_index)
+			var hash_plate: int = spiral_index * 997 + plate_index
+			for slot in range(DOME_SLOTS_PER_PLATE):
+				var variant: Dictionary = dome_variant(_seed, hash_plate, slot)
+				var local: Transform = dome_local_transform(PLATE_SIZE, variant)
+				var kind: String = String(variant["kind"])
+				buckets[kind].append(plate_xform * local)
+				_variant_counts[kind] = int(_variant_counts.get(kind, 0)) + 1
+				_dome_entries.append({
+					"spiral_index": spiral_index, "plate_index": plate_index, "slot": slot,
+					"kind": kind, "variant": variant, "transform": plate_xform * local,
+				})
+				for scaffold in scaffold_local_transforms(
+						PLATE_SIZE, variant, local, _seed, hash_plate, slot):
+					_scaffold_transforms.append(plate_xform * scaffold)
 	for kind in DOME_KINDS:
 		if not buckets[kind].empty():
 			_spawn_multimesh(_domes_root, "Domes_" + kind, _mesh_for_kind(kind), buckets[kind])
@@ -61,12 +74,13 @@ func build_from_config(spiral: Dictionary, seed_value: int = SLICE_SEED) -> void
 	cube.size = Vector3(1.0, 1.0, 1.0)
 	cube.material = _material(SCAFFOLD_COLOR)
 	_spawn_multimesh(_scaffolds_root, "Scaffolds", cube, _scaffold_transforms)
+
 # Catálogo determinista: reemplazar `_mesh_for_kind` por el kit de Blender.
 static func dome_variant(seed_value: int, plate_index: int, slot: int) -> Dictionary:
 	return {
 		"kind": DOME_KINDS[_mix(seed_value, plate_index, slot, 0) % DOME_KINDS.size()],
-		"radius": lerp(2.5, 6.5, _unit(_mix(seed_value, plate_index, slot, 1))),
-		"height": lerp(2.0, 7.0, _unit(_mix(seed_value, plate_index, slot, 2))),
+		"radius": lerp(42.0, 68.0, _unit(_mix(seed_value, plate_index, slot, 1))),
+		"height": lerp(30.0, 55.0, _unit(_mix(seed_value, plate_index, slot, 2))),
 		"rotation": _unit(_mix(seed_value, plate_index, slot, 3)) * TAU,
 		"tangent_offset": (_unit(_mix(seed_value, plate_index, slot, 4)) - 0.5) \
 			* PLATE_SIZE.x * 0.56,
@@ -77,17 +91,21 @@ static func dome_variant(seed_value: int, plate_index: int, slot: int) -> Dictio
 static func dome_local_transform(plate_size: Vector3, variant: Dictionary) -> Transform:
 	var radius: float = float(variant["radius"])
 	var height: float = float(variant["height"])
+	# El mesh baked tiene AABB (70, 35, 70) con base en y=0: se escala para que
+	# el domo mida `radius` y `height` reales sobre la placa de 200x200.
 	var origin := Vector3(
-		float(variant["tangent_offset"]), plate_size.y * 0.5 + height * 0.5,
+		float(variant["tangent_offset"]), plate_size.y * 0.5 + 0.05,
 		float(variant["axial_offset"])
 	)
 	var basis: Basis = Basis(Vector3.UP, float(variant["rotation"]))
-	return Transform(basis.scaled(Vector3(radius, height, radius)), origin)
+	var scale_v := Vector3(
+		radius / DOME_MESH_RADIUS, height / DOME_MESH_HEIGHT, radius / DOME_MESH_RADIUS)
+	return Transform(basis.scaled(scale_v), origin)
 # Cuatro patas alrededor del domo + pasarela a la estación del ascensor.
 static func scaffold_local_transforms(plate_size: Vector3, variant: Dictionary, dome_local: Transform, seed_value: int, plate_index: int, slot: int) -> Array:
 	var transforms: Array = []
 	var radius: float = float(variant["radius"])
-	var leg_height: float = float(variant["height"]) + radius * 0.4
+	var leg_height: float = max(float(variant["height"]) * 0.85, 1.0)
 	var base_y: float = plate_size.y * 0.5
 	var foot := Vector3(dome_local.origin.x, base_y, dome_local.origin.z)
 	for leg in range(4):
@@ -123,26 +141,9 @@ func _spawn_multimesh(root: Spatial, node_name: String, mesh: Mesh, transforms: 
 	instance.name = node_name
 	instance.multimesh = multimesh
 	root.add_child(instance)
-func _mesh_for_kind(kind: String) -> PrimitiveMesh:
-	var mesh: PrimitiveMesh = null
-	if kind == "dome":
-		var sphere := SphereMesh.new()
-		sphere.radial_segments = 10
-		sphere.rings = 5
-		mesh = sphere
-	elif kind == "tower":
-		var box := CubeMesh.new()
-		box.size = Vector3(1.0, 1.0, 1.0)
-		mesh = box
-	else:
-		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = 0.05 if kind == "cap" else 0.5
-		cylinder.bottom_radius = 0.5
-		cylinder.height = 1.0
-		cylinder.radial_segments = 8
-		cylinder.rings = 1
-		mesh = cylinder
-	mesh.material = _material(DOME_COLORS.get(kind, SCAFFOLD_COLOR))
+func _mesh_for_kind(kind: String) -> Mesh:
+	var mesh: Mesh = DOME_MESH.duplicate()
+	mesh.surface_set_material(0, _material(DOME_COLORS.get(kind, SCAFFOLD_COLOR)))
 	return mesh
 func _material(color: Color) -> SpatialMaterial:
 	var material := SpatialMaterial.new()
