@@ -81,6 +81,11 @@ var _widget_host: Node = null
 # FD-304 revision 2026-09-19: hombros = slots tambien en gameplay, con el mismo stream
 # determinista (input.hud_slot) que usa el modo HUD. Se alimenta por tick en _physics_process.
 var shoulder_slots_suppressed := false
+# FD-325: los gatillos LT/RT son control de gameplay (thruster_boost / rope_grapple), no slots.
+# Con esto en true, InputProviderV2 no publica slot_2 (L2) ni slot_4 (R2) en gameplay; L1/R1
+# siguen como slots rápidos y el modo HUD conserva los 4. Es un flag para poder volver atrás
+# sin revertir el FD (lo dudoso va detrás de un flag).
+var triggers_reserved_for_gameplay := true
 var _hud_slot_gamepad: Node = null
 var _hud_slot_player: Node = null
 # El HUD sigue dejando vivo al mundo; solo le quita el hardware al jugador. El overlay
@@ -275,6 +280,13 @@ func set_hud_mode_active(active: bool) -> void:
 
 func is_hud_mode_active() -> bool:
 	return _hud_mode_active
+
+# FD-325: el InputProviderV2 pregunta esto antes de publicar hud_slot de un gatillo. En modo HUD
+# la propia UI usa los 4 slots completos; fuera del modo HUD se respeta el flag.
+func triggers_are_reserved_for_gameplay() -> bool:
+	if _hud_mode_active:
+		return false
+	return triggers_reserved_for_gameplay
 
 # Host de widgets visible (el de gameplay). HudSlotGamepadV2 lo usa para el feedback del hold.
 func get_widget_host() -> Node:

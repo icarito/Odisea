@@ -23,6 +23,8 @@ const TronMaterials = preload("res://core_v2/levels/ark_run/ArkRunTronMaterials.
 const SLICE_SEED := 32401; const SLICE_LENGTH := 2000.0; const R_HULL := 340.0; const R_HUB := 8.0
 const BRIDGE_PLATE_INDICES := [47, 48, 49]; const ENGINE_Z_MAX := -940.0; const ENGINE_IGNITION_Z := 0.0
 const ZONE_BRIDGE := "Puente"; const ZONE_ENGINE := "Motor"; const ELEVATOR_PLATE_INDICES := [45, 35, 15, 5]
+# Altura de la superficie caminable sobre el centro de la placa (el Pilot apoya ahí).
+const BRIDGE_SURFACE_OFFSET_M := 1.5
 
 var pilot = null; var spiral_field = null; var spin_camera = null; var spin_predictor = null
 var hub = null; var hull = null; var spin_omega := 0.0
@@ -30,6 +32,9 @@ var explosion = null; var handrails = null; var thruster_input = null
 var terrace_props = null; var canonical_route = null; var rope_input = null
 var industry_streamer = null; var spokes: Array = []
 var _spiral_config: Dictionary = {}; var _bridge_z_min := 0.0; var _previous_gravity_mode := -1; var _wiring = null
+# FD-325: estado previo de los flags de SuitOS/MobileUI para restaurarlo al salir.
+var _saved_triggers_reserved := true; var _saved_shoulder_suppressed := false
+var _saved_spin_controls := false
 
 func _ready() -> void:
 	process_priority = 100
@@ -41,17 +46,35 @@ func _ready() -> void:
 	_bridge_z_min = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[0])).origin.z
 	_ensure_presentation_nodes(); _configure_zone_nodes()
 	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules(); _build_wiring()
-	var suit_os = get_node_or_null("/root/SuitOS")
-	if suit_os != null: suit_os.shoulder_slots_suppressed = true
+	_apply_control_flags()
 	if pilot != null:
 		# F7: arranque real en ZERO_G; SPIN_REAL se activa recién al detonar.
 		spawn_at_hub_start()
+
+# FD-325: gatillos (L2/R2) 100% gameplay (Propulsor/Cuerda) y hombros L1/R1 como los dos
+# slots rápidos (Linterna/Autonavegador). Los touch controls de Ark Run se activan aquí.
+func _apply_control_flags() -> void:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null:
+		_saved_triggers_reserved = bool(suit_os.triggers_reserved_for_gameplay)
+		_saved_shoulder_suppressed = bool(suit_os.shoulder_slots_suppressed)
+		suit_os.triggers_reserved_for_gameplay = true
+		suit_os.shoulder_slots_suppressed = false
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui != null and mobile_ui.has_method("set_spin_controls_active"):
+		_saved_spin_controls = bool(mobile_ui.is_spin_controls_active())
+		mobile_ui.set_spin_controls_active(true)
 
 func _exit_tree() -> void:
 	var world = get_node_or_null("/root/GravityWorld")
 	if world != null and _previous_gravity_mode >= 0: world.set_gravity_mode(_previous_gravity_mode)
 	var suit_os = get_node_or_null("/root/SuitOS")
-	if suit_os != null: suit_os.shoulder_slots_suppressed = false
+	if suit_os != null:
+		suit_os.triggers_reserved_for_gameplay = _saved_triggers_reserved
+		suit_os.shoulder_slots_suppressed = _saved_shoulder_suppressed
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui != null and mobile_ui.has_method("set_spin_controls_active"):
+		mobile_ui.set_spin_controls_active(_saved_spin_controls)
 
 func _physics_process(delta: float) -> void: update_spin_presentation(delta)
 
@@ -66,8 +89,17 @@ func get_engine_z_max() -> float: return ENGINE_Z_MAX
 func get_engine_ignition_z() -> float: return ENGINE_IGNITION_Z
 func get_canonical_route(): return canonical_route
 func get_waypoint_count() -> int: return canonical_route.get_waypoints().size() if canonical_route != null else 0
-# Objetivo de eyección: la placa 48, en pleno Puente (+Z).
-func get_bridge_target() -> Vector3: return SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[1])).origin
+# Objetivo de eyección: la superficie caminable de la placa 48, en pleno Puente (+Z).
+# `plate.origin` es el centro de la placa, ~1.5 m bajo los pies: el marcador debe caer
+# sobre el piso donde aterriza el pilot, no dentro de la losa.
+func get_bridge_target() -> Vector3:
+	var plate: Transform = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[1]))
+	return plate.origin + plate.basis.y * BRIDGE_SURFACE_OFFSET_M
+
+# Destino tras el Puente: la superficie caminable de la placa 0, al fondo del Motor (-Z).
+func get_engine_target() -> Vector3:
+	var plate: Transform = SpiralGeometry.plate_transform(_spiral_config, 0)
+	return plate.origin + plate.basis.y * BRIDGE_SURFACE_OFFSET_M
 
 func zone_at(position: Vector3) -> String:
 	if position.z <= ENGINE_Z_MAX: return ZONE_ENGINE
@@ -136,8 +168,8 @@ func _build_traversal_modules() -> void:
 		spoke.configure_from_plate(SpiralGeometry.plate_transform(_spiral_config, int(plate_index)), R_HUB)
 		spokes.append(spoke)
 	rope_input = _attach(root, "Rope", RopeInputScript)
-	rope_input.set_pilot(pilot); rope_input.max_range = 190.0; rope_input.cone_deg = 55.0
-	rope_input.get_rope().max_len = 200.0
+	rope_input.set_pilot(pilot); rope_input.max_range = 180.0; rope_input.cone_deg = 24.0
+	rope_input.get_rope().max_len = 190.0
 	canonical_route = RouteScript.new(); canonical_route.configure(_spiral_config)
 
 # Anclajes de cuerda: los resuelve el wiring (domos de TerraceProps + DomeRegistry).

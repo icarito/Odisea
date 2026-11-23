@@ -18,24 +18,49 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-GODOT_BIN = str(PROJECT_ROOT / "tools" / "godot")  # fork con Box3D, nunca godot3-bin stock
 BENCH_SCRIPT = "res://core_v2/tests/perf/bench_runner.gd"
+
+def _resolve_godot(windowed: bool = False) -> str:
+    """Motor pinneado del release, via godot_bin.sh (editor GLES3 si windowed, server si no)."""
+    env = dict(os.environ)
+    if not windowed:
+        env["ODISEA_GODOT_FLAVOR"] = "headless"
+    try:
+        out = subprocess.check_output(
+            ["sh", str(PROJECT_ROOT / "tools" / "godot_bin.sh")],
+            cwd=PROJECT_ROOT, env=env, text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+        if out:
+            return out.splitlines()[-1]
+    except (subprocess.CalledProcessError, OSError):
+        pass
+    return str(PROJECT_ROOT / "tools" / "godot")
+
+GODOT_BIN = _resolve_godot()
+WINDOWED_BIN = _resolve_godot(windowed=True)
 
 SCENES = {
     "OdiseaExterior": "res://core_v2/levels/OdiseaExterior.tscn",
     "Dome_Crio": "res://core_v2/levels/interiors/Dome_Crio.tscn",
     "ScaffoldOrbit": "res://core_v2/tests/TestScaffoldOrbit.tscn",
+    "ArkRunSlice": "res://core_v2/levels/ark_run/ArkRunSlice.tscn",
 }
 
-def run_bench(scene_path: str, seconds: float = 5, timeout: int = 120) -> dict:
-    """Run benchmark on one scene, return parsed results."""
+def run_bench(scene_path: str, seconds: float = 5, timeout: int = 180,
+              windowed: bool = False, size: str = "1280x720") -> dict:
+    """Run benchmark on one scene, return parsed results.
+
+    Headless (default) mide física/FPS de simulación sin renderer. `windowed` usa el
+    editor GLES3 con ventana real de `size` para FPS y draw calls medibles.
+    """
     label = Path(scene_path).stem
-    cmd = [
-        GODOT_BIN, "--no-window",
-        "-s", BENCH_SCRIPT,
-        scene_path,
-        str(int(seconds))
-    ]
+    if windowed:
+        cmd = [WINDOWED_BIN, "-s", BENCH_SCRIPT, scene_path, str(int(seconds)),
+               "--resolution", size]
+    else:
+        cmd = [GODOT_BIN, "--headless", "--no-window", "-s", BENCH_SCRIPT,
+               scene_path, str(int(seconds))]
+        timeout = timeout - 60
 
     print(f"  [{label}] Starting benchmark ({seconds}s)...")
 
@@ -71,6 +96,9 @@ def main():
     parser.add_argument("--seconds", type=float, default=5, help="Measurement duration (default: 5s)")
     parser.add_argument("--all", action="store_true", help="Run all scenes")
     parser.add_argument("--list", action="store_true", help="List available scenes")
+    parser.add_argument("--windowed", action="store_true",
+                        help="Editor GLES3 con ventana real (FPS/draw calls medibles)")
+    parser.add_argument("--size", default="1280x720", help="Window size for --windowed")
     args = parser.parse_args()
 
     if args.list:
@@ -85,23 +113,24 @@ def main():
 
     results = {}
     for name, path in targets.items():
-        result = run_bench(path, args.seconds)
+        result = run_bench(path, args.seconds, windowed=args.windowed, size=args.size)
         result["_scene"] = name
         results[name] = result
+        if result:
+            print(f"  [{name}] RAW {json.dumps(result)}")
 
     print("\n" + "=" * 70)
     print("BENCHMARK RESULTS")
     print("=" * 70)
-    header = f"{'Scene':<25} {'Avg FPS':>8} {'Min FPS':>8} {'<30fps':>7} {'DrawCalls':>9} {'Nodes':>7}"
+    header = (f"{'Scene':<25} {'AvgFPS':>8} {'MinFPS':>8} {'<30':>5} "
+              f"{'DrawCalls':>10} {'PhysMs':>8} {'Nodes':>7}")
     print(header)
     print("-" * len(header))
     for name, r in results.items():
-        avg = r.get("avg_fps", 0)
-        mn = r.get("min_fps", 0)
-        lt30 = r.get("frames_lt30", 0)
-        dc = r.get("draw_calls", 0)
-        nc = r.get("node_count", 0)
-        print(f"{name:<25} {avg:8.1f} {mn:8.1f} {lt30:7d} {dc:9d} {nc:7d}")
+        dc = r.get("avg_draw_calls", r.get("draw_calls", 0))
+        print(f"{name:<25} {r.get('avg_fps', 0):8.1f} {r.get('min_fps', 0):8.1f} "
+              f"{r.get('frames_lt30', 0):5d} {dc:10.1f} {r.get('physics_ms', 0):8.2f} "
+              f"{r.get('node_count', 0):7d}")
 
 if __name__ == "__main__":
     main()

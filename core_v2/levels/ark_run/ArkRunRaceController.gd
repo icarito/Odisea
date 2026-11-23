@@ -64,6 +64,14 @@ func observe(pos: Vector3, basis: Basis = Basis.IDENTITY) -> Dictionary:
 		return finish_run(basis)
 	return {"running": running, "t_run": t_run, "finished": finished}
 
+# Cierre por distancia al destino del Motor (centro de la placa 0), además del umbral z:
+# el Motor es 100% alcanzable aunque el pilot no llegue a cruzar `engine_z_max`.
+func observe_target(pos: Vector3, target: Vector3, radius: float,
+		basis: Basis = Basis.IDENTITY) -> Dictionary:
+	if running and pos.distance_to(target) <= max(radius, 0.0):
+		return finish_run(basis)
+	return {"running": running, "t_run": t_run, "finished": finished}
+
 func finish_run(basis: Basis = Basis.IDENTITY) -> Dictionary:
 	if not running:
 		return _summary(false)

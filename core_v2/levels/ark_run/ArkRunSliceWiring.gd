@@ -87,7 +87,7 @@ func _build_f6() -> void:
 		points.append(waypoint["position"] as Vector3)
 	lod.add_emissive_polyline(points, LodScript.TRON_COLOR)
 	RouteGuidesScript.new().build(lod, slice.get_canonical_route().get_waypoints(),
-		slice.get_bridge_target(), Vector3(0.0, 0.0, slice.get_engine_z_max()))
+		slice.get_bridge_target(), slice.get_engine_target())
 	hud = HudScript.new()
 	hud.name = "ArkRunHudOverlay"
 	hud_root.add_child(hud)
@@ -124,6 +124,11 @@ func present(dt: float) -> void:
 func advance_play_loop(dt: float) -> void:
 	if loop != null:
 		loop.advance_play_loop(dt)
+
+# FD-325 determinismo: la escena de replay corre pasos de física explícitos con pilot.step y
+# sin loop vivo; el aim de cuerda debe quedar sin override para no alterar el hash exportado.
+func is_live_loop_running() -> bool:
+	return loop != null and is_instance_valid(loop) and loop.is_physics_processing()
 
 func restart_run() -> void:
 	if loop != null:

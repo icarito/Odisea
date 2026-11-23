@@ -23,6 +23,7 @@ var _spiral_config: Dictionary = {}
 var _rope_anchors: Array = []
 var _previous_gravity_mode := -1
 var _determinism_state: Dictionary = {}
+var _saved_spin_controls := false
 func _ready() -> void:
 	process_priority = 100
 	spiral_field = get_node_or_null("DomeSpiralField")
@@ -36,13 +37,24 @@ func _ready() -> void:
 	_apply_spin_gravity_mode()
 	_configure_spokes()
 	_rope_anchors = _collect_rope_anchors()
+	_enable_spin_touch_controls()
 	if pilot != null:
 		pilot.set_spin_real_enabled(true)
 		spawn_at_plate(0)
+# FD-325 T2: la escena SPIN_REAL enciende los botones táctiles (IMPULSO/CUERDA/AUTONAV);
+# recuerda el estado anterior para restaurarlo al salir. Sin autoload es un no-op.
+func _enable_spin_touch_controls() -> void:
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui != null and mobile_ui.has_method("set_spin_controls_active"):
+		_saved_spin_controls = bool(mobile_ui.is_spin_controls_active())
+		mobile_ui.set_spin_controls_active(true)
 func _exit_tree() -> void:
 	var world = get_node_or_null("/root/GravityWorld")
 	if world != null and _previous_gravity_mode >= 0:
 		world.set_gravity_mode(_previous_gravity_mode)
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui != null and mobile_ui.has_method("set_spin_controls_active"):
+		mobile_ui.set_spin_controls_active(_saved_spin_controls)
 func _physics_process(delta: float) -> void:
 	_apply_rope_constraint()
 	update_spin_presentation(delta)

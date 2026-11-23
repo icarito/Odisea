@@ -36,6 +36,7 @@ var _ignition_events: Array = []
 
 func before_test() -> void:
 	_release_actions()
+	SuitOS.triggers_reserved_for_gameplay = true # FD-325: L2/R2 son gameplay, no slots
 	VirtualMouse.set_pointer_released(false)
 	SuitOS.close_hud_mode(); SuitOS.close_screen(); SuitOS.set_context({})
 	get_tree().paused = false
@@ -60,6 +61,7 @@ func before_test() -> void:
 
 func after_test() -> void:
 	_release_actions()
+	SuitOS.triggers_reserved_for_gameplay = true
 	SuitOS.clear_slots()
 	SuitOS.clear_favorites()
 	SuitOS.close_hud_mode()
@@ -124,11 +126,20 @@ func test_hold_from_slot_and_tab_returns_manual_in_the_same_tick() -> void:
 	_provider.get_input()
 	assert_bool(_autopilot.active).is_false()
 
-	SuitOS.pin_to_slot(1, "player:autonav") # reubicado: el hold sigue al slot nuevo
+	# FD-325: el autonavegador reubicado en un slot de GATILLO (slot_2 = L2) ya no conduce en
+	# gameplay: los gatillos son 100% gameplay (thruster_boost / rope_grapple). El hold sigue
+	# al slot R1 (slot_3), que es el slot rápido oficial del Autonavegador.
+	SuitOS.pin_to_slot(1, "player:autonav")
 	Input.action_press("slot_2")
 	_provider.get_input()
-	assert_bool(_autopilot.active).is_true()
+	assert_bool(_autopilot.active).is_false()
 	Input.action_release("slot_2")
+	_provider.get_input()
+	SuitOS.pin_to_slot(2, "player:autonav") # de vuelta a R1 (slot_3)
+	Input.action_press("slot_3")
+	_provider.get_input()
+	assert_bool(_autopilot.active).is_true()
+	Input.action_release("slot_3")
 	_provider.get_input()
 	assert_bool(_autopilot.active).is_false()
 
@@ -138,7 +149,7 @@ func test_hold_from_slot_and_tab_returns_manual_in_the_same_tick() -> void:
 	_player.add_child(_player._current_interactable)
 	get_tree().root.add_child(_player)
 	_player.add_to_group("player")
-	Input.action_press("slot_2")
+	Input.action_press("slot_3")
 	_provider.get_input()
 	assert_bool(_autopilot.active).is_true()
 	_provider.mouse_delta_accum = Vector2(8.0, 0.0)
@@ -148,7 +159,7 @@ func test_hold_from_slot_and_tab_returns_manual_in_the_same_tick() -> void:
 	_provider.get_input()
 	assert_bool(_autopilot.active).is_false()
 	Input.action_release("interact")
-	Input.action_release("slot_2")
+	Input.action_release("slot_3")
 
 
 func test_minimap_and_local_gravity_from_spin_frame() -> void:

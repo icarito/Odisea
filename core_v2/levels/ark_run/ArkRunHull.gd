@@ -17,7 +17,15 @@ export(int) var wall_segments := 24
 export(float) var wall_thickness := 20.0
 export(float) var cap_extension := 20.0
 export(float) var cap_thickness := 60.0
+# Cara interior de las tapas a esta distancia más allá de half_length (±1120 m por
+# defecto): deja libre el extremo de las placas 0/49 (200 m de largo) y el centro de la
+# placa 0 en z=-1000, que es la meta del Motor. Las paredes laterales se alargan igual
+# (WALL_END_MARGIN) para solapar con las tapas sin dejar rendijas.
+export(float) var cap_inner_offset := 120.0
 export(float) var wall_overlap := 1.25
+
+# Margen de las paredes más allá del centro de la tapa (solape sin rendijas).
+const WALL_END_MARGIN := 130.0
 export(bool) var build_collision := true
 export(bool) var build_visual := true
 
@@ -45,13 +53,19 @@ func _build_collision() -> void:
 	var half_width: float = radius * tan(PI / float(segments)) * max(wall_overlap, 1.0)
 	var half_thickness: float = thickness * 0.5
 	var axis := Vector3(0.0, 0.0, 1.0)
+	var cap_height: float = max(cap_thickness, 1.0)
+	# Centro de la tapa (su cara interior queda en ±(half_length + cap_inner_offset)).
+	var cap_center_abs: float = half_length + max(cap_inner_offset, 0.0) + cap_height * 0.5
+	# Las paredes se alargan hasta pasarse un margen del centro de la tapa para solaparse
+	# con ella sin rendijas.
+	var wall_half_length: float = cap_center_abs + WALL_END_MARGIN
 
 	for index in range(segments):
 		var angle: float = TAU * float(index) / float(segments)
 		var radial := Vector3(cos(angle), sin(angle), 0.0)
 		var tangent := Vector3(-sin(angle), cos(angle), 0.0)
 		var wall := BoxShape.new()
-		wall.extents = Vector3(half_width, half_length, half_thickness)
+		wall.extents = Vector3(half_width, wall_half_length, half_thickness)
 		var shape := CollisionShape.new()
 		shape.name = "HullWall_%02d" % index
 		shape.shape = wall
@@ -63,10 +77,10 @@ func _build_collision() -> void:
 		add_child(shape)
 		_wall_count += 1
 
-	# Tapas: discos gruesos solapados con la pared para cerrar la proa y la popa
-	# sin rendijas. Centradas en +/- (half_length + cap_extension).
+	# Tapas: discos gruesos solapados con la pared para cerrar la proa y la popa sin
+	# rendijas. Su cara INTERIOR queda en ±(half_length + cap_inner_offset) = ±1120 m:
+	# fuera del extremo de las placas (200 m) y del centro de la placa 0 (z=-1000).
 	var cap_radius: float = radius + max(cap_extension, 0.0)
-	var cap_height: float = max(cap_thickness, 1.0)
 	for sign_z in [1.0, -1.0]:
 		var cap := CylinderShape.new()
 		cap.radius = cap_radius
@@ -76,7 +90,7 @@ func _build_collision() -> void:
 		shape.shape = cap
 		shape.transform = Transform(
 			Basis(Vector3.RIGHT, PI * 0.5),
-			Vector3(0.0, 0.0, sign_z * (half_length + max(cap_extension, 0.0)))
+			Vector3(0.0, 0.0, sign_z * cap_center_abs)
 		)
 		add_child(shape)
 
