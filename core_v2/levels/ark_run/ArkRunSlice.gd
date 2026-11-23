@@ -30,6 +30,9 @@ var explosion = null; var handrails = null; var thruster_input = null
 var terrace_props = null; var canonical_route = null; var rope_input = null
 var industry_streamer = null; var spokes: Array = []
 var _spiral_config: Dictionary = {}; var _bridge_z_min := 0.0; var _previous_gravity_mode := -1; var _wiring = null
+# FD-325: estado previo de los flags de SuitOS/MobileUI para restaurarlo al salir.
+var _saved_triggers_reserved := true; var _saved_shoulder_suppressed := false
+var _saved_spin_controls := false
 
 func _ready() -> void:
 	process_priority = 100
@@ -41,17 +44,35 @@ func _ready() -> void:
 	_bridge_z_min = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[0])).origin.z
 	_ensure_presentation_nodes(); _configure_zone_nodes()
 	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules(); _build_wiring()
-	var suit_os = get_node_or_null("/root/SuitOS")
-	if suit_os != null: suit_os.shoulder_slots_suppressed = true
+	_apply_control_flags()
 	if pilot != null:
 		# F7: arranque real en ZERO_G; SPIN_REAL se activa recién al detonar.
 		spawn_at_hub_start()
+
+# FD-325: gatillos (L2/R2) 100% gameplay (Propulsor/Cuerda) y hombros L1/R1 como los dos
+# slots rápidos (Linterna/Autonavegador). Los touch controls de Ark Run se activan aquí.
+func _apply_control_flags() -> void:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null:
+		_saved_triggers_reserved = bool(suit_os.triggers_reserved_for_gameplay)
+		_saved_shoulder_suppressed = bool(suit_os.shoulder_slots_suppressed)
+		suit_os.triggers_reserved_for_gameplay = true
+		suit_os.shoulder_slots_suppressed = false
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui != null and mobile_ui.has_method("set_spin_controls_active"):
+		_saved_spin_controls = bool(mobile_ui.is_spin_controls_active())
+		mobile_ui.set_spin_controls_active(true)
 
 func _exit_tree() -> void:
 	var world = get_node_or_null("/root/GravityWorld")
 	if world != null and _previous_gravity_mode >= 0: world.set_gravity_mode(_previous_gravity_mode)
 	var suit_os = get_node_or_null("/root/SuitOS")
-	if suit_os != null: suit_os.shoulder_slots_suppressed = false
+	if suit_os != null:
+		suit_os.triggers_reserved_for_gameplay = _saved_triggers_reserved
+		suit_os.shoulder_slots_suppressed = _saved_shoulder_suppressed
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui != null and mobile_ui.has_method("set_spin_controls_active"):
+		mobile_ui.set_spin_controls_active(_saved_spin_controls)
 
 func _physics_process(delta: float) -> void: update_spin_presentation(delta)
 

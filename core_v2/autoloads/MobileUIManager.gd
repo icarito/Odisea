@@ -46,6 +46,7 @@ var _mouse_capture_suspended := false
 var _is_cinematic_active := false
 var _cinematic_manager: Node = null
 var _is_zero_g := false
+var _spin_controls_active := false
 var _tracked_controller_manager: Node = null
 var _clear_tap_index := -1
 var _clear_tap_start := Vector2.ZERO
@@ -266,12 +267,18 @@ func _spawn_mobile_ui() -> void:
 	_touch_trackers.clear()
 	_collect_touch_trackers(_mobile_ui)
 	
+	_apply_spin_controls_state()
 	_touch_camera = _get_touch_camera_control()
 	if _touch_camera:
 		_touch_camera.connect("camera_drag", self, "_on_camera_drag")
 		_touch_camera.connect("camera_zoom", self, "_on_camera_zoom")
 	
 	_refresh_mobile_ui_visibility()
+
+func _apply_spin_controls_state() -> void:
+	var controls = _get_spin_controls()
+	if controls != null and controls.has_method("set_spin_controls_active"):
+		controls.set_spin_controls_active(_spin_controls_active)
 
 func _connect_cinematic_manager() -> void:
 	_cinematic_manager = get_node_or_null("/root/CinematicManager")
@@ -423,6 +430,9 @@ func _set_gameplay_controls_visible(enabled: bool) -> void:
 	if not container:
 		return
 	for child in container.get_children():
+		# ArkRunTouchControls se gobierna por set_spin_controls_active(), no por este toggle.
+		if child.name == "ArkRunTouchControls":
+			continue
 		if child.name != "ZeroGButtons" and child.name != "SkipButton":
 			child.visible = enabled
 
@@ -448,6 +458,29 @@ func set_replay_mode(active: bool) -> void:
 		_mobile_ui.visible = false
 	else:
 		_refresh_mobile_ui_visibility()
+
+# FD-325 T2: los controles tactiles de Ark Run (IMPULSO/CUERDA/AUTONAV) solo existen en escenas
+# SPIN_REAL (ArkRun / SpinLab). La escena llama esto al entrar/salir; el resto del tiempo el nodo
+# queda oculto y no ensucia Dome_Intro ni RingHub. Con la UI sin instanciar solo se recuerda el
+# flag: _spawn_mobile_ui() lo aplica al crear los controles.
+func set_spin_controls_active(active: bool) -> void:
+	_spin_controls_active = active
+	var controls = _get_spin_controls()
+	if controls != null and controls.has_method("set_spin_controls_active"):
+		controls.set_spin_controls_active(active)
+
+func update_spin_touch_state(data: Dictionary) -> void:
+	var controls = _get_spin_controls()
+	if controls != null and controls.has_method("update_spin_touch_state"):
+		controls.update_spin_touch_state(data)
+
+func is_spin_controls_active() -> bool:
+	return _spin_controls_active
+
+func _get_spin_controls() -> Node:
+	if not is_instance_valid(_mobile_ui):
+		return null
+	return _mobile_ui.get_node_or_null("Container/ArkRunTouchControls")
 
 func _process(delta: float) -> void:
 	_step_mobile_ui_fade(delta)
