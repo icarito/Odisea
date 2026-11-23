@@ -423,11 +423,16 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		visual_velocity = p_current_velocity
 		
 	# --- FOOTSTEP LOGIC ---
+	# En SPIN_REAL el "suelo" puede estar en cualquier ángulo: se proyecta sobre
+	# el plano perpendicular a sim_up (no se descarta Y a ciegas).
+	var sim_up := Vector3.UP
+	if controller and controller.has_method("get_sim_up"):
+		sim_up = controller.get_sim_up()
 	var current_world_pos = global_transform.origin
 	var planar_delta := 0.0
 	if _has_last_world_pos:
 		var move_delta = current_world_pos - _last_world_pos
-		planar_delta = Vector2(move_delta.x, move_delta.z).length()
+		planar_delta = FootstepDetector.planar_distance(move_delta, sim_up)
 	_last_world_pos = current_world_pos
 	_has_last_world_pos = true
 	var has_locomotion_intent := _has_locomotion_intent()
@@ -437,7 +442,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		_distance_accumulator += planar_delta
 
 		# Keep speed only for choosing stride profile (walk/run), not for counting distance.
-		var speed_h = Vector2(p_current_velocity.x, p_current_velocity.z).length()
+		var speed_h: float = FootstepDetector.planar_distance(p_current_velocity, sim_up)
 		var current_stride = 0.9
 		var walk_threshold = 3.0
 		if footstep_detector:
@@ -452,7 +457,7 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 
 		if _distance_accumulator >= current_stride:
 			_distance_accumulator -= current_stride # Keep residue for precise rhythm
-			_play_footstep()
+			_play_footstep(sim_up)
 	else:
 		_distance_accumulator = 0.0 # Reset in air so we don't step immediately on land (unless land sound handles that)
 	_update_footstep_playback_guard(is_on_floor, planar_delta, dt, has_locomotion_intent)
@@ -1434,14 +1439,14 @@ func _update_hand_gizmos():
 		var global_bone = _skeleton.global_transform * bone_pose
 		_hand_r_gizmo.global_transform.origin = global_bone.origin
 
-func _play_footstep():
+func _play_footstep(sim_up: Vector3 = Vector3.UP):
 	_footstep_stop_grace_left = FOOTSTEP_STOP_GRACE_SEC
 	if footstep_detector:
 		if "stream_paused" in footstep_detector:
 			footstep_detector.stream_paused = false
 		if footstep_detector.playing:
 			footstep_detector.stop()
-		footstep_detector.play_footstep()
+		footstep_detector.play_footstep(-sim_up)
 	elif not _footstep_sounds.empty():
 		var idx = randi() % _footstep_sounds.size()
 		var player = _footstep_sounds[idx]
@@ -1542,6 +1547,14 @@ func _should_accumulate_footsteps(is_on_floor: bool, planar_delta: float, has_lo
 	# Sin pisadas en gravedad cero: no hay suelo bajo los pies aunque haya contacto incidental.
 	if _is_zero_g():
 		return false
+	# Tampoco al deslizar o rodar (SLIDE/TUMBLE): la cápsula no "camina".
+	if controller and controller.has_method("get_spin_physics"):
+		var physics = controller.get_spin_physics()
+		if physics != null:
+			if bool(physics.get("_slide_active")):
+				return false
+			if float(physics.get("_tumble_timer")) > 0.0:
+				return false
 	return true
 
 func _stop_footstep_audio_if_playing() -> void:

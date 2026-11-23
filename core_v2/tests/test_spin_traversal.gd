@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 const GravityModes = preload("res://core_v2/systems/GravityModes.gd")
 const RopeScript = preload("res://core_v2/player/traversal/SpinRopeSwingV2.gd")
+const RopeInputScript = preload("res://core_v2/player/traversal/SpinRopeInputV2.gd")
 const SpokeScript = preload("res://core_v2/components/SpinSpokeV2.gd")
 const HubScript = preload("res://core_v2/components/SpinAxialHubV2.gd")
 const DomeField = preload("res://core_v2/components/DomeSpiralField.gd")
@@ -165,3 +166,30 @@ func test_axial_hub_zero_g_and_hatch_launch() -> void:
 	var inward_dir: Dictionary = hub.compute_hatch_launch(hatch, Vector3(-1.0, 0.0, 0.0), 12.0)
 	var inward_vel: Vector3 = inward_dir["velocity"]
 	assert_vector3(inward_vel).is_equal_approx(Vector3(12.0, 0.0, 0.0), Vector3(EPS, EPS, EPS))
+
+class DummyPilot extends KinematicBody:
+	var velocity := Vector3.ZERO
+	func get_sim_up() -> Vector3: return Vector3.UP
+	func get_spin_physics(): return null
+
+func test_reel_in_shortens_rope_and_preserves_catapult_velocity_on_release() -> void:
+	var anchor := Vector3(0.0, 0.0, 20.0)
+	var state: Dictionary = RopeScript.reel_in(
+		Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 4.0), anchor, 20.0, 0.5)
+	assert_float(float(state["length"])).is_less(20.0)
+	assert_float((state["velocity"] as Vector3).dot(Vector3(0.0, 0.0, 1.0))).is_greater(4.0)
+	assert_float((state["position"] as Vector3).distance_to(anchor)) \
+		.is_equal_approx(float(state["length"]), 1e-4)
+	var rope_input = auto_free(RopeInputScript.new())
+	add_child(rope_input)
+	var pilot = auto_free(DummyPilot.new())
+	add_child(pilot)
+	pilot.global_transform.origin = Vector3(0.0, 0.0, 18.0)
+	var attached: Dictionary = rope_input.step(pilot, [anchor], Vector3(0.0, 0.0, 1.0), true, 0.1)
+	assert_bool(bool(attached["attached"])).is_true()
+	var reeled: Dictionary = rope_input.step(pilot, [anchor], Vector3(0.0, 0.0, 1.0), true, 0.1, true)
+	assert_bool(bool(reeled["reeling"])).is_true()
+	var catapult: Vector3 = pilot.velocity
+	var released: Dictionary = rope_input.step(pilot, [anchor], Vector3(0.0, 0.0, 1.0), false, 0.1)
+	assert_bool(bool(released["released"])).is_true()
+	assert_float(pilot.velocity.distance_to(catapult)).is_less(1e-6)

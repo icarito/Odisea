@@ -34,6 +34,28 @@ const WidgetHostScene = preload("res://core_v2/ui/hud/SuitOSWidgetHost.tscn")
 const HudModeOverlayScene = preload("res://core_v2/ui/hud/HudModeOverlay.tscn")
 const HUD_MODE_OVERLAY := "HudModeOverlay"
 
+# FD-324 F4 — apps del Ark-Run. Registro perezoso: no se autoasignan en todo el juego.
+const ArkRunAutonavScreenScript = preload("res://core_v2/ui/suit_os/ArkRunAutonavScreen.gd")
+const ArkRunNavScreenScript = preload("res://core_v2/ui/suit_os/ArkNavScreen.gd")
+const ArkRunThrustersScreenScript = preload("res://core_v2/ui/suit_os/ArkRunThrustersScreen.gd")
+const ArkRunRopeScreenScript = preload("res://core_v2/ui/suit_os/ArkRunRopeScreen.gd")
+const ARK_RUN_AUTONAV_SCREEN_ID := "player:autonav"
+const ARK_RUN_NAV_SCREEN_ID := "ship:ark_nav"
+const ARK_RUN_THRUSTERS_SCREEN_ID := "player:thrusters"
+const ARK_RUN_ROPE_SCREEN_ID := "player:rope"
+# FD-304: L1/L2/R1/R2 = slot_1..slot_4. L1 = índice 0; R1 = índice 2.
+const ARK_RUN_AUTONAV_SLOT := 2
+# Defaults del slice: L1 = linterna, L2 = propulsores, R1 = autonavegador, R2 = cuerda.
+# (No toca DEFAULT_PINS global: fuera del Ark-Run el HUD sigue naciendo sólo con la linterna.)
+const ARK_RUN_DEFAULT_PINS := [
+	"player:flashlight", "player:thrusters", "player:autonav", "player:rope",
+]
+# Apps de "mantener" de gameplay: sostener su slot acciona la app y NO abre el radial.
+const HOLD_GAMEPLAY_APPS := [
+	ARK_RUN_AUTONAV_SCREEN_ID, ARK_RUN_THRUSTERS_SCREEN_ID, ARK_RUN_ROPE_SCREEN_ID,
+]
+const SLOT_LABELS := ["L1", "L2", "R1", "R2"]
+
 
 var _screens: Dictionary = {} # Maps String (screen_id) -> Object
 var _context: Dictionary = {}
@@ -58,6 +80,7 @@ var _context_driver: Node = null
 var _widget_host: Node = null
 # FD-304 revision 2026-09-19: hombros = slots tambien en gameplay, con el mismo stream
 # determinista (input.hud_slot) que usa el modo HUD. Se alimenta por tick en _physics_process.
+var shoulder_slots_suppressed := false
 var _hud_slot_gamepad: Node = null
 var _hud_slot_player: Node = null
 # El HUD sigue dejando vivo al mundo; solo le quita el hardware al jugador. El overlay
@@ -274,6 +297,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	if shoulder_slots_suppressed:
+		if _hud_slot_gamepad != null:
+			_hud_slot_gamepad.reset()
+		return
 	if _hud_slot_gamepad == null:
 		return
 	if _hud_mode_active:
@@ -385,6 +412,10 @@ func pin_to_slot(index: int, id: String) -> void:
 	_pinned = HudSlots.pin_to(_pinned, index, id)
 	reevaluate_slots()
 
+# Alias con el nombre usado por las specs de FD-324: mismo comportamiento que pin_to_slot.
+func pin_screen_to_slot(index: int, id: String) -> void:
+	pin_to_slot(index, id)
+
 # Arrastrar el widget de un slot a otro: intercambian lugar.
 func move_slot(from: int, to: int) -> void:
 	if from == to or from < 0 or to < 0 or from >= HudSlots.COUNT or to >= HudSlots.COUNT:
@@ -406,6 +437,85 @@ func clear_slot(index: int) -> void:
 func clear_slots() -> void:
 	_pinned = HudSlots.empty_pins()
 	reevaluate_slots()
+
+# FD-324 F4 — registro perezoso de las apps del Ark-Run. El host del slice llama esto al
+# entrar. Reusa los nodos si ya existen: una suite anterior pudo desregistrarlos sin liberarlos.
+func ensure_ark_run_apps() -> void:
+	var host = get_node_or_null("ArkRunSuitOSApps")
+	if host == null:
+		host = Node.new()
+		host.name = "ArkRunSuitOSApps"
+		add_child(host)
+	_ensure_ark_run_screen(host, "ArkRunNavScreen", ArkRunNavScreenScript, ARK_RUN_NAV_SCREEN_ID)
+	_ensure_ark_run_screen(host, "ArkRunAutonavScreen", ArkRunAutonavScreenScript, ARK_RUN_AUTONAV_SCREEN_ID)
+	_ensure_ark_run_screen(host, "ArkRunThrustersScreen", ArkRunThrustersScreenScript, ARK_RUN_THRUSTERS_SCREEN_ID)
+	_ensure_ark_run_screen(host, "ArkRunRopeScreen", ArkRunRopeScreenScript, ARK_RUN_ROPE_SCREEN_ID)
+
+func _ensure_ark_run_screen(host: Node, node_name: String, script, screen_id: String) -> void:
+	var node = host.get_node_or_null(node_name)
+	if node == null:
+		node = script.new()
+		node.name = node_name
+		host.add_child(node)
+	elif not has_screen(screen_id):
+		register_screen(node)
+
+# Defaults del slice: L1 = linterna, L2 = propulsores, R1 = autonavegador, R2 = cuerda.
+# Además deja las apps del Ark-Run en el dial (el arco muestra favoritos, no el registry).
+func apply_ark_run_default_pins() -> void:
+	ensure_ark_run_apps()
+	_pinned = ARK_RUN_DEFAULT_PINS.duplicate()
+	for id in [ARK_RUN_AUTONAV_SCREEN_ID, ARK_RUN_NAV_SCREEN_ID,
+			ARK_RUN_THRUSTERS_SCREEN_ID, ARK_RUN_ROPE_SCREEN_ID]:
+		if has_screen(id) and not is_favorite(id):
+			toggle_favorite(id)
+	reevaluate_slots()
+
+func nav_assist_slot_index() -> int:
+	for i in range(HudSlots.COUNT):
+		if slot_screen_id(i) == ARK_RUN_AUTONAV_SCREEN_ID:
+			return i
+	return -1
+
+func is_nav_assist_slot(index: int) -> bool:
+	return index >= 0 and index < HudSlots.COUNT \
+		and slot_screen_id(index) == ARK_RUN_AUTONAV_SCREEN_ID
+
+# --- Apps reubicables del Ark-Run (propulsores / cuerda) ---
+# El jugador puede mover cualquier app en runtime (pin_to_slot / move_slot). Todo lo que
+# pregunte "dónde está esta app" lo resuelve acá contra la fuente de verdad (_pinned),
+# no contra una constante: así el hold, la etiqueta y el snapshot siguen al slot nuevo.
+
+func _pinned_index_of(screen_id: String) -> int:
+	if screen_id.empty():
+		return -1
+	for i in range(HudSlots.COUNT):
+		if String(_pinned[i]) == screen_id:
+			return i
+	return -1
+
+func thrusters_slot_index() -> int:
+	return _pinned_index_of(ARK_RUN_THRUSTERS_SCREEN_ID)
+
+func rope_slot_index() -> int:
+	return _pinned_index_of(ARK_RUN_ROPE_SCREEN_ID)
+
+# Apps de "mantener" de gameplay: sostener su slot acciona la app y no abre el radial.
+func is_hold_gameplay_app(screen_id: String) -> bool:
+	return screen_id in HOLD_GAMEPLAY_APPS
+
+# Etiqueta visible del slot que hoy ocupa la app ("L1"/"L2"/"R1"/"R2"), "" si no está fijada.
+func slot_label_for_screen(screen_id: String) -> String:
+	var index: int = _pinned_index_of(screen_id)
+	if index < 0 or index >= SLOT_LABELS.size():
+		return ""
+	return String(SLOT_LABELS[index])
+
+# InputProviderV2 avisa el hold del slot/TAB. Sólo presentación: no entra al replay.
+func note_nav_assist(held: bool) -> void:
+	var screen = get_screen(ARK_RUN_AUTONAV_SCREEN_ID)
+	if screen != null and screen.has_method("set_nav_assist"):
+		screen.set_nav_assist(held)
 
 func get_pinned_slots() -> Array:
 	return _pinned.duplicate()

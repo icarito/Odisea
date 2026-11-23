@@ -6,6 +6,9 @@ class_name SpinRopeSwingV2
 # CylinderMesh y se muestra únicamente mientras la cuerda está enganchada.
 
 const EPSILON := 1e-6
+const REEL_SPEED := 36.0
+const REEL_ACCEL := 55.0
+const REEL_MIN_LENGTH := 4.0
 
 export(float) var min_len := 1.0
 export(float) var max_len := 60.0
@@ -78,6 +81,34 @@ func attach(anchor_pos: Vector3, player_pos: Vector3) -> float:
 	_ensure_visual()
 	_update_visual(player_pos)
 	return rope_length
+
+func set_rope_length(value: float) -> float:
+	var lower: float = max(min_len, 0.01)
+	var upper: float = max(max_len, lower)
+	rope_length = clamp(value, lower, upper)
+	return rope_length
+
+# Retracción determinista de alta velocidad: acorta la cuerda y acelera hacia el
+# anclaje. Al soltar RT en plena retracción se conserva la velocidad (catapulta).
+static func reel_in(
+	pos: Vector3, vel: Vector3, anchor: Vector3, rope_length: float, dt: float,
+	reel_speed: float = REEL_SPEED, reel_accel: float = REEL_ACCEL,
+	min_length: float = REEL_MIN_LENGTH
+) -> Dictionary:
+	var delta: Vector3 = anchor - pos
+	var distance: float = delta.length()
+	var new_length: float = max(max(min_length, 0.0), rope_length - reel_speed * max(dt, 0.0))
+	if distance <= EPSILON:
+		return {"position": pos, "velocity": vel, "length": new_length, "reeling": true, "taut": true}
+	var direction: Vector3 = delta / distance
+	var inward: float = max(vel.dot(direction), 0.0)
+	var target_speed: float = min(inward + reel_accel * max(dt, 0.0), reel_speed)
+	var new_velocity: Vector3 = vel + direction * (target_speed - inward)
+	var new_position: Vector3 = anchor - direction * new_length
+	return {
+		"position": new_position, "velocity": new_velocity,
+		"length": new_length, "reeling": true, "taut": distance >= new_length,
+	}
 
 func detach() -> void:
 	_attached = false

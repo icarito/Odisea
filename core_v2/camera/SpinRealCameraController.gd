@@ -16,6 +16,7 @@ export(float) var h_out := 12.0
 export(float) var blend_speed := 2.5
 export(float) var view_25d_axial_angle_deg := 22.0
 
+export(bool) var enable_25d_override := true
 var camera_basis_prefix: Basis = Basis(Vector3.UP, PI)
 var blend_25d := 0.0
 var in_25d := false
@@ -117,7 +118,7 @@ func apply_to_pilot(pilot: Node, r_local: float, dt: float) -> Dictionary:
 	var state: Dictionary = step_camera(pos, SpinFrame.up(pos, Vector3.UP), r_local, dt)
 
 	var rig: Spatial = pilot.get_node_or_null("CameraRig") as Spatial
-	if rig != null:
+	if rig != null and enable_25d_override:
 		var blend: float = float(state["blend_25d"])
 		if blend > 0.0:
 			# CameraRig es hijo del Pilot (que ya alinea +Y a _up): el objetivo 2.5D
