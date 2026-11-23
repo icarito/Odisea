@@ -98,7 +98,7 @@ func update_preview(
 	dt: float = DEFAULT_DT, max_steps: int = DEFAULT_MAX_STEPS,
 	a_axial: float = 0.0
 ) -> Dictionary:
-	var use_preview: bool = max_steps >= DEFAULT_MAX_STEPS
+	var use_preview: bool = max_steps == DEFAULT_MAX_STEPS
 	var sample_dt: float = PREVIEW_DT if use_preview else dt
 	var sample_steps: int = PREVIEW_MAX_STEPS if use_preview else max_steps
 	var prediction: Dictionary = predict_landing(

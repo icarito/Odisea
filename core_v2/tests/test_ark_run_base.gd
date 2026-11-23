@@ -67,7 +67,8 @@ func test_scene_loads_headless_without_rotators() -> void:
 	assert_object(pilot).is_not_null()
 	assert_float(abs(pilot.global_transform.origin.z)).is_less(1.0)
 	assert_float(SpinFrame.r_perp(pilot.global_transform.origin).length()).is_less(8.0)
-	assert_bool(pilot.is_spin_real_active()).is_true()
+	# F7: arranca en ZERO_G; SPIN_REAL se activa recién al detonar (ver F7).
+	assert_bool(pilot.is_spin_real_active()).is_false()
 
 	# Zonas consultables por posición: Puente +Z, Motor -Z.
 	assert_float(slice.get_bridge_z_min()).is_equal_approx(880.0, EPS)
@@ -140,6 +141,12 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	nav.set_destination("bridge")
 	host._sync_route(nav, slice)
 	assert_int(nav.get_route().size()).is_equal(1)
+
+	# F7: HUD diegético presente y refrescable.
+	var hud = slice.get_node_or_null("RaceHudRoot/ArkRunHudOverlay")
+	assert_object(hud).is_not_null()
+	hud.refresh({"phase": "TEST", "timer": 1.0, "best": -1.0})
+	assert_str(hud.get_phase_label().text).is_equal("TEST")
 
 	# Idle ZERO_G dentro del hub: predictor oculto y preview salteado (sin costo).
 	var pilot = slice.get_node_or_null("Pilot")

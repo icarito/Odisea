@@ -23,6 +23,7 @@ func run(slice, wiring) -> Dictionary:
 	# 1) Hub ZERO_G → explosión al Puente → aterrizaje grande.
 	slice.spawn_at_hub_start()
 	state["hub_position"] = slice.pilot.global_transform.origin
+	slice.activate_spin_gravity()
 	var launch: Dictionary = slice.explosion.detonate()
 	state["launch_velocity"] = launch.get("velocity", Vector3.ZERO)
 	for _i in range(FLIGHT_STEPS):

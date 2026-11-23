@@ -95,6 +95,9 @@ static func should_fail_index(p_seed: int, index: int, percent: int = ELEVATOR_F
 	return CollapseScript.should_fail_index(p_seed, index, percent)
 
 # --- Paso determinista: `delta` fijo + z del Pilot ---
+func tick(delta: float, z: float) -> void:
+	advance(delta, z)
+
 func advance(delta: float, z: float) -> void:
 	_sim_t += max(delta, 0.0)
 	var prev_z: float = _prev_z

@@ -400,7 +400,23 @@ suben draws `10 → 2 135`, nodos `329 → 3 231` y memoria `+14.7 MB`; aun así
 presupuesto PC 60 queda verde. Android/web siguen **pendientes de medición en
 device** (30 fps) y el draw-call count es el próximo objetivo de optimización.
 
-**Hash dorado F7:** `887057977c0b3e28d0cfcae75098b449195489a8133d2659c642fea1271507c6`
+
+**Ajuste de playtest (loop real + batching).** Tras el playtest de Sebastián se
+corrigió el hotspot real de draws: `LadderV2` creaba un `MeshInstance` por
+peldaño (~600 por spoke); ahora cada escalera es **un MultiMeshInstance**. El
+loop jugable además corre de verdad (auto-detonación a los 3 s, cámara única,
+HUD, industria) durante la medición:
+
+| Configuración | Entorno | wall FPS | process ms (avg/max) | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
+| F7 pulido (loop real) | GUI 1280×720 | **60.0** | 17.8 / 26.4 | 7.37 / 9.37 | **45** | 26 | 232 612 | 1 039 | 71.5 MB | ✅ |
+| F7 pulido (loop real) | headless | **60.0** | 2.0 | 6.63 / 7.39 | 0 | 0 | 0 | 1 039 | 68.1 MB | ✅ |
+
+Draws `2 135 → 45`, nodos `3 231 → 1 039`, vértices `176k → 233k` (anillos y
+balizas Tron nuevos), sin picos de 40–247 ms: el frame máximo medido es 26.4 ms
+de process / 9.4 ms de physics.
+
+**Hash dorado F7:** `4d38c6cb9f5ec2ba8132062bc365e6ec4808e1f6de2b527e135f52d9330eed0a`
 (`core_v2/tests/test_ark_run_vertical_slice.oys` + `ark_run_vertical_slice.hash`,
 verificado por `test_ark_run_vertical_slice.gd` en CI sobre dos instancias frescas).
 
@@ -435,7 +451,7 @@ de los 5 actos aprobados por Sebastián.
       ~1.6 m/s y agarra pasamanos sin tirón ni pérdida de cámara.
 - [ ] **Explosión al Puente:** la eyección sale hacia `+Z`; propulsores LT con
       Δv limitado; aterrizaje grande con slide, sin teletransporte ni giro de 180°.
-- [ ] **Cuerda:** RT engancha el anclaje de domo más cercano dentro del cono y el
+- [ ] **Cuerda:** RT/`E` engancha el anclaje de domo más cercano dentro del cono y el
       rango; soltar conserva el momentum.
 - [ ] **Ascensores radiales:** recorrido a 6 m/s con parada de 3 s en extremos;
       si el ascensor falla, la escalera de respaldo deja subir.
@@ -446,7 +462,7 @@ de los 5 actos aprobados por Sebastián.
       antes del estado estático; el jugador sigue sobre la terraza que convierte.
 - [ ] **Industria/LOD/Tron:** 3 niveles con histéresis sin popping; pase Tron sin
       glitches; sombra alineada a `-g_eff` girando durante el encendido.
-- [ ] **Meta en Motor:** cronómetro, reinicio instantáneo con `R` (< 1 s) y
+- [ ] **Meta en Motor:** cronómetro, reinicio instantáneo con `Backspace`/`F5` (< 1 s) y
       fantasma del mejor intento visible y reproducible.
 - [ ] **Presupuesto:** PC 60 fps a 1280×720 con la escena integrada; sin spikes
       por encima de ~2× el frame budget.

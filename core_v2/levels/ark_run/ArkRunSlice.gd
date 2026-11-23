@@ -39,9 +39,9 @@ func _ready() -> void:
 	_bridge_z_min = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[0])).origin.z
 	_ensure_presentation_nodes(); _configure_zone_nodes()
 	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules(); _build_wiring()
-	_apply_spin_gravity_mode()
 	if pilot != null:
-		pilot.set_spin_real_enabled(true); spawn_at_hub_start()
+		# F7: arranque real en ZERO_G; SPIN_REAL se activa recién al detonar.
+		spawn_at_hub_start()
 
 func _exit_tree() -> void:
 	var world = get_node_or_null("/root/GravityWorld")
@@ -154,18 +154,22 @@ func _build_suit_os_modules() -> void:
 	var host = _attach(get_node("RaceHudRoot"), "ArkRunSuitOSHost", SuitOSHostScript)
 	host.set_slice(self)
 
-func _apply_spin_gravity_mode() -> void:
+func activate_spin_gravity() -> void:
 	var world = get_node_or_null("/root/GravityWorld")
 	if world == null: return
-	_previous_gravity_mode = int(world.get_current_gravity_mode()); world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
+	if _previous_gravity_mode < 0: _previous_gravity_mode = int(world.get_current_gravity_mode())
+	world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
+
+func deactivate_spin_gravity() -> void:
+	var world = get_node_or_null("/root/GravityWorld"); if world != null and _previous_gravity_mode >= 0: world.set_gravity_mode(_previous_gravity_mode)
 
 # --- Pilot ---
 func spawn_at_hub_start(r0: float = 4.0, z0: float = ENGINE_IGNITION_Z) -> void:
 	if pilot == null: return
 	var position := Vector3(max(r0, 0.01), 0.0, z0)
 	var up: Vector3 = SpinFrame.up(position, Vector3.UP)
-	var x_axis: Vector3 = up.cross(Vector3(0.0, 0.0, 1.0)).normalized()
-	_place_pilot(Transform(Basis(x_axis, up, Vector3(0.0, 0.0, 1.0)).orthonormalized(), position), up, Vector3.ZERO)
+	var x_axis: Vector3 = up.cross(Vector3(0.0, 0.0, -1.0)).normalized()
+	_place_pilot(Transform(Basis(x_axis, up, Vector3(0.0, 0.0, -1.0)).orthonormalized(), position), up, Vector3.ZERO)
 
 func _place_pilot(body_transform: Transform, up: Vector3, body_velocity: Vector3) -> void:
 	pilot.global_transform = body_transform; pilot.velocity = body_velocity; pilot.set_sim_up(up)

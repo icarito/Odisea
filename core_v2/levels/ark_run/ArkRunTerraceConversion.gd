@@ -26,6 +26,7 @@ export(Vector3) var proxy_size := Vector3(40.0, 0.4, 40.0)
 export(float) var proxy_lift := 1.2
 
 var _plates: Array = []
+var _plate_bases: Dictionary = {}
 var _active := false
 var _elapsed := 0.0
 var _ignition = null
@@ -55,6 +56,8 @@ func add_plate(body) -> bool:
 		return false
 	if not _plates.has(body):
 		_plates.append(body)
+	if not _plate_bases.has(body.get_instance_id()):
+		_plate_bases[body.get_instance_id()] = _world_transform(body)
 	return true
 
 # Crea una placa kinemática (KinematicBody => trackable por §5.2) y la registra.
@@ -103,10 +106,14 @@ func start_conversion() -> void:
 	_active = true
 	_elapsed = 0.0
 
-# Reinicio instantaneo: vuelve a empezar sin recargar la escena.
+# Reinicio instantaneo: vuelve a empezar y restaura la orientacion original de
+# las placas convertidas (conserva la escena, sin recargar).
 func reset() -> void:
 	_active = false
 	_elapsed = 0.0
+	for body in _plates:
+		if is_instance_valid(body) and _plate_bases.has(body.get_instance_id()):
+			_apply_transform(body, _plate_bases[body.get_instance_id()])
 
 func is_active() -> bool: return _active
 func is_complete() -> bool: return not _active and _elapsed >= duration_sec

@@ -140,6 +140,10 @@ func detonate(target_pilot = null) -> Dictionary:
 		pilot.set_sim_up(SpinFrame.up(start, fallback))
 	return result
 
+# Alias de gameplay (F7): el loop jugable dispara la explosión automáticamente.
+func trigger_explosion(target_pilot = null) -> Dictionary:
+	return detonate(target_pilot)
+
 func get_flight_elapsed() -> float:
 	return t_sim
 

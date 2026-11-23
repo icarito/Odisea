@@ -44,6 +44,50 @@ func _run_oys_once() -> Dictionary:
 	slice.free()
 	return state
 
+func test_countdown_auto_detonates_and_restart_returns_to_zero_g() -> void:
+	var slice = SliceScene.instance()
+	add_child(slice)
+	slice.set_physics_process(false)
+	slice.pilot.set_physics_process(false)
+	var wiring = slice.get_node_or_null("ArkRunWiring")
+	assert_object(wiring).is_not_null()
+	assert_bool(slice.pilot.is_spin_real_active()).is_false()
+	assert_bool(slice.explosion.launched).is_false()
+	for _i in range(200):
+		if slice.explosion.launched:
+			break
+		wiring.loop.advance_play_loop(1.0 / 60.0)
+	assert_bool(slice.explosion.launched).is_true()
+	assert_bool(slice.pilot.is_spin_real_active()).is_true()
+	assert_bool(wiring.race.running).is_true()
+
+	# Placas convertidas: con a_axial activo la orientación cambia y reset() la restaura.
+	var dt := 1.0 / 60.0
+	wiring.ignition.advance(dt, 620.0)
+	wiring.ignition.advance(dt, 100.0)
+	wiring.ignition.advance(dt, 1.0)
+	wiring.ignition.advance(dt, -1.0)
+	wiring.ignition.advance(3.0, -1.0)
+	assert_bool(wiring.ignition.is_ignited()).is_true()
+	var base_normal: Vector3 = wiring.conversion.get_plate_normal(0)
+	wiring.conversion.start_conversion()
+	wiring.conversion.advance(3.0)
+	var converted_normal: Vector3 = wiring.conversion.get_plate_normal(0)
+	assert_float(converted_normal.angle_to(base_normal)).is_greater(0.0001)
+	wiring.race.best_time_sec = 12.0
+	wiring.restart_run()
+	assert_float(wiring.conversion.get_elapsed()).is_equal_approx(0.0, 1e-9)
+	assert_float(wiring.conversion.get_plate_normal(0).angle_to(base_normal)).is_less(1e-5)
+	var pilot_pos: Vector3 = slice.pilot.global_transform.origin
+	assert_float(SpinFrame.r_perp(pilot_pos).length()).is_equal_approx(4.0, 1e-4)
+	assert_float(pilot_pos.z).is_equal_approx(0.0, 1e-4)
+	assert_bool(slice.pilot.is_spin_real_active()).is_false()
+	assert_bool(slice.explosion.launched).is_false()
+	assert_bool(wiring.ignition.is_ignited()).is_false()
+	assert_float(wiring.race.best_time_sec).is_equal_approx(12.0, 1e-9)
+	remove_child(slice)
+	slice.free()
+
 static func _normalize(value) -> String:
 	if typeof(value) == TYPE_VECTOR3:
 		return "%0.9f,%0.9f,%0.9f" % [value.x, value.y, value.z]

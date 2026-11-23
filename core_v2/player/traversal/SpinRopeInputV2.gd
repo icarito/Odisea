@@ -7,7 +7,7 @@ class_name SpinRopeInputV2
 # Pilot se conserva (nunca se escribe velocidad al enganchar ni al soltar).
 
 const RopeScript = preload("res://core_v2/player/traversal/SpinRopeSwingV2.gd")
-const ROPE_KEY := KEY_R
+const ROPE_KEY := KEY_E
 const EPSILON := 1e-6
 
 export(bool) var enabled := true
