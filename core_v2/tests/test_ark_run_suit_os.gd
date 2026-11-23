@@ -87,7 +87,8 @@ func _on_ignition_alert(state, countdown) -> void:
 func test_autonav_registers_in_r1_and_moves_to_any_slot() -> void:
 	assert_bool(SuitOS.has_screen("player:autonav")).is_true()
 	assert_bool(SuitOS.has_screen("ship:ark_nav")).is_true()
-	assert_array(SuitOS.get_pinned_slots()).is_equal(["player:flashlight", "", "player:autonav", ""])
+	assert_array(SuitOS.get_pinned_slots()).is_equal(
+		["player:flashlight", "player:thrusters", "player:autonav", "player:rope"])
 	assert_array(SuitOS.DEFAULT_PINS).is_equal(["player:flashlight", "", "", ""])
 	assert_int(SuitOS.ARK_RUN_AUTONAV_SLOT).is_equal(2) # R1 = slot_3; L1 = slot_1
 	assert_int(SuitOS.nav_assist_slot_index()).is_equal(2)
