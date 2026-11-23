@@ -4,6 +4,7 @@ enum Landing { NORMAL, SLIDE, TUMBLE }
 const GROUND_PROBE_DISTANCE := 0.1
 const EPS := 0.000001
 export(float) var spin_omega := 0.0
+export(float) var a_axial := 0.0
 export(float) var coriolis_ground_factor := 0.3
 export(float) var spin_capsule_align_rate_rad_s := 6.0
 export(float) var spin_v_safe := 12.0
@@ -54,7 +55,7 @@ func ground_acceleration(position: Vector3, velocity: Vector3) -> Vector3:
 	return SpinFrameScript.a_centrif(position, spin_omega) \
 		+ SpinFrameScript.a_coriolis(velocity, spin_omega) * coriolis_ground_factor
 func air_step(position: Vector3, velocity: Vector3, dt: float, extra_accel: Vector3 = Vector3.ZERO) -> Dictionary:
-	return SpinFrameScript.step_free_flight(position, velocity, spin_omega, dt, extra_accel)
+	return SpinFrameScript.step_free_flight_axial(position, velocity, spin_omega, dt, a_axial, extra_accel)
 func classify_landing(impact_speed: float) -> int:
 	var speed: float = abs(impact_speed)
 	if speed < spin_v_safe: return Landing.NORMAL
@@ -163,10 +164,15 @@ func _step_grounded(controller, dt: float, incoming_velocity: Vector3, external:
 		controller.velocity, -up * spin_snap, up, true, 4, deg2rad(45), false)
 	if controller.has_method("_update_floor_info"):
 		controller._update_floor_info()
+	# AGENTS §5.2: en SPIN_REAL también se arrastra al Pilot sobre plataformas
+	# móviles (p. ej. las placas kinemáticas de la conversión de terrazas F5).
+	# El controller hace el tracking por delta de transform tras el move_and_slide.
+	if controller.has_method("_update_platform_tracking"):
+		controller._update_platform_tracking(dt)
 func _step_airborne(controller, dt: float, external: Vector3, thruster: Vector3, up: Vector3) -> void:
 	var position: Vector3 = controller.global_transform.origin
-	var state: Dictionary = SpinFrameScript.step_free_flight(
-		position, controller.velocity + thruster, spin_omega, dt, external)
+	var state: Dictionary = SpinFrameScript.step_free_flight_axial(
+		position, controller.velocity + thruster, spin_omega, dt, a_axial, external)
 	var target_vel: Vector3 = state["velocity"]
 	var delta: Vector3 = state["position"] - position
 	var impact_speed: float = max(0.0, -controller.velocity.dot(up))

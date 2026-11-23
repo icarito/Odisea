@@ -132,20 +132,27 @@ func _build_visual() -> void:
 	ladder_material.roughness = 0.85
 	ladder_material.metallic = 0.2
 
-	_add_box_mesh(visual, "RailLeft", Vector3(-0.28, 0, 0), Vector3(0.08, climb_half_height * 2.0, 0.08), ladder_material)
-	_add_box_mesh(visual, "RailRight", Vector3(0.28, 0, 0), Vector3(0.08, climb_half_height * 2.0, 0.08), ladder_material)
+	# FD-324: un solo MultiMeshInstance por escalera (antes: 2 rieles + 1 mesh por
+	# peldaño, ~600 nodos por spoke). Misma geometría, 1 draw call por escalera.
+	var transforms: Array = []
+	transforms.append(Transform(Basis.IDENTITY.scaled(Vector3(0.08, climb_half_height * 2.0, 0.08)), Vector3(-0.28, 0, 0)))
+	transforms.append(Transform(Basis.IDENTITY.scaled(Vector3(0.08, climb_half_height * 2.0, 0.08)), Vector3(0.28, 0, 0)))
+	for y in _get_rung_local_ys():
+		transforms.append(Transform(Basis.IDENTITY.scaled(Vector3(0.62, 0.05, 0.08)), Vector3(0, y, 0)))
+	var cube := CubeMesh.new()
+	cube.size = Vector3(1.0, 1.0, 1.0)
+	cube.material = ladder_material
+	var batch := MultiMesh.new()
+	batch.transform_format = MultiMesh.TRANSFORM_3D
+	batch.mesh = cube
+	batch.instance_count = transforms.size()
+	for i in range(transforms.size()):
+		batch.set_instance_transform(i, transforms[i])
+	var instance := MultiMeshInstance.new()
+	instance.name = "RungBatch"
+	instance.multimesh = batch
+	visual.add_child(instance)
 
-	var rung_ys = _get_rung_local_ys()
-	for i in range(rung_ys.size()):
-		var y: float = rung_ys[i]
-		_add_box_mesh(visual, "Rung%d" % i, Vector3(0, y, 0), Vector3(0.62, 0.05, 0.08), ladder_material)
-
-func _add_box_mesh(parent: Spatial, node_name: String, local_pos: Vector3, size: Vector3, material: Material) -> void:
-	var mesh_instance = MeshInstance.new()
-	mesh_instance.name = node_name
-	var cube_mesh = CubeMesh.new()
-	cube_mesh.size = size
-	mesh_instance.mesh = cube_mesh
-	mesh_instance.translation = local_pos
-	mesh_instance.material_override = material
-	parent.add_child(mesh_instance)
+func count_rung_instances() -> int:
+	var batch = get_node_or_null("Visual/RungBatch")
+	return int(batch.multimesh.instance_count) if batch is MultiMeshInstance and batch.multimesh != null else 0

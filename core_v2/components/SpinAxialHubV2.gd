@@ -81,7 +81,7 @@ func _ensure_visual() -> void:
 	var material := SpatialMaterial.new()
 	material.flags_unshaded = true
 	material.flags_transparent = true
-	material.albedo_color = Color(0.35, 0.7, 1.0, 0.12)
+	material.albedo_color = Color(0.35, 0.7, 1.0, 0.035)
 	mesh.material = material
 	var instance := MeshInstance.new()
 	instance.name = "HubVisual"
@@ -90,3 +90,41 @@ func _ensure_visual() -> void:
 		Basis(Vector3.RIGHT, PI * 0.5), Vector3(0.0, 0.0, (z_min + z_max) * 0.5)
 	)
 	add_child(instance)
+	# FD-324 F7: núcleo abierto/costillas. 12 largueros + anillos cada 100 m en UN
+	# MultiMeshInstance emisivo (cian tenue), para ver todo el cilindro desde r=4.
+	var rib_material := SpatialMaterial.new()
+	rib_material.flags_unshaded = true
+	rib_material.albedo_color = Color(0.35, 0.85, 1.0, 1.0)
+	rib_material.emission_enabled = true
+	rib_material.emission = Color(0.2, 0.7, 1.0)
+	rib_material.emission_energy = 0.8
+	var cube := CubeMesh.new()
+	cube.size = Vector3(1.0, 1.0, 1.0)
+	cube.material = rib_material
+	var transforms: Array = []
+	for i in range(12):
+		var angle: float = TAU * float(i) / 12.0
+		var pos := Vector3(cos(angle) * hub_radius, sin(angle) * hub_radius, 0.0)
+		transforms.append(Transform(Basis(Vector3.RIGHT, PI * 0.5).scaled(Vector3(0.12, 0.12, height)), pos))
+	var ring_count: int = int(max(2.0, floor(height / 100.0)))
+	var ring_step: float = height / float(ring_count)
+	for i in range(ring_count + 1):
+		var z: float = z_min + ring_step * float(i)
+		transforms.append(Transform(
+			Basis.IDENTITY.scaled(Vector3(hub_radius * 2.0, 0.08, 0.08)),
+			Vector3(0.0, 0.0, z)
+		))
+		transforms.append(Transform(
+			Basis(Vector3.RIGHT, PI * 0.5).scaled(Vector3(hub_radius * 2.0, 0.08, 0.08)),
+			Vector3(0.0, 0.0, z)
+		))
+	var batch := MultiMesh.new()
+	batch.transform_format = MultiMesh.TRANSFORM_3D
+	batch.mesh = cube
+	batch.instance_count = transforms.size()
+	for i in range(transforms.size()):
+		batch.set_instance_transform(i, transforms[i])
+	var ribs := MultiMeshInstance.new()
+	ribs.name = "HubRibs"
+	ribs.multimesh = batch
+	add_child(ribs)

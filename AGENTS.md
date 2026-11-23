@@ -181,7 +181,8 @@ Antes de tocar gravedad, terrazas centrífugas, `WorldRotator`, `PlateContentStr
 - `docs/features/FD-040_plate_content_stream_stability.md`
 
 Resumen operativo:
-- `PlayerControllerV2` conserva `Vector3.UP`; no introducir `up` dinámico.
+- `PlayerControllerV2` conserva `Vector3.UP` en los modos `0..3`; no introducir `up` dinámico en esos modos.
+- **Excepción `SPIN_REAL` (FD-323):** en el modo opt-in `GravityModes.Mode.SPIN_REAL == 4`, `PlayerControllerV2` usa un `_up` dinámico derivado de `SpinFrame` (sin `WorldRotator`). Sigue siendo exclusivo de escenas que lo activan explícitamente; no se deriva de `SPIN_WALKABLE` ni cambia los contratos de los modos `0..3`.
 - En modo centrífugo caminable, `WorldRotator` cambia el marco visual y la cámara sigue al personaje; la física del jugador sigue siendo estándar.
 - Gameplay con física debe vivir fuera de `WorldRotator` vía `PlateContentStream`, salvo escenas legacy documentadas.
 - `BaseTerrace` funciona en modo centrífugo, pero sigue siendo híbrida/legacy y debe mantener `WorldRotator.centrifugal_current_plate_only_physics = false` hasta migrar su física a slots.
