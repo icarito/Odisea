@@ -199,8 +199,42 @@ func test_pilot_spin_real_up_capsule_and_snapshot() -> void:
 
 	pilot.step(DT, InputDataV2.new())
 	assert_float(pilot.get_sim_up().dot(Vector3.LEFT)).is_greater(0.99)
-	assert_float(pilot.global_transform.basis.y.normalized().dot(pilot.get_sim_up())).is_greater(0.05)
+	# Cerca del eje la alineación se atenúa (evita tirones al CameraRig), pero avanza.
+	assert_float(pilot.global_transform.basis.y.normalized().dot(pilot.get_sim_up())).is_greater(0.005)
+	var spin = pilot.get_spin_physics()
+	var tilted := Basis(Vector3.RIGHT, 1.0)
+	var near: Basis = spin.align_capsule_basis(tilted, Vector3.UP, 1.0, 10.0)
+	var far: Basis = spin.align_capsule_basis(tilted, Vector3.UP, 1.0, 200.0)
+	assert_float(far.y.normalized().dot(Vector3.UP)).is_greater(near.y.normalized().dot(Vector3.UP))
 
 	pilot._up = Vector3.UP
 	pilot.restore_snapshot(snapshot)
 	assert_float(pilot.get_sim_up().dot(Vector3.LEFT)).is_greater(0.99)
+
+func test_spin_real_acrobatic_snap_arms_the_flip() -> void:
+	var gravity_world = get_node_or_null("/root/GravityWorld")
+	gravity_world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
+	var pilot = PilotScene.instance()
+	auto_free(pilot)
+	add_child(pilot)
+	pilot.set_physics_process(false)
+	var forward := InputDataV2.new()
+	forward.move_vec = Vector2(0.0, -1.0)
+	pilot._update_acrobatic_snap(forward)
+	var back := InputDataV2.new()
+	back.move_vec = Vector2(0.0, 1.0)
+	pilot._update_acrobatic_snap(back)
+	assert_bool(pilot.is_acrobatic_ready).is_true()
+
+func test_spin_real_never_leaves_legacy_climbing_active() -> void:
+	var gravity_world = get_node_or_null("/root/GravityWorld")
+	gravity_world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
+	var pilot = PilotScene.instance()
+	auto_free(pilot)
+	add_child(pilot)
+	pilot.set_physics_process(false)
+	pilot.traversal_logic.is_climbing = true
+	pilot.traversal_logic.is_hanging = true
+	pilot.step(DT, InputDataV2.new())
+	assert_bool(pilot.traversal_logic.is_climbing).is_false()
+	assert_bool(pilot.traversal_logic.is_hanging).is_false()

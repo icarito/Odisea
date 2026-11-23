@@ -4,6 +4,7 @@ enum Landing { NORMAL, SLIDE, TUMBLE }
 const GROUND_PROBE_DISTANCE := 0.1
 const EPS := 0.000001
 export(float) var spin_omega := 0.0
+export(float) var a_axial := 0.0
 export(float) var coriolis_ground_factor := 0.3
 export(float) var spin_capsule_align_rate_rad_s := 6.0
 export(float) var spin_v_safe := 12.0
@@ -38,13 +39,16 @@ func apply_spin_thruster(dir: Vector3, dt: float) -> float:
 	return dv
 # Rotación mínima para alinear el eje Y del basis a `up`, con tasa angular máxima
 # fija. El caso antiparalelo elige un eje perpendicular determinista.
-func align_capsule_basis(current: Basis, up: Vector3, dt: float) -> Basis:
+func align_capsule_basis(current: Basis, up: Vector3, dt: float, radius: float = INF) -> Basis:
 	var target_up: Vector3 = up.normalized() if up.length_squared() > EPS else Vector3.UP
 	var local_y: Vector3 = current.y.normalized()
 	if local_y.length_squared() <= EPS: return current
 	var angle: float = acos(clamp(local_y.dot(target_up), -1.0, 1.0))
 	if angle <= 0.000001: return current
-	angle = min(angle, max(0.0, spin_capsule_align_rate_rad_s * dt))
+	var attenuation: float = 1.0
+	if radius != INF:
+		attenuation = clamp((radius - 12.0) / 80.0, 0.12, 1.0)
+	angle = min(angle, max(0.0, spin_capsule_align_rate_rad_s * attenuation * dt))
 	var axis: Vector3 = local_y.cross(target_up)
 	if axis.length_squared() <= EPS:
 		axis = current.z if current.z.length_squared() > EPS else current.x
@@ -54,7 +58,7 @@ func ground_acceleration(position: Vector3, velocity: Vector3) -> Vector3:
 	return SpinFrameScript.a_centrif(position, spin_omega) \
 		+ SpinFrameScript.a_coriolis(velocity, spin_omega) * coriolis_ground_factor
 func air_step(position: Vector3, velocity: Vector3, dt: float, extra_accel: Vector3 = Vector3.ZERO) -> Dictionary:
-	return SpinFrameScript.step_free_flight(position, velocity, spin_omega, dt, extra_accel)
+	return SpinFrameScript.step_free_flight_axial(position, velocity, spin_omega, dt, a_axial, extra_accel)
 func classify_landing(impact_speed: float) -> int:
 	var speed: float = abs(impact_speed)
 	if speed < spin_v_safe: return Landing.NORMAL
@@ -92,7 +96,8 @@ func step(controller, dt: float, input) -> void:
 	var position: Vector3 = controller.global_transform.origin
 	var up: Vector3 = update_up(position)
 	var incoming_velocity: Vector3 = controller.velocity
-	controller.global_transform.basis = align_capsule_basis(controller.global_transform.basis, up, dt)
+	controller.global_transform.basis = align_capsule_basis(
+		controller.global_transform.basis, up, dt, SpinFrameScript.r_perp(position).length())
 	var move_input: Vector2 = input.move_vec if input != null else Vector2.ZERO
 	var jump_pressed: bool = input != null and input.jump
 	var jump_logic = controller.get("jump_logic")
@@ -109,7 +114,22 @@ func step(controller, dt: float, input) -> void:
 	if jumped:
 		# Salto: fija la componente sobre `up` y sale por aire en este mismo tick
 		# (move_and_slide_with_snap anularia el impulso contra el piso).
-		controller.velocity += up * (jump_logic.jump_force - controller.velocity.dot(up))
+		var acrobatic: bool = bool(controller.get("is_acrobatic_ready"))
+		var force: float = jump_logic.acrobatic_jump_force if acrobatic else jump_logic.jump_force
+		controller.velocity += up * (force - controller.velocity.dot(up))
+		if acrobatic:
+			var planar: Vector3 = controller.velocity - up * controller.velocity.dot(up)
+			planar *= jump_logic.acrobatic_brake_factor
+			controller.velocity = planar + up * force
+			var last_vec = controller.get("last_input_vector")
+			if typeof(last_vec) == TYPE_VECTOR3 and last_vec.length() > 0.1:
+				var push: Vector3 = last_vec.normalized()
+				push -= up * push.dot(up)
+				controller.velocity += push * jump_logic.acrobatic_backward_impulse
+			controller.set("is_acrobatic_ready", false)
+			controller.set("frames_since_last_snap", 16)
+			if controller.has_method("_emit_anim_event"):
+				controller._emit_anim_event("acrobatic")
 		jump_logic.consume_jump()
 		_slide_active = false
 		_was_grounded = false
@@ -163,10 +183,15 @@ func _step_grounded(controller, dt: float, incoming_velocity: Vector3, external:
 		controller.velocity, -up * spin_snap, up, true, 4, deg2rad(45), false)
 	if controller.has_method("_update_floor_info"):
 		controller._update_floor_info()
+	# AGENTS §5.2: en SPIN_REAL también se arrastra al Pilot sobre plataformas
+	# móviles (p. ej. las placas kinemáticas de la conversión de terrazas F5).
+	# El controller hace el tracking por delta de transform tras el move_and_slide.
+	if controller.has_method("_update_platform_tracking"):
+		controller._update_platform_tracking(dt)
 func _step_airborne(controller, dt: float, external: Vector3, thruster: Vector3, up: Vector3) -> void:
 	var position: Vector3 = controller.global_transform.origin
-	var state: Dictionary = SpinFrameScript.step_free_flight(
-		position, controller.velocity + thruster, spin_omega, dt, external)
+	var state: Dictionary = SpinFrameScript.step_free_flight_axial(
+		position, controller.velocity + thruster, spin_omega, dt, a_axial, external)
 	var target_vel: Vector3 = state["velocity"]
 	var delta: Vector3 = state["position"] - position
 	var impact_speed: float = max(0.0, -controller.velocity.dot(up))

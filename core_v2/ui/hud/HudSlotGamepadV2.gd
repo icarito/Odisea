@@ -11,6 +11,10 @@ extends Node
 const HudTabGestureScript = preload("res://core_v2/ui/hud/HudTabGesture.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 
+# Fallback cuando el backend no expone is_hold_gameplay_app (p.ej. el control remoto):
+# apps cuyo hold acciona la app y nunca abre el radial. Debe coincidir con SuitOS.
+const HOLD_GAMEPLAY_APP_IDS := ["player:autonav", "player:thrusters", "player:rope"]
+
 # Backend con la interfaz de SuitOS/RemoteHudBackend: slot_screen_id, has_screen, get_screen,
 # is_hud_mode_active y open_hud_mode.
 var backend: Node = null
@@ -78,6 +82,11 @@ func _screen(slot: int):
 # La misma ruta que el boton del widget: HudWidgetAction.perform resuelve si la accion se ejecuta
 # local (SuitOS) o viaja por el canal (RemoteControlHome.perform_hud_widget_action).
 func _run_primary(slot: int) -> void:
+	# FD-324 F4: en un slot de una app de "mantener" de gameplay un tap abre su pantalla;
+	# el hold acciona la app (nav assist / propulsores / cuerda) y no abre el radial.
+	if _is_hold_gameplay_app_slot(slot):
+		_open_screen(slot)
+		return
 	var screen = _screen(slot)
 	if screen == null or not screen.has_method("hud_gamepad_actions"):
 		# Slot vacio: abrir el radial fijado a ese slot para elegir que fijar.
@@ -96,4 +105,24 @@ func _run_primary(slot: int) -> void:
 func _open_radial(slot: int) -> void:
 	if slot < 0 or backend == null or not backend.has_method("open_hud_mode"):
 		return
+	# El hold de una app de gameplay no abre el radial: acciona la app (FD-324 F4).
+	if _is_hold_gameplay_app_slot(slot):
+		return
 	backend.open_hud_mode(true, "", slot)
+
+
+func _is_hold_gameplay_app_slot(slot: int) -> bool:
+	if slot < 0 or backend == null or not backend.has_method("slot_screen_id"):
+		return false
+	var screen_id: String = String(backend.slot_screen_id(slot))
+	if screen_id.empty():
+		return false
+	if backend.has_method("is_hold_gameplay_app"):
+		return bool(backend.is_hold_gameplay_app(screen_id))
+	return screen_id in HOLD_GAMEPLAY_APP_IDS
+
+
+func _open_screen(slot: int) -> void:
+	if slot < 0 or backend == null or not backend.has_method("open_hud_mode"):
+		return
+	backend.open_hud_mode(false, String(backend.slot_screen_id(slot)), slot)

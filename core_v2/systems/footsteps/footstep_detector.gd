@@ -33,13 +33,18 @@ func _ready():
 func set_generic_profile(value: Resource):
 	generic_fallback_profile = value
 
-func play_footstep():
-	_play_interaction("footstep")
+func play_footstep(down_dir: Vector3 = Vector3.DOWN):
+	_play_interaction("footstep", down_dir)
 
-func play_landing():
-	_play_interaction("landing")
+func play_landing(down_dir: Vector3 = Vector3.DOWN):
+	_play_interaction("landing", down_dir)
 
-func _play_interaction(_interaction_type: String):
+# Distancia recorrida proyectada al plano perpendicular a `up` (0 en el eje).
+static func planar_distance(delta: Vector3, up: Vector3) -> float:
+	var normal: Vector3 = up.normalized() if up.length_squared() > 0.000001 else Vector3.UP
+	return (delta - normal * delta.dot(normal)).length()
+
+func _play_interaction(_interaction_type: String, down_dir: Vector3 = Vector3.DOWN):
 	# El controlador ya resolvio el contacto del piso durante move_and_slide().
 	# Preferirlo evita que una superficie fina de grilla quede fuera de un
 	# raycast aunque sea la que sostiene al jugador.
@@ -52,7 +57,8 @@ func _play_interaction(_interaction_type: String):
 			return
 
 	var from = global_transform.origin
-	var to = from + Vector3(0, -0.6, 0)
+	var down: Vector3 = down_dir.normalized() if down_dir.length_squared() > 0.000001 else Vector3.DOWN
+	var to = from + down * 0.6
 	var exclude = []
 	if parent_rid:
 		exclude = [parent_rid]
