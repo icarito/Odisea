@@ -174,13 +174,16 @@ static func create_tron_material(color: Color) -> SpatialMaterial:
 static func build_environment() -> Environment:
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.015, 0.02, 0.035)
-	environment.ambient_light_color = Color(0.05, 0.08, 0.12)
-	environment.ambient_light_energy = 0.6
+	# Azul-espacio profundo: fondo casi negro con un tinte frio, luz ambiental
+	# equilibrada y glow suave para leer emisivos (Tron) sin lavar la escena.
+	environment.background_color = Color(0.008, 0.014, 0.03)
+	environment.ambient_light_color = Color(0.06, 0.1, 0.16)
+	environment.ambient_light_energy = 0.55
 	environment.glow_enabled = true
-	environment.glow_intensity = 0.9
-	environment.glow_bloom = 0.15
-	environment.glow_strength = 1.1
+	environment.glow_intensity = 0.5
+	environment.glow_bloom = 0.12
+	environment.glow_strength = 1.0
+	environment.glow_hdr_threshold = 1.05
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	return environment
 func get_sector_count() -> int:

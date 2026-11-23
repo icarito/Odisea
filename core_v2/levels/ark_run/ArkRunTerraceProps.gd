@@ -5,7 +5,13 @@ class_name ArkRunTerraceProps
 # layout. Cada domo deja 4 patas y una pasarela al centro de la placa.
 const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
 const DomeResource = preload("res://core_v2/components/DomeSpiralFieldResource.gd")
+const TronMaterials = preload("res://core_v2/levels/ark_run/ArkRunTronMaterials.gd")
+const ZoneDressing = preload("res://core_v2/levels/ark_run/ArkRunZoneDressing.gd")
 const SLICE_SEED := 32401
+# Placas reservadas de la espiral 0: 0 = Motor (meta) y 48 = Puente (aterrizaje).
+# Quedan libres de domos y de su colision; el vestido va en ArkRunZoneDressing.
+const ZONE_SPIRAL := 0
+const ZONE_PLATES := [0, 48]
 const DOME_MESH = preload("res://core_v2/levels/exteriors/DomeExteriorLowPoly_baked.mesh")
 const DOME_MESH_RADIUS := 35.0
 const DOME_MESH_HEIGHT := 35.0
@@ -54,6 +60,8 @@ func build_from_configs(spirals: Array, seed_value: int = SLICE_SEED) -> void:
 		for plate_index in range(SpiralGeometry.plate_count_for(spiral)):
 			if (plate_index + spiral_index) % 2 != 0:
 				continue
+			if is_zone_plate(spiral_index, plate_index):
+				continue
 			var plate_xform: Transform = SpiralGeometry.plate_transform(spiral, plate_index)
 			var hash_plate: int = spiral_index * 997 + plate_index
 			for slot in range(DOME_SLOTS_PER_PLATE):
@@ -77,6 +85,17 @@ func build_from_configs(spirals: Array, seed_value: int = SLICE_SEED) -> void:
 	cube.material = _material(SCAFFOLD_COLOR)
 	_spawn_multimesh(_scaffolds_root, "Scaffolds", cube, _scaffold_transforms)
 	DOME_COLLISION_SCRIPT.new().rebuild(self, _dome_entries)
+	_build_zone_dressing(spirals)
+
+# Puente (48) y Motor (0) de la espiral 0: sin domo ni colision de domo encima.
+static func is_zone_plate(spiral_index: int, plate_index: int) -> bool:
+	return spiral_index == ZONE_SPIRAL and ZONE_PLATES.has(plate_index)
+
+# Viste las placas reservadas: pista de aterrizaje (Puente) y reactor (Motor).
+func _build_zone_dressing(spirals: Array) -> void:
+	if spirals.empty():
+		return
+	ZoneDressing.build(self, spirals[ZONE_SPIRAL] if spirals.size() > ZONE_SPIRAL else {})
 
 # Catálogo determinista: reemplazar `_mesh_for_kind` por el kit de Blender.
 static func dome_variant(seed_value: int, plate_index: int, slot: int) -> Dictionary:
@@ -144,7 +163,8 @@ func _spawn_multimesh(root: Spatial, node_name: String, mesh: Mesh, transforms: 
 	root.add_child(instance)
 func _mesh_for_kind(kind: String) -> Mesh:
 	var mesh: Mesh = DOME_MESH.duplicate()
-	mesh.surface_set_material(0, _material(DOME_COLORS.get(kind, SCAFFOLD_COLOR)))
+	mesh.surface_set_material(0, TronMaterials.dome_material(
+		DOME_COLORS.get(kind, SCAFFOLD_COLOR)))
 	return mesh
 func _material(color: Color) -> SpatialMaterial:
 	var material := SpatialMaterial.new()

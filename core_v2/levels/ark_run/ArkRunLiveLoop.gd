@@ -11,6 +11,10 @@ const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 const DETONATION_SEC := 3.0; const HUD_INTERVAL := 0.1
 const RESTART_KEYS := [KEY_BACKSPACE, KEY_F5]; const SLICE_HALF := 1000.0
 const FLIGHT_SPRING_LENGTH := 22.0; const GROUND_SPRING_LENGTH := 5.0; const SPRING_LERP_SPEED := 3.0
+# La cuerda apunta +20 grados por encima de la mirada de camara para no elegir
+# anclajes demasiado bajos en el campo visual (feedback de playtest).
+const AIM_PITCH_DEG := 20.0
+const EPSILON := 1e-6
 
 var wiring = null
 var slice = null
@@ -74,8 +78,11 @@ func _tick_modules(dt: float) -> void:
 func present(dt: float) -> void:
 	var pilot = slice.pilot
 	if pilot == null or not is_instance_valid(pilot) or not pilot.is_spin_real_active():
-		if pilot != null and is_instance_valid(pilot) and slice.spin_predictor != null:
-			slice.spin_predictor.visible = false
+		if pilot != null and is_instance_valid(pilot):
+			if slice.spin_predictor != null:
+				slice.spin_predictor.visible = false
+			if wiring.shadow != null:
+				wiring.shadow.set_legacy_shadow_hidden(pilot, false)
 		return
 	if wiring.ignition == null:
 		return
@@ -88,7 +95,7 @@ func present(dt: float) -> void:
 	_apply_camera(dt, pilot, pos, r_local, physics)
 	_update_predictor(dt, pilot, pos, r_local, a_axial, physics)
 	if wiring.shadow != null:
-		wiring.shadow.update_shadow(pos, slice.spin_omega, a_axial)
+		wiring.shadow.update_shadow(pos, slice.spin_omega, a_axial, pilot)
 	if wiring.lod != null:
 		wiring.lod.update_lod_for_position(pos)
 	_update_race(dt, pilot)
@@ -126,6 +133,43 @@ func _up_of(pilot, pos: Vector3) -> Vector3:
 	if pilot.has_method("get_sim_up"):
 		return pilot.get_sim_up()
 	return SpinFrame.up(pos, Vector3.UP)
+
+# Eleva el vector de mirada `pitch_deg` grados alrededor del eje derecho de la
+# camara, verificando el signo para que siempre incline hacia +sim_up (la
+# rotacion de un vector alrededor de "right" cambia de sentido segun la base).
+static func elevate_aim_dir(
+	cam_fwd: Vector3, cam_right: Vector3, sim_up: Vector3,
+	pitch_deg: float = AIM_PITCH_DEG
+) -> Vector3:
+	var forward: Vector3 = cam_fwd.normalized() if cam_fwd.length_squared() > EPSILON \
+		else Vector3.FORWARD
+	var right: Vector3 = cam_right.normalized() if cam_right.length_squared() > EPSILON \
+		else Vector3.RIGHT
+	var angle: float = deg2rad(pitch_deg)
+	var rotated: Vector3 = forward.rotated(right, angle)
+	if sim_up.length_squared() > EPSILON:
+		var up: Vector3 = sim_up.normalized()
+		if rotated.dot(up) < forward.dot(up):
+			rotated = forward.rotated(right, -angle)
+	return rotated.normalized()
+
+# Aim de cuerda: mirada de la camara elevada +20 grados hacia +sim_up.
+func rope_aim_dir(pilot) -> Vector3:
+	var forward: Vector3 = Vector3.FORWARD
+	var right: Vector3 = Vector3.RIGHT
+	var camera: Camera = null
+	var viewport = get_viewport()
+	if viewport != null:
+		camera = viewport.get_camera()
+	if camera != null:
+		forward = -camera.global_transform.basis.z
+		right = camera.global_transform.basis.x
+	elif pilot != null and is_instance_valid(pilot):
+		forward = -pilot.global_transform.basis.z
+		right = pilot.global_transform.basis.x
+	var sim_up: Vector3 = _up_of(pilot, pilot.global_transform.origin) \
+		if pilot != null and is_instance_valid(pilot) else Vector3.UP
+	return elevate_aim_dir(forward, right, sim_up)
 
 func _update_race(dt: float, pilot) -> void:
 	if wiring.race == null:

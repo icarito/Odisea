@@ -108,7 +108,8 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	var traversal_root = slice.get_node_or_null("TraversalRoot")
 	var props = traversal_root.get_node_or_null("ArkRunTerraceProps")
 	assert_object(props).is_not_null()
-	assert_int(props.get_dome_count()).is_equal(150)
+	# 150 domos posibles - 2 placas reservadas (Puente 48 / Motor 0) = 148.
+	assert_int(props.get_dome_count()).is_equal(148)
 	assert_int(props.get_scaffold_count()).is_greater(50)
 	assert_int(slice.get_node("DomeSpiralField").get_spiral_count()).is_equal(6)
 	for entry in props.get_dome_entries():

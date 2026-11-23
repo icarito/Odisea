@@ -18,6 +18,7 @@ const RopeInputScript = preload("res://core_v2/player/traversal/SpinRopeInputV2.
 const StreamerScript = preload("res://core_v2/levels/ark_run/ArkRunIndustryStreamer.gd")
 const SuitOSHostScript = preload("res://core_v2/ui/suit_os/ArkRunSuitOSHost.gd")
 const WiringScript = preload("res://core_v2/levels/ark_run/ArkRunSliceWiring.gd")
+const TronMaterials = preload("res://core_v2/levels/ark_run/ArkRunTronMaterials.gd")
 
 const SLICE_SEED := 32401; const SLICE_LENGTH := 2000.0; const R_HULL := 340.0; const R_HUB := 8.0
 const BRIDGE_PLATE_INDICES := [47, 48, 49]; const ENGINE_Z_MAX := -940.0; const ENGINE_IGNITION_Z := 0.0
@@ -36,6 +37,7 @@ func _ready() -> void:
 	hub = get_node_or_null("AxialHub/SpinAxialHub"); hull = get_node_or_null("ArkRunHull")
 	if spin_omega <= 0.0: spin_omega = SpinFrame.omega_for()
 	_spiral_config = _resolve_spiral_config()
+	_apply_tron_plate_material()
 	_bridge_z_min = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[0])).origin.z
 	_ensure_presentation_nodes(); _configure_zone_nodes()
 	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules(); _build_wiring()
@@ -81,6 +83,12 @@ func _resolve_spiral_config() -> Dictionary:
 		var configs: Array = spiral_field.get_spiral_configs()
 		if not configs.empty(): return configs[0]
 	return FieldResource.default_spiral_config()
+
+# Pase Tron de terrazas: material procedural sobre el MultiMesh de placas que ya
+# horneo el campo (0 draw calls extra).
+func _apply_tron_plate_material() -> void:
+	if spiral_field != null and spiral_field.has_method("set_plate_material"):
+		spiral_field.set_plate_material(TronMaterials.plate_material())
 
 func _ensure_presentation_nodes() -> void:
 	spin_camera = get_node_or_null("SpinRealCamera")

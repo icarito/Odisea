@@ -8,8 +8,9 @@ extends Reference
 
 const ThrusterScript = preload("res://core_v2/levels/ark_run/ArkRunThrusterInput.gd")
 const RopeSwingScript = preload("res://core_v2/player/traversal/SpinRopeSwingV2.gd")
-const HALO_COLOR := Color(0.3, 0.85, 1.0, 1.0)
+const TronMaterials = preload("res://core_v2/levels/ark_run/ArkRunTronMaterials.gd")
 const ROPE_COLOR := Color(0.35, 1.0, 0.75, 1.0)
+const PLUME_LENGTH := 3.0
 
 var loop = null
 var wiring = null
@@ -37,10 +38,11 @@ func tick(dt: float, pilot, physics, pos: Vector3) -> void:
 	var reeling: bool = attached and rope_pressed and lt_pressed
 	thrusting = lt_pressed and not attached and physics != null \
 		and not bool(physics._was_grounded) and slice.explosion.launched
+	var thrust_dir: Vector3 = _thrust_direction(pilot)
 	if thrusting:
-		ThrusterScript.apply(physics, dt, _thrust_direction(pilot), 1.0, true)
-	_update_halo(pilot)
-	var aim: Vector3 = _camera_forward(pilot)
+		ThrusterScript.apply(physics, dt, thrust_dir, 1.0, true)
+	_update_halo(pilot, thrust_dir)
+	var aim: Vector3 = _rope_aim(pilot)
 	var aim_anchors: Array = _comfort_anchors(pilot)
 	if slice.rope_input != null:
 		slice.rope_input.step(pilot, aim_anchors, aim, rope_pressed, dt, reeling)
@@ -69,18 +71,44 @@ func _camera_forward(pilot) -> Vector3:
 	var fallback: Vector3 = -pilot.global_transform.basis.z
 	return fallback.normalized() if fallback.length_squared() > 0.000001 else Vector3.FORWARD
 
-func _update_halo(pilot) -> void:
+func _rope_aim(pilot) -> Vector3:
+	if loop != null and loop.has_method("rope_aim_dir"):
+		return loop.rope_aim_dir(pilot)
+	return _camera_forward(pilot)
+
+# Pluma aditiva/emisiva orientada exactamente en -thrust_dir, saliendo de la
+# espalda de Elias. El shader pulsa por TIME y el cono es mas ancho en la cola.
+func _update_halo(pilot, thrust_dir: Vector3) -> void:
 	if _halo == null or not is_instance_valid(_halo):
-		_halo = _make_mesh(pilot, "ThrusterHalo", _plume(), HALO_COLOR)
-		_halo.translation = Vector3(0.0, 0.1, 0.9)
-		_halo.rotation = Vector3(PI * 0.5, 0.0, 0.0)
-		_halo.mesh.material = _additive_material(HALO_COLOR)
+		_halo = MeshInstance.new()
+		_halo.name = "ThrusterPlume"
+		_halo.mesh = _plume()
+		_halo.mesh.material = TronMaterials.plume_material()
+		pilot.add_child(_halo)
 	if _halo == null:
 		return
 	_halo.visible = thrusting
-	if thrusting:
-		var pulse: float = 1.0 + 0.15 * sin(_t * 20.0)
-		_halo.scale = Vector3.ONE * pulse
+	if not thrusting:
+		return
+	_orient_plume(pilot, thrust_dir)
+
+func _orient_plume(pilot, thrust_dir: Vector3) -> void:
+	var exhaust: Vector3 = -thrust_dir.normalized() \
+		if thrust_dir.length_squared() > 0.000001 else pilot.global_transform.basis.z
+	exhaust = exhaust.normalized()
+	var body_back: Vector3 = pilot.global_transform.basis.z.normalized()
+	var muzzle: Vector3 = pilot.global_transform.origin + body_back * 0.55
+	var center: Vector3 = muzzle + exhaust * (PLUME_LENGTH * 0.5)
+	var ref: Vector3 = body_back
+	if ref.cross(exhaust).length_squared() < 0.000001:
+		ref = pilot.global_transform.basis.x
+	if ref.cross(exhaust).length_squared() < 0.000001:
+		ref = Vector3.RIGHT
+	var x_axis: Vector3 = ref.cross(exhaust).normalized()
+	var z_axis: Vector3 = x_axis.cross(exhaust).normalized()
+	_halo.global_transform = Transform(Basis(x_axis, exhaust, z_axis), center)
+	var pulse: float = 1.0 + 0.12 * sin(_t * 20.0)
+	_halo.scale = Vector3(pulse, 1.0, pulse)
 
 # Prefiere anclajes que no obliguen a mirar muy arriba (<=30 m sobre el pilot).
 func _comfort_anchors(pilot) -> Array:
@@ -136,20 +164,13 @@ func _float_prop(obj, property_name: String, default_value: float) -> float:
 
 func _plume() -> CylinderMesh:
 	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.05
-	mesh.bottom_radius = 0.55
-	mesh.height = 2.2
-	mesh.radial_segments = 12
+	# +Y = direccion de escape (lejos de Elias): cola ancha; tobera angosta.
+	mesh.top_radius = 0.55
+	mesh.bottom_radius = 0.07
+	mesh.height = PLUME_LENGTH
+	mesh.radial_segments = 16
 	mesh.rings = 1
 	return mesh
-
-func _additive_material(color: Color) -> SpatialMaterial:
-	var material := _material(color)
-	material.params_blend_mode = SpatialMaterial.BLEND_MODE_ADD
-	material.albedo_color = Color(color.r, color.g, color.b, 0.75)
-	material.emission_energy = 2.6
-	material.flags_transparent = true
-	return material
 
 func _sphere(radius: float) -> SphereMesh:
 	var mesh := SphereMesh.new()

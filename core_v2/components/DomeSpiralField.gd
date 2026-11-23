@@ -133,6 +133,17 @@ func _clear_root(root: Spatial) -> void:
 		root.remove_child(child)
 		child.free()
 
+# Reemplaza el material de las placas ya horneadas sin reconstruir el campo ni
+# agregar draw calls (mismo pase, otro material). Lo usa el pase Tron del ArkRun.
+func set_plate_material(material: Material) -> void:
+	if material == null or not is_instance_valid(_visual_root):
+		return
+	for child in _visual_root.get_children():
+		var instance := child as MultiMeshInstance
+		if instance == null or instance.multimesh == null or instance.multimesh.mesh == null:
+			continue
+		instance.multimesh.mesh.surface_set_material(0, material)
+
 # --- Pool de detalle, anclajes y LODs ---
 
 func select_closest_plates(ref_pos: Vector3, k: int) -> Array:

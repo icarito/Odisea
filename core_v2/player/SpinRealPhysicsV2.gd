@@ -129,7 +129,10 @@ func step(controller, dt: float, input) -> void:
 			controller.set("is_acrobatic_ready", false)
 			controller.set("frames_since_last_snap", 16)
 			if controller.has_method("_emit_anim_event"):
-				controller._emit_anim_event("acrobatic")
+				# `acrobatic` no existe como señal en PlayerControllerV2; la real
+				# (declarada en PlayerControllerV2.gd) es `acrobatic_jumped`. Usar
+				# el nombre correcto evita el error de consola y anima el backflip.
+				controller._emit_anim_event("acrobatic_jumped")
 		jump_logic.consume_jump()
 		_slide_active = false
 		_was_grounded = false
