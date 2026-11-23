@@ -174,19 +174,8 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	assert_object(anchor_visuals).is_not_null()
 	assert_int(anchor_visuals.multimesh.instance_count).is_equal(anchors.size())
 
-	# F7: los hints del HUD siguen a los slots reales al reubicarlos.
-	SuitOS.apply_ark_run_default_pins()
-	var wiring_node = slice.get_node_or_null("ArkRunWiring")
-	assert_object(wiring_node).is_not_null()
-	var controls: String = wiring_node.feedback.controls_text()
-	assert_bool(controls.find("L2/Shift") >= 0).is_true()
-	assert_bool(controls.find("R2/E") >= 0).is_true()
-	assert_bool(controls.find("R1/TAB") >= 0).is_true()
-	SuitOS.move_slot(1, 0)
-	var moved: String = wiring_node.feedback.controls_text()
-	assert_bool(moved.find("L1/Shift") >= 0).is_true()
-	SuitOS.apply_ark_run_default_pins()
-
+	# HUD sin hints de teclas (feedback de playtest); el minimapa vive abajo.
+	assert_bool(hud.get_node_or_null("HudRoot/Minimap") != null).is_true()
 	# Idle ZERO_G dentro del hub: predictor oculto y preview salteado (sin costo).
 	var pilot = slice.get_node_or_null("Pilot")
 	assert_float(SpinFrame.r_perp(pilot.global_transform.origin).length()).is_less(8.0)

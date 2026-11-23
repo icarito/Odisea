@@ -12,7 +12,7 @@ const DETONATION_SEC := 3.0
 const HUD_INTERVAL := 0.1
 const RESTART_KEYS := [KEY_BACKSPACE, KEY_F5]
 const SLICE_HALF := 1000.0
-const FLIGHT_SPRING_LENGTH := 18.0; const SPRING_LERP_SPEED := 3.0
+const FLIGHT_SPRING_LENGTH := 22.0; const GROUND_SPRING_LENGTH := 5.0; const SPRING_LERP_SPEED := 3.0
 
 var wiring = null
 var slice = null
@@ -108,7 +108,7 @@ func _apply_camera(dt: float, pilot, pos: Vector3, r_local: float, physics) -> v
 	if _spring_arm != null:
 		_spring_arm.transform.basis = Basis.IDENTITY
 		var flying: bool = slice.explosion.launched and airborne
-		var target_length: float = FLIGHT_SPRING_LENGTH if flying else _base_spring_length
+		var target_length: float = FLIGHT_SPRING_LENGTH if flying else max(_base_spring_length, GROUND_SPRING_LENGTH)
 		var current: float = float(_spring_arm.spring_length)
 		_spring_arm.spring_length = lerp(current, target_length, clamp(dt * SPRING_LERP_SPEED, 0.0, 1.0))
 	if slice.spin_camera != null:
@@ -193,7 +193,6 @@ func _hud_data() -> Dictionary:
 		"thrusting": feedback.thrusting if feedback != null else false,
 		"rope": feedback.rope_state if feedback != null else "IDLE",
 		"rope_distance": feedback.rope_distance if feedback != null else 0.0,
-		"controls": feedback.controls_text() if feedback != null else "",
 		"radial": radial / max(slice.get_hull_radius(), 1.0), "z": pos.z / SLICE_HALF,
 		"bridge": 1.0, "engine": 0.0,
 	}

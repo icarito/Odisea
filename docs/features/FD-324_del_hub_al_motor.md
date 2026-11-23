@@ -409,7 +409,7 @@ HUD, industria) durante la medición:
 
 | Configuración | Entorno | wall FPS | process ms (avg/max) | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
-| F7 pulido (loop real) | GUI 1280×720 | **59.6** | 22.7 / 29.3 | 11.46 / 12.49 | **57** | 32 | 677 092 | 1 474 | 73.2 MB | ✅ |
+| F7 pulido (loop real) | GUI 1280×720 | **59.5** | 20.1 / 39.6 | 12.77 / 14.48 | **57** | 32 | 677 092 | 1 473 | 73.2 MB | ✅ |
 
 Con **6 espirales intercaladas (300 placas) y 150 domos monumentales**
 (40–52 m de radio, 30–44 m de alto, una por placa alternada, sin solape y con
@@ -473,3 +473,17 @@ de los 5 actos aprobados por Sebastián.
 - [ ] **Determinismo:** dos corridas frescas del `.oys` dan el mismo hash
       (`test_ark_run_vertical_slice.gd`); sin drift de replay.
 
+
+### 7.2 Ajustes de playtest (HUD/cámara/acrobacia)
+
+- Minimapa **abajo a la derecha** y sin la línea de hints de teclas (pedido de
+  Sebastián): ya no tapa cronómetro/objetivo. El estado de cuerda y Δv siguen en
+  el HUD.
+- Cámara 100% 3ra persona (`enable_25d_override = false`) con **zoom base 5 m**
+  y **22 m en vuelo libre**; solo cambia `spring_length`, nunca el ángulo.
+- Selección de cuerda con **sesgo de comodidad**: ignora anclajes a más de 30 m
+  sobre el Pilot para no obligar a mirar hacia arriba.
+- Salto acrobático habilitado también en `SPIN_REAL` (detección de giro 180°
+  compartida antes del early-return del step spin-real).
+- Pluma de propulsor aditiva (cono emisivo) en vez de halo esférico; la primera
+  compilación de shader puede costar ~0.9 s, después queda cacheada.

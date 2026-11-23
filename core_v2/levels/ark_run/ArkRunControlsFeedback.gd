@@ -8,11 +8,8 @@ extends Reference
 
 const ThrusterScript = preload("res://core_v2/levels/ark_run/ArkRunThrusterInput.gd")
 const RopeSwingScript = preload("res://core_v2/player/traversal/SpinRopeSwingV2.gd")
-const THRUSTERS_ID := "player:thrusters"
-const ROPE_ID := "player:rope"
 const HALO_COLOR := Color(0.3, 0.85, 1.0, 1.0)
 const ROPE_COLOR := Color(0.35, 1.0, 0.75, 1.0)
-const SLOT_DEFAULTS := {"thrusters": "L2", "rope": "R2", "nav": "R1", "light": "L1"}
 
 var loop = null
 var wiring = null
@@ -24,7 +21,6 @@ var _t := 0.0
 var _halo = null
 var _marker = null
 var _tether = null
-var _controls_cache := ""
 
 func setup(loop_node, wiring_node) -> void:
 	loop = loop_node
@@ -45,9 +41,10 @@ func tick(dt: float, pilot, physics, pos: Vector3) -> void:
 		ThrusterScript.apply(physics, dt, _thrust_direction(pilot), 1.0, true)
 	_update_halo(pilot)
 	var aim: Vector3 = _camera_forward(pilot)
+	var aim_anchors: Array = _comfort_anchors(pilot)
 	if slice.rope_input != null:
-		slice.rope_input.step(pilot, wiring.anchors, aim, rope_pressed, dt, reeling)
-	_update_rope_feedback(pilot, aim, reeling)
+		slice.rope_input.step(pilot, aim_anchors, aim, rope_pressed, dt, reeling)
+	_update_rope_feedback(pilot, aim, reeling, aim_anchors)
 
 func _thrust_direction(pilot) -> Vector3:
 	var forward: Vector3 = _camera_forward(pilot)
@@ -74,8 +71,10 @@ func _camera_forward(pilot) -> Vector3:
 
 func _update_halo(pilot) -> void:
 	if _halo == null or not is_instance_valid(_halo):
-		_halo = _make_mesh(pilot, "ThrusterHalo", _sphere(0.55), HALO_COLOR)
-		_halo.translation = Vector3(0.0, 0.15, 0.45)
+		_halo = _make_mesh(pilot, "ThrusterHalo", _plume(), HALO_COLOR)
+		_halo.translation = Vector3(0.0, 0.1, 0.9)
+		_halo.rotation = Vector3(PI * 0.5, 0.0, 0.0)
+		_halo.mesh.material = _additive_material(HALO_COLOR)
 	if _halo == null:
 		return
 	_halo.visible = thrusting
@@ -83,7 +82,17 @@ func _update_halo(pilot) -> void:
 		var pulse: float = 1.0 + 0.15 * sin(_t * 20.0)
 		_halo.scale = Vector3.ONE * pulse
 
-func _update_rope_feedback(pilot, aim: Vector3, reeling: bool = false) -> void:
+# Prefiere anclajes que no obliguen a mirar muy arriba (<=30 m sobre el pilot).
+func _comfort_anchors(pilot) -> Array:
+	var origin: Vector3 = pilot.global_transform.origin
+	var filtered: Array = []
+	for anchor in wiring.anchors:
+		var point: Vector3 = anchor.origin if typeof(anchor) == TYPE_TRANSFORM else anchor
+		if point.y - origin.y <= 30.0:
+			filtered.append(anchor)
+	return filtered if not filtered.empty() else wiring.anchors
+
+func _update_rope_feedback(pilot, aim: Vector3, reeling: bool = false, anchors: Array = []) -> void:
 	var attached: bool = slice.rope_input != null and slice.rope_input.is_attached()
 	var anchor := Vector3.ZERO
 	var hit := false
@@ -93,8 +102,9 @@ func _update_rope_feedback(pilot, aim: Vector3, reeling: bool = false) -> void:
 		rope_state = "REELING" if reeling else "ATTACHED"
 		rope_distance = pilot.global_transform.origin.distance_to(anchor)
 	else:
+		var candidates: Array = anchors if not anchors.empty() else wiring.anchors
 		var best: Dictionary = RopeSwingScript.select_best_anchor(
-			pilot.global_transform.origin, aim, wiring.anchors,
+			pilot.global_transform.origin, aim, candidates,
 			_float_prop(slice.rope_input, "max_range", 55.0),
 			_float_prop(slice.rope_input, "cone_deg", 38.0))
 		hit = bool(best.get("hit", false))
@@ -123,6 +133,23 @@ func _float_prop(obj, property_name: String, default_value: float) -> float:
 	if obj == null or not (property_name in obj):
 		return default_value
 	return float(obj.get(property_name))
+
+func _plume() -> CylinderMesh:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.05
+	mesh.bottom_radius = 0.55
+	mesh.height = 2.2
+	mesh.radial_segments = 12
+	mesh.rings = 1
+	return mesh
+
+func _additive_material(color: Color) -> SpatialMaterial:
+	var material := _material(color)
+	material.params_blend_mode = SpatialMaterial.BLEND_MODE_ADD
+	material.albedo_color = Color(color.r, color.g, color.b, 0.75)
+	material.emission_energy = 2.6
+	material.flags_transparent = true
+	return material
 
 func _sphere(radius: float) -> SphereMesh:
 	var mesh := SphereMesh.new()
@@ -168,24 +195,3 @@ func _make_tether(parent):
 	geometry.material_override = _material(ROPE_COLOR)
 	parent.add_child(geometry)
 	return geometry
-
-# Etiquetas reales de los 4 slots (se actualizan si el jugador reubica apps).
-func controls_text() -> String:
-	var suit_os = Engine.get_main_loop().root.get_node_or_null("SuitOS")
-	var thrust_label := _slot_label(suit_os, THRUSTERS_ID, SLOT_DEFAULTS["thrusters"])
-	var rope_label := _slot_label(suit_os, ROPE_ID, SLOT_DEFAULTS["rope"])
-	var nav_label := _slot_label(suit_os, "player:autonav", SLOT_DEFAULTS["nav"])
-	var light_label := _slot_label(suit_os, "player:flashlight", SLOT_DEFAULTS["light"])
-	var text := "WASD mover · Espacio saltar · %s/E cuerda · %s/Shift retraer/propulsor · %s/TAB autonav · %s linterna · Backspace reiniciar" \
-		% [rope_label, thrust_label, nav_label, light_label]
-	_controls_cache = text
-	return text
-
-func _slot_label(suit_os, screen_id: String, fallback: String) -> String:
-	if suit_os == null or not suit_os.has_method("slot_label_for_screen"):
-		return fallback
-	var label: String = String(suit_os.slot_label_for_screen(screen_id))
-	return label if label != "" else fallback
-
-func get_controls_text() -> String:
-	return _controls_cache if _controls_cache != "" else controls_text()

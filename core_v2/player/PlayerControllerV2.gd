@@ -69,6 +69,7 @@ func is_spin_real_active() -> bool:
 	return cm != null and int(cm.current_gravity_mode) == GravityModesScript.Mode.SPIN_REAL
 
 func _step_spin_real(dt: float, input: InputDataV2) -> void:
+	_update_acrobatic_snap(input)
 	if spin_real_physics == null:
 		spin_real_physics = SpinRealPhysicsV2.new()
 		spin_real_physics.name = "SpinRealPhysics"
@@ -89,6 +90,27 @@ func _step_spin_real(dt: float, input: InputDataV2) -> void:
 	if not _rl_skip_animator and not is_ragdoll and animator and animator.has_method("step_animator"):
 		animator.step_animator(dt, _get_animator_velocity())
 	_update_input_edge_state(input)
+
+# Snapshot de giro 180° compartido por la rama normal y SPIN_REAL: sin esto el
+# salto acrobático nunca se armaba en gravedad real (el step spin-real retorna
+# antes del bloque legacy de movimiento).
+func _update_acrobatic_snap(input) -> void:
+	if input == null:
+		return
+	var current_input_3d: Vector3 = Vector3(input.move_vec.x, 0.0, input.move_vec.y).normalized()
+	if current_input_3d.length() > 0.1 and last_input_vector.length() > 0.1 \
+			and current_input_3d.dot(last_input_vector) < -0.6:
+		if is_acrobatic_ready:
+			is_acrobatic_ready = false
+			frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
+		else:
+			frames_since_last_snap = 0
+			is_acrobatic_ready = true
+	frames_since_last_snap += 1
+	if frames_since_last_snap > ACROBATIC_WINDOW_FRAMES and is_acrobatic_ready:
+		is_acrobatic_ready = false
+	if current_input_3d.length() > 0.1:
+		last_input_vector = current_input_3d
 
 var is_replay_mode := false
 

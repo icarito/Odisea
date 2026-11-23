@@ -210,3 +210,18 @@ func test_pilot_spin_real_up_capsule_and_snapshot() -> void:
 	pilot._up = Vector3.UP
 	pilot.restore_snapshot(snapshot)
 	assert_float(pilot.get_sim_up().dot(Vector3.LEFT)).is_greater(0.99)
+
+func test_spin_real_acrobatic_snap_arms_the_flip() -> void:
+	var gravity_world = get_node_or_null("/root/GravityWorld")
+	gravity_world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
+	var pilot = PilotScene.instance()
+	auto_free(pilot)
+	add_child(pilot)
+	pilot.set_physics_process(false)
+	var forward := InputDataV2.new()
+	forward.move_vec = Vector2(0.0, -1.0)
+	pilot._update_acrobatic_snap(forward)
+	var back := InputDataV2.new()
+	back.move_vec = Vector2(0.0, 1.0)
+	pilot._update_acrobatic_snap(back)
+	assert_bool(pilot.is_acrobatic_ready).is_true()

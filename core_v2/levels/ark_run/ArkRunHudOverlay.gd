@@ -19,7 +19,6 @@ var _phase_label: Label = null
 var _timer_label: Label = null
 var _best_label: Label = null
 var _stats_label: Label = null
-var _controls_label: Label = null
 var _circle: Line2D = null
 var _z_bar: ColorRect = null
 var _bridge_mark: ColorRect = null
@@ -80,25 +79,16 @@ func _build() -> void:
 	_stats_label.set_size(Vector2(360, 20))
 	root.add_child(_stats_label)
 
-	_controls_label = _label(
-		"WASD mover · Espacio saltar · F/LT propulsor · E/RT cuerda · TAB/R1 autonav · Backspace reiniciar",
-		13, DIM
-	)
-	_controls_label.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_LEFT)
-	_controls_label.set_position(Vector2(28, -34))
-	_controls_label.set_size(Vector2(1100, 20))
-	root.add_child(_controls_label)
-
 	_panel = _rect(PANEL_BG)
-	_panel.set_anchors_and_margins_preset(Control.PRESET_TOP_RIGHT)
-	_panel.set_position(Vector2(-208, 78))
+	_panel.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_RIGHT)
+	_panel.set_position(Vector2(-(MAP_SIZE + 36.0), -(MAP_SIZE + 36.0)))
 	_panel.set_size(Vector2(MAP_SIZE + 24.0, MAP_SIZE + 24.0))
 	root.add_child(_panel)
 
 	var map := Control.new()
 	map.name = "Minimap"
-	map.set_anchors_and_margins_preset(Control.PRESET_TOP_RIGHT)
-	map.set_position(Vector2(-196, 90))
+	map.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_RIGHT)
+	map.set_position(Vector2(-(MAP_SIZE + 24.0), -(MAP_SIZE + 24.0)))
 	map.set_size(Vector2(MAP_SIZE, MAP_SIZE))
 	map.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(map)
@@ -164,9 +154,6 @@ func refresh(data: Dictionary) -> void:
 	_stats_label.text = state
 	_dv_fill.color = DV_ACTIVE if thrusting else DV_BASE
 	_dv_fill.rect_size = Vector2(180.0 * clamp(float(data.get("dv", 0.0)), 0.0, 1.0), 7.0)
-	var controls: String = String(data.get("controls", ""))
-	if controls != "" and _controls_label.text != controls:
-		_controls_label.text = controls
 
 	var map_center := Vector2(MAP_RADIUS + 8.0, MAP_RADIUS + 8.0)
 	_pilot_mark.rect_position = map_center + Vector2(

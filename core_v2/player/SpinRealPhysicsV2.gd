@@ -114,7 +114,22 @@ func step(controller, dt: float, input) -> void:
 	if jumped:
 		# Salto: fija la componente sobre `up` y sale por aire en este mismo tick
 		# (move_and_slide_with_snap anularia el impulso contra el piso).
-		controller.velocity += up * (jump_logic.jump_force - controller.velocity.dot(up))
+		var acrobatic: bool = bool(controller.get("is_acrobatic_ready"))
+		var force: float = jump_logic.acrobatic_jump_force if acrobatic else jump_logic.jump_force
+		controller.velocity += up * (force - controller.velocity.dot(up))
+		if acrobatic:
+			var planar: Vector3 = controller.velocity - up * controller.velocity.dot(up)
+			planar *= jump_logic.acrobatic_brake_factor
+			controller.velocity = planar + up * force
+			var last_vec = controller.get("last_input_vector")
+			if typeof(last_vec) == TYPE_VECTOR3 and last_vec.length() > 0.1:
+				var push: Vector3 = last_vec.normalized()
+				push -= up * push.dot(up)
+				controller.velocity += push * jump_logic.acrobatic_backward_impulse
+			controller.set("is_acrobatic_ready", false)
+			controller.set("frames_since_last_snap", 16)
+			if controller.has_method("_emit_anim_event"):
+				controller._emit_anim_event("acrobatic")
 		jump_logic.consume_jump()
 		_slide_active = false
 		_was_grounded = false
