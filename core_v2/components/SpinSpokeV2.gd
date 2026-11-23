@@ -146,6 +146,7 @@ func _ensure_ladder() -> void:
 		_ladder = LADDER_SCRIPT.new()
 		_ladder.name = "SpokeLadder"
 		add_child(_ladder)
+	_ladder.is_interactable = false
 	_ladder.climb_half_height = max(_radial_length * 0.5, 0.5)
 	_ladder.rung_spacing = 0.42
 	_ladder.attach_depth = 0.35

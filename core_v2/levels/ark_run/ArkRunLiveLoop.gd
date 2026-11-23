@@ -8,10 +8,8 @@ extends Node
 
 const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 
-const DETONATION_SEC := 3.0
-const HUD_INTERVAL := 0.1
-const RESTART_KEYS := [KEY_BACKSPACE, KEY_F5]
-const SLICE_HALF := 1000.0
+const DETONATION_SEC := 3.0; const HUD_INTERVAL := 0.1
+const RESTART_KEYS := [KEY_BACKSPACE, KEY_F5]; const SLICE_HALF := 1000.0
 const FLIGHT_SPRING_LENGTH := 22.0; const GROUND_SPRING_LENGTH := 5.0; const SPRING_LERP_SPEED := 3.0
 
 var wiring = null
@@ -179,6 +177,8 @@ func _hud_data() -> Dictionary:
 	var dv_ratio: float = 0.0
 	if physics != null and float(physics.spin_thruster_dv_max) > 0.0:
 		dv_ratio = float(physics.spin_thruster_dv_remaining) / float(physics.spin_thruster_dv_max)
+	var target_label := "MOTOR" if slice.explosion.launched and pos.z < 0.0 else "PUENTE"
+	var target_pos: Vector3 = Vector3(0.0, 0.0, slice.get_engine_z_max()) if target_label == "MOTOR" else slice.get_bridge_target()
 	var phase := "NÚCLEO ZERO-G · Explosión en %.1fs" % max(0.0, DETONATION_SEC - _detonation_timer)
 	if wiring.race != null and wiring.race.finished:
 		phase = "¡META EN MOTOR!"
@@ -195,4 +195,5 @@ func _hud_data() -> Dictionary:
 		"rope_distance": feedback.rope_distance if feedback != null else 0.0,
 		"radial": radial / max(slice.get_hull_radius(), 1.0), "z": pos.z / SLICE_HALF,
 		"bridge": 1.0, "engine": 0.0,
+		"target_pos": target_pos, "target_label": target_label,
 	}

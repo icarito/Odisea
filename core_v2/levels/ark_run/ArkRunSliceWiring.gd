@@ -16,6 +16,7 @@ const LoopScript = preload("res://core_v2/levels/ark_run/ArkRunLiveLoop.gd")
 const ScenarioScript = preload("res://core_v2/levels/ark_run/ArkRunVerticalSliceScenario.gd")
 const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
 const AnchorVisualsScript = preload("res://core_v2/levels/ark_run/ArkRunAnchorVisuals.gd")
+const RouteGuidesScript = preload("res://core_v2/levels/ark_run/ArkRunRouteGuides.gd")
 const FeedbackScript = preload("res://core_v2/levels/ark_run/ArkRunControlsFeedback.gd")
 const SLICE_SEED := 32401
 const PROXY_PLATES := 4
@@ -85,6 +86,8 @@ func _build_f6() -> void:
 	for waypoint in slice.get_canonical_route().get_waypoints():
 		points.append(waypoint["position"] as Vector3)
 	lod.add_emissive_polyline(points, LodScript.TRON_COLOR)
+	RouteGuidesScript.new().build(lod, slice.get_canonical_route().get_waypoints(),
+		slice.get_bridge_target(), Vector3(0.0, 0.0, slice.get_engine_z_max()))
 	hud = HudScript.new()
 	hud.name = "ArkRunHudOverlay"
 	hud_root.add_child(hud)

@@ -6,6 +6,7 @@ extends CanvasLayer
 # con flecha, barra de Δv y la línea compacta de controles. No toca física ni
 # estado de juego; sólo lee el snapshot que le pasa ArkRunSliceWiring a 10 Hz.
 
+const TargetHintScript = preload("res://core_v2/levels/ark_run/ArkRunHudTargetHint.gd")
 const PANEL_BG := Color(0.02, 0.05, 0.08, 0.72)
 const TEXT := Color(0.72, 0.94, 1.0, 1.0)
 const DIM := Color(0.45, 0.62, 0.72, 1.0)
@@ -14,6 +15,8 @@ const ENGINE_COLOR := Color(1.0, 0.38, 0.15, 1.0)
 const PILOT_COLOR := Color(0.35, 1.0, 0.75, 1.0)
 const DV_BASE := Color(0.25, 0.65, 1.0, 0.9)
 const DV_ACTIVE := Color(1.0, 0.75, 0.2, 1.0)
+const BRIDGE_GOLD := Color(1.0, 0.82, 0.25, 1.0)
+const ENGINE_ORANGE := Color(1.0, 0.4, 0.15, 1.0)
 
 var _phase_label: Label = null
 var _timer_label: Label = null
@@ -27,6 +30,7 @@ var _pilot_mark: ColorRect = null
 var _gravity_arrow: Line2D = null
 var _dv_fill: ColorRect = null
 var _panel: ColorRect = null
+var _target_hint = null
 
 const MAP_SIZE := 168.0; const MAP_RADIUS := 62.0
 
@@ -126,6 +130,11 @@ func _build() -> void:
 	_gravity_arrow.default_color = PILOT_COLOR
 	map.add_child(_gravity_arrow)
 
+	var target_hint = TargetHintScript.new()
+	target_hint.name = "TargetHint"
+	root.add_child(target_hint)
+	_target_hint = target_hint
+
 	_dv_fill = _rect(DV_BASE)
 	_dv_fill.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_LEFT)
 	_dv_fill.set_position(Vector2(28, -76))
@@ -162,6 +171,13 @@ func refresh(data: Dictionary) -> void:
 	_bridge_mark.rect_position.y = 8.0 + (1.0 - clamp(float(data.get("bridge", 1.0)), 0.0, 1.0)) * (MAP_RADIUS * 2.0)
 	_engine_mark.rect_position.y = 8.0 + (1.0 - clamp(float(data.get("engine", 0.0)), 0.0, 1.0)) * (MAP_RADIUS * 2.0)
 	_panel.color = PANEL_BG
+	var target = data.get("target_pos", null)
+	if typeof(target) == TYPE_VECTOR3 and _target_hint != null:
+		var target_label: String = String(data.get("target_label", "PUENTE"))
+		var color: Color = BRIDGE_GOLD if target_label == "PUENTE" else ENGINE_ORANGE
+		_target_hint.update_hint(get_viewport().get_camera(), target, target_label, color)
+	elif _target_hint != null:
+		_target_hint.visible = false
 
 	var g_dir := Vector2(float(data.get("g_dir_x", 0.0)), float(data.get("g_dir_z", 0.0)))
 	if g_dir.length_squared() > 0.0001:

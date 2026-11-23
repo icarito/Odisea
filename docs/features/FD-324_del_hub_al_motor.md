@@ -409,7 +409,7 @@ HUD, industria) durante la medición:
 
 | Configuración | Entorno | wall FPS | process ms (avg/max) | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
-| F7 pulido (loop real) | GUI 1280×720 | **59.5** | 20.1 / 39.6 | 12.77 / 14.48 | **57** | 32 | 677 092 | 1 473 | 73.2 MB | ✅ |
+| F7 pulido (loop real) | GUI 1280×720 | **59.6** | 15.9 / 17.4 | 11.59 / 12.62 | **59** | 33 | 684 724 | 1 477 | 73.3 MB | ✅ |
 
 Con **6 espirales intercaladas (300 placas) y 150 domos monumentales**
 (40–52 m de radio, 30–44 m de alto, una por placa alternada, sin solape y con
@@ -487,3 +487,13 @@ de los 5 actos aprobados por Sebastián.
   compartida antes del early-return del step spin-real).
 - Pluma de propulsor aditiva (cono emisivo) en vez de halo esférico; la primera
   compilación de shader puede costar ~0.9 s, después queda cacheada.
+
+### 7.3 Escalera legacy y guía de destino
+
+- `SpinSpokeV2` ya no expone la escalera embebida como interactuable y
+  `_step_spin_real` limpia/suprime la entrada legacy de escalada/colgado: la
+  animación nunca queda pegada en `Climb_Loop` en `SPIN_REAL`.
+- HUD: marcador 3D→2D del destino (`PUENTE`/`MOTOR`) con distancia y flecha al
+  borde si queda fuera de pantalla.
+- LOD: guía 3D de ruta en un solo MultiMesh (aros octogonales cada 4 waypoints +
+  columnas en Puente/Motor), +1 draw call.

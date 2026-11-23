@@ -69,6 +69,14 @@ func is_spin_real_active() -> bool:
 	return cm != null and int(cm.current_gravity_mode) == GravityModesScript.Mode.SPIN_REAL
 
 func _step_spin_real(dt: float, input: InputDataV2) -> void:
+	# En SPIN_REAL no existe la salida legacy de escalada/colgado: nunca dejar la
+	# animacion trabada en Climb_Loop.
+	if traversal_logic != null:
+		traversal_logic.is_climbing = false
+		traversal_logic.is_hanging = false
+	if not _spin_real_entry_suppressed:
+		_spin_real_entry_suppressed = true
+		set_traversal_entry_suppressed(true)
 	_update_acrobatic_snap(input)
 	if spin_real_physics == null:
 		spin_real_physics = SpinRealPhysicsV2.new()
@@ -287,6 +295,7 @@ var _traversal_strafe_latch_active := false
 # (hang_body_down_offset + hang_body_back_offset = 1.24 m) en el frame 2.
 # RingHubWakeup lo suprime mientras dure la cinematica de despertar.
 var _traversal_entry_suppressed := false
+var _spin_real_entry_suppressed := false
 var _traversal_strafe_release_coyote_left := 0.0
 var _traversal_exit_yaw_target := 0.0
 var _traversal_exit_yaw_target_active := false
@@ -2913,6 +2922,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	if is_spin_real_active():
 		_step_spin_real(dt, input)
 		return
+	if _spin_real_entry_suppressed:
+		_spin_real_entry_suppressed = false
+		set_traversal_entry_suppressed(false)
 	_update_post_traversal_strafe_latch(dt, input)
 	_update_post_traversal_exit_alignment(dt)
 	var jump_just_pressed = input.jump and not _jump_was_pressed

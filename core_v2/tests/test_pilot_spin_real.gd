@@ -225,3 +225,16 @@ func test_spin_real_acrobatic_snap_arms_the_flip() -> void:
 	back.move_vec = Vector2(0.0, 1.0)
 	pilot._update_acrobatic_snap(back)
 	assert_bool(pilot.is_acrobatic_ready).is_true()
+
+func test_spin_real_never_leaves_legacy_climbing_active() -> void:
+	var gravity_world = get_node_or_null("/root/GravityWorld")
+	gravity_world.set_gravity_mode(GravityModes.Mode.SPIN_REAL)
+	var pilot = PilotScene.instance()
+	auto_free(pilot)
+	add_child(pilot)
+	pilot.set_physics_process(false)
+	pilot.traversal_logic.is_climbing = true
+	pilot.traversal_logic.is_hanging = true
+	pilot.step(DT, InputDataV2.new())
+	assert_bool(pilot.traversal_logic.is_climbing).is_false()
+	assert_bool(pilot.traversal_logic.is_hanging).is_false()

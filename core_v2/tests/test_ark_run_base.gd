@@ -9,6 +9,7 @@ const SliceScript = preload("res://core_v2/levels/ark_run/ArkRunSlice.gd")
 const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
 const SpinFrame = preload("res://core_v2/systems/SpinFrame.gd")
 const EPS := 0.000001
+const TargetHintScript = preload("res://core_v2/levels/ark_run/ArkRunHudTargetHint.gd")
 
 func _instantiate_slice():
 	var slice = auto_free(SliceScene.instance())
@@ -173,6 +174,9 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	var anchor_visuals = slice.get_node_or_null("TraversalRoot/RopeAnchorVisuals")
 	assert_object(anchor_visuals).is_not_null()
 	assert_int(anchor_visuals.multimesh.instance_count).is_equal(anchors.size())
+	var guides = slice.get_node_or_null("TraversalRoot/ArkRunLodTronPass/RouteGuides")
+	assert_object(guides).is_not_null()
+	assert_int(guides.multimesh.instance_count).is_greater(20)
 
 	# HUD sin hints de teclas (feedback de playtest); el minimapa vive abajo.
 	assert_bool(hud.get_node_or_null("HudRoot/Minimap") != null).is_true()
@@ -227,3 +231,20 @@ func test_shoulder_slots_are_suppressed_in_ark_run_and_restored_on_exit() -> voi
 	remove_child(slice)
 	slice.free()
 	assert_bool(SuitOS.shoulder_slots_suppressed).is_false()
+
+func test_hud_target_hint_projects_on_screen_and_clamps_offscreen() -> void:
+	var camera := Camera.new()
+	add_child(camera)
+	camera.global_transform = Transform(Basis.IDENTITY, Vector3.ZERO)
+	var viewport := Vector2(1280.0, 720.0)
+	var front: Dictionary = TargetHintScript.project_hint(camera, Vector3(0.0, 0.0, -20.0), viewport)
+	assert_bool(bool(front["onscreen"])).is_true()
+	var behind: Dictionary = TargetHintScript.project_hint(camera, Vector3(0.0, 0.0, 20.0), viewport)
+	assert_bool(bool(behind["onscreen"])).is_false()
+	var point: Vector2 = behind["position"]
+	assert_bool(point.x >= 48.0 and point.x <= viewport.x - 48.0).is_true()
+	assert_bool(point.y >= 48.0 and point.y <= viewport.y - 48.0).is_true()
+	var offscreen: Dictionary = TargetHintScript.project_hint(camera, Vector3(1000.0, 0.0, -20.0), viewport)
+	assert_bool(bool(offscreen["onscreen"])).is_false()
+	remove_child(camera)
+	camera.free()

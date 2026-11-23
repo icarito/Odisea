@@ -172,6 +172,8 @@ func _place_pilot(body_transform: Transform, up: Vector3, body_velocity: Vector3
 	if "movement_logic" in pilot and is_instance_valid(pilot.movement_logic):
 		pilot.movement_logic.horizontal_velocity = Vector3.ZERO; pilot.movement_logic.wish_direction = Vector3.ZERO
 	if "jump_logic" in pilot and is_instance_valid(pilot.jump_logic): pilot.jump_logic.set_internal_velocity(0.0)
+	if "traversal_logic" in pilot and is_instance_valid(pilot.traversal_logic):
+		pilot.traversal_logic.is_climbing = false; pilot.traversal_logic.is_hanging = false
 	var physics = pilot.get_spin_physics() if pilot.has_method("get_spin_physics") else null
 	if physics != null:
 		physics._was_grounded = false; physics._slide_active = false; physics._tumble_timer = 0.0
