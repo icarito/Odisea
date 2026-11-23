@@ -55,10 +55,13 @@ func _render(snapshot: Dictionary) -> void:
 
 	var gravity: Dictionary = snapshot.get("gravity", {})
 	if _gravity_label != null:
+		# Magnitud |g_eff|/9.8 con flecha de abajo (centrífuga) → popa (encendido).
 		var suffix := ""
 		if bool(gravity.get("toward_pop", false)):
-			suffix = " POPA"
-		_gravity_label.text = "G: %.2fg%s" % [float(gravity.get("g", 0.0)), suffix]
+			suffix = " ↓POPA"
+		var arrow: Array = gravity.get("arrow", [0.0, 1.0])
+		var glyph := "↓" if abs(float(arrow[0])) < 0.3 else "↘"
+		_gravity_label.text = "G: %.2fg %s%s" % [float(gravity.get("g", 0.0)), glyph, suffix]
 
 	var ignition: Dictionary = snapshot.get("ignition", {})
 	var state := String(ignition.get("state", "IDLE"))

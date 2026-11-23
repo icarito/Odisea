@@ -84,14 +84,14 @@ text = ">"
 margin_top = 92.0
 margin_right = 230.0
 margin_bottom = 106.0
-text = "Puente · Núcleo · [Motor] · Ascensores"
+text = "[Puente] · Núcleo · Motor · Ascensores"
 clip_text = true
 
 [node name="GravityLabel" type="Label" parent="Margin/VBox"]
 margin_top = 108.0
 margin_right = 230.0
 margin_bottom = 122.0
-text = "G: --"
+text = "G: -- ↓"
 clip_text = true
 
 [node name="IgnitionLabel" type="Label" parent="Margin/VBox"]
