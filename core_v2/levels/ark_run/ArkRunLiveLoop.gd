@@ -15,6 +15,9 @@ const FLIGHT_SPRING_LENGTH := 22.0; const GROUND_SPRING_LENGTH := 5.0; const SPR
 # anclajes demasiado bajos en el campo visual (feedback de playtest).
 const AIM_PITCH_DEG := 20.0
 const EPSILON := 1e-6
+# FD-325: split de la barra longitudinal del top bar: lanzamiento (-z_max) → meta (+SLICE).
+const LAUNCH_Z := -940.0; const FINISH_Z := 1000.0
+const PresenterScript = preload("res://core_v2/levels/ark_run/ArkRunDiegeticPresenter.gd")
 
 var wiring = null
 var slice = null
@@ -25,6 +28,9 @@ var _hud_accum := 0.0
 var _restart_held := false
 var _spring_arm = null
 var _base_spring_length := 4.0
+var _device := "keyboard"
+var _tick_state: Dictionary = {}
+var _presenter = null
 
 func setup(owner_wiring) -> void:
 	wiring = owner_wiring
@@ -37,6 +43,8 @@ func setup(owner_wiring) -> void:
 		_spring_arm = rig.find_node("SpringArm", true, false)
 	if _spring_arm != null:
 		_base_spring_length = float(_spring_arm.spring_length)
+	_presenter = PresenterScript.new(); _presenter.name = "ArkRunDiegeticPresenter"
+	add_child(_presenter); _presenter.setup(self, wiring)
 
 func advance_play_loop(delta: float) -> void:
 	var dt: float = max(delta, 0.0)
@@ -51,9 +59,12 @@ func advance_play_loop(delta: float) -> void:
 	_tick_modules(dt)
 	present(dt)
 	_hud_accum += dt
-	if wiring.hud != null and _hud_accum >= HUD_INTERVAL:
+	if _hud_accum >= HUD_INTERVAL:
 		_hud_accum = 0.0
-		wiring.hud.refresh(_hud_data())
+		var data: Dictionary = _hud_data()
+		if wiring.hud != null:
+			wiring.hud.refresh(data)
+		_update_touch_state(data)
 
 func _tick_modules(dt: float) -> void:
 	var pilot = slice.pilot
@@ -66,8 +77,9 @@ func _tick_modules(dt: float) -> void:
 			slice.handrails.grab(pilot)
 		else:
 			slice.handrails.release()
+	_poll_device_and_touch(pilot)
 	if feedback != null:
-		feedback.tick(dt, pilot, physics, pos)
+		_tick_state = feedback.tick(dt, pilot, physics, pos)
 	for spoke in slice.spokes:
 		spoke.step_elevator(_tick_time)
 	if wiring.ignition != null:
@@ -99,6 +111,9 @@ func present(dt: float) -> void:
 	if wiring.lod != null:
 		wiring.lod.update_lod_for_position(pos)
 	_update_race(dt, pilot)
+	if _presenter != null:
+		_tick_state["device"] = _device
+		_presenter.present(dt, _tick_state, pos)
 	_poll_restart()
 
 # Un solo escritor: la 3ra persona natural de SpinLab manda. El SpringArm queda
@@ -207,6 +222,8 @@ func restart_run() -> void:
 	_tick_time = 0.0
 	_detonation_timer = 0.0
 	_hud_accum = HUD_INTERVAL
+	if _presenter != null:
+		_presenter.reset_fov()
 	if wiring.hud != null:
 		wiring.hud.refresh(_hud_data())
 
@@ -230,14 +247,81 @@ func _hud_data() -> Dictionary:
 		phase = "¡ENCENDIDO DE MOTORES!"
 	elif slice.explosion.launched:
 		phase = "VUELA AL PUENTE (+Z)" if pos.z >= 0.0 else "BAJA AL MOTOR (-Z)"
-	return {
+	var data := {
 		"phase": phase, "timer": wiring.race.t_run if wiring.race != null else 0.0,
 		"best": wiring.race.best_time_sec if wiring.race != null else -1.0,
 		"g": g, "g_dir_x": g_dir.x, "g_dir_z": g_dir.z, "dv": dv_ratio,
+		"a_axial": a_axial,
 		"thrusting": feedback.thrusting if feedback != null else false,
 		"rope": feedback.rope_state if feedback != null else "IDLE",
 		"rope_distance": feedback.rope_distance if feedback != null else 0.0,
 		"radial": radial / max(slice.get_hull_radius(), 1.0), "z": pos.z / SLICE_HALF,
 		"bridge": 1.0, "engine": 0.0,
 		"target_pos": target_pos, "target_label": target_label,
+		"flashlight_on": _flashlight_on(), "autonav_active": _autonav_active(),
 	}
+	# Fantasma (mejor corrida): su z normalizado sólo viaja si hay traza grabada.
+	var ghost_z = _ghost_z_norm()
+	if ghost_z != null:
+		data["ghost_z"] = float(ghost_z)
+	return data
+
+
+# --- FD-325: dispositivo activo, touch y HUD superior ---
+
+func _input_provider(pilot):
+	if pilot == null or not is_instance_valid(pilot):
+		return null
+	return pilot.get("input_provider")
+
+# En touch la cuerda es toggle (tap engancha/suelta) y saltar la suelta conservando el momento;
+# en mando/teclado sigue siendo hold. El aim vive 20° sobre la mirada de la cámara.
+func _poll_device_and_touch(pilot) -> void:
+	var provider = _input_provider(pilot)
+	_device = String(provider.get_active_input_device()) \
+		if provider != null and provider.has_method("get_active_input_device") else "keyboard"
+	if slice.rope_input == null:
+		return
+	slice.rope_input.touch_toggle_mode = _device == "touch"
+	if wiring.is_live_loop_running():
+		slice.rope_input.set_aim_dir_override(rope_aim_dir(pilot))
+
+# Espejo de estado a los botones táctiles (Δv, cuerda, anclaje en vista) al ritmo del HUD.
+func _update_touch_state(data: Dictionary) -> void:
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui == null or not mobile_ui.has_method("update_spin_touch_state"):
+		return
+	var attached: bool = slice.rope_input != null and slice.rope_input.is_attached()
+	var ready: bool = attached
+	if not attached and _presenter != null:
+		var best: Dictionary = _presenter.best_anchor(rope_aim_dir(slice.pilot))
+		ready = bool(best.get("hit", false)) \
+			and _presenter.anchor_in_viewport(best.get("anchor_position", Vector3.ZERO), _presenter.camera())
+	mobile_ui.update_spin_touch_state({
+		"dv_ratio": float(data.get("dv", 0.0)), "rope_attached": attached,
+		"anchor_ready": ready, "anchor_distance": float(data.get("rope_distance", 0.0)),
+	})
+
+func _ghost_z_norm():
+	if wiring.race == null or not wiring.race.has_ghost_trace():
+		return null
+	var ghost_pos: Vector3 = wiring.race.get_ghost_pose(wiring.race.t_run).get("position", Vector3.ZERO)
+	return clamp((ghost_pos.z - LAUNCH_Z) / (FINISH_Z - LAUNCH_Z), 0.0, 1.0)
+
+# Chips del top bar: estado real de las apps rápidas L1 (linterna) y R1 (autonavegador).
+func _flashlight_on() -> bool:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	var screen = suit_os.get_screen("player:flashlight") \
+		if suit_os != null and suit_os.has_method("get_screen") else null
+	if screen == null:
+		return false
+	if screen.has_method("widget_snapshot"):
+		return bool(screen.widget_snapshot().get("on", false))
+	return bool(screen.enabled) if "enabled" in screen else false
+
+func _autonav_active() -> bool:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null or not suit_os.has_method("get_screen"):
+		return false
+	var screen = suit_os.get_screen("player:autonav")
+	return screen != null and screen.has_method("is_nav_assist_held") and bool(screen.is_nav_assist_held())

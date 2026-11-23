@@ -147,3 +147,68 @@ necesite otro archivo se coordina en el contrato compartido primero.
 - `docs/features/FD-324_del_hub_al_motor.md` — vertical slice del Ark-Run.
 - `docs/features/FD-323_spinframe_rotating_cylinder_physics.md` — `SPIN_REAL`.
 - `AGENTS.md` §2.3 (cámara única), §5.3 (replay determinista), §6 (tests/CI).
+
+## 8. Integración T5 — cableado y validación (solo local)
+
+Rama `ao/fd-325/integration`; T1–T4 integradas con `--no-ff`:
+
+| Merge | Commit |
+|-------|--------|
+| T1 unified input + LT/RT libres | `3ce11379` |
+| T2 MobileUI touch controls | `58be1e97` |
+| T3 unified top HUD | `93ac8751` |
+| T4 diegetic propulsion/rope | `90dae1f9` |
+
+### Cableado
+
+- **Bloque 1 (input):** `ArkRunSlice._ready()` activa
+  `SuitOS.triggers_reserved_for_gameplay = true` y deja
+  `SuitOS.shoulder_slots_suppressed = false` (L1 Linterna / R1 Autonavegador como
+  slots rápidos; L2/R2 100% Propulsor/Cuerda). Estado previo restaurado en
+  `_exit_tree()`. `ArkRunLiveLoop` lee
+  `pilot.input_provider.get_active_input_device()` cada tick, activa
+  `rope_input.set_touch_toggle_mode(device == "touch")`, suelta la cuerda al saltar
+  en touch (dentro de `SpinRopeInputV2.step`, que ya recibe `jump_pressed`) y aplica
+  el aim de cuerda por mirada (sin override en la escena de determinismo).
+  `ArkRunThrusterInput`/`SpinRopeInputV2` consumen `thruster_boost`/`rope_grapple`
+  (idéntico en mando, teclado y touch vía `Input.action_press`).
+- **Bloque 2 (touch):** `ArkRunSlice` y `SpinLab` llaman
+  `MobileUIManager.set_spin_controls_active(true)` al entrar y restauran el estado
+  previo al salir; `ArkRunLiveLoop` publica `update_spin_touch_state({dv_ratio,
+  rope_attached, anchor_ready, anchor_distance})` al ritmo del HUD (10 Hz).
+- **Bloque 3 (HUD superior):** `_hud_data()` ahora emite además `ghost_z`
+  (solo si hay traza), `a_axial`, `flashlight_on` (screen `player:flashlight`) y
+  `autonav_active` (`player:autonav` → `is_nav_assist_held`).
+- **Bloque 4 (diegética):** nuevo `ArkRunDiegeticPresenter` (módulo <200) monta un
+  único `ArkRunDiegeticJetV2` y un único `ArkRunDiegeticRopeV2` y reutiliza dos
+  `Line2D` del HUD (arco Δv + retículo) sin draw calls extra. `ArkRunControlsFeedback`
+  dejó de dibujar su pluma/marcador/tether viejos (sin doble visual). El FOV +5° se
+  aplica como término aditivo sobre `pilot.base_fov` (que el propio `CameraRig`
+  ya suaviza a 4·dt; nunca se crea otro rig) y se restaura en reinicio/salida.
+
+### Validación (solo local, sin push ni PR)
+
+- `pytest -k "test_fd325 or test_ark_run or test_touch or test_hud_slot_gamepad or
+  test_flashlight_screen or test_spin_frame or test_spin_real_camera or
+  test_pilot_spin_real or test_experiments_menu"` → **24/24 passed**.
+  Nuevo `core_v2/tests/test_fd325_ark_run_wiring.gd` (5 casos) cubre dispositivo →
+  toggle touch, `_hud_data` con/sin fantasma + chips, presentador (un jet/tether,
+  FOV aditivo) y contrato L1/R1. `test_ark_run_base.gd` verifica el nuevo contrato
+  (`triggers_reserved_for_gameplay == true`, hombros activos, spin controls
+  activados y restaurados).
+- `python3 scripts/check_export_presets.py` → OK (8 presets, 362 raíces).
+- `python3 scripts/check_tracked_imports.py` → OK (952 manifests).
+- `ark_run_vertical_slice.hash` **no cambió** (determinismo intacto: el aim de
+  cuerda se anula en la escena de replay y el FOV se escribe sólo en el presentador).
+
+### Medición rápida PC (1280×720)
+
+`python3 scripts/bench_scene.py --scene ArkRunSlice --seconds 10 --windowed --size 1280x720`
+(Godot GLES3 pinneado, mesa Intel Iris Xe, ventana real 1280×720; corrida inicial
+headless 144 fps la descarta por carecer de renderer):
+
+| Escena | Avg FPS | Min FPS | Frames < 30 | Draw calls | Physics ms | Nodos |
+|--------|--------:|--------:|------------:|-----------:|-----------:|------:|
+| ArkRunSlice | 59.8 | 58.0 | 0 | ~62.7 | 0.01 | 1478 |
+
+60 fps sostenidos, sin frames bajo 30 y física despreciable.

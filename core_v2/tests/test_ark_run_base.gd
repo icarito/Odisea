@@ -225,13 +225,28 @@ func test_hull_contains_body_thrown_radially() -> void:
 	assert_float(abs(body.global_transform.origin.z)).is_less(1050.0)
 
 func test_shoulder_slots_are_suppressed_in_ark_run_and_restored_on_exit() -> void:
+	# Estado limpio de partida (defaults del Core): gatillos reservados, hombros activos y
+	# touch controls de Ark-Run apagados.
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	SuitOS.triggers_reserved_for_gameplay = true
+	SuitOS.shoulder_slots_suppressed = false
+	if mobile_ui != null:
+		mobile_ui.set_spin_controls_active(false)
 	var slice = SliceScene.instance()
 	add_child(slice)
 	slice.set_physics_process(false)
-	assert_bool(SuitOS.shoulder_slots_suppressed).is_true()
+	# FD-325: gatillos L2/R2 100% gameplay (Propulsor/Cuerda) y hombros L1/R1 activos como
+	# los dos slots rápidos; los touch controls del Ark-Run se encienden al entrar.
+	assert_bool(SuitOS.triggers_reserved_for_gameplay).is_true()
+	assert_bool(SuitOS.shoulder_slots_suppressed).is_false()
+	if mobile_ui != null:
+		assert_bool(mobile_ui.is_spin_controls_active()).is_true()
 	remove_child(slice)
 	slice.free()
+	assert_bool(SuitOS.triggers_reserved_for_gameplay).is_true()
 	assert_bool(SuitOS.shoulder_slots_suppressed).is_false()
+	if mobile_ui != null:
+		assert_bool(mobile_ui.is_spin_controls_active()).is_false()
 
 func test_hud_target_hint_projects_on_screen_and_clamps_offscreen() -> void:
 	var camera := Camera.new()

@@ -125,6 +125,11 @@ func advance_play_loop(dt: float) -> void:
 	if loop != null:
 		loop.advance_play_loop(dt)
 
+# FD-325 determinismo: la escena de replay corre pasos de física explícitos con pilot.step y
+# sin loop vivo; el aim de cuerda debe quedar sin override para no alterar el hash exportado.
+func is_live_loop_running() -> bool:
+	return loop != null and is_instance_valid(loop) and loop.is_physics_processing()
+
 func restart_run() -> void:
 	if loop != null:
 		loop.restart_run()
