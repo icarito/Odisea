@@ -260,17 +260,23 @@ func test_bridge_and_engine_plates_are_dome_free() -> void:
 	assert_object(dressing.get_node_or_null("BridgePad_Cyan")).is_not_null()
 	assert_object(dressing.get_node_or_null("EngineReactor")).is_not_null()
 
-# La cuerda apunta +20 grados sobre la mirada, inclinando hacia +sim_up incluso
-# con una base espejada o un "arriba" invertido (piso centrifugo).
-func test_rope_aim_is_pitched_twenty_degrees_toward_sim_up() -> void:
+# FD-325 polish: la cuerda apunta al rayo CENTRAL de la cámara (1:1 con el crosshair),
+# sin elevación artificial de +20°. El helper `elevate_aim_dir` se conserva (puro), pero
+# el aim real de gameplay = forward de cámara sin desviar.
+func test_rope_aim_matches_camera_center_without_artificial_pitch() -> void:
 	var forward := Vector3(0.0, 0.0, -1.0)
-	var aim: Vector3 = LiveLoopScript.elevate_aim_dir(forward, Vector3.RIGHT, Vector3.UP)
-	assert_float(aim.length()).is_equal_approx(1.0, 1e-6)
-	assert_float(aim.dot(Vector3.UP)).is_greater(0.0)
-	assert_float(rad2deg(acos(clamp(aim.dot(forward), -1.0, 1.0)))).is_equal_approx(20.0, 0.01)
-	var mirrored: Vector3 = LiveLoopScript.elevate_aim_dir(forward, Vector3.LEFT, Vector3.UP)
-	assert_float(mirrored.dot(Vector3.UP)).is_greater(0.0)
-	assert_float(rad2deg(acos(clamp(mirrored.dot(forward), -1.0, 1.0)))).is_equal_approx(20.0, 0.01)
-	var inverted: Vector3 = LiveLoopScript.elevate_aim_dir(forward, Vector3.RIGHT, Vector3.DOWN)
-	assert_float(inverted.dot(Vector3.DOWN)).is_greater(0.0)
-	assert_float(rad2deg(acos(clamp(inverted.dot(forward), -1.0, 1.0)))).is_equal_approx(20.0, 0.01)
+	# El helper genérico sigue siendo correcto si alguna vez se usa (puro y acotado).
+	var lifted: Vector3 = LiveLoopScript.elevate_aim_dir(forward, Vector3.RIGHT, Vector3.UP)
+	assert_float(rad2deg(acos(clamp(lifted.dot(forward), -1.0, 1.0)))).is_equal_approx(20.0, 0.01)
+	# El aim de gameplay (sin cámara en headless) cae al forward del pilot: centro exacto.
+	var loop = auto_free(LiveLoopScript.new())
+	add_child(loop)
+	var body := Spatial.new()
+	add_child(body)
+	body.global_transform = Transform(Basis.IDENTITY, Vector3.ZERO)
+	var aim: Vector3 = loop.rope_aim_dir(body)
+	assert_float(aim.dot(-body.global_transform.basis.z)).is_equal_approx(1.0, 1e-4)
+	# Con una base rotada, el aim sigue al centro de la mirada (no se eleva 20°).
+	body.global_transform = Transform(Basis(Vector3.UP, 0.7), Vector3.ZERO)
+	var rotated: Vector3 = loop.rope_aim_dir(body)
+	assert_float(rotated.dot(-body.global_transform.basis.z)).is_equal_approx(1.0, 1e-4)

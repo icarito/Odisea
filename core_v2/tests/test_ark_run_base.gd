@@ -264,3 +264,32 @@ func test_hud_target_hint_projects_on_screen_and_clamps_offscreen() -> void:
 	assert_bool(bool(offscreen["onscreen"])).is_false()
 	remove_child(camera)
 	camera.free()
+
+# FD-325 polish: el centro de la placa 0 (get_engine_target, z=-1000) debe ser alcanzable:
+# la cara interior de HullCap_Aft ya no lo bloquea. Verifica geometría (tapa fuera del
+# extremo de las placas) y un raycast libre desde z=-900 hasta el destino del Motor.
+func test_engine_target_is_reachable_past_aft_cap() -> void:
+	var slice = _instantiate_slice()
+	var hull = slice.get_node("ArkRunHull")
+	var half_length: float = hull.get_slice_length() * 0.5
+	var aft = hull.get_node("HullCap_Aft")
+	var fore = hull.get_node("HullCap_Fore")
+	# Cara interior de la tapa Aft >= half_length + 120 (fuera del extremo de la placa).
+	var aft_inner: float = aft.translation.z + float(aft.shape.height) * 0.5
+	assert_float(abs(aft_inner)).is_greater_equal(half_length + 119.9)
+	assert_float(abs(fore.translation.z) - float(fore.shape.height) * 0.5) \
+		.is_greater_equal(half_length + 119.9)
+	var engine: Vector3 = slice.get_engine_target()
+	assert_float(engine.z).is_less(-990.0) # centro de la placa 0, más allá de la tapa vieja
+	assert_bool(slice.is_in_engine(engine)).is_true()
+	# Raycast físico (tras un frame) desde z=-900 hasta el Motor: no impacta la tapa.
+	yield (get_tree(), "physics_frame")
+	yield (get_tree(), "physics_frame")
+	var world: World = get_tree().root.get_world()
+	var space = world.direct_space_state
+	var r_from := Vector3(engine.x, engine.y + 2.0, -900.0)
+	var r_to := Vector3(engine.x, engine.y + 2.0, engine.z)
+	var hit: Dictionary = space.intersect_ray(r_from, r_to, [], 0x7FFFFFFF, true, true)
+	# Si impacta algo debe estar pegado al destino (nunca una pared dura a mitad de camino).
+	if not hit.empty():
+		assert_float((hit["position"] as Vector3).distance_to(r_to)).is_less(5.0)

@@ -80,6 +80,9 @@ func test_presenter_mounts_one_jet_and_one_tether_with_fov_offset() -> void:
 	assert_object(slice.find_node("ThrusterPlume", true, false)).is_null()
 	assert_object(slice.find_node("RopeAnchorMarker", true, false)).is_null()
 	assert_object(slice.find_node("RopeTether", true, false)).is_null()
+	# Crosshair central propio del presentador (cruz cortada), no un nodo nuevo en el rope.
+	var overlay = presenter.get_node("DiegeticOverlay")
+	assert_object(overlay.get_node_or_null("Crosshair")).is_not_null()
 
 	# FOV de catapulta: offset aditivo sobre el rig existente (pilot.base_fov), acotado.
 	var fov_before: float = float(presenter._fov_offset)
@@ -130,12 +133,17 @@ func test_quick_slots_l1_r1_published_and_triggers_free() -> void:
 func test_rope_grapple_attaches_and_thruster_reels_through_live_loop() -> void:
 	var slice = _instantiate_slice()
 	var wiring = slice.get_node("ArkRunWiring")
-	# Anclaje elegido a mano y en el cono del aim elevado (+20°): el loop sólo recibe el hold.
-	var aim: Vector3 = wiring.loop.rope_aim_dir(slice.pilot)
-	var anchor: Vector3 = slice.pilot.global_transform.origin + aim * 20.0
+	# Aim forzado a la mirada del pilot (sin cámara de testport) y anclaje exacto sobre ese
+	# rayo: el punto bajo prueba es que el loop llame a step() y enganche, no la geometría.
+	var origin: Vector3 = slice.pilot.global_transform.origin
+	var aim: Vector3 = -slice.pilot.global_transform.basis.z.normalized()
+	var anchor: Vector3 = origin + aim * 20.0
 	wiring.anchors = [anchor]
 	slice.rope_input.set_anchors(wiring.anchors)
+	wiring.feedback.loop = null # fuerza fallback al forward del pilot en aim_dir()
 	assert_bool(slice.rope_input.is_attached()).is_false()
+	var _sp = get_tree().root.get_world().direct_space_state
+	var _hit: Dictionary = _sp.intersect_ray(origin, anchor, [slice.pilot], 0x7FFFFFFF, true, false)
 
 	# Tick de gameplay con la cuerda sostenida: queda enganchada sin llamar a step a mano.
 	Input.action_press("rope_grapple")
@@ -189,3 +197,35 @@ func test_bridge_arrival_switches_phase_and_target_to_engine() -> void:
 	# `restart_run` limpia el flag y vuelve a pedir el Puente (fase de cuenta regresiva).
 	loop.restart_run()
 	assert_bool(loop._bridge_reached).is_false()
+
+# FD-325 polish: línea de visión. Un obstáculo sólido entre el ojo y un anclaje lo
+# descarta (has_line_of_sight=false); un anclaje sin nada delante sigue libre. Se fija el
+# ojo en el pilot (loop=null) para no depender de la cámara de testport.
+func test_rope_los_filter_rejects_obstructed_anchor() -> void:
+	var slice = _instantiate_slice()
+	var wiring = slice.get_node("ArkRunWiring")
+	wiring.feedback.loop = null
+	var pilot = slice.pilot
+	var eye: Vector3 = wiring.feedback.camera_origin(pilot)
+	var aim: Vector3 = wiring.feedback.aim_dir(pilot)
+	var anchor_a: Vector3 = eye + aim * 30.0
+	# Bloqueador sólido justo sobre el segmento ojo→A (caja de 2 m centrada a 10 m).
+	var blocker := StaticBody.new()
+	blocker.name = "LosBlocker"
+	var shape := BoxShape.new()
+	shape.extents = Vector3(1.0, 1.0, 1.0)
+	var coll := CollisionShape.new()
+	coll.shape = shape
+	blocker.add_child(coll)
+	blocker.global_transform = Transform(Basis.IDENTITY, eye + aim * 10.0)
+	slice.add_child(blocker)
+	yield (get_tree(), "physics_frame")
+	yield (get_tree(), "physics_frame")
+
+	var space = get_tree().root.get_world().direct_space_state
+	assert_bool(wiring.feedback.has_line_of_sight(space, eye, anchor_a, pilot)).is_false()
+	# Un anclaje desplazado de lado (+8 m) y sin nada delante sí tiene línea de visión.
+	var side: Vector3 = aim.cross(Vector3.UP)
+	side = side.normalized() if side.length_squared() > 1e-6 else Vector3.RIGHT
+	var anchor_b: Vector3 = eye + aim * 30.0 + side * 8.0
+	assert_bool(wiring.feedback.has_line_of_sight(space, eye, anchor_b, pilot)).is_true()

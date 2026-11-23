@@ -179,6 +179,10 @@ func _stats_line(data: Dictionary) -> String:
 
 func _update_target(data: Dictionary) -> void:
 	var target = data.get("target_pos", null)
+	if not bool(data.get("target_visible", true)):
+		if _target_hint != null:
+			_target_hint.visible = false
+		return
 	if typeof(target) == TYPE_VECTOR3 and _target_hint != null:
 		var target_label: String = String(data.get("target_label", "PUENTE"))
 		var color: Color = BRIDGE_GOLD if target_label == "PUENTE" else ENGINE_ORANGE

@@ -19,6 +19,8 @@ const EPSILON := 1e-6
 const LAUNCH_Z := -940.0; const FINISH_Z := 1000.0
 # Radio de llegada al Puente (sobre la superficie de la placa 48) tras detonar.
 const BRIDGE_ARRIVAL_RADIUS := 45.0
+# Radio de llegada al Motor (superficie de la placa 0): cierra la carrera por distancia.
+const ENGINE_ARRIVAL_RADIUS := 45.0
 const PresenterScript = preload("res://core_v2/levels/ark_run/ArkRunDiegeticPresenter.gd")
 
 var wiring = null
@@ -188,29 +190,31 @@ static func elevate_aim_dir(
 			rotated = forward.rotated(right, -angle)
 	return rotated.normalized()
 
-# Aim de cuerda: mirada de la camara elevada +20 grados hacia +sim_up.
+# Aim de cuerda: el rayo CENTRAL exacto de la cámara (1:1 con el crosshair de pantalla).
+# Sin elevación artificial: el anclaje elegido es el que el centro de mirilla señala.
 func rope_aim_dir(pilot) -> Vector3:
 	var forward: Vector3 = Vector3.FORWARD
-	var right: Vector3 = Vector3.RIGHT
 	var camera: Camera = null
 	var viewport = get_viewport()
 	if viewport != null:
 		camera = viewport.get_camera()
 	if camera != null:
 		forward = -camera.global_transform.basis.z
-		right = camera.global_transform.basis.x
 	elif pilot != null and is_instance_valid(pilot):
 		forward = -pilot.global_transform.basis.z
-		right = pilot.global_transform.basis.x
-	var sim_up: Vector3 = _up_of(pilot, pilot.global_transform.origin) \
-		if pilot != null and is_instance_valid(pilot) else Vector3.UP
-	return elevate_aim_dir(forward, right, sim_up)
+	return forward.normalized() if forward.length_squared() > EPSILON else Vector3.FORWARD
 
 func _update_race(dt: float, pilot) -> void:
 	if wiring.race == null:
 		return
+	var pos: Vector3 = pilot.global_transform.origin
 	if wiring.race.running:
-		wiring.race.tick(dt, pilot.global_transform.origin, pilot.global_transform.basis)
+		var result: Dictionary = wiring.race.tick(dt, pos, pilot.global_transform.basis)
+		# El Motor es alcanzable en el centro de la placa 0 (z = -1000): cerrar también
+		# por distancia al destino además del umbral z <= engine_z_max.
+		if not bool(result.get("finished", false)) \
+				and pos.distance_to(slice.get_engine_target()) <= ENGINE_ARRIVAL_RADIUS:
+			wiring.race.finish_run(pilot.global_transform.basis)
 	if wiring.race.has_ghost_trace():
 		wiring.race.update_ghost_visual(wiring.race.t_run)
 
@@ -260,11 +264,15 @@ func _hud_data() -> Dictionary:
 	if physics != null and float(physics.spin_thruster_dv_max) > 0.0:
 		dv_ratio = float(physics.spin_thruster_dv_remaining) / float(physics.spin_thruster_dv_max)
 	var motor_target: bool = slice.explosion.launched and (_bridge_reached or pos.z < 0.0)
+	var finished: bool = wiring.race != null and wiring.race.finished
 	var target_label := "MOTOR" if motor_target else "PUENTE"
 	var target_pos: Vector3 = slice.get_engine_target() if motor_target else slice.get_bridge_target()
 	var phase := "NÚCLEO ZERO-G · Explosión en %.1fs" % max(0.0, DETONATION_SEC - _detonation_timer)
-	if wiring.race != null and wiring.race.finished:
-		phase = "¡META EN MOTOR!"
+	var target_visible := true
+	if finished:
+		# Meta alcanzada: se oculta el marcador y se muestran las instrucciones de reintento.
+		phase = "¡META EN MOTOR! · Backspace para repetir"
+		target_visible = false
 	elif wiring.ignition != null and wiring.ignition.is_ignited():
 		phase = "¡ENCENDIDO DE MOTORES!"
 	elif slice.explosion.launched:
@@ -280,6 +288,7 @@ func _hud_data() -> Dictionary:
 		"radial": radial / max(slice.get_hull_radius(), 1.0), "z": pos.z / SLICE_HALF,
 		"bridge": 1.0, "engine": 0.0,
 		"target_pos": target_pos, "target_label": target_label,
+		"target_visible": target_visible,
 		"flashlight_on": _flashlight_on(), "autonav_active": _autonav_active(),
 	}
 	# Fantasma (mejor corrida): su z normalizado sólo viaja si hay traza grabada.

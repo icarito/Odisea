@@ -21,7 +21,7 @@ export(bool) var enabled := true
 export(bool) var touch_toggle_mode := false
 export(float) var rt_threshold := 0.25
 export(float) var max_range := 55.0
-export(float) var cone_deg := 38.0
+export(float) var cone_deg := 24.0
 
 var _pilot: Node = null
 var _anchors: Array = []
@@ -66,7 +66,7 @@ func is_attached() -> bool:
 func step(
 	pilot, anchors: Array, aim_dir: Vector3, trigger_pressed: bool, dt: float,
 	reel_pressed: bool = false, pressed_prev: bool = false, jump_pressed: bool = false,
-	touch_toggle: bool = false
+	touch_toggle: bool = false, anchor_filter = null
 ) -> Dictionary:
 	var result := {
 		"attached": false, "released": false, "taut": false, "reeling": false,
@@ -93,8 +93,13 @@ func step(
 		else:
 			intent = rope.is_attached()
 	if intent and not rope.is_attached():
+		var pool: Array = anchors
+		# Filtro opcional de línea de visión (invocado por el caller con el mundo físico):
+		# descarta anclajes obstruidos antes de elegir el más centrado en el crosshair.
+		if anchor_filter is Callable:
+			pool = anchor_filter.call(position, aim_dir, anchors)
 		var best: Dictionary = RopeScript.select_best_anchor(
-			position, aim_dir, anchors, max_range, cone_deg
+			position, aim_dir, pool, max_range, cone_deg
 		)
 		if bool(best["hit"]):
 			result["length"] = rope.attach(best["anchor_position"], position)

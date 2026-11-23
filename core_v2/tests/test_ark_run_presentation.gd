@@ -197,3 +197,21 @@ func test_predictor_preview_bounded_cheap_and_accurate() -> void:
 	var fine_us: int = (OS.get_ticks_usec() - start) / 40
 	print("PREDICTOR preview_us=%d fine_us=%d steps=%d points=%d error_m=%.4f" \
 		% [preview_us, fine_us, int(preview["steps"]), points.size(), error])
+
+# FD-325 polish: el Motor es 100% alcanzable. Además del umbral z, la carrera cierra al
+# llegar por distancia al destino (centro de la placa 0), aunque la cara interior de la
+# tapa Aft quede más atrás.
+func test_race_finishes_on_engine_target_distance() -> void:
+	var race = auto_free(RaceScript.new())
+	add_child(race)
+	race.start_run()
+	var engine_target := Vector3(240.0, 0.0, -1000.0)
+	# Lejos del destino y sin cruzar engine_z_max: sigue corriendo.
+	race.tick(0.5, Vector3(240.0, 0.0, -900.0), Basis.IDENTITY)
+	race.observe_target(Vector3(240.0, 0.0, -900.0), engine_target, 45.0)
+	assert_bool(race.running).is_true()
+	assert_bool(race.finished).is_false()
+	# Dentro del radio del destino: cierra.
+	race.observe_target(Vector3(240.0, 0.0, -975.0), engine_target, 45.0)
+	assert_bool(race.finished).is_true()
+	assert_bool(race.running).is_false()

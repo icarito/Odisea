@@ -45,7 +45,6 @@ static func badge_for_device(input_device: String) -> String:
 static func format_distance(distance: float) -> String:
 	return "%d m" % int(round(max(distance, 0.0)))
 
-# Línea2D del HUD donde se dibuja la retícula (reusa un draw call existente).
 func attach_hud_lines(reticle_line) -> void:
 	_reticle_line = reticle_line
 
@@ -86,7 +85,7 @@ func _is_front_of_camera(world: Vector3, cam: Camera) -> bool:
 		return false
 	return (world - cam.global_transform.origin).dot(-cam.global_transform.basis.z.normalized()) > 0.0
 
-# 4 corchetes magnéticos que se cierran sobre el anclaje proyectado.
+
 func _draw_reticle(anchor_pos: Vector3, distance: float, visible_now: bool, cam: Camera) -> void:
 	if not is_instance_valid(_reticle_line):
 		return
