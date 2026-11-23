@@ -39,6 +39,8 @@ func _ready() -> void:
 	_bridge_z_min = SpiralGeometry.plate_transform(_spiral_config, int(BRIDGE_PLATE_INDICES[0])).origin.z
 	_ensure_presentation_nodes(); _configure_zone_nodes()
 	_build_explosion_modules(); _build_traversal_modules(); _build_industry_modules(); _build_suit_os_modules(); _build_wiring()
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null: suit_os.shoulder_slots_suppressed = true
 	if pilot != null:
 		# F7: arranque real en ZERO_G; SPIN_REAL se activa recién al detonar.
 		spawn_at_hub_start()
@@ -46,6 +48,8 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	var world = get_node_or_null("/root/GravityWorld")
 	if world != null and _previous_gravity_mode >= 0: world.set_gravity_mode(_previous_gravity_mode)
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null: suit_os.shoulder_slots_suppressed = false
 
 func _physics_process(delta: float) -> void: update_spin_presentation(delta)
 
@@ -124,7 +128,8 @@ func _build_traversal_modules() -> void:
 		spoke.configure_from_plate(SpiralGeometry.plate_transform(_spiral_config, int(plate_index)), R_HUB)
 		spokes.append(spoke)
 	rope_input = _attach(root, "Rope", RopeInputScript)
-	rope_input.set_pilot(pilot)
+	rope_input.set_pilot(pilot); rope_input.max_range = 190.0; rope_input.cone_deg = 55.0
+	rope_input.get_rope().max_len = 200.0
 	canonical_route = RouteScript.new(); canonical_route.configure(_spiral_config)
 
 # Anclajes de cuerda: los resuelve el wiring (domos de TerraceProps + DomeRegistry).

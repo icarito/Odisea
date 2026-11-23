@@ -80,6 +80,7 @@ var _context_driver: Node = null
 var _widget_host: Node = null
 # FD-304 revision 2026-09-19: hombros = slots tambien en gameplay, con el mismo stream
 # determinista (input.hud_slot) que usa el modo HUD. Se alimenta por tick en _physics_process.
+var shoulder_slots_suppressed := false
 var _hud_slot_gamepad: Node = null
 var _hud_slot_player: Node = null
 # El HUD sigue dejando vivo al mundo; solo le quita el hardware al jugador. El overlay
@@ -296,6 +297,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	if shoulder_slots_suppressed:
+		if _hud_slot_gamepad != null:
+			_hud_slot_gamepad.reset()
+		return
 	if _hud_slot_gamepad == null:
 		return
 	if _hud_mode_active:

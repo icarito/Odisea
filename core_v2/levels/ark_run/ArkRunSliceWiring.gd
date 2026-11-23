@@ -15,6 +15,7 @@ const AutopilotScript = preload("res://core_v2/input/AutopilotInputV2.gd")
 const LoopScript = preload("res://core_v2/levels/ark_run/ArkRunLiveLoop.gd")
 const ScenarioScript = preload("res://core_v2/levels/ark_run/ArkRunVerticalSliceScenario.gd")
 const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
+const AnchorVisualsScript = preload("res://core_v2/levels/ark_run/ArkRunAnchorVisuals.gd")
 const FeedbackScript = preload("res://core_v2/levels/ark_run/ArkRunControlsFeedback.gd")
 const SLICE_SEED := 32401
 const PROXY_PLATES := 4
@@ -73,6 +74,7 @@ func _build_f6() -> void:
 	cylindrical = slice._attach(hud_root, "ArkRunCylindricalCamera", CylinderScript)
 	if slice.spin_camera != null:
 		slice.spin_camera.camera_basis_prefix = Basis.IDENTITY
+		slice.spin_camera.enable_25d_override = false
 	shadow = slice._attach(slice.get_node("TraversalRoot"), "ArkRunGravityShadow", ShadowScript)
 	lod = slice._attach(slice.get_node("TraversalRoot"), "ArkRunLodTronPass", LodScript)
 	lod.build_static()
@@ -92,6 +94,7 @@ func _build_loop() -> void:
 		slice.rope_input.set_physics_process(false)
 		anchors = collect_rope_anchors()
 		slice.rope_input.set_anchors(anchors)
+		AnchorVisualsScript.new().build(slice.get_node_or_null("TraversalRoot"), anchors)
 	if slice.thruster_input != null:
 		slice.thruster_input.keyboard_thruster_scancode = KEY_SHIFT
 	var route = slice.get_canonical_route()
@@ -130,7 +133,9 @@ func collect_rope_anchors() -> Array:
 		for entry in slice.terrace_props.get_dome_entries():
 			var xform: Transform = entry["transform"]
 			var height: float = float(entry["variant"]["height"])
-			anchors.append(xform.origin + xform.basis.y.normalized() * height)
+			anchors.append(xform.origin + xform.basis.y.normalized() * (height + 6.0))
+	_add_terrace_pylons(anchors)
+	_add_spoke_rings(anchors)
 	var registry = slice.get_node_or_null("/root/DomeRegistry")
 	if slice.spiral_field == null or registry == null:
 		return anchors
@@ -143,6 +148,30 @@ func collect_rope_anchors() -> Array:
 		anchors.append_array(slice.spiral_field.get_plate_world_anchors(
 			0, plate_index, registry.get_anchors(String(dome_id))))
 	return anchors
+
+# Pilones elevados en las terrazas abiertas (placas impares): altura de balanceo.
+func _add_terrace_pylons(anchors: Array) -> void:
+	if slice.spiral_field == null:
+		return
+	var configs: Array = slice.spiral_field.get_spiral_configs()
+	for spiral_index in range(configs.size()):
+		var config: Dictionary = configs[spiral_index]
+		for plate_index in range(SpiralGeometry.plate_count_for(config)):
+			if (plate_index + spiral_index) % 2 == 0:
+				continue
+			var xform: Transform = SpiralGeometry.plate_transform(config, plate_index)
+			var up: Vector3 = xform.basis.y.normalized()
+			var tangent: Vector3 = xform.basis.x.normalized()
+			anchors.append(xform.origin + tangent * 55.0 + up * 24.0)
+			anchors.append(xform.origin - tangent * 55.0 + up * 24.0)
+
+# Anillos de anclaje a lo largo de cada spoke radial.
+func _add_spoke_rings(anchors: Array) -> void:
+	for spoke in slice.spokes:
+		var hub: Vector3 = spoke.get_hub_origin()
+		var plate: Vector3 = spoke.get_plate_origin()
+		for factor in [0.3, 0.5, 0.7]:
+			anchors.append(hub.linear_interpolate(plate, float(factor)))
 
 func run_determinism_scenario() -> Dictionary:
 	_determinism_state = ScenarioScript.new().run(slice, self)

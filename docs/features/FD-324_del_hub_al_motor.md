@@ -409,15 +409,17 @@ HUD, industria) durante la medición:
 
 | Configuración | Entorno | wall FPS | process ms (avg/max) | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
-| F7 pulido (loop real) | GUI 1280×720 | **60.0** | 18.0 / 26.9 | 11.43 / 12.69 | **55** | 31 | 443 068 | 1 473 | 73.0 MB | ✅ |
+| F7 pulido (loop real) | GUI 1280×720 | **59.6** | 22.7 / 29.3 | 11.46 / 12.49 | **57** | 32 | 677 092 | 1 474 | 73.2 MB | ✅ |
 
 Con **6 espirales intercaladas (300 placas) y 150 domos monumentales**
 (40–52 m de radio, 30–44 m de alto, una por placa alternada, sin solape y con
 colisión estática horneada), draws `2 135 → 55` (multi-mesh por tipo), nodos
-`3 231 → 1 473` y vértices `176k → 443k`, a 60 fps sostenidos en PC con frame
-máximo 26.9 ms de process / 12.7 ms de physics.
+`3 231 → 1 474` y vértices `176k → 677k` (anclajes visibles en un solo
+MultiMesh, +1 draw), a ~60 fps en PC con frame máximo 29.3 ms de process /
+12.5 ms de physics. Cuerda con alcance 190 m / cono 55° y cámara 100% 3ra
+persona (`enable_25d_override = false`); hombros Suit OS suprimidos en ArkRun.
 
-**Hash dorado F7:** `7599a2db92608d1fdfce373682775a3b81753cd882c5e3e30271e8bb932ab6d5`
+**Hash dorado F7:** `c3c212c4582e799b89e2d1564776498763ec6d8663d1e9ce97f23b34667ee166`
 (`core_v2/tests/test_ark_run_vertical_slice.oys` + `ark_run_vertical_slice.hash`,
 verificado por `test_ark_run_vertical_slice.gd` en CI sobre dos instancias frescas).
 

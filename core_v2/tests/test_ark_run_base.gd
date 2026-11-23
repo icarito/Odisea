@@ -157,6 +157,7 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	hud.refresh({"phase": "TEST", "thrusting": true, "rope": "ATTACHED", "controls": "c"})
 	assert_bool(hud._stats_label.text.find("PROPULSOR ACTIVO") >= 0).is_true()
 	assert_bool(hud._stats_label.text.find("CUERDA ENGANCHADA") >= 0).is_true()
+	assert_bool(slice.get_node("SpinRealCamera").enable_25d_override).is_false()
 
 	# F7: anclajes de cuerda en todo el cilindro (domos de las 6 espirales).
 	var anchors: Array = slice.collect_rope_anchors()
@@ -169,6 +170,9 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 		z_max = max(z_max, point.z)
 	assert_float(z_min).is_less(-900.0)
 	assert_float(z_max).is_greater(900.0)
+	var anchor_visuals = slice.get_node_or_null("TraversalRoot/RopeAnchorVisuals")
+	assert_object(anchor_visuals).is_not_null()
+	assert_int(anchor_visuals.multimesh.instance_count).is_equal(anchors.size())
 
 	# F7: los hints del HUD siguen a los slots reales al reubicarlos.
 	SuitOS.apply_ark_run_default_pins()
@@ -225,3 +229,12 @@ func test_hull_contains_body_thrown_radially() -> void:
 	assert_float(final_radial).is_greater(334.0)
 	assert_float(final_radial).is_less(350.0)
 	assert_float(abs(body.global_transform.origin.z)).is_less(1050.0)
+
+func test_shoulder_slots_are_suppressed_in_ark_run_and_restored_on_exit() -> void:
+	var slice = SliceScene.instance()
+	add_child(slice)
+	slice.set_physics_process(false)
+	assert_bool(SuitOS.shoulder_slots_suppressed).is_true()
+	remove_child(slice)
+	slice.free()
+	assert_bool(SuitOS.shoulder_slots_suppressed).is_false()

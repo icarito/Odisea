@@ -19,6 +19,7 @@ var wiring = null
 var slice = null
 var thrusting := false
 var rope_state := "IDLE"
+var rope_distance := 0.0
 var _t := 0.0
 var _halo = null
 var _marker = null
@@ -90,6 +91,7 @@ func _update_rope_feedback(pilot, aim: Vector3, reeling: bool = false) -> void:
 		var rope = slice.rope_input.get_rope()
 		anchor = rope.get_anchor() if rope != null else pilot.global_transform.origin
 		rope_state = "REELING" if reeling else "ATTACHED"
+		rope_distance = pilot.global_transform.origin.distance_to(anchor)
 	else:
 		var best: Dictionary = RopeSwingScript.select_best_anchor(
 			pilot.global_transform.origin, aim, wiring.anchors,
@@ -98,11 +100,13 @@ func _update_rope_feedback(pilot, aim: Vector3, reeling: bool = false) -> void:
 		hit = bool(best.get("hit", false))
 		anchor = best.get("anchor_position", Vector3.ZERO)
 		rope_state = "READY" if hit else "IDLE"
+		rope_distance = float(best.get("distance", 0.0)) if hit else 0.0
 	if _marker == null or not is_instance_valid(_marker):
 		_marker = _make_mesh(slice.get_node("TraversalRoot"), "RopeAnchorMarker", _torus(), ROPE_COLOR)
 	if _marker != null:
 		_marker.visible = hit or attached
 		_marker.global_transform.origin = anchor
+		_marker.scale = Vector3.ONE * 1.6
 		_marker.rotation = Vector3(_t * 0.7, _t * 0.9, 0.0)
 	if _tether == null or not is_instance_valid(_tether):
 		_tether = _make_tether(slice.get_node("TraversalRoot"))

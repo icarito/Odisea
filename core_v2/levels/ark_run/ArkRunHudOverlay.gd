@@ -158,7 +158,7 @@ func refresh(data: Dictionary) -> void:
 	elif rope == "REELING":
 		state += " · CUERDA RETRACCIÓN"
 	elif rope == "READY":
-		state += " · CUERDA LISTA"
+		state += " · CUERDA LISTA (%d m)" % int(round(float(data.get("rope_distance", 0.0))))
 	if thrusting:
 		state = "PROPULSOR ACTIVO · " + state
 	_stats_label.text = state
