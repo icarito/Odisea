@@ -1,38 +1,23 @@
 extends CanvasLayer
 
-# FD-324 F7 — HUD diegético mínimo del vertical slice (<200 líneas).
-# CanvasLayer + Controls/Labels/Line2D: fase y objetivo en una línea, cronómetro
-# y mejor tiempo, minimapa del cilindro (corte radial + barra z), gravedad local
-# con flecha, barra de Δv y la línea compacta de controles. No toca física ni
-# estado de juego; sólo lee el snapshot que le pasa ArkRunSliceWiring a 10 Hz.
+# FD-325 T3 — HUD diegético mínimo del vertical slice (<200 líneas).
+# CanvasLayer + ArkRunTopBarView en la franja superior + marcador 3D→2D del
+# destino. Todo lo informativo vive en y in [0, 128] px: nada de mapas/paneles en
+# las esquinas inferiores (ahí viven los sticks/botones de MobileUI). Sólo lee el
+# snapshot que ArkRunSliceWiring/ArkRunLiveLoop pasan a 10 Hz; no toca física.
 
+const TopBarScript = preload("res://core_v2/ui/suit_os/ArkRunTopBarView.gd")
 const TargetHintScript = preload("res://core_v2/levels/ark_run/ArkRunHudTargetHint.gd")
-const PANEL_BG := Color(0.02, 0.05, 0.08, 0.72)
 const TEXT := Color(0.72, 0.94, 1.0, 1.0)
 const DIM := Color(0.45, 0.62, 0.72, 1.0)
-const BRIDGE_COLOR := Color(1.0, 0.85, 0.25, 1.0)
-const ENGINE_COLOR := Color(1.0, 0.38, 0.15, 1.0)
-const PILOT_COLOR := Color(0.35, 1.0, 0.75, 1.0)
-const DV_BASE := Color(0.25, 0.65, 1.0, 0.9)
-const DV_ACTIVE := Color(1.0, 0.75, 0.2, 1.0)
 const BRIDGE_GOLD := Color(1.0, 0.82, 0.25, 1.0)
 const ENGINE_ORANGE := Color(1.0, 0.4, 0.15, 1.0)
 
 var _phase_label: Label = null
-var _timer_label: Label = null
-var _best_label: Label = null
 var _stats_label: Label = null
-var _circle: Line2D = null
-var _z_bar: ColorRect = null
-var _bridge_mark: ColorRect = null
-var _engine_mark: ColorRect = null
-var _pilot_mark: ColorRect = null
-var _gravity_arrow: Line2D = null
-var _dv_fill: ColorRect = null
-var _panel: ColorRect = null
+var _top_bar: Control = null
 var _target_hint = null
-
-const MAP_SIZE := 168.0; const MAP_RADIUS := 62.0
+var _last_data: Dictionary = {}
 
 func _ready() -> void:
 	layer = 20
@@ -47,11 +32,6 @@ func _label(text: String, size: int, color: Color) -> Label:
 	label.add_constant_override("shadow_offset_y", 1)
 	return label
 
-func _rect(color: Color) -> ColorRect:
-	var rect := ColorRect.new()
-	rect.color = color
-	return rect
-
 func _build() -> void:
 	var root := Control.new()
 	root.name = "HudRoot"
@@ -59,98 +39,73 @@ func _build() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
-	_phase_label = _label("NÚCLEO ZERO-G", 22, TEXT)
-	_phase_label.set_position(Vector2(28, 18))
+	# Barra superior unificada: barra longitudinal + perfil radial + gravedad + chips.
+	_top_bar = TopBarScript.new()
+	_top_bar.name = "TopBar"
+	root.add_child(_top_bar)
+
+	# Compatibilidad con tests/sistemas previos: la etiqueta de fase sigue viva
+	# dentro de la franja superior y el nodo "Minimap" ahora es la barra longitudinal.
+	_phase_label = _label("", 15, TEXT)
+	_phase_label.name = "PhaseLabel"
+	_phase_label.set_position(Vector2(206, 6))
+	_phase_label.set_size(Vector2(480, 20))
+	_phase_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_phase_label)
 
-	_timer_label = _label("00:00.00", 26, TEXT)
-	_timer_label.set_anchors_and_margins_preset(Control.PRESET_TOP_RIGHT)
-	_timer_label.set_position(Vector2(-228, 14))
-	_timer_label.set_size(Vector2(200, 32))
-	_timer_label.align = Label.ALIGN_RIGHT
-	root.add_child(_timer_label)
+	var minimap := Control.new()
+	minimap.name = "Minimap"
+	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	minimap.set_position(Vector2(206, 34))
+	minimap.set_size(Vector2(480, 84))
+	root.add_child(minimap)
 
-	_best_label = _label("MEJOR --:--.--", 15, DIM)
-	_best_label.set_anchors_and_margins_preset(Control.PRESET_TOP_RIGHT)
-	_best_label.set_position(Vector2(-228, 48))
-	_best_label.set_size(Vector2(200, 20))
-	_best_label.align = Label.ALIGN_RIGHT
-	root.add_child(_best_label)
-
-	_stats_label = _label("g 0.0 · Δv 0%", 15, TEXT)
-	_stats_label.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_LEFT)
-	_stats_label.set_position(Vector2(28, -104))
-	_stats_label.set_size(Vector2(360, 20))
+	# Línea compacta de estado (propulsor / cuerda) arriba, bajo la barra.
+	_stats_label = _label("", 12, DIM)
+	_stats_label.name = "StatsLabel"
+	_stats_label.set_position(Vector2(16, 108))
+	_stats_label.set_size(Vector2(560, 16))
+	_stats_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_stats_label)
-
-	_panel = _rect(PANEL_BG)
-	_panel.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_RIGHT)
-	_panel.set_position(Vector2(-(MAP_SIZE + 36.0), -(MAP_SIZE + 36.0)))
-	_panel.set_size(Vector2(MAP_SIZE + 24.0, MAP_SIZE + 24.0))
-	root.add_child(_panel)
-
-	var map := Control.new()
-	map.name = "Minimap"
-	map.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_RIGHT)
-	map.set_position(Vector2(-(MAP_SIZE + 24.0), -(MAP_SIZE + 24.0)))
-	map.set_size(Vector2(MAP_SIZE, MAP_SIZE))
-	map.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(map)
-
-	_circle = Line2D.new()
-	_circle.width = 1.5
-	_circle.default_color = DIM
-	var center := Vector2(MAP_RADIUS + 8.0, MAP_RADIUS + 8.0)
-	for i in range(33):
-		var angle: float = TAU * float(i) / 32.0
-		_circle.add_point(center + Vector2(cos(angle), sin(angle)) * MAP_RADIUS)
-	map.add_child(_circle)
-
-	_z_bar = _rect(Color(0.16, 0.25, 0.33, 0.9))
-	_z_bar.set_position(Vector2(MAP_RADIUS * 2.0 + 20.0, 8.0))
-	_z_bar.set_size(Vector2(10.0, MAP_RADIUS * 2.0))
-	map.add_child(_z_bar)
-
-	_bridge_mark = _rect(BRIDGE_COLOR)
-	_bridge_mark.set_size(Vector2(18.0, 4.0))
-	_bridge_mark.set_position(Vector2(MAP_RADIUS * 2.0 + 16.0, 8.0))
-	map.add_child(_bridge_mark)
-
-	_engine_mark = _rect(ENGINE_COLOR)
-	_engine_mark.set_size(Vector2(18.0, 4.0))
-	_engine_mark.set_position(Vector2(MAP_RADIUS * 2.0 + 16.0, MAP_RADIUS * 2.0 + 4.0))
-	map.add_child(_engine_mark)
-
-	_pilot_mark = _rect(PILOT_COLOR)
-	_pilot_mark.set_size(Vector2(6.0, 6.0))
-	map.add_child(_pilot_mark)
-
-	_gravity_arrow = Line2D.new()
-	_gravity_arrow.width = 2.0
-	_gravity_arrow.default_color = PILOT_COLOR
-	map.add_child(_gravity_arrow)
 
 	var target_hint = TargetHintScript.new()
 	target_hint.name = "TargetHint"
 	root.add_child(target_hint)
 	_target_hint = target_hint
 
-	_dv_fill = _rect(DV_BASE)
-	_dv_fill.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_LEFT)
-	_dv_fill.set_position(Vector2(28, -76))
-	_dv_fill.set_size(Vector2(0.0, 7.0))
-	root.add_child(_dv_fill)
-
 func refresh(data: Dictionary) -> void:
-	if _phase_label == null:
+	if _top_bar == null:
 		return
-	_phase_label.text = String(data.get("phase", ""))
-	_timer_label.text = _format_time(float(data.get("timer", 0.0)))
+	_last_data = data
+	var timer: float = float(data.get("timer", 0.0))
 	var best: float = float(data.get("best", -1.0))
-	_best_label.text = "MEJOR " + (_format_time(best) if best >= 0.0 and best < 1.0e9 else "--:--.--")
-	var g: float = float(data.get("g", 0.0))
-	var thrusting: bool = bool(data.get("thrusting", false))
-	var state := "g %.1f m/s² · Δv %d%%" % [g, int(round(float(data.get("dv", 0.0)) * 100.0))]
+	_phase_label.text = "" if _phase_label == null else String(data.get("phase", ""))
+	_stats_label.text = _stats_line(data)
+	var z_m: float = float(data.get("z", 0.0)) * 1000.0
+	var ghost_z: float = float(data.get("ghost_z", NAN)) if data.has("ghost_z") else NAN
+	var radial_ratio: float = float(data.get("radial", 0.0))
+	# `g` ya viene como magnitud |g_eff| (m/s²) desde ArkRunLiveLoop; a_axial sólo
+	# orienta la flecha (abajo en centrífuga, ~45° hacia popa al encender).
+	var g_mag: float = float(data.get("g", 0.0))
+	var a_axial: float = float(data.get("a_axial", 0.0))
+	_top_bar.set_data({
+		"phase": String(data.get("phase", "")),
+		"timer_text": _format_time(timer),
+		"best_text": "MEJOR " + (_format_time(best) if best >= 0.0 and best < 1.0e9 else "--:--.--"),
+		"z_norm": TopBarScript.z_norm_for(z_m),
+		"ghost_visible": not is_nan(ghost_z),
+		"ghost_z_norm": clamp(ghost_z, -1.0, 1.0) if not is_nan(ghost_z) else 0.0,
+		"radial_ratio": clamp(radial_ratio, 0.0, 1.0),
+		"g_mag": g_mag,
+		"a_axial": a_axial,
+		"flashlight_on": bool(data.get("flashlight_on", false)),
+		"autonav_active": bool(data.get("autonav_active", false)),
+	})
+	_update_target(data)
+
+func _stats_line(data: Dictionary) -> String:
+	var g_mag: float = float(data.get("g", 0.0))
+	var state := "g %.1f m/s² · Δv %d%%" % [g_mag, int(round(float(data.get("dv", 0.0)) * 100.0))]
 	var rope: String = String(data.get("rope", "IDLE"))
 	if rope == "ATTACHED":
 		state += " · CUERDA ENGANCHADA"
@@ -158,19 +113,11 @@ func refresh(data: Dictionary) -> void:
 		state += " · CUERDA RETRACCIÓN"
 	elif rope == "READY":
 		state += " · CUERDA LISTA (%d m)" % int(round(float(data.get("rope_distance", 0.0))))
-	if thrusting:
+	if bool(data.get("thrusting", false)):
 		state = "PROPULSOR ACTIVO · " + state
-	_stats_label.text = state
-	_dv_fill.color = DV_ACTIVE if thrusting else DV_BASE
-	_dv_fill.rect_size = Vector2(180.0 * clamp(float(data.get("dv", 0.0)), 0.0, 1.0), 7.0)
+	return state
 
-	var map_center := Vector2(MAP_RADIUS + 8.0, MAP_RADIUS + 8.0)
-	_pilot_mark.rect_position = map_center + Vector2(
-		clamp(float(data.get("radial", 0.0)), -1.0, 1.0) * (MAP_RADIUS - 4.0), 0.0
-	) - Vector2(3.0, 3.0)
-	_bridge_mark.rect_position.y = 8.0 + (1.0 - clamp(float(data.get("bridge", 1.0)), 0.0, 1.0)) * (MAP_RADIUS * 2.0)
-	_engine_mark.rect_position.y = 8.0 + (1.0 - clamp(float(data.get("engine", 0.0)), 0.0, 1.0)) * (MAP_RADIUS * 2.0)
-	_panel.color = PANEL_BG
+func _update_target(data: Dictionary) -> void:
 	var target = data.get("target_pos", null)
 	if typeof(target) == TYPE_VECTOR3 and _target_hint != null:
 		var target_label: String = String(data.get("target_label", "PUENTE"))
@@ -179,15 +126,9 @@ func refresh(data: Dictionary) -> void:
 	elif _target_hint != null:
 		_target_hint.visible = false
 
-	var g_dir := Vector2(float(data.get("g_dir_x", 0.0)), float(data.get("g_dir_z", 0.0)))
-	if g_dir.length_squared() > 0.0001:
-		g_dir = g_dir.normalized()
-		_gravity_arrow.points = PoolVector2Array([
-			map_center + g_dir * 8.0, map_center + g_dir * 30.0
-		])
-		_gravity_arrow.visible = true
-	else:
-		_gravity_arrow.visible = false
+func update_destination_marker(target_pos: Vector3, label: String, color: Color) -> void:
+	if _target_hint != null:
+		_target_hint.update_hint(get_viewport().get_camera(), target_pos, label, color)
 
 func _format_time(seconds: float) -> String:
 	var clamped: float = max(seconds, 0.0)
@@ -197,3 +138,6 @@ func _format_time(seconds: float) -> String:
 
 func get_phase_label() -> Label:
 	return _phase_label
+
+func get_top_bar() -> Control:
+	return _top_bar
