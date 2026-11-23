@@ -229,3 +229,46 @@ func test_rope_los_filter_rejects_obstructed_anchor() -> void:
 	side = side.normalized() if side.length_squared() > 1e-6 else Vector3.RIGHT
 	var anchor_b: Vector3 = eye + aim * 30.0 + side * 8.0
 	assert_bool(wiring.feedback.has_line_of_sight(space, eye, anchor_b, pilot)).is_true()
+
+# FD-325 polish A1: el blanco del crosshair es el punto impactado por el rayo central de la
+# cámara (bodies-only, >=3 m), y es el mismo que usa el presentador (1:1 con el enganche).
+func test_crosshair_target_hits_solid_and_matches_presenter() -> void:
+	var slice = _instantiate_slice()
+	var wiring = slice.get_node("ArkRunWiring")
+	wiring.feedback.loop = null # ojo/aim = pilot: determinista en headless
+	var pilot = slice.pilot
+	var eye: Vector3 = wiring.feedback.camera_origin(pilot)
+	var aim: Vector3 = wiring.feedback.aim_dir(pilot)
+	# Sólido en el rayo a 40 m.
+	var wall := StaticBody.new()
+	var shape := BoxShape.new()
+	shape.extents = Vector3(2.0, 2.0, 2.0)
+	var coll := CollisionShape.new()
+	coll.shape = shape
+	wall.add_child(coll)
+	wall.global_transform = Transform(Basis.IDENTITY, eye + aim * 40.0)
+	slice.add_child(wall)
+	yield (get_tree(), "physics_frame")
+	yield (get_tree(), "physics_frame")
+	var target: Dictionary = wiring.feedback.resolve_crosshair_target(pilot, aim)
+	assert_bool(bool(target["hit"])).is_true()
+	# Blanco cerca de la cara frontal del muro (40 m - 2 m), nunca pegado al ojo (<3 m).
+	assert_float(float(target["distance"])).is_greater(20.0)
+	# El presentador usa el mismo blanco.
+	var presenter_best: Dictionary = wiring.loop._presenter.best_anchor(aim)
+	assert_bool(bool(presenter_best["hit"])).is_true()
+
+# FD-325 polish A1/A2: rango efectivo 180 m y física sin teletransporte (velocidad only).
+func test_rope_uses_long_range_and_velocity_only() -> void:
+	var slice = _instantiate_slice()
+	var wiring = slice.get_node("ArkRunWiring")
+	assert_float(float(slice.rope_input.max_range)).is_equal_approx(180.0, 1e-3)
+	assert_float(float(slice.rope_input.get_rope().max_len)).is_equal_approx(190.0, 1e-3)
+	# step() con anclaje válido: la posición del pilot no cambia (sólo velocidad).
+	var pilot = slice.pilot
+	pilot.velocity = Vector3.ZERO
+	var before: Vector3 = pilot.global_transform.origin
+	var anchor: Vector3 = before + Vector3(0.0, 0.0, -30.0)
+	var res: Dictionary = slice.rope_input.step(pilot, [anchor], Vector3(0.0, 0.0, -1.0), true, DT)
+	assert_bool(bool(res["attached"])).is_true()
+	assert_vector3(pilot.global_transform.origin).is_equal_approx(before, Vector3(1e-5, 1e-5, 1e-5))

@@ -87,10 +87,15 @@ func _is_front_of_camera(world: Vector3, cam: Camera) -> bool:
 
 
 func _draw_reticle(anchor_pos: Vector3, distance: float, visible_now: bool, cam: Camera) -> void:
-	if not is_instance_valid(_reticle_line):
-		return
+	# La retícula visual vive en ArkRunReticleOverlay (`_draw`); aquí sólo se calcula la
+	# etiqueta "dist · badge" y se la pasa al overlay (sin Line2D continua).
 	if not visible_now or cam == null or not is_instance_valid(cam):
-		_reticle_line.points = PoolVector2Array()
+		_reticle_text = ""
+		if is_instance_valid(_reticle_line):
+			_reticle_line.points = PoolVector2Array()
+		return
+	_reticle_text = "%s  %s" % [format_distance(distance), _badge]
+	if not is_instance_valid(_reticle_line):
 		return
 	var breath: float = 0.5 + 0.5 * sin(_elapsed * 3.2)
 	var screen: Vector2 = cam.unproject_position(anchor_pos)

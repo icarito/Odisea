@@ -8,6 +8,7 @@ extends Node
 const JetScript = preload("res://core_v2/levels/ark_run/ArkRunDiegeticJetV2.gd")
 const RopeScript = preload("res://core_v2/levels/ark_run/ArkRunDiegeticRopeV2.gd")
 const SwingScript = preload("res://core_v2/player/traversal/SpinRopeSwingV2.gd")
+const ReticleScript = preload("res://core_v2/levels/ark_run/ArkRunReticleOverlay.gd")
 const TOUCH_SCREEN_FALLBACK := Vector2(1280.0, 720.0)
 const FOV_EPSILON := 0.01
 
@@ -18,9 +19,7 @@ var jet = null
 var rope = null
 var _fov_offset := 0.0
 var _rig_base_fov := -1.0
-var _crosshair = null
-# Crosshair central (mismo lenguaje que el láser/gloo): cruz cortada en el centro.
-const CROSS_ARM := 6.0; const CROSS_GAP := 3.0; const CROSS_COLOR := Color(0.75, 0.95, 1.0, 0.55)
+var _reticle = null
 
 func setup(loop_node, wiring_node) -> void:
 	loop = loop_node
@@ -38,12 +37,9 @@ func _build_lines() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 	var arc := Line2D.new(); arc.name = "JetArc"; arc.width = 3.0
-	var cross := Line2D.new(); cross.name = "Crosshair"; cross.width = 1.5
-	var reticle := Line2D.new(); reticle.name = "RopeReticle"; reticle.width = 2.0
-	root.add_child(arc); root.add_child(cross); root.add_child(reticle)
+	root.add_child(arc)
 	jet.attach_hud_line(arc)
-	rope.attach_hud_lines(reticle)
-	_crosshair = cross
+	_reticle = ReticleScript.new(); _reticle.name = "Crosshair"; root.add_child(_reticle)
 
 func camera() -> Camera:
 	return get_viewport().get_camera() if get_viewport() != null else null
@@ -57,15 +53,13 @@ func anchor_in_viewport(anchor: Vector3, cam: Camera) -> bool:
 		return false
 	return Rect2(Vector2.ZERO, screen_size()).has_point(cam.unproject_position(anchor))
 
+# Blanco 1:1 con el que engancha la cuerda (rayo central del crosshair + fallback).
 func best_anchor(aim: Vector3) -> Dictionary:
-	var pilot = slice.pilot
+	if wiring.feedback != null and wiring.feedback.has_method("resolve_crosshair_target"):
+		return wiring.feedback.resolve_crosshair_target(slice.pilot, aim)
 	var rope_in = slice.rope_input
-	# Misma lista que puede engancharse: anclajes con línea de visión del último tick.
-	var candidates: Array = wiring.anchors
-	if wiring.feedback != null and wiring.feedback.has_method("visible_anchors"):
-		candidates = wiring.feedback.visible_anchors(pilot)
-	return SwingScript.select_best_anchor(pilot.global_transform.origin, aim, candidates,
-		float(rope_in.max_range) if rope_in != null else 55.0,
+	return SwingScript.select_best_anchor(slice.pilot.global_transform.origin, aim, wiring.anchors,
+		float(rope_in.max_range) if rope_in != null else 180.0,
 		float(rope_in.cone_deg) if rope_in != null else 24.0)
 
 # Un tick de presentación: jet (con Δv/suelo), retícula/tether y FOV de catapulta.
@@ -76,7 +70,6 @@ func present(dt: float, tick: Dictionary, pos: Vector3) -> void:
 	var dv: float = float(tick.get("dv_ratio", _dv_of(physics)))
 	var grounded: bool = bool(physics._was_grounded) if physics != null else pilot.is_on_floor()
 	var thrust_dir: Vector3 = tick.get("thrust_dir", -pilot.global_transform.basis.z)
-	_draw_crosshair(cam)
 	jet.update_jet(pilot.global_transform, thrust_dir, bool(tick.get("thrusting", false)), dv,
 		grounded, cam, dt)
 	var attached: bool = slice.rope_input != null and slice.rope_input.is_attached()
@@ -86,24 +79,25 @@ func present(dt: float, tick: Dictionary, pos: Vector3) -> void:
 	var reeling: bool = bool(tick.get("reeling", false))
 	var feed: Dictionary = rope.update_rope_feedback(pos, anchor, distance,
 		bool(anchor_state["hit"]), attached, reeling, String(tick.get("device", "keyboard")), cam, dt)
+	_update_reticle(cam, bool(anchor_state["hit"]), attached, anchor, distance,
+		String(tick.get("device", "keyboard")))
 	_apply_fov(pilot, float(feed.get("fov_offset", _fov_offset)))
 
-# Crosshair central minimalista: cruz cortada en el centro exacto del viewport.
-func _draw_crosshair(cam: Camera) -> void:
-	if not is_instance_valid(_crosshair):
+# Centro del crosshair + estado de retícula/label para el overlay con `_draw()`.
+func _update_reticle(cam: Camera, has_target: bool, attached: bool, anchor: Vector3,
+		distance: float, device: String) -> void:
+	if not is_instance_valid(_reticle):
 		return
-	if cam == null or not is_instance_valid(cam):
-		_crosshair.points = PoolVector2Array()
-		return
-	var viewport = cam.get_viewport()
-	var center: Vector2 = viewport.get_visible_rect().size * 0.5 \
-		if viewport != null else Vector2(640.0, 360.0)
-	var pts := PoolVector2Array()
-	for axis in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
-		pts.append(center + axis * CROSS_GAP)
-		pts.append(center + axis * (CROSS_GAP + CROSS_ARM))
-	_crosshair.points = pts
-	_crosshair.default_color = CROSS_COLOR
+	var center: Vector2 = screen_size() * 0.5
+	var reticle_on: bool = false
+	var reticle_pos := Vector2.ZERO
+	var text := ""
+	if has_target and not attached and cam != null and is_instance_valid(cam) \
+			and not cam.is_position_behind(anchor):
+		reticle_pos = cam.unproject_position(anchor)
+		reticle_on = Rect2(Vector2.ZERO, screen_size()).has_point(reticle_pos)
+		text = "%d m · %s" % [int(round(distance)), RopeScript.badge_for_device(device)]
+	_reticle.set_state(center, has_target and not attached, reticle_on, reticle_pos, text)
 
 func _anchor_state(attached: bool) -> Dictionary:
 	if attached:

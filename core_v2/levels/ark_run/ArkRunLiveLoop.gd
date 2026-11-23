@@ -21,6 +21,8 @@ const LAUNCH_Z := -940.0; const FINISH_Z := 1000.0
 const BRIDGE_ARRIVAL_RADIUS := 45.0
 # Radio de llegada al Motor (superficie de la placa 0): cierra la carrera por distancia.
 const ENGINE_ARRIVAL_RADIUS := 45.0
+# Debajo de esta distancia al Motor el rumbo secundario se oculta (ya se ve el destino).
+const NEXT_WAYPOINT_HIDE_M := 220.0
 const PresenterScript = preload("res://core_v2/levels/ark_run/ArkRunDiegeticPresenter.gd")
 
 var wiring = null
@@ -291,11 +293,45 @@ func _hud_data() -> Dictionary:
 		"target_visible": target_visible,
 		"flashlight_on": _flashlight_on(), "autonav_active": _autonav_active(),
 	}
+	# Rumbo al siguiente waypoint de la ruta (1-2 placas adelante hacia MOTOR): posición
+	# para el marcador secundario cian y texto de línea de rumbo. Oculto cerca de la meta.
+	var next_wp: Dictionary = _next_waypoint(pos, finished)
+	data["next_waypoint_pos"] = next_wp["position"]
+	data["next_waypoint_visible"] = next_wp["visible"]
+	data["route_arrow"] = _route_arrow_text(motor_target, target_pos, pos, target_visible)
 	# Fantasma (mejor corrida): su z normalizado sólo viaja si hay traza grabada.
 	var ghost_z = _ghost_z_norm()
 	if ghost_z != null:
 		data["ghost_z"] = float(ghost_z)
 	return data
+
+# Waypoint siguiente rumbo a MOTOR: el de la ruta canónica más adelante en -Z que el
+# pilot, hasta 2 placas. Oculto si el Motor está a <220 m o la meta ya se alcanzó.
+func _next_waypoint(pos: Vector3, finished: bool) -> Dictionary:
+	if finished or slice.canonical_route == null:
+		return {"position": Vector3.ZERO, "visible": false}
+	var target: Vector3 = slice.get_engine_target()
+	if pos.distance_to(target) < NEXT_WAYPOINT_HIDE_M:
+		return {"position": Vector3.ZERO, "visible": false}
+	var waypoints: Array = slice.canonical_route.get_waypoints()
+	var best: Vector3 = target
+	var best_dz: float = INF
+	for waypoint in waypoints:
+		var wp: Vector3 = waypoint["position"]
+		var dz: float = pos.z - wp.z
+		if dz > 2.0 and dz < best_dz:
+			best_dz = dz
+			best = wp
+	return {"position": best, "visible": true}
+
+# Texto de rumbo: flecha lateral si el objetivo está en un borde, flecha vertical si
+# está sobre/bajo el centro, o sólo distancia si está centrado en pantalla.
+func _route_arrow_text(motor_target: bool, target: Vector3, pos: Vector3, visible_label: bool) -> String:
+	if not visible_label:
+		return ""
+	var label := "MOTOR" if motor_target else "PUENTE"
+	var distance: int = int(round(pos.distance_to(target)))
+	return "%s · %d m" % [label, distance]
 
 
 # --- FD-325: dispositivo activo, touch y HUD superior ---

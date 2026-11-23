@@ -4,14 +4,15 @@ extends CanvasLayer
 # CanvasLayer + ArkRunTopBarView + marcador 3D→2D del destino; todo en y in [0, 128] px.
 # Playtest: en gameplay la navegación es diegética: el mapa del TopBar arranca OCULTO
 # (sólo fase+cronómetro arriba-centro + marcador). El mapa vive en Suit OS `ship:ark_nav`
-# y se puede reencender con `set_top_map_visible(true)`. Sólo lee el snapshot de 10 Hz.
+# se reenciende con `set_top_map_visible(true)`. Sólo lee el snapshot de 10 Hz.
 
 const TopBarScript = preload("res://core_v2/ui/suit_os/ArkRunTopBarView.gd")
 const TargetHintScript = preload("res://core_v2/levels/ark_run/ArkRunHudTargetHint.gd")
+const RouteView = preload("res://core_v2/levels/ark_run/ArkRunHudRouteView.gd")
 const TEXT := Color(0.72, 0.94, 1.0, 1.0)
 const DIM := Color(0.45, 0.62, 0.72, 1.0)
 const BRIDGE_GOLD := Color(1.0, 0.82, 0.25, 1.0)
-const ENGINE_ORANGE := Color(1.0, 0.4, 0.15, 1.0)
+const ROUTE_CYAN := Color(0.35, 0.92, 1.0, 1.0)
 const COMPACT_WIDTH := 520.0
 # Margen lateral de la franja compacta: las esquinas de slots/sticks de MobileUI miden 320.
 const COMPACT_SIDE_MARGIN := 320.0
@@ -21,6 +22,8 @@ export(bool) var show_top_map := false setget set_top_map_visible
 
 var _phase_label: Label = null
 var _timer_label: Label = null
+var _route_label: Label = null
+var _next_hint = null
 var _stats_label: Label = null
 var _top_bar: Control = null
 var _target_hint = null
@@ -78,6 +81,14 @@ func _build() -> void:
 	_timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_timer_label)
 
+	# Línea de rumbo (bajo fase+reloj, franja central libre y=24..42): "◄ MOTOR · 1240 m".
+	_route_label = _label("", 13, ROUTE_CYAN)
+	_route_label.name = "RouteLabel"
+	_route_label.align = Label.ALIGN_CENTER
+	_route_label.set_size(Vector2(COMPACT_WIDTH, 18))
+	_route_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_route_label)
+
 	var minimap := Control.new() # contenedor heredado del mapa; oculto con el TopBar
 	minimap.name = "Minimap"
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -95,6 +106,11 @@ func _build() -> void:
 	target_hint.name = "TargetHint"
 	root.add_child(target_hint)
 	_target_hint = target_hint
+	# Marcador secundario cian de ruta (waypoint 1-2 placas adelante hacia MOTOR).
+	var next_hint = TargetHintScript.new()
+	next_hint.name = "NextHint"
+	root.add_child(next_hint)
+	_next_hint = next_hint
 	set_top_map_visible(show_top_map) # el setget corre antes de crear nodos: reaplicar
 
 # Franja compacta arriba-centro (y=4..24), lejos de slots/esquinas; con el mapa visible
@@ -115,6 +131,7 @@ func _layout_compact() -> void:
 	var phase_width: float = max(label_width - timer_width, 60.0)
 	_place(_phase_label, Vector2(center_x, 4.0), Vector2(phase_width, 20.0))
 	_place(_timer_label, Vector2(center_x + phase_width, 4.0), Vector2(timer_width, 20.0))
+	_place(_route_label, Vector2(center_x, 24.0), Vector2(label_width, 18.0))
 	_place(_stats_label, Vector2(center_x, 108.0), null)
 	var minimap = get_node_or_null("HudRoot/Minimap")
 	if minimap != null:
@@ -164,39 +181,20 @@ func refresh(data: Dictionary) -> void:
 	_update_target(data)
 
 func _stats_line(data: Dictionary) -> String:
-	var g_mag: float = float(data.get("g", 0.0))
-	var state := "g %.1f m/s² · Δv %d%%" % [g_mag, int(round(float(data.get("dv", 0.0)) * 100.0))]
-	var rope: String = String(data.get("rope", "IDLE"))
-	if rope == "ATTACHED":
-		state += " · CUERDA ENGANCHADA"
-	elif rope == "REELING":
-		state += " · CUERDA RETRACCIÓN"
-	elif rope == "READY":
-		state += " · CUERDA LISTA (%d m)" % int(round(float(data.get("rope_distance", 0.0))))
-	if bool(data.get("thrusting", false)):
-		state = "PROPULSOR ACTIVO · " + state
-	return state
+	return RouteView.stats_line(data)
 
 func _update_target(data: Dictionary) -> void:
-	var target = data.get("target_pos", null)
-	if not bool(data.get("target_visible", true)):
-		if _target_hint != null:
-			_target_hint.visible = false
-		return
-	if typeof(target) == TYPE_VECTOR3 and _target_hint != null:
-		var target_label: String = String(data.get("target_label", "PUENTE"))
-		var color: Color = BRIDGE_GOLD if target_label == "PUENTE" else ENGINE_ORANGE
-		_target_hint.update_hint(get_viewport().get_camera(), target, target_label, color)
-	elif _target_hint != null:
-		_target_hint.visible = false
+	var cam = get_viewport().get_camera()
+	RouteView.update_markers(_target_hint, _next_hint, data, cam)
+	if _route_label != null:
+		_route_label.text = RouteView.route_text(data, cam, get_viewport().get_visible_rect().size)
 
 func update_destination_marker(target_pos: Vector3, label: String, color: Color) -> void:
 	if _target_hint != null:
 		_target_hint.update_hint(get_viewport().get_camera(), target_pos, label, color)
 
 func _format_time(seconds: float) -> String:
-	var clamped: float = max(seconds, 0.0)
-	return "%02d:%05.2f" % [int(clamped / 60.0), fmod(clamped, 60.0)]
+	return "%02d:%05.2f" % [int(max(seconds, 0.0) / 60.0), fmod(max(seconds, 0.0), 60.0)]
 
 func get_phase_label() -> Label: return _phase_label
 func get_top_bar() -> Control: return _top_bar

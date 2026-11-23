@@ -87,7 +87,7 @@ func _build_f6() -> void:
 		points.append(waypoint["position"] as Vector3)
 	lod.add_emissive_polyline(points, LodScript.TRON_COLOR)
 	RouteGuidesScript.new().build(lod, slice.get_canonical_route().get_waypoints(),
-		slice.get_bridge_target(), Vector3(0.0, 0.0, slice.get_engine_z_max()))
+		slice.get_bridge_target(), slice.get_engine_target())
 	hud = HudScript.new()
 	hud.name = "ArkRunHudOverlay"
 	hud_root.add_child(hud)

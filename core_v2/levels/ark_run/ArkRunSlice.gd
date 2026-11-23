@@ -168,8 +168,8 @@ func _build_traversal_modules() -> void:
 		spoke.configure_from_plate(SpiralGeometry.plate_transform(_spiral_config, int(plate_index)), R_HUB)
 		spokes.append(spoke)
 	rope_input = _attach(root, "Rope", RopeInputScript)
-	rope_input.set_pilot(pilot); rope_input.max_range = 190.0; rope_input.cone_deg = 24.0
-	rope_input.get_rope().max_len = 200.0
+	rope_input.set_pilot(pilot); rope_input.max_range = 180.0; rope_input.cone_deg = 24.0
+	rope_input.get_rope().max_len = 190.0
 	canonical_route = RouteScript.new(); canonical_route.configure(_spiral_config)
 
 # Anclajes de cuerda: los resuelve el wiring (domos de TerraceProps + DomeRegistry).

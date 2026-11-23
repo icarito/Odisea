@@ -124,23 +124,33 @@ func test_rope_input_attaches_and_releases_preserving_momentum() -> void:
 	assert_bool(input.step(pilot, [Vector3(0.0, 0.0, -8.0)], aim, true, 1.0 / 60.0)["attached"]).is_true()
 	assert_bool(input.is_attached()).is_true()
 	assert_float(input.get_rope().get_rope_length()).is_equal_approx(8.0, 1e-6)
+	# Enganche: tirón hacia el anclaje (velocidad, sin teletransporte de la posición).
+	assert_vector3(pilot.global_transform.origin).is_equal_approx(Vector3.ZERO, Vector3(1e-5, 1e-5, 1e-5))
+	assert_float(pilot.velocity.dot(aim)).is_greater(0.0)
 	assert_bool(input.step(pilot, [Vector3(0.0, 0.0, -8.0)], aim, true, 1.0 / 60.0)["attached"]).is_true()
 	assert_float(input.get_rope().get_rope_length()).is_equal_approx(8.0, 1e-6)
+	# Soltar (hold) conserva el momento: no se resetea la velocidad.
 	pilot.velocity = Vector3(3.0, 2.0, 0.0)
 	assert_bool(input.step(pilot, [], aim, false, 1.0 / 60.0)["released"]).is_true()
 	assert_bool(input.is_attached()).is_false()
 	assert_vector3(pilot.velocity).is_equal(Vector3(3.0, 2.0, 0.0))
+	# Cuerda tensa: SOLO se clampa la velocidad (componente radial saliente eliminada); la
+	# posición NO se reubica (la integra move_and_slide respetando colisiones).
 	pilot.global_transform.origin = Vector3.ZERO
 	assert_bool(input.step(pilot, [Vector3(5.0, 0.0, 0.0)], Vector3.RIGHT, true, 0.1)["attached"]).is_true()
 	assert_float(input.get_rope().get_rope_length()).is_equal_approx(5.0, 1e-6)
 	pilot.global_transform.origin = Vector3(12.0, 0.0, 0.0)
 	pilot.velocity = Vector3(2.0, 1.0, 0.0)
 	assert_bool(input.step(pilot, [], Vector3.RIGHT, true, 0.1)["taut"]).is_true()
-	assert_vector3(pilot.global_transform.origin).is_equal_approx(Vector3(10.0, 0.0, 0.0), Vector3(1e-5, 1e-5, 1e-5))
-	assert_vector3(pilot.velocity).is_equal_approx(Vector3(0.0, 1.0, 0.0), Vector3(1e-5, 1e-5, 1e-5))
-	assert_bool(RopeInputScript.should_trigger(0.8, false, 0.35)).is_true()
-	assert_bool(RopeInputScript.should_trigger(0.2, false, 0.35)).is_false()
-	assert_bool(RopeInputScript.should_trigger(0.0, true, 0.35)).is_true()
+	assert_vector3(pilot.global_transform.origin).is_equal_approx(Vector3(12.0, 0.0, 0.0), Vector3(1e-5, 1e-5, 1e-5))
+	assert_float(pilot.velocity.x).is_less_equal(0.0) # radial saliente eliminada
+	assert_float(pilot.velocity.y).is_equal_approx(1.0, 1e-5)
+	# Salto enganchado (cualquier dispositivo): suelta conservando momento + vault en up.
+	pilot.velocity = Vector3(1.0, 0.0, 0.0)
+	var jumped: Dictionary = input.step(pilot, [], Vector3.RIGHT, true, 0.1, false, true, true)
+	assert_bool(jumped["released"]).is_true()
+	assert_bool(input.is_attached()).is_false()
+	assert_float(pilot.velocity.y).is_greater(0.0) # vault +sim_up
 
 func test_terrace_props_are_variated_and_deterministic() -> void:
 	var props_a = auto_free(TerracePropsScript.new())

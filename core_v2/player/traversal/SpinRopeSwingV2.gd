@@ -11,7 +11,7 @@ const REEL_ACCEL := 55.0
 const REEL_MIN_LENGTH := 4.0
 
 export(float) var min_len := 1.0
-export(float) var max_len := 60.0
+export(float) var max_len := 190.0
 export(float) var rope_radius := 0.04
 export(Color) var rope_color := Color(0.75, 0.85, 0.95, 0.9)
 
@@ -161,6 +161,37 @@ static func constrain_swing(
 		"velocity": tangential,
 		"taut": true,
 		"tension_dir": tension_dir
+	}
+
+# Variante SOLO-VELOCIDAD de la retracción: no mueve la posición (la integra
+# `move_and_slide` respetando colisiones). Acorta la cuerda y acelera hacia el anclaje.
+static func reel_velocity(
+	pos: Vector3, vel: Vector3, anchor: Vector3, rope_length: float, dt: float,
+	reel_speed: float = REEL_SPEED, reel_accel: float = REEL_ACCEL,
+	min_length: float = REEL_MIN_LENGTH
+) -> Dictionary:
+	var shortened: Dictionary = reel_in(pos, vel, anchor, rope_length, dt, reel_speed, reel_accel, min_length)
+	return {
+		"velocity": shortened["velocity"], "length": shortened["length"],
+		"reeling": true, "taut": bool(shortened["taut"]),
+	}
+
+# Variante SOLO-VELOCIDAD del clamp radial de cuerda: si la cuerda está tensa elimina la
+# componente radial saliente y, si el jugador quedó más lejos que la longitud, añade un
+# tirón suave hacia el anclaje. Nunca reubica al cuerpo.
+static func swing_velocity(
+	pos: Vector3, vel: Vector3, anchor: Vector3, rope_length: float,
+	pull_accel: float = 0.0, dt: float = 0.0
+) -> Dictionary:
+	var constrained: Dictionary = constrain_swing(pos, vel, anchor, rope_length)
+	var velocity: Vector3 = constrained["velocity"]
+	var distance: float = pos.distance_to(anchor)
+	if pull_accel > 0.0 and dt > 0.0 and rope_length > 0.0 and distance > rope_length:
+		var inward: Vector3 = (anchor - pos).normalized()
+		velocity += inward * pull_accel * dt
+	return {
+		"velocity": velocity, "taut": bool(constrained["taut"]),
+		"tension_dir": constrained["tension_dir"],
 	}
 
 func _ready() -> void:
