@@ -2,15 +2,15 @@ extends Spatial
 class_name ArkRunTerraceProps
 # FD-324 F2 — domos provisionales y andamios de las terrazas del ArkRun.
 # Derivan de `plate_transform` + SLICE_SEED (sin randf): misma semilla => mismo
-# layout. DOME_KINDS es el punto de swap por kit de Blender: solo cambia
-# `_mesh_for_kind()`. Cada domo deja 4 patas y una pasarela al centro de la placa.
+# layout. Cada domo deja 4 patas y una pasarela al centro de la placa.
 const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
 const DomeResource = preload("res://core_v2/components/DomeSpiralFieldResource.gd")
 const SLICE_SEED := 32401
 const DOME_MESH = preload("res://core_v2/levels/exteriors/DomeExteriorLowPoly_baked.mesh")
 const DOME_MESH_RADIUS := 35.0
 const DOME_MESH_HEIGHT := 35.0
-const DOME_SLOTS_PER_PLATE := 2
+const DOME_SLOTS_PER_PLATE := 1
+const DOME_COLLISION_SCRIPT = preload("res://core_v2/levels/ark_run/ArkRunDomeCollision.gd")
 const PLATE_SIZE := Vector3(200.0, 2.0, 200.0)
 const DOME_KINDS := ["dome", "cap", "vat", "tower"]
 const DOME_COLORS := {
@@ -52,6 +52,8 @@ func build_from_configs(spirals: Array, seed_value: int = SLICE_SEED) -> void:
 	for spiral_index in range(spirals.size()):
 		var spiral: Dictionary = spirals[spiral_index]
 		for plate_index in range(SpiralGeometry.plate_count_for(spiral)):
+			if (plate_index + spiral_index) % 2 != 0:
+				continue
 			var plate_xform: Transform = SpiralGeometry.plate_transform(spiral, plate_index)
 			var hash_plate: int = spiral_index * 997 + plate_index
 			for slot in range(DOME_SLOTS_PER_PLATE):
@@ -74,18 +76,17 @@ func build_from_configs(spirals: Array, seed_value: int = SLICE_SEED) -> void:
 	cube.size = Vector3(1.0, 1.0, 1.0)
 	cube.material = _material(SCAFFOLD_COLOR)
 	_spawn_multimesh(_scaffolds_root, "Scaffolds", cube, _scaffold_transforms)
+	DOME_COLLISION_SCRIPT.new().rebuild(self, _dome_entries)
 
 # Catálogo determinista: reemplazar `_mesh_for_kind` por el kit de Blender.
 static func dome_variant(seed_value: int, plate_index: int, slot: int) -> Dictionary:
 	return {
 		"kind": DOME_KINDS[_mix(seed_value, plate_index, slot, 0) % DOME_KINDS.size()],
-		"radius": lerp(42.0, 68.0, _unit(_mix(seed_value, plate_index, slot, 1))),
-		"height": lerp(30.0, 55.0, _unit(_mix(seed_value, plate_index, slot, 2))),
+		"radius": lerp(40.0, 52.0, _unit(_mix(seed_value, plate_index, slot, 1))),
+		"height": lerp(30.0, 44.0, _unit(_mix(seed_value, plate_index, slot, 2))),
 		"rotation": _unit(_mix(seed_value, plate_index, slot, 3)) * TAU,
-		"tangent_offset": (_unit(_mix(seed_value, plate_index, slot, 4)) - 0.5) \
-			* PLATE_SIZE.x * 0.56,
-		"axial_offset": (_unit(_mix(seed_value, plate_index, slot, 5)) - 0.5) \
-			* PLATE_SIZE.z * 0.56,
+		"tangent_offset": (_unit(_mix(seed_value, plate_index, slot, 4)) - 0.5) * 16.0,
+		"axial_offset": (_unit(_mix(seed_value, plate_index, slot, 5)) - 0.5) * 16.0,
 	}
 
 static func dome_local_transform(plate_size: Vector3, variant: Dictionary) -> Transform:

@@ -146,7 +146,7 @@ func test_terrace_props_are_variated_and_deterministic() -> void:
 	add_child(props_a)
 	props_a.build_from_config(SPIRAL, 32401)
 	var plates: int = SpiralGeometry.plate_count_for(SPIRAL)
-	assert_int(props_a.get_dome_count()).is_equal(plates * 2)
+	assert_int(props_a.get_dome_count()).is_equal(int(ceil(float(plates) * 0.5)))
 	assert_int(props_a.get_scaffold_count()).is_greater(plates)
 	assert_int(props_a.get_variant_counts().size()).is_greater(1)
 	for entry in props_a.get_dome_entries():
@@ -203,3 +203,28 @@ func test_footstep_distance_projects_onto_sim_up_plane() -> void:
 	assert_float(FootstepDetector.planar_distance(Vector3(0.0, 1.0, 0.0), up)).is_equal_approx(1.0, 1e-6)
 	assert_float(FootstepDetector.planar_distance(Vector3(0.0, 0.0, 2.0), up)).is_equal_approx(2.0, 1e-6)
 	assert_float(FootstepDetector.planar_distance(Vector3(3.0, 0.0, 0.0), up)).is_equal_approx(0.0, 1e-6)
+
+func test_domes_do_not_overlap_and_have_baked_collision() -> void:
+	var configs: Array = []
+	for k in range(6):
+		var cfg: Dictionary = SPIRAL.duplicate(true)
+		cfg["phase"] = TAU * float(k) / 6.0
+		configs.append(cfg)
+	var props = auto_free(TerracePropsScript.new())
+	add_child(props)
+	props.build_from_configs(configs, 32401)
+	var entries: Array = props.get_dome_entries()
+	assert_int(entries.size()).is_equal(150)
+	for i in range(entries.size()):
+		var a: Dictionary = entries[i]
+		var pa: Vector3 = a["transform"].origin
+		var ra: float = float(a["variant"]["radius"])
+		for j in range(i + 1, entries.size()):
+			var b: Dictionary = entries[j]
+			var pb: Vector3 = b["transform"].origin
+			var rb: float = float(b["variant"]["radius"])
+			assert_float(pa.distance_to(pb)).is_greater_equal(ra + rb - 1e-4)
+	var body = props.get_node_or_null("DomeCollision")
+	assert_object(body).is_not_null()
+	assert_bool(body is StaticBody).is_true()
+	assert_int(body.get_child_count()).is_equal(entries.size())

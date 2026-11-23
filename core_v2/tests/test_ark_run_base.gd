@@ -107,7 +107,7 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	var traversal_root = slice.get_node_or_null("TraversalRoot")
 	var props = traversal_root.get_node_or_null("ArkRunTerraceProps")
 	assert_object(props).is_not_null()
-	assert_int(props.get_dome_count()).is_equal(600)
+	assert_int(props.get_dome_count()).is_equal(150)
 	assert_int(props.get_scaffold_count()).is_greater(50)
 	assert_int(slice.get_node("DomeSpiralField").get_spiral_count()).is_equal(6)
 	for entry in props.get_dome_entries():
@@ -160,7 +160,7 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 
 	# F7: anclajes de cuerda en todo el cilindro (domos de las 6 espirales).
 	var anchors: Array = slice.collect_rope_anchors()
-	assert_int(anchors.size()).is_greater_equal(600)
+	assert_int(anchors.size()).is_greater_equal(150)
 	var z_min := INF
 	var z_max := -INF
 	for anchor in anchors:

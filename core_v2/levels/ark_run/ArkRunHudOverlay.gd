@@ -28,7 +28,6 @@ var _pilot_mark: ColorRect = null
 var _gravity_arrow: Line2D = null
 var _dv_fill: ColorRect = null
 var _panel: ColorRect = null
-var _last: Dictionary = {}
 
 const MAP_SIZE := 168.0; const MAP_RADIUS := 62.0
 
@@ -144,7 +143,6 @@ func _build() -> void:
 	root.add_child(_dv_fill)
 
 func refresh(data: Dictionary) -> void:
-	_last = data.duplicate(true)
 	if _phase_label == null:
 		return
 	_phase_label.text = String(data.get("phase", ""))
@@ -157,6 +155,8 @@ func refresh(data: Dictionary) -> void:
 	var rope: String = String(data.get("rope", "IDLE"))
 	if rope == "ATTACHED":
 		state += " · CUERDA ENGANCHADA"
+	elif rope == "REELING":
+		state += " · CUERDA RETRACCIÓN"
 	elif rope == "READY":
 		state += " · CUERDA LISTA"
 	if thrusting:
@@ -172,7 +172,6 @@ func refresh(data: Dictionary) -> void:
 	_pilot_mark.rect_position = map_center + Vector2(
 		clamp(float(data.get("radial", 0.0)), -1.0, 1.0) * (MAP_RADIUS - 4.0), 0.0
 	) - Vector2(3.0, 3.0)
-	var z_ratio: float = clamp(float(data.get("z", 0.0)), -1.0, 1.0)
 	_bridge_mark.rect_position.y = 8.0 + (1.0 - clamp(float(data.get("bridge", 1.0)), 0.0, 1.0)) * (MAP_RADIUS * 2.0)
 	_engine_mark.rect_position.y = 8.0 + (1.0 - clamp(float(data.get("engine", 0.0)), 0.0, 1.0)) * (MAP_RADIUS * 2.0)
 	_panel.color = PANEL_BG
@@ -186,8 +185,6 @@ func refresh(data: Dictionary) -> void:
 		_gravity_arrow.visible = true
 	else:
 		_gravity_arrow.visible = false
-	if _last.has("phase"):
-		_pilot_mark.visible = z_ratio <= 1.0 and z_ratio >= -1.0
 
 func _format_time(seconds: float) -> String:
 	var clamped: float = max(seconds, 0.0)

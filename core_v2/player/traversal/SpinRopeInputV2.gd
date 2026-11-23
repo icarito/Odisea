@@ -11,7 +11,7 @@ const ROPE_KEY := KEY_E
 const EPSILON := 1e-6
 
 export(bool) var enabled := true
-export(float) var rt_threshold := 0.35
+export(float) var rt_threshold := 0.25
 export(float) var max_range := 55.0
 export(float) var cone_deg := 38.0
 
@@ -19,6 +19,7 @@ var _pilot: Node = null
 var _anchors: Array = []
 var _rope = null
 var _aim_override := Vector3.ZERO
+var _lifted := false
 
 func _ready() -> void:
 	_ensure_rope()
@@ -49,10 +50,11 @@ func is_attached() -> bool:
 # Núcleo testable: `trigger_pressed` sostenido engancha y luego mantiene la
 # restricción; al soltarlo se desengancha sin tocar el momentum.
 func step(
-	pilot, anchors: Array, aim_dir: Vector3, trigger_pressed: bool, _dt: float
+	pilot, anchors: Array, aim_dir: Vector3, trigger_pressed: bool, dt: float,
+	reel_pressed: bool = false
 ) -> Dictionary:
 	var result := {
-		"attached": false, "released": false, "taut": false,
+		"attached": false, "released": false, "taut": false, "reeling": false,
 		"anchor": Vector3.ZERO, "length": 0.0
 	}
 	if pilot == null or not is_instance_valid(pilot):
@@ -72,7 +74,24 @@ func step(
 			result["attached"] = true
 			result["anchor"] = rope.get_anchor()
 			result["length"] = rope.get_rope_length()
-		if rope.is_attached():
+		if rope.is_attached() and reel_pressed:
+			var reeling: Dictionary = RopeScript.reel_in(
+				position, _velocity_of(pilot), rope.get_anchor(), rope.get_rope_length(), dt)
+			rope.set_rope_length(float(reeling["length"]))
+			pilot.global_transform.origin = reeling["position"]
+			if "velocity" in pilot:
+				pilot.velocity = reeling["velocity"]
+				if not _lifted:
+					if pilot.has_method("get_sim_up"):
+						pilot.velocity += pilot.get_sim_up().normalized() * 1.6
+					var physics = pilot.get_spin_physics() if pilot.has_method("get_spin_physics") else null
+					if physics != null:
+						physics._was_grounded = false
+					_lifted = true
+			result["reeling"] = true
+			result["taut"] = bool(reeling["taut"])
+			result["length"] = rope.get_rope_length()
+		elif rope.is_attached():
 			var constrained: Dictionary = RopeScript.constrain_swing(
 				position, _velocity_of(pilot), rope.get_anchor(), rope.get_rope_length()
 			)
@@ -81,8 +100,10 @@ func step(
 				pilot.global_transform.origin = constrained["position"]
 				if "velocity" in pilot:
 					pilot.velocity = constrained["velocity"]
+			_lifted = false
 	elif rope.is_attached():
 		rope.detach()
+		_lifted = false
 		result["released"] = true
 	return result
 
@@ -101,8 +122,10 @@ func read_hardware_trigger() -> float:
 	return value
 
 func is_trigger_pressed() -> bool:
+	var mouse_right: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED \
+		and Input.is_mouse_button_pressed(BUTTON_RIGHT)
 	return should_trigger(
-		read_hardware_trigger(), Input.is_key_pressed(ROPE_KEY), rt_threshold
+		read_hardware_trigger(), Input.is_key_pressed(ROPE_KEY) or mouse_right, rt_threshold
 	)
 
 func _ensure_rope():

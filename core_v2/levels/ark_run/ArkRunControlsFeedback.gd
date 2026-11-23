@@ -32,20 +32,21 @@ func setup(loop_node, wiring_node) -> void:
 
 func tick(dt: float, pilot, physics, pos: Vector3) -> void:
 	_t += dt
-	var host = slice.get_node_or_null("RaceHudRoot/ArkRunSuitOSHost") if slice != null else null
-	var slot_thrust: bool = host != null and host.is_thrusters_slot_pressed()
-	var key_thrust: bool = Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_Q)
-	thrusting = (slot_thrust or key_thrust) and physics != null \
+	var attached: bool = slice.rope_input != null and slice.rope_input.is_attached()
+	var lt_pressed: bool = slice.thruster_input != null \
+		and (slice.thruster_input.read_left_trigger() >= float(slice.thruster_input.deadzone) \
+			or slice.thruster_input.read_keyboard_pressed())
+	var rope_pressed: bool = slice.rope_input != null and slice.rope_input.is_trigger_pressed()
+	var reeling: bool = attached and rope_pressed and lt_pressed
+	thrusting = lt_pressed and not attached and physics != null \
 		and not bool(physics._was_grounded) and slice.explosion.launched
 	if thrusting:
-		ThrusterScript.apply(physics, dt, _thrust_direction(pilot), 1.0 if slot_thrust else 0.0, key_thrust)
+		ThrusterScript.apply(physics, dt, _thrust_direction(pilot), 1.0, true)
 	_update_halo(pilot)
 	var aim: Vector3 = _camera_forward(pilot)
-	var rope_pressed: bool = (host != null and host.is_rope_slot_pressed()) \
-		or Input.is_key_pressed(KEY_E)
 	if slice.rope_input != null:
-		slice.rope_input.step(pilot, wiring.anchors, aim, rope_pressed, dt)
-	_update_rope_feedback(pilot, aim)
+		slice.rope_input.step(pilot, wiring.anchors, aim, rope_pressed, dt, reeling)
+	_update_rope_feedback(pilot, aim, reeling)
 
 func _thrust_direction(pilot) -> Vector3:
 	var forward: Vector3 = _camera_forward(pilot)
@@ -81,14 +82,14 @@ func _update_halo(pilot) -> void:
 		var pulse: float = 1.0 + 0.15 * sin(_t * 20.0)
 		_halo.scale = Vector3.ONE * pulse
 
-func _update_rope_feedback(pilot, aim: Vector3) -> void:
+func _update_rope_feedback(pilot, aim: Vector3, reeling: bool = false) -> void:
 	var attached: bool = slice.rope_input != null and slice.rope_input.is_attached()
 	var anchor := Vector3.ZERO
 	var hit := false
 	if attached:
 		var rope = slice.rope_input.get_rope()
 		anchor = rope.get_anchor() if rope != null else pilot.global_transform.origin
-		rope_state = "ATTACHED"
+		rope_state = "REELING" if reeling else "ATTACHED"
 	else:
 		var best: Dictionary = RopeSwingScript.select_best_anchor(
 			pilot.global_transform.origin, aim, wiring.anchors,
@@ -171,8 +172,8 @@ func controls_text() -> String:
 	var rope_label := _slot_label(suit_os, ROPE_ID, SLOT_DEFAULTS["rope"])
 	var nav_label := _slot_label(suit_os, "player:autonav", SLOT_DEFAULTS["nav"])
 	var light_label := _slot_label(suit_os, "player:flashlight", SLOT_DEFAULTS["light"])
-	var text := "WASD mover · Espacio saltar · %s/Shift propulsor · %s/E cuerda · %s/TAB autonav · %s linterna · Backspace reiniciar" \
-		% [thrust_label, rope_label, nav_label, light_label]
+	var text := "WASD mover · Espacio saltar · %s/E cuerda · %s/Shift retraer/propulsor · %s/TAB autonav · %s linterna · Backspace reiniciar" \
+		% [rope_label, thrust_label, nav_label, light_label]
 	_controls_cache = text
 	return text
 

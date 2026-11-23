@@ -9,7 +9,7 @@ extends Node
 # (decision #6) y la tecla de teclado es configurable por scancode o por action.
 
 const EPSILON := 1e-6
-const DEFAULT_DEADZONE := 0.2
+const DEFAULT_DEADZONE := 0.25
 const DEFAULT_KEY_SCANCODE := KEY_Q
 
 export(float) var deadzone := DEFAULT_DEADZONE
@@ -82,13 +82,20 @@ static func step_with_thrust(
 
 # --- Nodo: lectura de input real ---
 
+# LT: recorre TODOS los devices (id 0 no es garantía) y combina eje + botón.
 func read_left_trigger() -> float:
-	return Input.get_joy_axis(gamepad_device, JOY_ANALOG_L2)
+	var value: float = 0.0
+	for device in Input.get_connected_joypads():
+		value = max(value, Input.get_joy_axis(device, JOY_ANALOG_L2))
+		if Input.is_joy_button_pressed(device, JOY_L2):
+			value = 1.0
+	return value
 
 func read_keyboard_pressed() -> bool:
 	if keyboard_thruster_action != "" and InputMap.has_action(keyboard_thruster_action):
-		return Input.is_action_pressed(keyboard_thruster_action)
-	return Input.is_key_pressed(keyboard_thruster_scancode)
+		if Input.is_action_pressed(keyboard_thruster_action):
+			return true
+	return Input.is_key_pressed(keyboard_thruster_scancode) or Input.is_key_pressed(KEY_Q)
 
 func apply_input(physics, dt: float, move_vec: Vector2, heading_basis: Basis, up: Vector3) -> float:
 	var direction: Vector3 = thrust_direction(move_vec, heading_basis, up)

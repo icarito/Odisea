@@ -409,16 +409,15 @@ HUD, industria) durante la medición:
 
 | Configuración | Entorno | wall FPS | process ms (avg/max) | physics ms (avg/max) | draws | objetos | vértices | nodos | memoria | PC 60 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
-| F7 pulido (loop real) | GUI 1280×720 | **60.0** | 19.6 / 38.0 | 10.61 / 12.74 | **55** | 31 | 1 261 492 | 1 300 | 73.7 MB | ✅ |
-| F7 pulido (loop real) | headless | **60.0** | 2.2 / 2.9 | 10.50 / 11.64 | 0 | 0 | 0 | 1 300 | 69.7 MB | ✅ |
+| F7 pulido (loop real) | GUI 1280×720 | **60.0** | 18.0 / 26.9 | 11.43 / 12.69 | **55** | 31 | 443 068 | 1 473 | 73.0 MB | ✅ |
 
-Con **6 espirales intercaladas (300 placas, 600 domos monumentales de 42–68 m**
-sobre `DomeExteriorLowPoly_baked`), draws `2 135 → 55` (multi-mesh por tipo),
-nodos `3 231 → 1 300` y vértices `176k → 1.26M`, a 60 fps sostenidos en PC con
-frame máximo 38 ms de process / 12.7 ms de physics. El siguiente límite es el
-vertex count de los domos, no los draw calls.
+Con **6 espirales intercaladas (300 placas) y 150 domos monumentales**
+(40–52 m de radio, 30–44 m de alto, una por placa alternada, sin solape y con
+colisión estática horneada), draws `2 135 → 55` (multi-mesh por tipo), nodos
+`3 231 → 1 473` y vértices `176k → 443k`, a 60 fps sostenidos en PC con frame
+máximo 26.9 ms de process / 12.7 ms de physics.
 
-**Hash dorado F7:** `d42d2ae3de877dc5c030c24cf312d0c20d9f90ff08f9680f94c7ba75fd4d7f32`
+**Hash dorado F7:** `7599a2db92608d1fdfce373682775a3b81753cd882c5e3e30271e8bb932ab6d5`
 (`core_v2/tests/test_ark_run_vertical_slice.oys` + `ark_run_vertical_slice.hash`,
 verificado por `test_ark_run_vertical_slice.gd` en CI sobre dos instancias frescas).
 
@@ -454,7 +453,8 @@ de los 5 actos aprobados por Sebastián.
 - [ ] **Explosión al Puente:** la eyección sale hacia `+Z`; propulsores `L2/Shift` con
       Δv limitado; aterrizaje grande con slide, sin teletransporte ni giro de 180°.
 - [ ] **Cuerda:** `R2`/`E` engancha el anclaje de domo más cercano dentro del cono y el
-      rango; soltar conserva el momentum.
+      rango; `L2`/`Shift` retrae a alta velocidad y, al soltar `R2` en plena
+      retracción, Elías sale catapultado conservando el momentum.
 - [ ] **Ascensores radiales:** recorrido a 6 m/s con parada de 3 s en extremos;
       si el ascensor falla, la escalera de respaldo deja subir.
 - [ ] **Autonavegador (Suit OS):** destino activo con nombre y ruta; flecha de
