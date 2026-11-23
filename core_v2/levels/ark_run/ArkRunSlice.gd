@@ -124,21 +124,12 @@ func _build_traversal_modules() -> void:
 		spoke.configure_from_plate(SpiralGeometry.plate_transform(_spiral_config, int(plate_index)), R_HUB)
 		spokes.append(spoke)
 	rope_input = _attach(root, "Rope", RopeInputScript)
-	rope_input.set_pilot(pilot); rope_input.set_anchors(collect_rope_anchors())
+	rope_input.set_pilot(pilot)
 	canonical_route = RouteScript.new(); canonical_route.configure(_spiral_config)
 
-# Anclajes de DomeSpiralField compuestos desde DomeRegistry (misma vía que SpinLab).
+# Anclajes de cuerda: los resuelve el wiring (domos de TerraceProps + DomeRegistry).
 func collect_rope_anchors() -> Array:
-	var anchors: Array = []
-	var registry = get_node_or_null("/root/DomeRegistry")
-	if spiral_field == null or registry == null: return anchors
-	var plate_count: int = SpiralGeometry.plate_count_for(_spiral_config)
-	for dome_id in registry.get_all_dome_ids():
-		var info: Dictionary = registry.get_dome(String(dome_id))
-		var plate_index: int = int(info.get("plate_index", 0))
-		if int(info.get("spiral_index", 0)) != 0 or plate_index < 0 or plate_index >= plate_count: continue
-		anchors.append_array(spiral_field.get_plate_world_anchors(0, plate_index, registry.get_anchors(String(dome_id))))
-	return anchors
+	return _wiring.collect_rope_anchors() if _wiring != null else []
 
 # --- F3: industria procedural determinista (colisión gruesa + streaming) ---
 func _build_industry_modules() -> void:

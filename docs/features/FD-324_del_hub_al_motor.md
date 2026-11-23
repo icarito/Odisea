@@ -418,7 +418,7 @@ nodos `3 231 → 1 300` y vértices `176k → 1.26M`, a 60 fps sostenidos en PC 
 frame máximo 38 ms de process / 12.7 ms de physics. El siguiente límite es el
 vertex count de los domos, no los draw calls.
 
-**Hash dorado F7:** `4d38c6cb9f5ec2ba8132062bc365e6ec4808e1f6de2b527e135f52d9330eed0a`
+**Hash dorado F7:** `d42d2ae3de877dc5c030c24cf312d0c20d9f90ff08f9680f94c7ba75fd4d7f32`
 (`core_v2/tests/test_ark_run_vertical_slice.oys` + `ark_run_vertical_slice.hash`,
 verificado por `test_ark_run_vertical_slice.gd` en CI sobre dos instancias frescas).
 
@@ -451,9 +451,9 @@ de los 5 actos aprobados por Sebastián.
 
 - [ ] **Hub ZERO_G:** Elías aparece en el núcleo, se desplaza por la pared a
       ~1.6 m/s y agarra pasamanos sin tirón ni pérdida de cámara.
-- [ ] **Explosión al Puente:** la eyección sale hacia `+Z`; propulsores LT con
+- [ ] **Explosión al Puente:** la eyección sale hacia `+Z`; propulsores `L2/Shift` con
       Δv limitado; aterrizaje grande con slide, sin teletransporte ni giro de 180°.
-- [ ] **Cuerda:** RT/`E` engancha el anclaje de domo más cercano dentro del cono y el
+- [ ] **Cuerda:** `R2`/`E` engancha el anclaje de domo más cercano dentro del cono y el
       rango; soltar conserva el momentum.
 - [ ] **Ascensores radiales:** recorrido a 6 m/s con parada de 3 s en extremos;
       si el ascensor falla, la escalera de respaldo deja subir.

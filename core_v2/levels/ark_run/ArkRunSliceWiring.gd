@@ -14,6 +14,8 @@ const HudScript = preload("res://core_v2/levels/ark_run/ArkRunHudOverlay.gd")
 const AutopilotScript = preload("res://core_v2/input/AutopilotInputV2.gd")
 const LoopScript = preload("res://core_v2/levels/ark_run/ArkRunLiveLoop.gd")
 const ScenarioScript = preload("res://core_v2/levels/ark_run/ArkRunVerticalSliceScenario.gd")
+const SpiralGeometry = preload("res://core_v2/components/DomeSpiralFieldGeometry.gd")
+const FeedbackScript = preload("res://core_v2/levels/ark_run/ArkRunControlsFeedback.gd")
 const SLICE_SEED := 32401
 const PROXY_PLATES := 4
 
@@ -27,6 +29,7 @@ var lod = null
 var hud = null
 var autopilot = null
 var loop = null
+var feedback = null
 var anchors: Array = []
 var _determinism_state: Dictionary = {}
 
@@ -39,6 +42,8 @@ func setup(owner_slice) -> void:
 	loop = LoopScript.new()
 	loop.name = "ArkRunLiveLoop"
 	add_child(loop)
+	feedback = FeedbackScript.new()
+	feedback.setup(loop, self)
 	loop.setup(self)
 
 func _build_f5() -> void:
@@ -85,9 +90,10 @@ func _build_f6() -> void:
 func _build_loop() -> void:
 	if slice.rope_input != null:
 		slice.rope_input.set_physics_process(false)
-		anchors = slice.collect_rope_anchors()
+		anchors = collect_rope_anchors()
+		slice.rope_input.set_anchors(anchors)
 	if slice.thruster_input != null:
-		slice.thruster_input.keyboard_thruster_scancode = KEY_F
+		slice.thruster_input.keyboard_thruster_scancode = KEY_SHIFT
 	var route = slice.get_canonical_route()
 	if route != null:
 		autopilot = AutopilotScript.new()
@@ -116,6 +122,27 @@ func advance_play_loop(dt: float) -> void:
 func restart_run() -> void:
 	if loop != null:
 		loop.restart_run()
+
+# Anclajes en todo el cilindro: un anclaje por domo (600) + DomeRegistry.
+func collect_rope_anchors() -> Array:
+	var anchors: Array = []
+	if slice.terrace_props != null:
+		for entry in slice.terrace_props.get_dome_entries():
+			var xform: Transform = entry["transform"]
+			var height: float = float(entry["variant"]["height"])
+			anchors.append(xform.origin + xform.basis.y.normalized() * height)
+	var registry = slice.get_node_or_null("/root/DomeRegistry")
+	if slice.spiral_field == null or registry == null:
+		return anchors
+	var plate_count: int = SpiralGeometry.plate_count_for(slice.get_spiral_config())
+	for dome_id in registry.get_all_dome_ids():
+		var info: Dictionary = registry.get_dome(String(dome_id))
+		var plate_index: int = int(info.get("plate_index", 0))
+		if int(info.get("spiral_index", 0)) != 0 or plate_index < 0 or plate_index >= plate_count:
+			continue
+		anchors.append_array(slice.spiral_field.get_plate_world_anchors(
+			0, plate_index, registry.get_anchors(String(dome_id))))
+	return anchors
 
 func run_determinism_scenario() -> Dictionary:
 	_determinism_state = ScenarioScript.new().run(slice, self)

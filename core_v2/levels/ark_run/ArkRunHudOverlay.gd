@@ -12,6 +12,8 @@ const DIM := Color(0.45, 0.62, 0.72, 1.0)
 const BRIDGE_COLOR := Color(1.0, 0.85, 0.25, 1.0)
 const ENGINE_COLOR := Color(1.0, 0.38, 0.15, 1.0)
 const PILOT_COLOR := Color(0.35, 1.0, 0.75, 1.0)
+const DV_BASE := Color(0.25, 0.65, 1.0, 0.9)
+const DV_ACTIVE := Color(1.0, 0.75, 0.2, 1.0)
 
 var _phase_label: Label = null
 var _timer_label: Label = null
@@ -28,8 +30,7 @@ var _dv_fill: ColorRect = null
 var _panel: ColorRect = null
 var _last: Dictionary = {}
 
-const MAP_SIZE := 168.0
-const MAP_RADIUS := 62.0
+const MAP_SIZE := 168.0; const MAP_RADIUS := 62.0
 
 func _ready() -> void:
 	layer = 20
@@ -136,7 +137,7 @@ func _build() -> void:
 	_gravity_arrow.default_color = PILOT_COLOR
 	map.add_child(_gravity_arrow)
 
-	_dv_fill = _rect(Color(0.25, 0.65, 1.0, 0.9))
+	_dv_fill = _rect(DV_BASE)
 	_dv_fill.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_LEFT)
 	_dv_fill.set_position(Vector2(28, -76))
 	_dv_fill.set_size(Vector2(0.0, 7.0))
@@ -151,8 +152,21 @@ func refresh(data: Dictionary) -> void:
 	var best: float = float(data.get("best", -1.0))
 	_best_label.text = "MEJOR " + (_format_time(best) if best >= 0.0 and best < 1.0e9 else "--:--.--")
 	var g: float = float(data.get("g", 0.0))
-	_stats_label.text = "g %.1f m/s² · Δv %d%%" % [g, int(round(float(data.get("dv", 0.0)) * 100.0))]
+	var thrusting: bool = bool(data.get("thrusting", false))
+	var state := "g %.1f m/s² · Δv %d%%" % [g, int(round(float(data.get("dv", 0.0)) * 100.0))]
+	var rope: String = String(data.get("rope", "IDLE"))
+	if rope == "ATTACHED":
+		state += " · CUERDA ENGANCHADA"
+	elif rope == "READY":
+		state += " · CUERDA LISTA"
+	if thrusting:
+		state = "PROPULSOR ACTIVO · " + state
+	_stats_label.text = state
+	_dv_fill.color = DV_ACTIVE if thrusting else DV_BASE
 	_dv_fill.rect_size = Vector2(180.0 * clamp(float(data.get("dv", 0.0)), 0.0, 1.0), 7.0)
+	var controls: String = String(data.get("controls", ""))
+	if controls != "" and _controls_label.text != controls:
+		_controls_label.text = controls
 
 	var map_center := Vector2(MAP_RADIUS + 8.0, MAP_RADIUS + 8.0)
 	_pilot_mark.rect_position = map_center + Vector2(

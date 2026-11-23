@@ -41,10 +41,13 @@ func run(slice, wiring) -> Dictionary:
 	# 2) Cuerda con anclaje de domo (DomeSpiralField/DomeRegistry).
 	var anchors: Array = slice.collect_rope_anchors()
 	state["anchor_count"] = anchors.size()
-	var anchor: Transform = anchors[0] if not anchors.empty() else Transform(Basis.IDENTITY, Vector3(0.0, 0.0, 8.0))
-	slice.pilot.global_transform.origin = anchor.origin + Vector3(0.0, 0.0, 8.0)
+	var anchor_pos := Vector3(0.0, 0.0, 8.0)
+	if not anchors.empty():
+		var first = anchors[0]
+		anchor_pos = first.origin if typeof(first) == TYPE_TRANSFORM else first
+	slice.pilot.global_transform.origin = anchor_pos + Vector3(0.0, 0.0, 8.0)
 	slice.pilot.velocity = Vector3.ZERO
-	var aim: Vector3 = (anchor.origin - slice.pilot.global_transform.origin).normalized()
+	var aim: Vector3 = (anchor_pos - slice.pilot.global_transform.origin).normalized()
 	var rope_step: Dictionary = slice.rope_input.step(slice.pilot, anchors, aim, true, DT)
 	state["rope_attached"] = bool(rope_step.get("attached", false))
 	state["rope_length"] = float(rope_step.get("length", 0.0))

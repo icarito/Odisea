@@ -154,6 +154,34 @@ func test_slice_wires_f1_f2_f3_modules_with_predictor_gated_in_hub() -> void:
 	assert_object(hud).is_not_null()
 	hud.refresh({"phase": "TEST", "timer": 1.0, "best": -1.0})
 	assert_str(hud.get_phase_label().text).is_equal("TEST")
+	hud.refresh({"phase": "TEST", "thrusting": true, "rope": "ATTACHED", "controls": "c"})
+	assert_bool(hud._stats_label.text.find("PROPULSOR ACTIVO") >= 0).is_true()
+	assert_bool(hud._stats_label.text.find("CUERDA ENGANCHADA") >= 0).is_true()
+
+	# F7: anclajes de cuerda en todo el cilindro (domos de las 6 espirales).
+	var anchors: Array = slice.collect_rope_anchors()
+	assert_int(anchors.size()).is_greater_equal(600)
+	var z_min := INF
+	var z_max := -INF
+	for anchor in anchors:
+		var point: Vector3 = anchor.origin if typeof(anchor) == TYPE_TRANSFORM else anchor
+		z_min = min(z_min, point.z)
+		z_max = max(z_max, point.z)
+	assert_float(z_min).is_less(-900.0)
+	assert_float(z_max).is_greater(900.0)
+
+	# F7: los hints del HUD siguen a los slots reales al reubicarlos.
+	SuitOS.apply_ark_run_default_pins()
+	var wiring_node = slice.get_node_or_null("ArkRunWiring")
+	assert_object(wiring_node).is_not_null()
+	var controls: String = wiring_node.feedback.controls_text()
+	assert_bool(controls.find("L2/Shift") >= 0).is_true()
+	assert_bool(controls.find("R2/E") >= 0).is_true()
+	assert_bool(controls.find("R1/TAB") >= 0).is_true()
+	SuitOS.move_slot(1, 0)
+	var moved: String = wiring_node.feedback.controls_text()
+	assert_bool(moved.find("L1/Shift") >= 0).is_true()
+	SuitOS.apply_ark_run_default_pins()
 
 	# Idle ZERO_G dentro del hub: predictor oculto y preview salteado (sin costo).
 	var pilot = slice.get_node_or_null("Pilot")
