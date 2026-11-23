@@ -80,6 +80,20 @@ var _invert_joy_look_y := false
 var handheld_axis_correction_enabled := false
 var handheld_axis_profile := "none"
 
+# FD-325: los gatillos LT/RT son gameplay (thruster_boost / rope_grapple) y no deben accionar
+# los slots del HUD en gameplay. En modo HUD los 4 slots siguen completos. Ver la decisión de
+# SuitOS.triggers_reserved_for_gameplay (default true) para apagarlo si un nivel lo necesita.
+# Slots 1-based cuyo hombro es un gatillo: slot_2 = L2, slot_4 = R2.
+const HUD_TRIGGER_SLOTS := [2, 4]
+
+# FD-325: ultimo dispositivo que entrego input vivo. Solo presentacion (badge de anclaje,
+# prompts de UI); no viaja en InputDataV2 ni en el replay.
+const INPUT_DEVICE_KEYBOARD := "keyboard"
+const INPUT_DEVICE_GAMEPAD := "gamepad"
+const INPUT_DEVICE_TOUCH := "touch"
+var last_input_device := INPUT_DEVICE_KEYBOARD
+var _device_action_cache := []
+
 # El engine numera los pads en el orden en que los descubre y ese orden cambia
 # entre plataformas: en FRT/SDL un pad virtual (p. ej. el que crea un remapper de
 # usuarios) puede quedar despues del dispositivo crudo, y en X11 al reves. En vez
@@ -304,12 +318,79 @@ func _action_just_pressed(action_name: String) -> bool:
 # FD-324 F4: el slot donde el jugador fijó el Autonavegador también conduce mientras se
 # mantiene, sin un frame de input nuevo. El slot sale del stream (hud_slot), así que el
 # replay re-deriva el mismo hold; SuitOS sólo aporta qué pantalla está en ese slot.
+# FD-325: solo el slot del Autonavegador conduce (nunca un gatillo), y se respeta la supresión
+# de hombros del SuitOS (en ese estado no hay hold que seguir).
 func _hud_slot_is_nav_assist(d: InputDataV2) -> bool:
 	if d == null or int(d.hud_slot) <= 0:
 		return false
 	var suit = _suit_os()
-	return suit != null and suit.has_method("is_nav_assist_slot") \
-		and bool(suit.is_nav_assist_slot(int(d.hud_slot) - 1))
+	if suit == null or not suit.has_method("is_nav_assist_slot"):
+		return false
+	if "shoulder_slots_suppressed" in suit and bool(suit.get("shoulder_slots_suppressed")):
+		return false
+	return bool(suit.is_nav_assist_slot(int(d.hud_slot) - 1))
+
+
+# FD-325: en gameplay los slots de gatillo (slot_2 = L2, slot_4 = R2) NO se publican cuando
+# SuitOS reserva los gatillos para gameplay; en hud_mode el overlay los usa completos.
+func _slot_publishes_in_gameplay(n: int) -> bool:
+	if not HUD_TRIGGER_SLOTS.has(n):
+		return true
+	var suit = _suit_os()
+	if suit == null:
+		return true
+	if suit.has_method("is_hud_mode_active") and bool(suit.is_hud_mode_active()):
+		return true
+	if suit.has_method("triggers_are_reserved_for_gameplay"):
+		return not bool(suit.triggers_are_reserved_for_gameplay())
+	return true
+
+
+func _note_active_device(d: InputDataV2) -> void:
+	if _gamepad_activity():
+		last_input_device = INPUT_DEVICE_GAMEPAD
+	elif _keyboard_activity(d):
+		last_input_device = INPUT_DEVICE_KEYBOARD
+	elif pointer_is_from_touch():
+		last_input_device = INPUT_DEVICE_TOUCH
+
+
+func _gamepad_activity() -> bool:
+	for device in Input.get_connected_joypads():
+		for axis in [JOY_AXIS_0, JOY_AXIS_1, JOY_AXIS_2, JOY_AXIS_3,
+				JOY_AXIS_4, JOY_AXIS_5, JOY_ANALOG_L2, JOY_ANALOG_R2]:
+			if abs(Input.get_joy_axis(device, axis)) > JOY_DEADZONE:
+				return true
+	return false
+
+
+# Usa la muestra ya armada `d`, no los acumuladores: mouse_delta_accum/zoom_delta_accum ya
+# se vaciaron al leer este frame.
+func _keyboard_activity(d: InputDataV2) -> bool:
+	if d != null and (d.hardware_mouse_active or d.mouse_delta.length_squared() > 0.0001
+			or d.zoom_delta != 0.0):
+		return true
+	for action in _tracked_actions():
+		if _action_pressed(action):
+			return true
+	if Input.is_mouse_button_pressed(BUTTON_LEFT) or Input.is_mouse_button_pressed(BUTTON_RIGHT):
+		return true
+	return false
+
+
+# Acciones de teclado/raton que no pasan por el stick. Se arma una vez.
+func _tracked_actions() -> Array:
+	if _device_action_cache.empty():
+		_device_action_cache = ["jump", "run", "crouch", "interact", "focus",
+			"rotate_left", "rotate_right", "tool_fire_primary", "tool_fire_secondary",
+			"cargol_ability", "hud_mode", "nav_assist", "rope_grapple", "thruster_boost",
+			"slot_1", "slot_2", "slot_3", "slot_4"]
+	return _device_action_cache
+
+
+# Ultimo dispositivo vivo ("keyboard" / "gamepad" / "touch"). Presentacion, no gameplay.
+func get_active_input_device() -> String:
+	return last_input_device
 
 
 func _note_nav_assist(held: bool) -> void:
@@ -372,7 +453,7 @@ func _read_live_input() -> InputDataV2:
 		d.hud_mode = _action_pressed("hud_mode")
 		d.hud_slot = 0
 		for n in range(1, 5): # HudSlots.COUNT; la primera sostenida gana
-			if _action_pressed("slot_%d" % n):
+			if _slot_publishes_in_gameplay(n) and _action_pressed("slot_%d" % n):
 				d.hud_slot = n
 				break
 		# La cruceta, que en modo HUD no es camara: pasos por la lista del dial y del drawer.
@@ -494,6 +575,11 @@ func _read_live_input() -> InputDataV2:
 	if _gameplay_pointer_release_suppressed():
 		_zero_gameplay_intents(d)
 
+	# FD-325: ultimo dispositivo vivo (solo presentacion). Va al final, con los acumuladores
+	# ya consumidos, para no contar como actividad un mouse_delta que nadie uso.
+	if hardware_input_enabled:
+		_note_active_device(d)
+
 	return d
 
 # Neutraliza el control de personaje/herramientas sin tocar los campos de HUD.
@@ -531,6 +617,10 @@ func set_live_mode():
 
 func add_touch_camera_drag(delta: Vector2) -> void:
 	_touch_camera_drag += delta
+	if delta.length_squared() > 0.0001:
+		last_input_device = INPUT_DEVICE_TOUCH
 
 func add_touch_camera_zoom(delta: float) -> void:
 	_touch_camera_zoom += delta
+	if delta != 0.0:
+		last_input_device = INPUT_DEVICE_TOUCH

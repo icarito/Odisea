@@ -92,6 +92,11 @@ func read_left_trigger() -> float:
 	return value
 
 func read_keyboard_pressed() -> bool:
+	# FD-325: `thruster_boost` (tecla Shift/Q + LT del mando) es la acción oficial; el botón
+	# táctil IMPULSO la sintetiza con Input.action_press, así que este camino cubre touch y
+	# teclado sin distinguir la fuente.
+	if InputMap.has_action("thruster_boost") and Input.is_action_pressed("thruster_boost"):
+		return true
 	if keyboard_thruster_action != "" and InputMap.has_action(keyboard_thruster_action):
 		if Input.is_action_pressed(keyboard_thruster_action):
 			return true
